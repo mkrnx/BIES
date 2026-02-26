@@ -1,0 +1,38 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
+export const config = {
+    port: parseInt(process.env.PORT || '3001', 10),
+    nodeEnv: process.env.NODE_ENV || 'development',
+    corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+
+    // ─── Auth ───────────────────────────────────────────────────────────────
+    jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
+    encryptionSecret: process.env.ENCRYPTION_SECRET || 'dev-encrypt-secret-32characters!',
+
+    // ─── Redis (optional — falls back to in-memory) ─────────────────────────
+    redisUrl: process.env.REDIS_URL || '',
+
+    // ─── S3 Compatible Storage ───────────────────────────────────────────────
+    s3: {
+        endpoint: process.env.S3_ENDPOINT || '',
+        region: process.env.S3_REGION || 'auto',
+        accessKey: process.env.S3_ACCESS_KEY || '',
+        secretKey: process.env.S3_SECRET_KEY || '',
+        bucket: process.env.S3_BUCKET || 'bies-uploads',
+        publicUrl: process.env.S3_PUBLIC_URL || '',
+    },
+
+    // ─── Nostr ───────────────────────────────────────────────────────────────
+    nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
+
+    // ─── Email (optional, for notification emails) ───────────────────────────
+    smtp: {
+        host: process.env.SMTP_HOST || '',
+        port: parseInt(process.env.SMTP_PORT || '587', 10),
+        user: process.env.SMTP_USER || '',
+        pass: process.env.SMTP_PASS || '',
+        from: process.env.SMTP_FROM || 'noreply@bies.io',
+    },
+};

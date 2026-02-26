@@ -1,0 +1,344 @@
+// BIES Platform – Prisma Schema
+// Production DB: PostgreSQL (change provider to "postgresql" for prod)
+// Dev DB: SQLite (provider = "sqlite")
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User & Auth
+// ─────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id               String   @id @default(cuid())
+  email            String?  @unique
+  passwordHash     String?  @map("password_hash")
+  nostrPubkey      String   @unique @map("nostr_pubkey")
+  encryptedPrivkey String?  @map("encrypted_privkey")
+  role             String   @default("BUILDER") // BUILDER | INVESTOR | ADMIN
+  isVerified       Boolean  @default(false) @map("is_verified")
+  isBanned         Boolean  @default(false) @map("is_banned")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  profile          Profile?
+  projects         Project[]
+  sessions         Session[]
+  sentMessages     Message[]         @relation("SentMessages")
+  receivedMessages Message[]         @relation("ReceivedMessages")
+  watchlist        WatchlistItem[]
+  investments      Investment[]
+  notifications    Notification[]
+  following        Follow[]          @relation("Following")
+  followers        Follow[]          @relation("Followers")
+  hostedEvents     Event[]
+  auditLogs        AuditLog[]
+  projectViews     ProjectView[]
+  teamMemberships  ProjectTeamMember[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  userAgent String?  @map("user_agent")
+  ipAddress String?  @map("ip_address")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Profile
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Profile {
+  id           String   @id @default(cuid())
+  userId       String   @unique @map("user_id")
+  name         String   @default("")
+  bio          String   @default("")
+  avatar       String   @default("")
+  banner       String   @default("")
+  location     String   @default("")
+  skills       String   @default("[]")  // JSON array
+  website      String   @default("")
+  twitter      String   @default("")
+  linkedin     String   @default("")
+  github       String   @default("")
+  company      String   @default("")
+  title        String   @default("")
+  tags         String   @default("[]")  // JSON array
+  // Investor-specific
+  investmentFocus String @default("[]") @map("investment_focus") // JSON array of sectors
+  investmentStage String @default("[]") @map("investment_stage") // JSON array of stages
+  minTicket    Float?   @map("min_ticket")
+  maxTicket    Float?   @map("max_ticket")
+  portfolioCount Int    @default(0) @map("portfolio_count")
+  // Builder-specific
+  lookingFor   String   @default("[]") @map("looking_for") // JSON array (funding, cofounder, etc.)
+  // Misc
+  isPublic     Boolean  @default(true) @map("is_public")
+  viewCount    Int      @default(0) @map("view_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Project
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Project {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  category     String   @default("OTHER")
+  // ENERGY | FINTECH | EDUCATION | AGRICULTURE | REAL_ESTATE | INFRASTRUCTURE | TOURISM | TECHNOLOGY | OTHER
+  stage        String   @default("IDEA")
+  // IDEA | MVP | GROWTH | SCALING
+  fundingGoal  Float?   @map("funding_goal")
+  raisedAmount Float    @default(0) @map("raised_amount")
+  thumbnail    String   @default("")
+  deckKey      String?  @map("deck_key")
+  demoUrl      String   @default("") @map("demo_url")
+  websiteUrl   String   @default("") @map("website_url")
+  tags         String   @default("[]") // JSON array
+  isPublished  Boolean  @default(true) @map("is_published")
+  isFeatured   Boolean  @default(false) @map("is_featured")
+  viewCount    Int      @default(0) @map("view_count")
+  nostrEventId String?  @map("nostr_event_id")
+  ownerId      String   @map("owner_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  owner       User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  watchlisted WatchlistItem[]
+  investments Investment[]
+  teamMembers ProjectTeamMember[]
+  views       ProjectView[]
+  updates     ProjectUpdate[]
+
+  @@map("projects")
+}
+
+model ProjectTeamMember {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String   @map("user_id")
+  role      String   @default("MEMBER") // FOUNDER | COFOUNDER | ADVISOR | MEMBER
+  title     String   @default("")
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_team_members")
+}
+
+model ProjectUpdate {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  title     String
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_updates")
+}
+
+model ProjectView {
+  id        String   @id @default(cuid())
+  projectId String   @map("project_id")
+  userId    String?  @map("user_id")
+  ipAddress String?  @map("ip_address")
+  viewedAt  DateTime @default(now()) @map("viewed_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("project_views")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Investments / Funding
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Investment {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  investorId String   @map("investor_id")
+  amount     Float
+  currency   String   @default("USD") // USD | BTC | SATS
+  status     String   @default("PENDING")
+  // PENDING | COMMITTED | COMPLETED | WITHDRAWN
+  terms      String   @default("") // free-form deal terms
+  notes      String   @default("")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  investor User    @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, investorId])
+  @@map("investments")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Watchlist (Investor saved projects)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model WatchlistItem {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  projectId String   @map("project_id")
+  note      String   @default("")
+  addedAt   DateTime @default(now()) @map("added_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@map("watchlist_items")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Messaging
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Message {
+  id          String   @id @default(cuid())
+  senderId    String   @map("sender_id")
+  recipientId String   @map("recipient_id")
+  content     String   // Encrypted (NIP-04) or plaintext
+  isEncrypted Boolean  @default(true) @map("is_encrypted")
+  nostrEventId String? @map("nostr_event_id") // Reference to Nostr DM event
+  isRead      Boolean  @default(false) @map("is_read")
+  readAt      DateTime? @map("read_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sender    User @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  recipient User @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([senderId, recipientId])
+  @@index([recipientId, isRead])
+  @@map("messages")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifications
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  type      String
+  // NEW_MESSAGE | PROJECT_VIEW | INVESTMENT_INTEREST | WATCHLIST_ADD
+  // FOLLOW | PROJECT_UPDATE | SYSTEM
+  title     String
+  body      String
+  data      String   @default("{}") // JSON metadata
+  isRead    Boolean  @default(false) @map("is_read")
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Events
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Event {
+  id          String   @id @default(cuid())
+  hostId      String   @map("host_id")
+  title       String
+  description String
+  category    String   @default("NETWORKING")
+  // NETWORKING | CONFERENCE | WORKSHOP | HACKATHON | MEETUP | DEMO_DAY | OTHER
+  location    String   @default("")
+  isOnline    Boolean  @default(false) @map("is_online")
+  onlineUrl   String   @default("") @map("online_url")
+  startDate   DateTime @map("start_date")
+  endDate     DateTime? @map("end_date")
+  thumbnail   String   @default("")
+  maxAttendees Int?    @map("max_attendees")
+  isPublished Boolean  @default(true) @map("is_published")
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  host      User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
+  attendees EventAttendee[]
+
+  @@map("events")
+}
+
+model EventAttendee {
+  id       String   @id @default(cuid())
+  eventId  String   @map("event_id")
+  userId   String   @map("user_id")
+  status   String   @default("GOING") // GOING | INTERESTED | NOT_GOING
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_attendees")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Social: Following
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String   @map("follower_id")
+  followingId String   @map("following_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  follower  User @relation("Following", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("Followers", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@map("follows")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Audit Log
+// ─────────────────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?  @map("user_id")
+  action    String   // e.g. AUTH_LOGIN, PROJECT_CREATE, PROFILE_UPDATE
+  resource  String   @default("") // e.g. "project:abc123"
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  metadata  String   @default("{}") // JSON
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@map("audit_logs")
+}

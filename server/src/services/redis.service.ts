@@ -1,0 +1,208 @@
+/**
+ * Redis service — provides a unified caching layer.
+ * Falls back gracefully to in-memory Map when Redis is unavailable (dev mode).
+ *
+ * For production with 500+ concurrent users, set REDIS_URL in your environment.
+ * Redis handles:
+ *   - Distributed rate limiting (shared across multiple Node processes)
+ *   - Session/challenge store (auth challenges)
+ *   - Response caching (project lists, profile lists)
+ *   - WebSocket presence tracking
+ *   - Pub/sub for real-time notifications across instances
+ */
+
+import { config } from '../config';
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+interface CacheEntry {
+    value: string;
+    expiresAt: number;
+}
+
+// ─── In-memory fallback (dev / no Redis) ─────────────────────────────────────
+
+class InMemoryCache {
+    private store = new Map<string, CacheEntry>();
+    private readonly MAX_SIZE = 10_000;
+
+    get(key: string): string | null {
+        const entry = this.store.get(key);
+        if (!entry) return null;
+        if (Date.now() > entry.expiresAt) {
+            this.store.delete(key);
+            return null;
+        }
+        return entry.value;
+    }
+
+    set(key: string, value: string, ttlSeconds: number): void {
+        // Evict oldest entries if at capacity
+        if (this.store.size >= this.MAX_SIZE) {
+            const firstKey = this.store.keys().next().value;
+            if (firstKey) this.store.delete(firstKey);
+        }
+        this.store.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+    }
+
+    del(key: string): void {
+        this.store.delete(key);
+    }
+
+    /** Delete all keys matching a prefix */
+    delPattern(prefix: string): void {
+        for (const key of this.store.keys()) {
+            if (key.startsWith(prefix)) this.store.delete(key);
+        }
+    }
+
+    /** Returns time-to-live in seconds, or -1 if not found/expired */
+    ttl(key: string): number {
+        const entry = this.store.get(key);
+        if (!entry) return -1;
+        const remaining = Math.ceil((entry.expiresAt - Date.now()) / 1000);
+        return remaining > 0 ? remaining : -1;
+    }
+}
+
+// ─── Redis client (optional) ─────────────────────────────────────────────────
+
+let redisClient: any = null;
+let useRedis = false;
+
+async function initRedis(): Promise<void> {
+    if (!config.redisUrl) {
+        console.log('[Cache] No REDIS_URL configured — using in-memory cache (single-instance mode)');
+        return;
+    }
+
+    try {
+        // Dynamic import so the server starts even without ioredis installed
+        const ioredis = await import('ioredis');
+        const Redis = ioredis.default || (ioredis as any);
+        redisClient = new (Redis as any)(config.redisUrl, {
+            lazyConnect: true,
+            maxRetriesPerRequest: 3,
+            retryStrategy: (times: number) => Math.min(times * 100, 3000),
+            enableOfflineQueue: false,
+        });
+
+        redisClient.on('connect', () => console.log('[Cache] Redis connected'));
+        redisClient.on('error', (err: Error) => console.error('[Cache] Redis error:', err.message));
+
+        await redisClient.connect();
+        useRedis = true;
+        console.log('[Cache] Redis mode active — ready for multi-instance deployment');
+    } catch (err: any) {
+        console.warn('[Cache] Failed to connect to Redis, falling back to in-memory:', err.message);
+    }
+}
+
+// Initialize immediately (non-blocking)
+initRedis();
+
+// ─── Fallback instance ────────────────────────────────────────────────────────
+
+const memCache = new InMemoryCache();
+
+// ─── Public API ──────────────────────────────────────────────────────────────
+
+export const cache = {
+    /** Get a cached value. Returns null if missing/expired. */
+    async get(key: string): Promise<string | null> {
+        try {
+            if (useRedis && redisClient) return await redisClient.get(key);
+            return memCache.get(key);
+        } catch {
+            return memCache.get(key);
+        }
+    },
+
+    /** Set a cached value with TTL in seconds. */
+    async set(key: string, value: string, ttlSeconds: number): Promise<void> {
+        try {
+            if (useRedis && redisClient) {
+                await redisClient.set(key, value, 'EX', ttlSeconds);
+                return;
+            }
+        } catch { /* fall through */ }
+        memCache.set(key, value, ttlSeconds);
+    },
+
+    /** Delete a specific key. */
+    async del(key: string): Promise<void> {
+        try {
+            if (useRedis && redisClient) {
+                await redisClient.del(key);
+                return;
+            }
+        } catch { /* fall through */ }
+        memCache.del(key);
+    },
+
+    /** Delete all keys with a given prefix. */
+    async delPattern(prefix: string): Promise<void> {
+        try {
+            if (useRedis && redisClient) {
+                const keys: string[] = await redisClient.keys(`${prefix}*`);
+                if (keys.length > 0) await redisClient.del(...keys);
+                return;
+            }
+        } catch { /* fall through */ }
+        memCache.delPattern(prefix);
+    },
+
+    /** Convenience: get + JSON.parse */
+    async getJson<T>(key: string): Promise<T | null> {
+        const raw = await cache.get(key);
+        if (!raw) return null;
+        try { return JSON.parse(raw) as T; } catch { return null; }
+    },
+
+    /** Convenience: JSON.stringify + set */
+    async setJson(key: string, value: unknown, ttlSeconds: number): Promise<void> {
+        await cache.set(key, JSON.stringify(value), ttlSeconds);
+    },
+
+    // ─── Auth challenge store ──────────────────────────────────────────────
+    async setChallenge(pubkey: string, challenge: string): Promise<void> {
+        await cache.set(`challenge:${pubkey}`, challenge, 5 * 60); // 5 min TTL
+    },
+
+    async getChallenge(pubkey: string): Promise<string | null> {
+        return cache.get(`challenge:${pubkey}`);
+    },
+
+    async deleteChallenge(pubkey: string): Promise<void> {
+        await cache.del(`challenge:${pubkey}`);
+    },
+};
+
+// ─── TTLs (seconds) ──────────────────────────────────────────────────────────
+
+export const TTL = {
+    PROJECT_LIST: 60,        // 1 min – frequently updated
+    PROJECT_DETAIL: 120,     // 2 min
+    PROFILE_LIST: 120,       // 2 min
+    PROFILE_DETAIL: 300,     // 5 min
+    SEARCH_RESULTS: 30,      // 30 sec
+    EVENT_LIST: 300,         // 5 min
+    ANALYTICS_DASHBOARD: 60, // 1 min
+    NOTIFICATION_COUNT: 30,  // 30 sec
+};
+
+// ─── Cache key builders ───────────────────────────────────────────────────────
+
+export const cacheKey = {
+    projects: (params: Record<string, string>) =>
+        `projects:${new URLSearchParams(params).toString()}`,
+    projectDetail: (id: string) => `project:${id}`,
+    profiles: (params: Record<string, string>) =>
+        `profiles:${new URLSearchParams(params).toString()}`,
+    profileDetail: (id: string) => `profile:${id}`,
+    search: (q: string) => `search:${q.toLowerCase().trim()}`,
+    events: (params: Record<string, string>) =>
+        `events:${new URLSearchParams(params).toString()}`,
+    notificationCount: (userId: string) => `notif_count:${userId}`,
+    analytics: (userId: string) => `analytics:${userId}`,
+};

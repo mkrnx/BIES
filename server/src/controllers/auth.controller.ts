@@ -1,0 +1,266 @@
+import { Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+import prisma from '../lib/prisma';
+import { generateToken } from '../middleware/auth';
+import { encryptPrivateKey } from '../services/crypto.service';
+import { z } from 'zod';
+import crypto from 'crypto';
+
+// ─── Validation Schemas ───
+
+export const registerSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    role: z.enum(['BUILDER', 'INVESTOR']).default('BUILDER'),
+    name: z.string().min(1).optional(),
+});
+
+export const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+});
+
+export const nostrLoginSchema = z.object({
+    pubkey: z.string().min(64).max(64),
+    sig: z.string(),
+    challenge: z.string(),
+});
+
+// In-memory challenge store (use Redis in production)
+const challenges = new Map<string, { challenge: string; expiresAt: number }>();
+
+// ─── Controllers ───
+
+/**
+ * POST /auth/register
+ * Register with email/password. Generates a custodial Nostr keypair.
+ */
+export async function register(req: Request, res: Response): Promise<void> {
+    try {
+        const { email, password, role, name } = req.body;
+
+        // Check if email already exists
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            res.status(409).json({ error: 'Email already registered' });
+            return;
+        }
+
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 12);
+
+        // Generate Nostr keypair for this email user
+        const secretKey = generateSecretKey();
+        const nostrPubkey = getPublicKey(secretKey);
+        const privateKeyHex = Buffer.from(secretKey).toString('hex');
+        const encryptedPrivkey = encryptPrivateKey(privateKeyHex);
+
+        // Create user + profile in a transaction
+        const user = await prisma.user.create({
+            data: {
+                email,
+                passwordHash,
+                nostrPubkey,
+                encryptedPrivkey,
+                role,
+                profile: {
+                    create: {
+                        name: name || email.split('@')[0],
+                    },
+                },
+            },
+            include: {
+                profile: true,
+            },
+        });
+
+        // Generate JWT
+        const token = generateToken(user.id, user.role);
+
+        res.status(201).json({
+            user: {
+                id: user.id,
+                email: user.email,
+                nostrPubkey: user.nostrPubkey,
+                role: user.role,
+                profile: user.profile,
+            },
+            token,
+        });
+    } catch (error) {
+        console.error('Registration error:', error);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+}
+
+/**
+ * POST /auth/login
+ * Login with email/password.
+ */
+export async function login(req: Request, res: Response): Promise<void> {
+    try {
+        const { email, password } = req.body;
+
+        const user = await prisma.user.findUnique({
+            where: { email },
+            include: { profile: true },
+        });
+
+        if (!user || !user.passwordHash) {
+            res.status(401).json({ error: 'Invalid email or password' });
+            return;
+        }
+
+        const isValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isValid) {
+            res.status(401).json({ error: 'Invalid email or password' });
+            return;
+        }
+
+        const token = generateToken(user.id, user.role);
+
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                nostrPubkey: user.nostrPubkey,
+                role: user.role,
+                profile: user.profile,
+            },
+            token,
+        });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ error: 'Login failed' });
+    }
+}
+
+/**
+ * GET /auth/nostr-challenge
+ * Get a challenge for Nostr login (step 1 of challenge-response).
+ */
+export async function getNostrChallenge(req: Request, res: Response): Promise<void> {
+    const challenge = crypto.randomBytes(32).toString('hex');
+    const pubkey = req.query.pubkey as string;
+
+    if (!pubkey || pubkey.length !== 64) {
+        res.status(400).json({ error: 'Valid hex pubkey required' });
+        return;
+    }
+
+    challenges.set(pubkey, {
+        challenge,
+        expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
+    });
+
+    res.json({ challenge });
+}
+
+/**
+ * POST /auth/nostr-login
+ * Verify a signed challenge from a Nostr extension (step 2).
+ * For now, we do a simplified version: the client sends their pubkey,
+ * we look up or create the user.
+ */
+export async function nostrLogin(req: Request, res: Response): Promise<void> {
+    try {
+        const { pubkey } = req.body;
+
+        if (!pubkey || pubkey.length !== 64) {
+            res.status(400).json({ error: 'Valid hex pubkey required' });
+            return;
+        }
+
+        // Find or create the user
+        let user = await prisma.user.findUnique({
+            where: { nostrPubkey: pubkey },
+            include: { profile: true },
+        });
+
+        if (!user) {
+            // Auto-create user for Nostr login (no custodial key needed — they manage their own)
+            user = await prisma.user.create({
+                data: {
+                    nostrPubkey: pubkey,
+                    role: 'BUILDER', // Default role, can be changed later
+                    profile: {
+                        create: {
+                            name: `nostr:${pubkey.substring(0, 8)}`,
+                        },
+                    },
+                },
+                include: { profile: true },
+            });
+        }
+
+        const token = generateToken(user.id, user.role);
+
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                nostrPubkey: user.nostrPubkey,
+                role: user.role,
+                profile: user.profile,
+            },
+            token,
+        });
+    } catch (error) {
+        console.error('Nostr login error:', error);
+        res.status(500).json({ error: 'Nostr login failed' });
+    }
+}
+
+/**
+ * GET /auth/me
+ * Get current user from JWT.
+ */
+export async function getMe(req: Request, res: Response): Promise<void> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user!.id },
+            include: { profile: true },
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.json({
+            id: user.id,
+            email: user.email,
+            nostrPubkey: user.nostrPubkey,
+            role: user.role,
+            profile: user.profile,
+        });
+    } catch (error) {
+        console.error('Get me error:', error);
+        res.status(500).json({ error: 'Failed to get user info' });
+    }
+}
+
+/**
+ * PUT /auth/role
+ * Update own role (BUILDER <-> INVESTOR).
+ */
+export async function updateRole(req: Request, res: Response): Promise<void> {
+    try {
+        const { role } = req.body;
+        if (!['BUILDER', 'INVESTOR'].includes(role)) {
+            res.status(400).json({ error: 'Role must be BUILDER or INVESTOR' });
+            return;
+        }
+
+        const user = await prisma.user.update({
+            where: { id: req.user!.id },
+            data: { role },
+        });
+
+        res.json({ id: user.id, role: user.role });
+    } catch (error) {
+        console.error('Update role error:', error);
+        res.status(500).json({ error: 'Failed to update role' });
+    }
+}

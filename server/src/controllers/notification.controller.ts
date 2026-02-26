@@ -1,0 +1,154 @@
+/**
+ * Notification controller — list, read, and manage user notifications.
+ */
+
+import { Request, Response } from 'express';
+import prisma from '../lib/prisma';
+import { cache, cacheKey } from '../services/redis.service';
+
+/**
+ * GET /notifications
+ * List notifications for the current user (newest first, paginated).
+ */
+export async function listNotifications(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const page = parseInt(req.query.page as string || '1', 10);
+        const limit = Math.min(parseInt(req.query.limit as string || '20', 10), 50);
+        const skip = (page - 1) * limit;
+        const unreadOnly = req.query.unread === 'true';
+
+        const where: any = { userId };
+        if (unreadOnly) where.isRead = false;
+
+        const [notifications, total, unreadCount] = await Promise.all([
+            prisma.notification.findMany({
+                where,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+            }),
+            prisma.notification.count({ where }),
+            prisma.notification.count({ where: { userId, isRead: false } }),
+        ]);
+
+        const parsed = notifications.map((n) => ({
+            ...n,
+            data: JSON.parse(n.data || '{}'),
+        }));
+
+        res.json({
+            data: parsed,
+            unreadCount,
+            pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+        });
+    } catch (error) {
+        console.error('List notifications error:', error);
+        res.status(500).json({ error: 'Failed to list notifications' });
+    }
+}
+
+/**
+ * GET /notifications/count
+ * Get unread notification count (fast, cached).
+ */
+export async function getUnreadCount(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const cKey = cacheKey.notificationCount(userId);
+
+        const cached = await cache.get(cKey);
+        if (cached !== null) {
+            res.json({ count: parseInt(cached, 10) });
+            return;
+        }
+
+        const count = await prisma.notification.count({
+            where: { userId, isRead: false },
+        });
+
+        await cache.set(cKey, String(count), 30);
+        res.json({ count });
+    } catch (error) {
+        console.error('Notification count error:', error);
+        res.status(500).json({ error: 'Failed to get notification count' });
+    }
+}
+
+/**
+ * PUT /notifications/:id/read
+ * Mark a single notification as read.
+ */
+export async function markRead(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const notification = await prisma.notification.findUnique({
+            where: { id: req.params.id },
+        });
+
+        if (!notification || notification.userId !== userId) {
+            res.status(404).json({ error: 'Notification not found' });
+            return;
+        }
+
+        await prisma.notification.update({
+            where: { id: req.params.id },
+            data: { isRead: true, readAt: new Date() },
+        });
+
+        await cache.del(cacheKey.notificationCount(userId));
+
+        res.json({ message: 'Notification marked as read' });
+    } catch (error) {
+        console.error('Mark read error:', error);
+        res.status(500).json({ error: 'Failed to mark notification as read' });
+    }
+}
+
+/**
+ * PUT /notifications/read-all
+ * Mark all notifications as read.
+ */
+export async function markAllRead(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+
+        await prisma.notification.updateMany({
+            where: { userId, isRead: false },
+            data: { isRead: true, readAt: new Date() },
+        });
+
+        await cache.del(cacheKey.notificationCount(userId));
+
+        res.json({ message: 'All notifications marked as read' });
+    } catch (error) {
+        console.error('Mark all read error:', error);
+        res.status(500).json({ error: 'Failed to mark all notifications as read' });
+    }
+}
+
+/**
+ * DELETE /notifications/:id
+ * Delete a specific notification.
+ */
+export async function deleteNotification(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const notification = await prisma.notification.findUnique({
+            where: { id: req.params.id },
+        });
+
+        if (!notification || notification.userId !== userId) {
+            res.status(404).json({ error: 'Notification not found' });
+            return;
+        }
+
+        await prisma.notification.delete({ where: { id: req.params.id } });
+        await cache.del(cacheKey.notificationCount(userId));
+
+        res.json({ message: 'Notification deleted' });
+    } catch (error) {
+        console.error('Delete notification error:', error);
+        res.status(500).json({ error: 'Failed to delete notification' });
+    }
+}
