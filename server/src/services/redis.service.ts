@@ -189,6 +189,11 @@ export const TTL = {
     EVENT_LIST: 300,         // 5 min
     ANALYTICS_DASHBOARD: 60, // 1 min
     NOTIFICATION_COUNT: 30,  // 30 sec
+    PLATFORM_STATS: 300,     // 5 min – public homepage
+    CONTENT_LIST: 300,       // 5 min
+    CONTENT_DETAIL: 600,     // 10 min
+    MATCH_RESULTS: 120,      // 2 min
+    FOLLOW_LIST: 120,        // 2 min
 };
 
 // ─── Cache key builders ───────────────────────────────────────────────────────
@@ -205,4 +210,15 @@ export const cacheKey = {
         `events:${new URLSearchParams(params).toString()}`,
     notificationCount: (userId: string) => `notif_count:${userId}`,
     analytics: (userId: string) => `analytics:${userId}`,
+    platformStats: () => 'platform_stats:public',
+    articles: (params: Record<string, string>) =>
+        `articles:${new URLSearchParams(params).toString()}`,
+    articleDetail: (id: string) => `article:${id}`,
+    videos: (params: Record<string, string>) =>
+        `videos:${new URLSearchParams(params).toString()}`,
+    resources: () => 'legal_resources:all',
+    followers: (userId: string) => `followers:${userId}`,
+    following: (userId: string) => `following:${userId}`,
+    matches: (projectId: string) => `matches:${projectId}`,
+    investorRecs: (userId: string) => `investor_recs:${userId}`,
 };

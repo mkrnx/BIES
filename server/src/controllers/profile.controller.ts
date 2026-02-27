@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { publishProfileUpdate } from '../services/nostr.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
+import { notifyProfileView } from '../services/notification.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -161,6 +162,24 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
             where: { id: profile.id },
             data: { viewCount: { increment: 1 } },
         }).catch(() => {});
+
+        // Notify profile owner of view (dedup: once per viewer per hour)
+        if (req.user && req.user.id !== profile.userId) {
+            const viewDedupKey = `profile_view:${profile.userId}:${req.user.id}`;
+            const alreadyNotified = await cache.get(viewDedupKey);
+            if (!alreadyNotified) {
+                const viewerProfile = await prisma.profile.findUnique({
+                    where: { userId: req.user.id },
+                    select: { name: true },
+                });
+                notifyProfileView({
+                    profileOwnerId: profile.userId,
+                    viewerName: viewerProfile?.name || 'Someone',
+                    viewerId: req.user.id,
+                }).catch(() => {});
+                cache.set(viewDedupKey, '1', 3600).catch(() => {}); // 1 hour dedup
+            }
+        }
 
         const result = {
             ...profile,

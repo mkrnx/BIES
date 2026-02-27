@@ -11,6 +11,10 @@ import {
     deleteProject,
     getProjectDeck,
     postProjectUpdate,
+    requestDeckAccess,
+    deckRequestSchema,
+    listDeckRequests,
+    reviewDeckRequest,
 } from '../controllers/project.controller';
 
 const router = Router();
@@ -24,6 +28,9 @@ router.post('/', authenticate, validate(createProjectSchema), createProject);
 router.put('/:id', authenticate, validate(updateProjectSchema), updateProject);
 router.delete('/:id', authenticate, deleteProject);
 router.get('/:id/deck', authenticate, getProjectDeck);
+router.post('/:id/deck/request', authenticate, validate(deckRequestSchema), requestDeckAccess);
+router.get('/:id/deck/requests', authenticate, listDeckRequests);
+router.put('/:id/deck/requests/:requestId', authenticate, reviewDeckRequest);
 router.post('/:id/updates', authenticate, postProjectUpdate);
 
 export default router;
