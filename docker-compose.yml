@@ -1,0 +1,51 @@
+services:
+  bies-server:
+    build:
+      context: .
+      target: server
+    restart: unless-stopped
+    env_file: server/.env
+    environment:
+      NODE_ENV: production
+      PORT: "3001"
+      DATABASE_URL: "file:../data/bies.db"
+    volumes:
+      - bies-data:/app/data
+      - bies-uploads:/app/uploads
+    networks:
+      - bies-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  bies-nginx:
+    build:
+      context: .
+      target: nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    depends_on:
+      bies-server:
+        condition: service_healthy
+    networks:
+      - bies-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
+volumes:
+  bies-data:
+  bies-uploads:
+
+networks:
+  bies-net:
+    driver: bridge
