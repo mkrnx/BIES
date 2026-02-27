@@ -41,6 +41,8 @@ model User {
   auditLogs        AuditLog[]
   projectViews     ProjectView[]
   teamMemberships  ProjectTeamMember[]
+  deckRequests     DeckRequest[]
+  settings         UserSettings?
 
   @@map("users")
 }
@@ -125,12 +127,13 @@ model Project {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  owner       User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  watchlisted WatchlistItem[]
-  investments Investment[]
-  teamMembers ProjectTeamMember[]
-  views       ProjectView[]
-  updates     ProjectUpdate[]
+  owner        User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  watchlisted  WatchlistItem[]
+  investments  Investment[]
+  teamMembers  ProjectTeamMember[]
+  views        ProjectView[]
+  updates      ProjectUpdate[]
+  deckRequests DeckRequest[]
 
   @@map("projects")
 }
@@ -341,4 +344,120 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@map("audit_logs")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deck Access Requests
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DeckRequest {
+  id         String    @id @default(cuid())
+  projectId  String    @map("project_id")
+  investorId String    @map("investor_id")
+  status     String    @default("PENDING") // PENDING | APPROVED | DENIED
+  message    String    @default("") // investor can include a note
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  investor User    @relation(fields: [investorId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, investorId])
+  @@map("deck_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Contact Submissions
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ContactSubmission {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  role      String   @default("") // BUILDER | INVESTOR | MEDIA | OTHER
+  message   String
+  ipAddress String?  @map("ip_address")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("contact_submissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Settings
+// ─────────────────────────────────────────────────────────────────────────────
+
+model UserSettings {
+  id                   String  @id @default(cuid())
+  userId               String  @unique @map("user_id")
+  emailNotifications   Boolean @default(true) @map("email_notifications")
+  pushNotifications    Boolean @default(true) @map("push_notifications")
+  marketingEmails      Boolean @default(false) @map("marketing_emails")
+  notifyMessages       Boolean @default(true) @map("notify_messages")
+  notifyInvestments    Boolean @default(true) @map("notify_investments")
+  notifyFollows        Boolean @default(true) @map("notify_follows")
+  notifyProjectUpdates Boolean @default(true) @map("notify_project_updates")
+  relays               String  @default("[]") // JSON array of relay URLs
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content: Articles
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Article {
+  id          String   @id @default(cuid())
+  title       String
+  slug        String   @unique
+  excerpt     String   @default("")
+  content     String   // Full markdown/HTML content
+  category    String   @default("NEWS") // NEWS | TUTORIAL | BIES_UPDATE | LEGAL | GUIDE
+  thumbnail   String   @default("")
+  authorName  String   @default("") @map("author_name")
+  isPublished Boolean  @default(false) @map("is_published")
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("articles")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content: Videos
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Video {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  url         String   // YouTube/embed URL
+  thumbnail   String   @default("")
+  category    String   @default("GENERAL") // GENERAL | TUTORIAL | INTERVIEW | DEMO
+  duration    Int?     // seconds
+  isPublished Boolean  @default(false) @map("is_published")
+  tags        String   @default("[]") // JSON array
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("videos")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Content: Legal Resources
+// ─────────────────────────────────────────────────────────────────────────────
+
+model LegalResource {
+  id          String   @id @default(cuid())
+  title       String
+  description String   @default("")
+  category    String   @default("GENERAL") // GENERAL | TERMS | PRIVACY | COMPLIANCE | TEMPLATE
+  fileKey     String   @map("file_key") // S3 key or local path
+  fileName    String   @default("") @map("file_name")
+  isPublished Boolean  @default(false) @map("is_published")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("legal_resources")
 }

@@ -27,6 +27,16 @@ const ACTION_MAP: Array<{ method: string; pattern: RegExp; action: string }> = [
     { method: 'POST', pattern: /^\/api\/admin\//, action: 'ADMIN_ACTION' },
     { method: 'PUT',  pattern: /^\/api\/admin\//, action: 'ADMIN_ACTION' },
     { method: 'DELETE', pattern: /^\/api\/admin\//, action: 'ADMIN_ACTION' },
+    { method: 'POST', pattern: /^\/api\/auth\/logout/, action: 'AUTH_LOGOUT' },
+    { method: 'POST', pattern: /^\/api\/projects\/.*\/deck\/request/, action: 'DECK_REQUEST' },
+    { method: 'PUT',  pattern: /^\/api\/projects\/.*\/deck\/requests\//, action: 'DECK_REVIEW' },
+    { method: 'POST', pattern: /^\/api\/profiles\/.*\/follow/, action: 'FOLLOW_CREATE' },
+    { method: 'DELETE', pattern: /^\/api\/profiles\/.*\/follow/, action: 'FOLLOW_DELETE' },
+    { method: 'POST', pattern: /^\/api\/contact/, action: 'CONTACT_SUBMIT' },
+    { method: 'PUT',  pattern: /^\/api\/settings\//, action: 'SETTINGS_UPDATE' },
+    { method: 'DELETE', pattern: /^\/api\/settings\/account/, action: 'ACCOUNT_DELETE' },
+    { method: 'POST', pattern: /^\/api\/content\//, action: 'CONTENT_CREATE' },
+    { method: 'PUT',  pattern: /^\/api\/content\//, action: 'CONTENT_UPDATE' },
 ];
 
 function resolveAction(method: string, path: string): string | null {

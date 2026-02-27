@@ -3,7 +3,7 @@ import prisma from '../lib/prisma';
 import { publishProject } from '../services/nostr.service';
 import { getPresignedUrl } from '../services/storage.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
-import { notifyProjectUpdate } from '../services/notification.service';
+import { notifyProjectUpdate, notifyDeckRequest, notifyDeckApproved, notifyDeckDenied } from '../services/notification.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -25,6 +25,10 @@ export const createProjectSchema = z.object({
 });
 
 export const updateProjectSchema = createProjectSchema.partial();
+
+export const deckRequestSchema = z.object({
+    message: z.string().max(500).optional(),
+});
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
@@ -340,7 +344,8 @@ export async function postProjectUpdate(req: Request, res: Response): Promise<vo
 
 /**
  * GET /projects/:id/deck
- * Presigned URL for pitch deck (investors, admins, and owner only).
+ * Presigned URL for pitch deck. Owner/admin always have access.
+ * Investors must have an approved DeckRequest.
  */
 export async function getProjectDeck(req: Request, res: Response): Promise<void> {
     try {
@@ -353,17 +358,180 @@ export async function getProjectDeck(req: Request, res: Response): Promise<void>
         if (!project.deckKey) { res.status(404).json({ error: 'No pitch deck uploaded for this project' }); return; }
 
         const isOwner = project.ownerId === req.user!.id;
-        const isInvestor = req.user!.role === 'INVESTOR';
         const isAdmin = req.user!.role === 'ADMIN';
+        const isInvestor = req.user!.role === 'INVESTOR';
 
-        if (!isOwner && !isInvestor && !isAdmin) {
-            res.status(403).json({ error: 'Only investors can view pitch decks' }); return;
+        // Owner and admin always have access
+        if (isOwner || isAdmin) {
+            const url = await getPresignedUrl(project.deckKey);
+            res.json({ url, expiresIn: 900 });
+            return;
         }
 
-        const url = await getPresignedUrl(project.deckKey);
-        res.json({ url, expiresIn: 900 });
+        // Investors need an approved DeckRequest
+        if (isInvestor) {
+            const approvedRequest = await prisma.deckRequest.findUnique({
+                where: {
+                    projectId_investorId: {
+                        projectId: req.params.id,
+                        investorId: req.user!.id,
+                    },
+                },
+            });
+
+            if (!approvedRequest || approvedRequest.status !== 'APPROVED') {
+                res.status(403).json({
+                    error: 'Deck access not approved. Please request access first.',
+                    requestStatus: approvedRequest?.status || null,
+                });
+                return;
+            }
+
+            const url = await getPresignedUrl(project.deckKey);
+            res.json({ url, expiresIn: 900 });
+            return;
+        }
+
+        res.status(403).json({ error: 'Only investors can view pitch decks' });
     } catch (error) {
         console.error('Get deck error:', error);
         res.status(500).json({ error: 'Failed to get pitch deck' });
+    }
+}
+
+/**
+ * POST /projects/:id/deck/request
+ * Investor requests access to a project's pitch deck.
+ */
+export async function requestDeckAccess(req: Request, res: Response): Promise<void> {
+    try {
+        const projectId = req.params.id;
+        const investorId = req.user!.id;
+
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { ownerId: true, title: true, deckKey: true },
+        });
+
+        if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+        if (!project.deckKey) { res.status(404).json({ error: 'No pitch deck available for this project' }); return; }
+        if (project.ownerId === investorId) { res.status(400).json({ error: 'You own this project' }); return; }
+
+        const deckRequest = await prisma.deckRequest.create({
+            data: {
+                projectId,
+                investorId,
+                message: req.body.message || '',
+            },
+        });
+
+        // Notify builder
+        const investor = await prisma.user.findUnique({
+            where: { id: investorId },
+            include: { profile: { select: { name: true } } },
+        });
+        await notifyDeckRequest({
+            builderId: project.ownerId,
+            investorName: investor?.profile?.name || 'An investor',
+            projectTitle: project.title,
+            projectId,
+            requestId: deckRequest.id,
+        });
+
+        res.status(201).json(deckRequest);
+    } catch (error: any) {
+        if (error?.code === 'P2002') {
+            res.status(409).json({ error: 'You have already requested this deck' });
+            return;
+        }
+        console.error('Request deck access error:', error);
+        res.status(500).json({ error: 'Failed to request deck access' });
+    }
+}
+
+/**
+ * GET /projects/:id/deck/requests
+ * Builder sees pending deck requests for their project.
+ */
+export async function listDeckRequests(req: Request, res: Response): Promise<void> {
+    try {
+        const projectId = req.params.id;
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { ownerId: true },
+        });
+
+        if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Not authorized' }); return;
+        }
+
+        const requests = await prisma.deckRequest.findMany({
+            where: { projectId },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                investor: {
+                    select: {
+                        id: true, nostrPubkey: true,
+                        profile: { select: { name: true, avatar: true, company: true, title: true } },
+                    },
+                },
+            },
+        });
+
+        res.json({ data: requests });
+    } catch (error) {
+        console.error('List deck requests error:', error);
+        res.status(500).json({ error: 'Failed to list deck requests' });
+    }
+}
+
+/**
+ * PUT /projects/:id/deck/requests/:requestId
+ * Builder approves or denies a deck request.
+ */
+export async function reviewDeckRequest(req: Request, res: Response): Promise<void> {
+    try {
+        const { id: projectId, requestId } = req.params;
+        const { status } = req.body;
+
+        if (!['APPROVED', 'DENIED'].includes(status)) {
+            res.status(400).json({ error: 'Status must be APPROVED or DENIED' }); return;
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { ownerId: true, title: true },
+        });
+
+        if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Not authorized' }); return;
+        }
+
+        const deckRequest = await prisma.deckRequest.update({
+            where: { id: requestId },
+            data: { status, reviewedAt: new Date() },
+        });
+
+        // Notify investor
+        if (status === 'APPROVED') {
+            await notifyDeckApproved({
+                investorId: deckRequest.investorId,
+                projectTitle: project.title,
+                projectId,
+            });
+        } else {
+            await notifyDeckDenied({
+                investorId: deckRequest.investorId,
+                projectTitle: project.title,
+                projectId,
+            });
+        }
+
+        res.json(deckRequest);
+    } catch (error) {
+        console.error('Review deck request error:', error);
+        res.status(500).json({ error: 'Failed to review deck request' });
     }
 }

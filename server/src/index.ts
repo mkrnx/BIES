@@ -24,6 +24,12 @@ import eventRoutes from './routes/events.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import searchRoutes from './routes/search.routes';
 import adminRoutes from './routes/admin.routes';
+import contactRoutes from './routes/contact.routes';
+import statsRoutes from './routes/stats.routes';
+import settingsRoutes from './routes/settings.routes';
+import contentRoutes from './routes/content.routes';
+import newsRoutes from './routes/news.routes';
+import matchRoutes from './routes/match.routes';
 
 const app = express();
 
@@ -109,10 +115,18 @@ const searchLimiter = rateLimit({
     message: { error: 'Search rate limit reached' },
 });
 
+// Contact form: 5 per hour
+const contactLimiter = rateLimit({
+    windowMs: 60 * 60 * 1000,
+    max: 5,
+    message: { error: 'Too many contact submissions. Please try again later.' },
+});
+
 app.use('/api/', generalLimiter);
 app.use('/api/auth', authLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/search', searchLimiter);
+app.use('/api/contact', contactLimiter);
 
 // ─── Static files (local upload fallback) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
@@ -133,6 +147,12 @@ app.use('/api/events', eventRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/contact', contactRoutes);
+app.use('/api/stats', statsRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/content', contentRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/match', matchRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -169,7 +189,8 @@ server.listen(config.port, () => {
 ╠══════════════════════════════════════════════════════════════════╣
 ║  Routes: auth | profiles | projects | upload | messages          ║
 ║          watchlist | investments | notifications | events        ║
-║          analytics | search | admin | websocket                  ║
+║          analytics | search | admin | contact | stats            ║
+║          settings | content | news | match | websocket           ║
 ╚══════════════════════════════════════════════════════════════════╝
   `);
 });

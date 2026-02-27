@@ -10,6 +10,7 @@ import {
     getNostrChallenge,
     getMe,
     updateRole,
+    logout,
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -23,5 +24,6 @@ router.post('/nostr-login', nostrLogin);
 // Protected routes
 router.get('/me', authenticate, getMe);
 router.put('/role', authenticate, updateRole);
+router.post('/logout', authenticate, logout);
 
 export default router;

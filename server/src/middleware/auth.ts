@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config';
 import prisma from '../lib/prisma';
+import { cache } from '../services/redis.service';
 
 // Extend Express Request to include user info
 declare global {
@@ -35,6 +36,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     }
 
     const token = authHeader.split(' ')[1];
+
+    // Check if token has been blacklisted (logout)
+    const isBlacklisted = await cache.get(`blacklist:${token}`);
+    if (isBlacklisted) {
+        res.status(401).json({ error: 'Token has been revoked' });
+        return;
+    }
 
     try {
         const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
@@ -74,6 +82,13 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
     try {
         const token = authHeader.split(' ')[1];
+
+        const isBlacklisted = await cache.get(`blacklist:${token}`);
+        if (isBlacklisted) {
+            next();
+            return;
+        }
+
         const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
 
         const user = await prisma.user.findUnique({

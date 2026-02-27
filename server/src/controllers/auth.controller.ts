@@ -1,9 +1,11 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
 import prisma from '../lib/prisma';
 import { generateToken } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
+import { cache } from '../services/redis.service';
 import { z } from 'zod';
 import crypto from 'crypto';
 
@@ -238,6 +240,36 @@ export async function getMe(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Get me error:', error);
         res.status(500).json({ error: 'Failed to get user info' });
+    }
+}
+
+/**
+ * POST /auth/logout
+ * Blacklist the current token in Redis so it cannot be reused.
+ */
+export async function logout(req: Request, res: Response): Promise<void> {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            res.status(400).json({ error: 'No token provided' });
+            return;
+        }
+
+        const token = authHeader.split(' ')[1];
+
+        // Decode without verifying to get the expiry time
+        const decoded = jwt.decode(token) as { exp?: number } | null;
+        if (decoded?.exp) {
+            const remainingSeconds = decoded.exp - Math.floor(Date.now() / 1000);
+            if (remainingSeconds > 0) {
+                await cache.set(`blacklist:${token}`, '1', remainingSeconds);
+            }
+        }
+
+        res.json({ message: 'Logged out successfully' });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Logout failed' });
     }
 }
 

@@ -15,6 +15,10 @@ export type NotificationType =
     | 'FOLLOW'
     | 'PROJECT_UPDATE'
     | 'INVESTMENT_STATUS'
+    | 'DECK_REQUEST'
+    | 'DECK_APPROVED'
+    | 'DECK_DENIED'
+    | 'PROFILE_VIEW'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -142,6 +146,64 @@ export async function notifyProjectUpdate(params: {
         })
     );
     await Promise.allSettled(promises);
+}
+
+export async function notifyDeckRequest(params: {
+    builderId: string;
+    investorName: string;
+    projectTitle: string;
+    projectId: string;
+    requestId: string;
+}): Promise<void> {
+    await createNotification({
+        userId: params.builderId,
+        type: 'DECK_REQUEST',
+        title: `${params.investorName} requested your pitch deck`,
+        body: `An investor wants to view the pitch deck for "${params.projectTitle}".`,
+        data: { projectId: params.projectId, requestId: params.requestId },
+    });
+}
+
+export async function notifyDeckApproved(params: {
+    investorId: string;
+    projectTitle: string;
+    projectId: string;
+}): Promise<void> {
+    await createNotification({
+        userId: params.investorId,
+        type: 'DECK_APPROVED',
+        title: `Pitch deck access approved for "${params.projectTitle}"`,
+        body: 'You can now download the pitch deck.',
+        data: { projectId: params.projectId },
+    });
+}
+
+export async function notifyDeckDenied(params: {
+    investorId: string;
+    projectTitle: string;
+    projectId: string;
+}): Promise<void> {
+    await createNotification({
+        userId: params.investorId,
+        type: 'DECK_DENIED',
+        title: `Pitch deck access denied for "${params.projectTitle}"`,
+        body: 'The project builder declined your deck request.',
+        data: { projectId: params.projectId },
+    });
+}
+
+export async function notifyProfileView(params: {
+    profileOwnerId: string;
+    viewerName: string;
+    viewerId: string;
+}): Promise<void> {
+    await createNotification({
+        userId: params.profileOwnerId,
+        type: 'PROFILE_VIEW',
+        title: `${params.viewerName} viewed your profile`,
+        body: 'Someone checked out your BIES profile.',
+        data: { viewerId: params.viewerId },
+    });
 }
 
 export async function notifyInvestmentStatus(params: {
