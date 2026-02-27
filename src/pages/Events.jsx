@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Calendar, MapPin, ExternalLink, Users } from 'lucide-react';
 
 const Events = () => {
@@ -68,12 +69,22 @@ const Events = () => {
                 <div className="events-grid">
                     {events.map(event => (
                         <div key={event.id} className="event-card">
-                            <div className="image-wrapper">
-                                <img src={event.image} alt={event.title} />
+                            <Link
+                                to={`/events/${event.id}`}
+                                className="card-image"
+                                style={{
+                                    backgroundImage: `url(${event.image})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    height: '160px',
+                                    display: 'block',
+                                    position: 'relative',
+                                }}
+                            >
                                 <span className={`category-badge ${event.category.toLowerCase()}`}>
                                     {event.category}
                                 </span>
-                            </div>
+                            </Link>
                             <div className="card-content">
                                 <div className="meta-row mb-2">
                                     <span className="date flex items-center gap-1 text-primary font-semibold text-sm">
@@ -83,7 +94,9 @@ const Events = () => {
                                         <Users size={12} /> {event.attendees}+
                                     </span>
                                 </div>
-                                <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                <Link to={`/events/${event.id}`} className="event-title-link">
+                                    <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                </Link>
                                 <p className="text-gray-500 text-sm mb-4 line-clamp-2">
                                     {event.description}
                                 </p>
@@ -131,25 +144,21 @@ const Events = () => {
 
                 .event-card {
                     background: white;
-                    border-radius: 16px;
+                    border-radius: var(--radius-lg);
                     overflow: hidden;
-                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+                    border: 1px solid var(--color-gray-200);
                     transition: transform 0.2s, box-shadow 0.2s;
-                    border: 1px solid #e2e8f0;
                 }
                 .event-card:hover {
                     transform: translateY(-4px);
                     box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
                 }
 
-                .image-wrapper {
-                    height: 200px;
+                .card-image {
+                    height: 160px;
                     position: relative;
-                }
-                .image-wrapper img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
+                    background-size: cover;
+                    background-position: center;
                 }
 
                 .category-badge {
@@ -218,6 +227,17 @@ const Events = () => {
                 
                 @media (min-width: 1024px) {
                     .events-grid { grid-template-columns: repeat(3, 1fr); }
+                }
+
+                .event-title-link {
+                    text-decoration: none;
+                    color: inherit;
+                }
+                .event-title-link:hover h3 {
+                    color: #F97316;
+                }
+                .event-title-link h3 {
+                    transition: color 0.2s;
                 }
             `}</style>
         </div>

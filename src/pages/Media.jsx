@@ -21,13 +21,45 @@ const Media = () => {
             <div className="tab-content mt-8">
                 {activeTab === 'news' && (
                     <div className="grid grid-cols-3 gap-lg">
-                        {[1, 2, 3].map(i => (
-                            <div key={i} className="article-card">
-                                <div className="card-img"></div>
+                        {[
+                            {
+                                id: 1,
+                                date: 'Oct 24, 2024',
+                                category: 'Regulatory',
+                                title: 'El Salvador Passes New Digital Securities Law',
+                                description: 'What this means for builders and international investors looking to tokenize assets.',
+                                image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=800&q=80',
+                            },
+                            {
+                                id: 2,
+                                date: 'Oct 18, 2024',
+                                category: 'Infrastructure',
+                                title: 'Bitcoin City Masterplan Reveals Phase One Timeline',
+                                description: 'The first phase of Bitcoin City breaks ground in 2025 with geothermal-powered mining facilities.',
+                                image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=800&q=80',
+                            },
+                            {
+                                id: 3,
+                                date: 'Oct 12, 2024',
+                                category: 'Community',
+                                title: 'Lightning Adoption Hits 3M Wallets in El Salvador',
+                                description: 'Chivo wallet alternatives and third-party Lightning apps drive a new wave of Bitcoin usage nationwide.',
+                                image: 'https://images.unsplash.com/photo-1639762681485-074b7f938ba0?auto=format&fit=crop&w=800&q=80',
+                            },
+                        ].map(article => (
+                            <div key={article.id} className="article-card">
+                                <div
+                                    className="card-img"
+                                    style={{
+                                        backgroundImage: `url(${article.image})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                    }}
+                                ></div>
                                 <div className="card-body">
-                                    <div className="meta">Oct 24, 2024 • Regulatory</div>
-                                    <h3>El Salvador Passes New Digital Securities Law</h3>
-                                    <p>What this means for builders and international investors looking to tokenize assets.</p>
+                                    <div className="meta">{article.date} • {article.category}</div>
+                                    <h3>{article.title}</h3>
+                                    <p>{article.description}</p>
                                     <a href="#" className="read-more">Read Article →</a>
                                 </div>
                             </div>
@@ -36,21 +68,51 @@ const Media = () => {
                 )}
 
                 {activeTab === 'video' && (
-                    <div className="grid grid-cols-2 gap-lg">
-                        <div className="video-card">
-                            <div className="video-thumb">
-                                <div className="play-btn"><Play size={24} fill="white" /></div>
-                            </div>
-                            <h3>Builder Spotlight: Geothermal Inc.</h3>
-                            <p>Interview with CEO Maria Gonzalez on mining with volcano power.</p>
-                        </div>
-                        <div className="video-card">
-                            <div className="video-thumb">
-                                <div className="play-btn"><Play size={24} fill="white" /></div>
-                            </div>
-                            <h3>Why Invest in El Salvador Now?</h3>
-                            <p>Panel discussion with Max Keiser and Stacy Herbert.</p>
-                        </div>
+                    <div className="grid grid-cols-3 gap-lg">
+                        {[
+                            {
+                                id: 1,
+                                title: 'Builder Spotlight: Geothermal Inc.',
+                                description: 'Interview with CEO Maria Gonzalez on mining with volcano power.',
+                                image: 'https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?auto=format&fit=crop&w=800&q=80',
+                                url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                                duration: '12:34',
+                            },
+                            {
+                                id: 2,
+                                title: 'Why Invest in El Salvador Now?',
+                                description: 'Panel discussion with Max Keiser and Stacy Herbert.',
+                                image: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=800&q=80',
+                                url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                                duration: '24:10',
+                            },
+                            {
+                                id: 3,
+                                title: 'How Bitcoin Beach Changed El Zonte',
+                                description: 'Documentary on the grassroots movement that started it all.',
+                                image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=800&q=80',
+                                url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+                                duration: '18:45',
+                            },
+                        ].map(video => (
+                            <a key={video.id} href={video.url} target="_blank" rel="noopener noreferrer" className="video-card">
+                                <div
+                                    className="video-thumb"
+                                    style={{
+                                        backgroundImage: `url(${video.image})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                    }}
+                                >
+                                    <div className="play-btn"><Play size={24} fill="white" /></div>
+                                    <span className="duration-badge">{video.duration}</span>
+                                </div>
+                                <div className="card-body">
+                                    <h3>{video.title}</h3>
+                                    <p>{video.description}</p>
+                                </div>
+                            </a>
+                        ))}
                     </div>
                 )}
 
@@ -113,29 +175,57 @@ const Media = () => {
         .read-more { color: var(--color-primary); font-weight: 600; font-size: 0.9rem; }
 
         /* Video Card */
-        .video-card { cursor: pointer; }
-        .video-thumb {
-          height: 300px;
-          background: #0A192F;
+        .video-card {
+          background: white;
           border-radius: var(--radius-lg);
+          overflow: hidden;
+          border: 1px solid var(--color-gray-200);
+          cursor: pointer;
+          text-decoration: none;
+          color: inherit;
+          display: block;
+          transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .video-card:hover {
+          transform: translateY(-4px);
+          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        .video-thumb {
+          height: 200px;
+          background: #0A192F;
           position: relative;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-bottom: 1rem;
+          background-size: cover;
+          background-position: center;
         }
         .play-btn {
-          width: 64px;
-          height: 64px;
+          width: 56px;
+          height: 56px;
           border-radius: 50%;
-          background: rgba(255,255,255,0.2);
+          background: rgba(0,0,0,0.5);
           backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
-          transition: transform 0.2s;
+          transition: transform 0.2s, background 0.2s;
         }
         .video-card:hover .play-btn { transform: scale(1.1); background: var(--color-primary); }
+        .duration-badge {
+          position: absolute;
+          bottom: 0.75rem;
+          right: 0.75rem;
+          background: rgba(0,0,0,0.8);
+          color: white;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          font-family: var(--font-mono);
+        }
+        .video-card .card-body h3 { font-size: 1.1rem; margin-bottom: 0.5rem; line-height: 1.3; }
+        .video-card .card-body p { font-size: 0.9rem; color: var(--color-gray-500); }
 
         /* Resources */
         .resources-list { max-width: 800px; margin: 0 auto; }
