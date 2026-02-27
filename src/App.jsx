@@ -15,6 +15,8 @@ import Investors from './pages/Investors';
 import Media from './pages/Media';
 import News from './pages/News';
 import Events from './pages/Events';
+import EventDetail from './pages/EventDetail';
+import CreateEvent from './pages/CreateEvent';
 import Team from './pages/Team';
 import PublicProfile from './pages/PublicProfile';
 import Profile from './pages/Profile';
@@ -75,6 +77,7 @@ const AppContent = () => {
 
                     <Route path="/discover" element={<Discover />} />
                     <Route path="/events" element={<Events />} />
+                    <Route path="/events/:id" element={<EventDetail />} />
                     <Route path="/builders" element={<Builders />} />
                     <Route path="/builder/:id" element={<PublicProfile type="builder" />} />
                     <Route path="/investors" element={<Investors />} />
@@ -107,10 +110,16 @@ const AppContent = () => {
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="new-project" element={<NewProject />} />
+                        <Route path="create-event" element={<CreateEvent />} />
                     </Route>
                     <Route path="/dashboard/investor" element={
                         <ProtectedRoute>
                             <InvestorDashboard />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/dashboard/investor/create-event" element={
+                        <ProtectedRoute>
+                            <CreateEvent />
                         </ProtectedRoute>
                     } />
 

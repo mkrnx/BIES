@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Clock, MessageCircle, ArrowUpRight, Search, Filter } from 'lucide-react';
+import { TrendingUp, Clock, MessageCircle, ArrowUpRight, Search, Filter, CalendarPlus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const InvestorDashboard = () => {
@@ -24,6 +24,9 @@ const InvestorDashboard = () => {
                     <a href="#" className="sidebar-link">My Watchlist</a>
                     <a href="#" className="sidebar-link">Messages</a>
                     <a href="#" className="sidebar-link">Deal Flow</a>
+                    <Link to="/dashboard/investor/create-event" className="sidebar-link">
+                        <CalendarPlus size={18} /> Create Event
+                    </Link>
                     <div className="divider"></div>
                     <a href="#" className="sidebar-link">Settings</a>
                 </div>
