@@ -1,0 +1,11 @@
+node_modules
+server/node_modules
+server/dist
+server/prisma/dev.db
+server/prisma/dev.db-journal
+server/uploads
+dist
+.git
+.env
+*.local
+.DS_Store
