@@ -24,9 +24,7 @@ const InvestorDashboard = () => {
                     <a href="#" className="sidebar-link">My Watchlist</a>
                     <a href="#" className="sidebar-link">Messages</a>
                     <a href="#" className="sidebar-link">Deal Flow</a>
-                    <Link to="/dashboard/investor/create-event" className="sidebar-link">
-                        <CalendarPlus size={18} /> Create Event
-                    </Link>
+                    <a href="/dashboard/investor/create-event" className="sidebar-link">Create Event</a>
                     <div className="divider"></div>
                     <a href="#" className="sidebar-link">Settings</a>
                 </div>
