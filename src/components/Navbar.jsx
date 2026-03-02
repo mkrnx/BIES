@@ -240,7 +240,8 @@ const Navbar = () => {
 
         .nav-link.active {
           color: white;
-          font-weight: 600;
+          font-family: var(--font-display);
+          font-weight: 700;
         }
 
         .icon-btn {
@@ -385,7 +386,8 @@ const Navbar = () => {
 
         .dropdown-item.active {
           background: var(--color-gray-100);
-          font-weight: 600;
+          font-family: var(--font-display);
+          font-weight: 700;
         }
 
         .dot {

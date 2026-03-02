@@ -1,5 +1,43 @@
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-SemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Inter';
+  src: url('./assets/fonts/Inter-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'PP Formula Narrow';
+  src: url('./assets/fonts/PPFormula-NarrowBold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
 
 :root {
   /* Brand Colors */
@@ -26,7 +64,7 @@
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Barlow Condensed', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'PP Formula Narrow', system-ui, -apple-system, sans-serif;
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -65,17 +103,14 @@ body {
 }
 
 h1,
-h2 {
-  font-family: var(--font-display);
-  margin: 0;
-}
-
+h2,
 h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-sans);
+  font-family: var(--font-display);
   margin: 0;
+  font-weight: 700;
 }
 
 a {
@@ -159,7 +194,8 @@ textarea {
 }
 
 .font-semibold {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
 }
 
 .text-sm {
@@ -173,7 +209,8 @@ textarea {
   justify-content: center;
   padding: 0.75rem 1.5rem;
   border-radius: var(--radius-full);
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-weight: 700;
   transition: all 0.2s;
   cursor: pointer;
 }
