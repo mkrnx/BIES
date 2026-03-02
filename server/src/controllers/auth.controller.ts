@@ -8,6 +8,39 @@ import { encryptPrivateKey } from '../services/crypto.service';
 import { cache } from '../services/redis.service';
 import { z } from 'zod';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
+
+// ─── Relay whitelist helper ───
+
+const WHITELIST_PATH = process.env.RELAY_WHITELIST_PATH || '/app/relay-whitelist/whitelist.txt';
+
+/**
+ * Add a pubkey to the Nostr relay whitelist file.
+ * The strfry write-policy plugin reads this file to authorize publishers.
+ */
+function addToRelayWhitelist(pubkey: string): void {
+    try {
+        const dir = path.dirname(WHITELIST_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        // Read existing whitelist
+        let existing = '';
+        if (fs.existsSync(WHITELIST_PATH)) {
+            existing = fs.readFileSync(WHITELIST_PATH, 'utf8');
+        }
+
+        // Only add if not already present
+        if (!existing.split('\n').includes(pubkey)) {
+            fs.appendFileSync(WHITELIST_PATH, pubkey + '\n');
+            console.log(`[Relay] Added ${pubkey.substring(0, 8)}... to whitelist`);
+        }
+    } catch (err) {
+        console.error('[Relay] Failed to update whitelist:', err);
+    }
+}
 
 // ─── Validation Schemas ───
 
@@ -234,6 +267,9 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
         }
 
         const token = generateToken(user.id, user.role);
+
+        // Add pubkey to relay whitelist so user can publish to the BIES relay
+        addToRelayWhitelist(pubkey);
 
         res.json({
             user: {
