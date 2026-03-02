@@ -1,17 +1,17 @@
 /* Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Barlow+Condensed:wght@600;700;800&display=swap');
 
 :root {
   /* Brand Colors */
   --color-primary: #0047AB;
-  /* Deep Blue */
-  --color-secondary: #F7931A;
-  /* Bitcoin Orange */
-  --color-secondary-dark: #D97E0C;
+  /* Cobalt Blue */
+  --color-secondary: #FF5B00;
+  /* Blaze Orange */
+  --color-secondary-dark: #CC4A00;
   --color-neutral-dark: #0A192F;
 
   /* Grays */
-  --color-gray-50: #F8F9FA;
+  --color-gray-50: #F9F5F4;
   --color-gray-100: #F1F5F9;
   --color-gray-200: #E2E8F0;
   --color-gray-300: #CBD5E1;
@@ -26,7 +26,7 @@
 
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
-  --font-display: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-display: 'Barlow Condensed', 'Outfit', system-ui, -apple-system, sans-serif;
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -48,8 +48,11 @@
   --radius-full: 9999px;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 body {
@@ -62,12 +65,16 @@ body {
 }
 
 h1,
-h2,
+h2 {
+  font-family: var(--font-display);
+  margin: 0;
+}
+
 h3,
 h4,
 h5,
 h6 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
   margin: 0;
 }
 
@@ -76,7 +83,10 @@ a {
   color: inherit;
 }
 
-button {
+button,
+input,
+select,
+textarea {
   font-family: inherit;
   border: none;
   background: none;
@@ -184,7 +194,7 @@ button {
 }
 
 .btn-secondary:hover {
-  background: #D97E0C;
+  background: #CC4A00;
   transform: translateY(-1px);
 }
 

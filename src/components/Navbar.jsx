@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
 import { Menu, Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
@@ -39,8 +40,8 @@ const Navbar = () => {
       <div className="container flex items-center justify-between" style={{ height: '100%' }}>
 
         {/* Logo */}
-        <Link to="/" className="logo" style={{ color: 'white', fontSize: '2.5rem', fontFamily: '"IBM Plex Sans Condensed", sans-serif', fontWeight: 500 }}>
-          BIES
+        <Link to="/" className="logo">
+          <img src={logoHorizontalWhite} alt="Build in El Salvador" style={{ height: '40px' }} />
         </Link>
 
         {/* Desktop Nav */}
@@ -202,7 +203,7 @@ const Navbar = () => {
       {/* Mode Indicator Strip - Removed since it conflicts with the bottom orange border in this layout */}
 
       {/* Bitcoin Orange Line */}
-      <div style={{ height: '3px', width: '100%', backgroundColor: '#F7931A', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
+      <div style={{ height: '3px', width: '100%', backgroundColor: '#FF5B00', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
 
       <style jsx>{`
         .navbar {
@@ -215,21 +216,17 @@ const Navbar = () => {
         }
 
         .logo {
-          font-family: 'IBM Plex Sans Condensed', var(--font-display);
-          font-size: 2.25rem;
-          font-weight: 500; /* Medium */
-          letter-spacing: -0.05em;
-          color: white;
           display: flex;
           align-items: center;
         }
-        
-        .logo-accent {
-          display: none;
+
+        .logo img {
+          height: 40px;
+          width: auto;
         }
 
         .nav-link {
-          font-family: 'IBM Plex Sans Condensed', sans-serif;
+          font-family: var(--font-sans);
           font-weight: 400; /* Regular */
           color: white;
           font-size: 0.95rem;

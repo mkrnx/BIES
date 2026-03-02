@@ -217,7 +217,7 @@ const Landing = () => {
           margin-bottom: 1.5rem;
         }
         .icon-box.blue { background: rgba(0, 71, 171, 0.1); color: var(--color-primary); }
-        .icon-box.orange { background: rgba(247, 147, 26, 0.1); color: var(--color-secondary); }
+        .icon-box.orange { background: rgba(255, 91, 0, 0.1); color: var(--color-secondary); }
         .icon-box.dark { background: rgba(10, 25, 47, 0.1); color: var(--color-neutral-dark); }
 
         .feature-card h3 { font-size: 1.25rem; margin-bottom: 0.75rem; color: var(--color-neutral-dark); }

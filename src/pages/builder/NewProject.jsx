@@ -133,7 +133,7 @@ const NewProject = () => {
           font-size: 1rem;
           transition: border-color 0.2s;
         }
-        .input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(247, 147, 26, 0.1); }
+        .input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.1); }
         
         .textarea { resize: vertical; }
 

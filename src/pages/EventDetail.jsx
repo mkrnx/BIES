@@ -191,7 +191,7 @@ const EventDetail = () => {
 
             <style jsx>{`
                 .event-detail-page {
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     min-height: 100vh;
                     padding-bottom: 4rem;
                 }
@@ -238,7 +238,7 @@ const EventDetail = () => {
                     backdrop-filter: blur(4px);
                 }
                 .category-badge.official { background: rgba(0, 71, 171, 0.9); color: white; }
-                .category-badge.network { background: rgba(247, 147, 26, 0.9); color: white; }
+                .category-badge.network { background: rgba(255, 91, 0, 0.9); color: white; }
                 .category-badge.community { background: rgba(16, 185, 129, 0.9); color: white; }
                 .category-badge.private { background: rgba(0, 0, 0, 0.8); color: white; }
                 .category-badge.education { background: rgba(124, 58, 237, 0.9); color: white; }
@@ -312,7 +312,7 @@ const EventDetail = () => {
                     align-items: flex-start;
                     gap: 0.75rem;
                     margin-bottom: 1.25rem;
-                    color: #F97316;
+                    color: #FF5B00;
                 }
 
                 .info-row div {
@@ -341,7 +341,7 @@ const EventDetail = () => {
                     gap: 0.5rem;
                     width: 100%;
                     padding: 0.85rem;
-                    background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+                    background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
                     color: white;
                     border-radius: 10px;
                     font-size: 0.9rem;

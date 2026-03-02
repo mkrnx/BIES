@@ -277,7 +277,7 @@ const CreateEvent = () => {
 
             <style jsx>{`
                 .create-event-page {
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     min-height: 100vh;
                     padding-bottom: 4rem;
                 }
@@ -349,7 +349,7 @@ const CreateEvent = () => {
                     border-radius: 10px;
                     font-size: 0.95rem;
                     color: #0f172a;
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     transition: border-color 0.2s, box-shadow 0.2s;
                     box-sizing: border-box;
                 }
@@ -358,8 +358,8 @@ const CreateEvent = () => {
                 .form-group select:focus,
                 .form-group textarea:focus {
                     outline: none;
-                    border-color: #F97316;
-                    box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+                    border-color: #FF5B00;
+                    box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.1);
                 }
 
                 .form-group textarea { resize: vertical; }
@@ -384,7 +384,7 @@ const CreateEvent = () => {
                     transition: border-color 0.2s, background 0.2s;
                 }
                 .upload-area:hover {
-                    border-color: #F97316;
+                    border-color: #FF5B00;
                     background: #fff7ed;
                 }
                 .upload-hint {
@@ -408,7 +408,7 @@ const CreateEvent = () => {
                 .checkbox-label input[type="checkbox"] {
                     width: 18px;
                     height: 18px;
-                    accent-color: #F97316;
+                    accent-color: #FF5B00;
                 }
 
                 .satlantis-note {
@@ -427,7 +427,7 @@ const CreateEvent = () => {
                 }
 
                 .satlantis-note a {
-                    color: #F97316;
+                    color: #FF5B00;
                     font-weight: 600;
                     text-decoration: underline;
                 }
@@ -449,7 +449,7 @@ const CreateEvent = () => {
                 }
 
                 .btn-primary {
-                    background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+                    background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
                     color: white;
                 }
                 .btn-primary:hover:not(:disabled) {
@@ -467,7 +467,7 @@ const CreateEvent = () => {
                     border: 1px solid #e2e8f0;
                 }
                 .btn-outline:hover {
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     border-color: #cbd5e1;
                 }
 
