@@ -55,7 +55,7 @@ const PublicRoute = ({ children }) => {
 // Dashboard Redirect based on Role
 const DashboardRedirect = () => {
     const { user } = useAuth();
-    if (user?.role === 'builder') return <BuilderDashboard />;
+    if (user?.role?.toUpperCase() === 'BUILDER') return <BuilderDashboard />;
     return <InvestorDashboard />;
 };
 
