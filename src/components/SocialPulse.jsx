@@ -107,7 +107,7 @@ const SocialPulse = () => {
 
             <style jsx>{`
                 .social-pulse {
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     border-top: 1px solid var(--color-gray-200);
                 }
 

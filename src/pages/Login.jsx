@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Zap, Lock } from 'lucide-react';
+import logoIcon from '../assets/logo-icon.svg';
 
 const Login = () => {
     const { loginWithNostr } = useAuth();
@@ -24,9 +25,7 @@ const Login = () => {
         <div className="login-container">
             <div className="login-card">
                 <div className="logo mb-6">
-                    <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-500">
-                        BIES
-                    </span>
+                    <img src={logoIcon} alt="BIES" style={{ height: '64px', width: 'auto' }} />
                 </div>
 
                 <h2 className="text-2xl font-bold mb-2">Welcome Back</h2>
@@ -63,7 +62,7 @@ const Login = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                 }
                 .login-card {
                     background: white;

@@ -85,7 +85,7 @@ const Investors = () => {
                 
                 .icon-wrapper {
                     padding: 1.5rem;
-                    background: rgba(247, 147, 26, 0.1);
+                    background: rgba(255, 91, 0, 0.1);
                     border-radius: 50%;
                     width: fit-content;
                 }

@@ -68,7 +68,7 @@ const PublicProfile = ({ type }) => {
             <style jsx>{`
                 .profile-page {
                     min-height: 100vh;
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                 }
                 .container { margin: 0 auto; padding: 0 1rem; }
                 .py-8 { padding-top: 2rem; padding-bottom: 2rem; }

@@ -119,7 +119,7 @@ const Events = () => {
 
             <style jsx>{`
                 .events-page {
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                     min-height: 100vh;
                 }
                 .container {
@@ -172,7 +172,7 @@ const Events = () => {
                     backdrop-filter: blur(4px);
                 }
                 .category-badge.official { background: rgba(0, 71, 171, 0.9); color: white; }
-                .category-badge.network { background: rgba(247, 147, 26, 0.9); color: white; }
+                .category-badge.network { background: rgba(255, 91, 0, 0.9); color: white; }
                 .category-badge.community { background: rgba(16, 185, 129, 0.9); color: white; }
                 .category-badge.private { background: rgba(0, 0, 0, 0.8); color: white; }
                 .category-badge.education { background: rgba(124, 58, 237, 0.9); color: white; }
@@ -234,7 +234,7 @@ const Events = () => {
                     color: inherit;
                 }
                 .event-title-link:hover h3 {
-                    color: #F97316;
+                    color: #FF5B00;
                 }
                 .event-title-link h3 {
                     transition: color 0.2s;

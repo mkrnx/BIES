@@ -181,7 +181,7 @@ const InvestorDashboard = () => {
         }
         
         .stat-box.featured {
-            background: linear-gradient(135deg, #F97316 0%, #EA580C 100%);
+            background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
             color: white;
         }
         .stat-box.featured .label { color: rgba(255,255,255,0.9); }

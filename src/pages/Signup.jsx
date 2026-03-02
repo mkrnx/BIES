@@ -171,7 +171,7 @@ const Signup = () => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    background: #f8fafc;
+                    background: var(--color-gray-50);
                 }
                 .signup-card {
                     background: white;
@@ -226,7 +226,7 @@ const Signup = () => {
                     color: #64748b;
                     border-radius: 99px;
                 }
-                .btn-outline:hover { background: #f8fafc; }
+                .btn-outline:hover { background: var(--color-gray-50); }
 
                 .role-card {
                     border: 2px solid #e2e8f0;
