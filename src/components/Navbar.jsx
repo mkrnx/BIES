@@ -216,12 +216,12 @@ const Navbar = () => {
       {/* Mode Indicator Strip - Removed since it conflicts with the bottom orange border in this layout */}
 
       {/* Bitcoin Orange Line */}
-      <div style={{ height: '3px', width: '100%', backgroundColor: '#FF5B00', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
+      <div style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
 
       <style jsx>{`
         .navbar {
           height: 70px;
-          background: #0047AB; /* Salvadoran blue */
+          background: var(--color-primary);
           position: sticky;
           top: 0;
           z-index: 100;

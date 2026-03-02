@@ -205,13 +205,13 @@ const EventDetail = () => {
                     display: inline-flex;
                     align-items: center;
                     gap: 0.5rem;
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     font-size: 0.9rem;
                     font-weight: 500;
                     margin: 1.5rem 0;
                     transition: color 0.2s;
                 }
-                .back-link:hover { color: #0f172a; }
+                .back-link:hover { color: var(--color-gray-900); }
 
                 .hero-image {
                     width: 100%;
@@ -254,17 +254,17 @@ const EventDetail = () => {
                     font-size: 2rem;
                     font-weight: 800;
                     margin-bottom: 0.5rem;
-                    color: #0f172a;
+                    color: var(--color-gray-900);
                 }
 
                 .organizer {
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     font-size: 0.95rem;
                     margin-bottom: 2rem;
                 }
 
                 .description p {
-                    color: #334155;
+                    color: var(--color-gray-700);
                     line-height: 1.75;
                     margin-bottom: 1rem;
                     font-size: 1rem;
@@ -282,8 +282,8 @@ const EventDetail = () => {
                     align-items: center;
                     gap: 0.35rem;
                     padding: 0.3rem 0.75rem;
-                    background: #e2e8f0;
-                    color: #475569;
+                    background: var(--color-gray-200);
+                    color: var(--color-gray-600);
                     border-radius: 9999px;
                     font-size: 0.8rem;
                     font-weight: 500;
@@ -292,10 +292,10 @@ const EventDetail = () => {
                 /* Sidebar */
                 .info-card {
                     background: white;
-                    border-radius: 16px;
+                    border-radius: var(--radius-xl);
                     padding: 1.75rem;
-                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-                    border: 1px solid #e2e8f0;
+                    box-shadow: var(--shadow-md);
+                    border: 1px solid var(--color-gray-200);
                     position: sticky;
                     top: 100px;
                 }
@@ -304,7 +304,7 @@ const EventDetail = () => {
                     font-size: 1.1rem;
                     font-weight: 700;
                     margin-bottom: 1.5rem;
-                    color: #0f172a;
+                    color: var(--color-gray-900);
                 }
 
                 .info-row {
@@ -312,7 +312,7 @@ const EventDetail = () => {
                     align-items: flex-start;
                     gap: 0.75rem;
                     margin-bottom: 1.25rem;
-                    color: #FF5B00;
+                    color: var(--color-secondary);
                 }
 
                 .info-row div {
@@ -322,7 +322,7 @@ const EventDetail = () => {
 
                 .info-label {
                     font-size: 0.75rem;
-                    color: #94a3b8;
+                    color: var(--color-gray-400);
                     text-transform: uppercase;
                     font-weight: 600;
                     margin-bottom: 0.15rem;
@@ -330,7 +330,7 @@ const EventDetail = () => {
 
                 .info-value {
                     font-size: 0.95rem;
-                    color: #1e293b;
+                    color: var(--color-gray-800);
                     font-weight: 500;
                 }
 
@@ -341,7 +341,7 @@ const EventDetail = () => {
                     gap: 0.5rem;
                     width: 100%;
                     padding: 0.85rem;
-                    background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
+                    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
                     color: white;
                     border-radius: 10px;
                     font-size: 0.9rem;

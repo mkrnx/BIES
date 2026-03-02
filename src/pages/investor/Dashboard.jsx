@@ -148,7 +148,7 @@ const InvestorDashboard = () => {
         }
         
         .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        .sidebar-link.active { background: #FFF7ED; color: var(--color-secondary); font-weight: 600; }
+        .sidebar-link.active { background: rgba(255, 91, 0, 0.05); color: var(--color-secondary); font-weight: 600; }
 
         .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
 
@@ -181,12 +181,11 @@ const InvestorDashboard = () => {
         }
         
         .stat-box.featured {
-            background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
+            background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
             color: white;
         }
         .stat-box.featured .label { color: rgba(255,255,255,0.9); }
         .stat-box.featured .change { color: white; background: rgba(255,255,255,0.2); padding: 2px 8px; border-radius: 99px; }
-
 
         .stat-box .label { display: block; color: var(--color-gray-400); font-size: 0.875rem; margin-bottom: 0.5rem; }
         .value-row { display: flex; align-items: center; gap: 0.75rem; }
@@ -243,7 +242,6 @@ const InvestorDashboard = () => {
         .rec-content h4 { font-size: 0.95rem; margin-bottom: 0.25rem; }
         .rec-content p { font-size: 0.85rem; color: var(--color-gray-500); line-height: 1.3; }
 
-        .w-full { width: 100%; }
         .mt-4 { margin-top: 1rem; }
 
         @media (max-width: 1024px) {

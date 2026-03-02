@@ -46,18 +46,16 @@ const Investors = () => {
             </div>
 
             <style jsx>{`
-                .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; width: 100%; }
-                
                 .investors-grid {
                     display: grid;
                     gap: 2rem;
                     grid-template-columns: repeat(1, 1fr);
                 }
-                
+
                 @media (min-width: 640px) {
                     .investors-grid { grid-template-columns: repeat(2, 1fr); }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .investors-grid { grid-template-columns: repeat(3, 1fr); }
                 }
@@ -66,23 +64,12 @@ const Investors = () => {
                     .investors-grid { grid-template-columns: repeat(4, 1fr); }
                 }
 
-                .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
-                .mb-12 { margin-bottom: 3rem; }
-                .mb-4 { margin-bottom: 1rem; }
-                .mt-4 { margin-top: 1rem; }
-                .mt-8 { margin-top: 2rem; }
                 .h-48 { height: 12rem; }
-                .p-5 { padding: 1.25rem; }
                 .bg-gray-100 { background: var(--color-gray-100); }
                 .text-gray-400 { color: var(--color-gray-400); }
-                .text-gray-500 { color: var(--color-gray-500); }
                 .object-cover { object-fit: cover; }
-                .w-full { width: 100%; }
-                .h-full { height: 100%; }
-                .relative { position: relative; }
-                .absolute { position: absolute; }
                 .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
-                
+
                 .icon-wrapper {
                     padding: 1.5rem;
                     background: rgba(255, 91, 0, 0.1);

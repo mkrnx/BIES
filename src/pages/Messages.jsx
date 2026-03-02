@@ -179,7 +179,7 @@ const Messages = () => {
                 .conversation-list { flex: 1; overflow-y: auto; }
                 .chat-item { padding: 1rem; display: flex; gap: 1rem; cursor: pointer; border-bottom: 1px solid var(--color-gray-50); transition: background 0.2s; position: relative; }
                 .chat-item:hover { background: var(--color-gray-50); }
-                .chat-item.active { background: #EDF5FF; border-left: 3px solid var(--color-primary); }
+                .chat-item.active { background: var(--color-gray-100); border-left: 3px solid var(--color-primary); }
 
                 .chat-avatar { width: 40px; height: 40px; background: var(--color-gray-200); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--color-gray-600); flex-shrink: 0; }
                 .chat-avatar.small { width: 32px; height: 32px; font-size: 0.8rem; }
@@ -191,7 +191,7 @@ const Messages = () => {
                 
                 .unread-badge { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: var(--color-primary); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 99px; }
 
-                .chat-area { flex: 1; display: flex; flex-direction: column; background: #F9FAFB; }
+                .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); }
                 .chat-header { padding: 1rem; background: white; border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; }
                 
                 .active-chat-content { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
@@ -208,13 +208,7 @@ const Messages = () => {
 
                 .icon-btn { padding: 8px; border-radius: 50%; color: var(--color-gray-500); }
                 .icon-btn:hover { background: var(--color-gray-100); }
-                .flex { display: flex; }
-                .justify-between { justify-content: space-between; }
                 .gap-3 { gap: 0.75rem; }
-                .text-primary { color: var(--color-primary); }
-                .btn-primary { background: var(--color-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-full); cursor: pointer; font-weight: 600; }
-                .btn-primary:hover { opacity: 0.9; }
-                .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
                 @media (max-width: 768px) {
                     .messages-sidebar { width: 100%; display: ${activeChatPubkey ? 'none' : 'flex'}; }

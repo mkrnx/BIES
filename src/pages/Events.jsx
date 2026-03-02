@@ -122,25 +122,7 @@ const Events = () => {
                     background: var(--color-gray-50);
                     min-height: 100vh;
                 }
-                .container {
-                    padding: 0 1rem;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }
-                .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
                 .mb-10 { margin-bottom: 2.5rem; }
-                .mb-4 { margin-bottom: 1rem; }
-                
-                .grid {
-                    display: grid;
-                }
-                @media (min-width: 768px) {
-                    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
-                }
-                @media (min-width: 1024px) {
-                    .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-                }
-                .gap-8 { gap: 2rem; }
 
                 .event-card {
                     background: white;
@@ -151,7 +133,7 @@ const Events = () => {
                 }
                 .event-card:hover {
                     transform: translateY(-4px);
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                    box-shadow: var(--shadow-lg);
                 }
 
                 .card-image {
@@ -194,18 +176,18 @@ const Events = () => {
                     gap: 0.5rem;
                     width: 100%;
                     padding: 0.75rem;
-                    background: #f1f5f9;
-                    color: #475569;
+                    background: var(--color-gray-100);
+                    color: var(--color-gray-600);
                     border-radius: 8px;
                     font-size: 0.875rem;
                     font-weight: 600;
                     transition: all 0.2s;
                 }
                 .view-btn:hover {
-                    background: #e2e8f0;
-                    color: #1e293b;
+                    background: var(--color-gray-200);
+                    color: var(--color-gray-800);
                 }
-                
+
                 .line-clamp-2 {
                     display: -webkit-box;
                     -webkit-line-clamp: 2;
@@ -213,18 +195,16 @@ const Events = () => {
                     overflow: hidden;
                 }
 
-                .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; width: 100%; }
-
                 .events-grid {
                     display: grid;
                     gap: 2rem;
                     grid-template-columns: repeat(1, 1fr);
                 }
-                
+
                 @media (min-width: 640px) {
                     .events-grid { grid-template-columns: repeat(2, 1fr); }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .events-grid { grid-template-columns: repeat(3, 1fr); }
                 }
@@ -234,7 +214,7 @@ const Events = () => {
                     color: inherit;
                 }
                 .event-title-link:hover h3 {
-                    color: #FF5B00;
+                    color: var(--color-secondary);
                 }
                 .event-title-link h3 {
                     transition: color 0.2s;

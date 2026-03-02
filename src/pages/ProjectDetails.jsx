@@ -125,16 +125,14 @@ const ProjectDetails = () => {
                 
                 .badges { display: flex; gap: 0.5rem; }
                 .badge { padding: 4px 10px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-                .badge.industry { background: #E0F2FE; color: #0369A1; }
-                .badge.stage { background: #F3F4F6; color: #374151; }
+                .badge.industry { background: #E0F2FE; color: var(--color-primary); }
+                .badge.stage { background: var(--color-gray-100); color: var(--color-gray-700); }
 
                 .meta { display: flex; gap: 1.5rem; color: var(--color-gray-500); font-weight: 500; }
                 .meta-item { display: flex; align-items: center; gap: 6px; }
 
                 .header-actions { display: flex; gap: 1rem; }
 
-                .grid { display: grid; }
-                .grid-cols-3 { grid-template-columns: 2fr 1fr; }
                 .gap-8 { gap: 2rem; }
 
                 .detail-card { background: white; border-radius: var(--radius-lg); border: 1px solid var(--color-gray-200); padding: 2rem; margin-bottom: 2rem; }
@@ -156,8 +154,7 @@ const ProjectDetails = () => {
                 .progress-bar { height: 8px; background: var(--color-gray-100); border-radius: 99px; overflow: hidden; margin-bottom: 0.5rem; }
                 .fill { height: 100%; background: var(--color-success); }
                 
-                .w-full { width: 100%; }
-                .mt-2 { margin-top: 0.75rem; }
+                .main-layout { grid-template-columns: 2fr 1fr; }
 
                 .doc-list { list-style: none; padding: 0; }
                 .doc-list li { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 0; border-bottom: 1px solid var(--color-gray-100); color: var(--color-primary); cursor: pointer; font-weight: 500; }
@@ -166,7 +163,7 @@ const ProjectDetails = () => {
 
                 @media (max-width: 768px) {
                     .project-header { flex-direction: column; align-items: flex-start; gap: 1.5rem; }
-                    .grid-cols-3 { grid-template-columns: 1fr; }
+                    .main-layout { grid-template-columns: 1fr; }
                     .metrics-grid { grid-template-columns: 1fr; }
                 }
             `}</style>
