@@ -162,17 +162,54 @@ export async function getNostrChallenge(req: Request, res: Response): Promise<vo
 /**
  * POST /auth/nostr-login
  * Verify a signed challenge from a Nostr extension (step 2).
- * For now, we do a simplified version: the client sends their pubkey,
- * we look up or create the user.
+ * Client sends pubkey + signedEvent (kind:27235 with challenge as content).
  */
 export async function nostrLogin(req: Request, res: Response): Promise<void> {
     try {
-        const { pubkey } = req.body;
+        const { pubkey, signedEvent } = req.body;
 
         if (!pubkey || pubkey.length !== 64) {
             res.status(400).json({ error: 'Valid hex pubkey required' });
             return;
         }
+
+        // Verify challenge-response
+        const stored = challenges.get(pubkey);
+        if (!stored) {
+            res.status(400).json({ error: 'No challenge found. Request a new one.' });
+            return;
+        }
+
+        if (Date.now() > stored.expiresAt) {
+            challenges.delete(pubkey);
+            res.status(400).json({ error: 'Challenge expired. Request a new one.' });
+            return;
+        }
+
+        if (!signedEvent || !signedEvent.sig || !signedEvent.id) {
+            res.status(400).json({ error: 'Signed event required' });
+            return;
+        }
+
+        if (signedEvent.pubkey !== pubkey) {
+            res.status(400).json({ error: 'Pubkey mismatch in signed event' });
+            return;
+        }
+
+        if (signedEvent.content !== stored.challenge) {
+            res.status(400).json({ error: 'Challenge mismatch' });
+            return;
+        }
+
+        // Verify signature using nostr-tools
+        const { verifyEvent } = await import('nostr-tools/pure');
+        if (!verifyEvent(signedEvent)) {
+            res.status(401).json({ error: 'Invalid signature' });
+            return;
+        }
+
+        // Challenge verified — clean up
+        challenges.delete(pubkey);
 
         // Find or create the user
         let user = await prisma.user.findUnique({
