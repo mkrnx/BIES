@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight } from 'lucide-react';
 
 const Signup = () => {
@@ -72,7 +72,7 @@ const Signup = () => {
                             Generate My Keys
                         </button>
                         <div className="mt-4 text-sm text-gray-400">
-                            Already have keys? <a href="/login" className="text-blue-500">Log in</a>
+                            Already have keys? <Link to="/login" className="text-blue-500">Log in</Link>
                         </div>
                     </div>
                 )}

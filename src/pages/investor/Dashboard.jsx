@@ -20,13 +20,13 @@ const InvestorDashboard = () => {
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-menu">
-                    <a href="#" className="sidebar-link active">Dashboard</a>
-                    <a href="#" className="sidebar-link">My Watchlist</a>
-                    <a href="#" className="sidebar-link">Messages</a>
-                    <a href="#" className="sidebar-link">Deal Flow</a>
-                    <a href="/dashboard/investor/create-event" className="sidebar-link">Create Event</a>
+                    <Link to="/dashboard/investor" className="sidebar-link active">Dashboard</Link>
+                    <Link to="/dashboard/investor" className="sidebar-link">My Watchlist</Link>
+                    <Link to="/messages" className="sidebar-link">Messages</Link>
+                    <Link to="/discover" className="sidebar-link">Deal Flow</Link>
+                    <Link to="/dashboard/investor/create-event" className="sidebar-link">Create Event</Link>
                     <div className="divider"></div>
-                    <a href="#" className="sidebar-link">Settings</a>
+                    <Link to="/settings" className="sidebar-link">Settings</Link>
                 </div>
             </aside>
 
