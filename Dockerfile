@@ -12,7 +12,7 @@ COPY index.html vite.config.js ./
 COPY src/ src/
 
 # In production, API calls go through nginx at the same origin
-ENV VITE_API_URL=/api
+ENV VITE_API_URL=/biestest/api
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
