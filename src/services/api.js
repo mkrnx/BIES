@@ -267,6 +267,19 @@ export const adminApi = {
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
 };
 
+// ─── Content (Media / Blog / Resources) ──────────────────────────────────────
+
+export const contentApi = {
+    articles: (params = {}) => get('/content/articles', params),
+    // params: { category, search, page, limit }
+
+    article: (idOrSlug) => get(`/content/articles/${idOrSlug}`),
+
+    videos: (params = {}) => get('/content/videos', params),
+
+    resources: (params = {}) => get('/content/resources', params),
+};
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export const healthApi = {
