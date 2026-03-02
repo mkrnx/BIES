@@ -1,4 +1,5 @@
-import { SimplePool, nip19 } from 'nostr-tools';
+import { SimplePool, nip19, finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
+import * as nip44 from 'nostr-tools/nip44';
 
 // Private BIES relay (set via env or falls back to relative WebSocket URL)
 export const BIES_RELAY = import.meta.env.VITE_NOSTR_RELAY || (
@@ -27,13 +28,11 @@ class NostrService {
     }
 
     async connect() {
-        // SimplePool handles connections automatically when sub/get is called
         return true;
     }
 
     // Subscribe to posts (Kind 1) from specific authors
     subscribeToFeed(authors, callback) {
-        // Ensure authors are hex keys
         const authorsHex = authors.map(a => a.startsWith('npub') ? nip19.decode(a).data : a);
 
         const sub = this.pool.subscribeMany(
@@ -55,7 +54,7 @@ class NostrService {
             }
         );
 
-        return sub; // Return sub to allow cleanup
+        return sub;
     }
 
     // Fetch user profile (Kind 0)
@@ -72,22 +71,117 @@ class NostrService {
         }
     }
 
-    // Subscribe to DMs (Kind 4 - NIP-04)
-    // Note: This requires the user's private key (or extension) to decrypt
-    // For now we just fetch the events, decryption happens in the component/hook using window.nostr
-    subscribeToDMs(myPubkey, callback) {
+    // ─── NIP-17 Private Direct Messages ──────────────────────────────────────
+
+    /**
+     * Send a NIP-17 DM (kind:14 rumor → kind:13 seal → kind:1059 gift-wrap)
+     *
+     * Flow:
+     * 1. Create unsigned kind:14 rumor with message content
+     * 2. Sign a kind:13 seal containing NIP-44 encrypted rumor
+     * 3. Create kind:1059 gift-wrap with random throwaway key
+     * 4. Publish gift-wraps to both sender's and recipient's relays
+     */
+    async sendNip17DM(recipientPubkey, content) {
+        if (!window.nostr) {
+            throw new Error('Nostr extension not found');
+        }
+
+        const senderPubkey = await window.nostr.getPublicKey();
+        const now = Math.floor(Date.now() / 1000);
+        // Randomize timestamp within +/- 2 days for metadata privacy
+        const randomOffset = Math.floor(Math.random() * 172800) - 86400;
+
+        // Step 1: Create kind:14 rumor (unsigned direct message)
+        const rumor = {
+            kind: 14,
+            created_at: now,
+            tags: [['p', recipientPubkey]],
+            content: content,
+            pubkey: senderPubkey,
+        };
+
+        // Step 2: Create kind:13 seal — encrypt rumor for recipient
+        // We need the sender to sign the seal, so we use window.nostr
+        const rumorJson = JSON.stringify(rumor);
+
+        // Encrypt rumor with NIP-44 for recipient
+        let encryptedForRecipient;
+        if (window.nostr.nip44) {
+            encryptedForRecipient = await window.nostr.nip44.encrypt(recipientPubkey, rumorJson);
+        } else {
+            throw new Error('Your Nostr extension does not support NIP-44 encryption. Please update your extension.');
+        }
+
+        const sealForRecipient = await window.nostr.signEvent({
+            kind: 13,
+            created_at: now + randomOffset,
+            tags: [],
+            content: encryptedForRecipient,
+        });
+
+        // Step 3: Gift-wrap for recipient (kind:1059) with random throwaway key
+        const recipientGiftWrap = this._createGiftWrap(sealForRecipient, recipientPubkey, now);
+
+        // Step 4: Create seal + gift-wrap for sender (so they can see sent messages)
+        let encryptedForSender;
+        if (window.nostr.nip44) {
+            encryptedForSender = await window.nostr.nip44.encrypt(senderPubkey, rumorJson);
+        }
+
+        const sealForSender = await window.nostr.signEvent({
+            kind: 13,
+            created_at: now + randomOffset,
+            tags: [],
+            content: encryptedForSender,
+        });
+
+        const senderGiftWrap = this._createGiftWrap(sealForSender, senderPubkey, now);
+
+        // Publish both gift-wraps
+        await Promise.allSettled([
+            ...this.pool.publish(this.relays, recipientGiftWrap),
+            ...this.pool.publish(this.relays, senderGiftWrap),
+        ]);
+
+        return rumor;
+    }
+
+    /**
+     * Create a kind:1059 gift-wrap using a random throwaway key
+     */
+    _createGiftWrap(seal, recipientPubkey, baseTimestamp) {
+        const randomSk = generateSecretKey();
+        const randomPk = getPublicKey(randomSk);
+        const randomOffset = Math.floor(Math.random() * 172800) - 86400;
+
+        // NIP-44 encrypt the seal for the recipient using the throwaway key
+        const conversationKey = nip44.v2.utils.getConversationKey(randomSk, recipientPubkey);
+        const encryptedSeal = nip44.v2.encrypt(JSON.stringify(seal), conversationKey);
+
+        const giftWrap = {
+            kind: 1059,
+            created_at: baseTimestamp + randomOffset,
+            tags: [['p', recipientPubkey]],
+            content: encryptedSeal,
+            pubkey: randomPk,
+        };
+
+        // Sign with throwaway key
+        return finalizeEvent(giftWrap, randomSk);
+    }
+
+    /**
+     * Subscribe to NIP-17 DMs (kind:1059 gift-wraps addressed to myPubkey)
+     */
+    subscribeToNip17DMs(myPubkey, callback) {
         const sub = this.pool.subscribeMany(
             this.relays,
             [
                 {
-                    kinds: [4], // Direct Message
-                    '#p': [myPubkey], // Received by me
-                    limit: 50
-                },
-                {
-                    kinds: [4],
-                    authors: [myPubkey], // Sent by me
-                    limit: 50
+                    kinds: [1059],
+                    '#p': [myPubkey],
+                    limit: 100,
                 }
             ],
             {
@@ -99,43 +193,64 @@ class NostrService {
         return sub;
     }
 
-    // Publish event (Kind 1 or 4) via Window.Nostr (NIP-07)
-    async publishEvent(event) {
-        if (!window.nostr) {
-            throw new Error("Nostr extension not found");
+    /**
+     * Unwrap a NIP-17 gift-wrap to extract the rumor (kind:14)
+     *
+     * 1. NIP-44 decrypt gift-wrap content with my key + gift-wrap author pubkey → kind:13 seal
+     * 2. NIP-44 decrypt seal content with my key + seal author pubkey → kind:14 rumor
+     */
+    async unwrapGiftWrap(giftWrapEvent) {
+        if (!window.nostr?.nip44) {
+            throw new Error('NIP-44 not supported by extension');
         }
 
-        try {
-            const signedEvent = await window.nostr.signEvent(event);
-            return Promise.any(this.pool.publish(this.relays, signedEvent));
-        } catch (error) {
-            console.error("Error publishing event:", error);
-            throw error;
+        // Step 1: Decrypt the gift-wrap to get the seal
+        const sealJson = await window.nostr.nip44.decrypt(giftWrapEvent.pubkey, giftWrapEvent.content);
+        const seal = JSON.parse(sealJson);
+
+        if (seal.kind !== 13) {
+            throw new Error('Invalid seal kind: ' + seal.kind);
         }
+
+        // Step 2: Decrypt the seal to get the rumor
+        const rumorJson = await window.nostr.nip44.decrypt(seal.pubkey, seal.content);
+        const rumor = JSON.parse(rumorJson);
+
+        if (rumor.kind !== 14) {
+            throw new Error('Invalid rumor kind: ' + rumor.kind);
+        }
+
+        return {
+            rumor,
+            sealPubkey: seal.pubkey, // The actual sender
+            giftWrapId: giftWrapEvent.id,
+        };
     }
 
-    // Helper to encrypt and send DM (NIP-04)
-    async sendDM(recipientPubkey, content) {
+    // Legacy NIP-04 methods (kept for backward compatibility)
+    subscribeToDMs(myPubkey, callback) {
+        const sub = this.pool.subscribeMany(
+            this.relays,
+            [
+                { kinds: [4], '#p': [myPubkey], limit: 50 },
+                { kinds: [4], authors: [myPubkey], limit: 50 }
+            ],
+            { onevent: (event) => callback(event) }
+        );
+        return sub;
+    }
+
+    async publishEvent(event) {
         if (!window.nostr) {
-            throw new Error("Nostr extension not found");
+            throw new Error('Nostr extension not found');
         }
+        const signedEvent = await window.nostr.signEvent(event);
+        return Promise.any(this.pool.publish(this.relays, signedEvent));
+    }
 
-        try {
-            // NIP-04 encryption
-            const ciphertext = await window.nostr.nip04.encrypt(recipientPubkey, content);
-
-            const event = {
-                kind: 4,
-                created_at: Math.floor(Date.now() / 1000),
-                tags: [['p', recipientPubkey]],
-                content: ciphertext,
-            };
-
-            return this.publishEvent(event);
-        } catch (error) {
-            console.error("Error sending DM:", error);
-            throw error;
-        }
+    async sendDM(recipientPubkey, content) {
+        // Use NIP-17 by default
+        return this.sendNip17DM(recipientPubkey, content);
     }
 }
 
