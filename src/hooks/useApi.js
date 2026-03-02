@@ -1,74 +1,62 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * Generic hook for fetching data from the BIES API.
+ * Hook for GET-style API queries with loading/error states.
  *
- * @param {Function} apiFn - The API function to call (e.g. projectsApi.list)
- * @param {*} params - Parameters to pass to the API function
- * @param {Object} options - { enabled: true, deps: [] }
- * @returns {{ data, loading, error, refetch }}
+ * @param {Function} apiFn  – API function to call, e.g. projectsApi.list
+ * @param {*}        params – Single param or object passed to apiFn (optional)
+ * @param {Object}   options
+ * @param {Array}    options.deps   – Extra dependencies that trigger refetch
+ * @param {boolean}  options.skip   – Skip the initial fetch
  */
 export function useApiQuery(apiFn, params, options = {}) {
-    const { enabled = true, deps = [] } = options;
+    const { deps = [], skip = false } = options;
     const [data, setData] = useState(null);
-    const [loading, setLoading] = useState(enabled);
+    const [loading, setLoading] = useState(!skip);
     const [error, setError] = useState(null);
     const mountedRef = useRef(true);
 
     const fetch = useCallback(async () => {
-        if (!enabled) return;
         setLoading(true);
         setError(null);
-
         try {
-            const result = params !== undefined
-                ? await apiFn(params)
-                : await apiFn();
-
-            if (mountedRef.current) {
-                setData(result);
-            }
+            const result = params !== undefined ? await apiFn(params) : await apiFn();
+            if (mountedRef.current) setData(result);
         } catch (err) {
-            if (mountedRef.current) {
-                setError(err);
-            }
+            if (mountedRef.current) setError(err.message || 'Request failed');
         } finally {
-            if (mountedRef.current) {
-                setLoading(false);
-            }
+            if (mountedRef.current) setLoading(false);
         }
-    }, [apiFn, enabled, JSON.stringify(params), ...deps]);
+    }, [apiFn, JSON.stringify(params), ...deps]);
 
     useEffect(() => {
         mountedRef.current = true;
-        fetch();
+        if (!skip) fetch();
         return () => { mountedRef.current = false; };
-    }, [fetch]);
+    }, [fetch, skip]);
 
     return { data, loading, error, refetch: fetch };
 }
 
 /**
- * Hook for API mutations (POST, PUT, DELETE).
+ * Hook for POST/PUT/DELETE mutations.
  *
- * @param {Function} apiFn - The API mutation function
- * @returns {{ mutate, loading, error, data }}
+ * @param {Function} apiFn – API function, e.g. projectsApi.create
  */
 export function useApiMutation(apiFn) {
-    const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const [data, setData] = useState(null);
 
     const mutate = useCallback(async (...args) => {
         setLoading(true);
         setError(null);
-
         try {
             const result = await apiFn(...args);
             setData(result);
             return result;
         } catch (err) {
-            setError(err);
+            setError(err.message || 'Request failed');
             throw err;
         } finally {
             setLoading(false);

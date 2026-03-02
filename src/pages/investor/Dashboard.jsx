@@ -1,126 +1,171 @@
-import React, { useState } from 'react';
-import { TrendingUp, Clock, MessageCircle, ArrowUpRight, Search, Filter, CalendarPlus } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React from 'react';
+import { TrendingUp, Search, ArrowUpRight, Loader2, LogOut } from 'lucide-react';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { useApiQuery } from '../../hooks/useApi';
+import { watchlistApi, analyticsApi, projectsApi } from '../../services/api';
 
 const InvestorDashboard = () => {
-    // Mock Data
-    const watchlist = [
-        { id: 101, name: 'BitBonds El Salvador', industry: 'Fintech', stage: 'Seed', amount: '250k', raised: '150k', growth: '+12%' },
-        { id: 102, name: 'AgriTech Volcanica', industry: 'Agriculture', stage: 'Pre-Seed', amount: '100k', raised: '20k', growth: '+5%' },
-        { id: 103, name: 'La Libertad Hotels', industry: 'Real Estate', stage: 'Series A', amount: '5M', raised: '3.2M', growth: '+24%' },
-    ];
+    const location = useLocation();
+    const { user, logout } = useAuth();
+    const isRoot = location.pathname === '/dashboard/investor';
 
-    const forYou = [
-        { id: 201, name: 'Geothermal One', description: 'Bitcoin mining powered by volcano energy.' },
-        { id: 202, name: 'Lightning ATM Network', description: 'Expanding BTMs across San Miguel.' },
-    ];
+    const { data: watchlistData, loading: wlLoading } = useApiQuery(watchlistApi.list);
+    const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.investorDashboard);
+    const { data: recommended, loading: recLoading } = useApiQuery(projectsApi.list, { featured: true, limit: 3 });
+
+    const watchlist = watchlistData?.data || watchlistData || [];
+    const forYou = recommended?.data || recommended || [];
+
+    const capitalDeployed = stats?.capitalDeployed || 0;
+    const capitalChange = stats?.capitalChange || 0;
+    const activeProjects = stats?.activeProjects || 0;
+    const pitchDecks = stats?.pitchDecksReviewed || 0;
+
+    const formatCurrency = (val) => {
+        if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+        return `$${val}`;
+    };
 
     return (
         <div className="dashboard-layout">
             {/* Sidebar */}
             <aside className="sidebar">
                 <div className="sidebar-menu">
-                    <Link to="/dashboard/investor" className="sidebar-link active">Dashboard</Link>
-                    <Link to="/dashboard/investor" className="sidebar-link">My Watchlist</Link>
-                    <Link to="/messages" className="sidebar-link">Messages</Link>
-                    <Link to="/discover" className="sidebar-link">Deal Flow</Link>
-                    <Link to="/dashboard/investor/create-event" className="sidebar-link">Create Event</Link>
+                    <NavLink to="/dashboard/investor" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Dashboard</NavLink>
+                    <NavLink to="/dashboard/investor/watchlist" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>My Watchlist</NavLink>
+                    <NavLink to="/dashboard/investor/messages" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Messages</NavLink>
+                    <NavLink to="/dashboard/investor/deal-flow" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Deal Flow</NavLink>
+                    <NavLink to="/dashboard/investor/create-event" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Create Event</NavLink>
                     <div className="divider"></div>
-                    <Link to="/settings" className="sidebar-link">Settings</Link>
+                    <NavLink to="/dashboard/investor/settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Settings</NavLink>
+                    <button onClick={logout} className="sidebar-link text-error">
+                        <LogOut size={18} style={{ marginRight: 8 }} /> Logout
+                    </button>
                 </div>
             </aside>
 
             {/* Main Content */}
             <main className="dashboard-content">
-                <div className="header">
-                    <div>
-                        <h1>Investor Dashboard</h1>
-                        <p className="subtitle">Welcome back, Capital Ventures.</p>
-                    </div>
-                    <Link to="/discover" className="btn btn-secondary">
-                        <Search size={18} style={{ marginRight: 8 }} /> Find Projects
-                    </Link>
-                </div>
+                {isRoot ? (
+                    <>
+                        <div className="header">
+                            <div>
+                                <h1>Investor Dashboard</h1>
+                                <p className="subtitle">Welcome back{user?.profile?.name ? `, ${user.profile.name}` : ''}.</p>
+                            </div>
+                            <Link to="/discover" className="btn btn-secondary">
+                                <Search size={18} style={{ marginRight: 8 }} /> Find Projects
+                            </Link>
+                        </div>
 
-                {/* Portfolio Stats Widgets */}
-                <div className="stats-grid">
-                    <div className="stat-box featured">
-                        <span className="label">Capital Deployed</span>
-                        <div className="value-row">
-                            <span className="value">$1.2M</span>
-                            <span className="change positive">
-                                <TrendingUp size={16} /> +12%
-                            </span>
-                        </div>
-                    </div>
-                    <div className="stat-box">
-                        <span className="label">Active Projects</span>
-                        <div className="value-row">
-                            <span className="value">12</span>
-                            <span className="sub">in portfolio</span>
-                        </div>
-                    </div>
-                    <div className="stat-box">
-                        <span className="label">Pitch Decks Reviewed</span>
-                        <div className="value-row">
-                            <span className="value">48</span>
-                            <span className="sub">this month</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="content-grid">
-                    {/* Watchlist Section */}
-                    <section className="dashboard-card main-card">
-                        <div className="card-header">
-                            <h3>My Watchlist</h3>
-                            <button className="text-secondary text-sm font-semibold">View All</button>
-                        </div>
-                        <table className="watchlist-table">
-                            <thead>
-                                <tr>
-                                    <th>Project</th>
-                                    <th>Industry</th>
-                                    <th>Stage</th>
-                                    <th>Target</th>
-                                    <th>Growth</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {watchlist.map(item => (
-                                    <tr key={item.id}>
-                                        <td className="font-semibold">{item.name}</td>
-                                        <td>{item.industry}</td>
-                                        <td><span className="pill">{item.stage}</span></td>
-                                        <td>${item.amount}</td>
-                                        <td className="text-success">{item.growth}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </section>
-
-                    {/* For You Section */}
-                    <section className="dashboard-card side-card">
-                        <div className="card-header">
-                            <h3>For You</h3>
-                        </div>
-                        <div className="recommendations-list">
-                            {forYou.map(item => (
-                                <div key={item.id} className="rec-item">
-                                    <div className="rec-icon">
-                                        <ArrowUpRight size={18} />
-                                    </div>
-                                    <div className="rec-content">
-                                        <h4>{item.name}</h4>
-                                        <p>{item.description}</p>
-                                    </div>
+                        {/* Portfolio Stats Widgets */}
+                        <div className="stats-grid">
+                            <div className="stat-box featured">
+                                <span className="label">Capital Deployed</span>
+                                <div className="value-row">
+                                    <span className="value">{formatCurrency(capitalDeployed)}</span>
+                                    {capitalChange !== 0 && (
+                                        <span className="change positive">
+                                            <TrendingUp size={16} /> +{capitalChange}%
+                                        </span>
+                                    )}
                                 </div>
-                            ))}
+                            </div>
+                            <div className="stat-box">
+                                <span className="label">Active Projects</span>
+                                <div className="value-row">
+                                    <span className="value">{activeProjects}</span>
+                                    <span className="sub">in portfolio</span>
+                                </div>
+                            </div>
+                            <div className="stat-box">
+                                <span className="label">Pitch Decks Reviewed</span>
+                                <div className="value-row">
+                                    <span className="value">{pitchDecks}</span>
+                                    <span className="sub">this month</span>
+                                </div>
+                            </div>
                         </div>
-                        <button className="btn btn-outline w-full mt-4">Discover More</button>
-                    </section>
-                </div>
+
+                        <div className="content-grid">
+                            {/* Watchlist Section */}
+                            <section className="dashboard-card main-card">
+                                <div className="card-header">
+                                    <h3>My Watchlist</h3>
+                                    <Link to="/dashboard/investor/watchlist" className="text-secondary text-sm font-semibold" style={{ textDecoration: 'none' }}>View All</Link>
+                                </div>
+                                {wlLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} /></div>
+                                ) : watchlist.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-gray-500)' }}>
+                                        No projects in your watchlist yet. <Link to="/discover" style={{ color: 'var(--color-primary)' }}>Discover projects</Link>
+                                    </div>
+                                ) : (
+                                    <table className="watchlist-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Project</th>
+                                                <th>Industry</th>
+                                                <th>Stage</th>
+                                                <th>Target</th>
+                                                <th>Growth</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {watchlist.slice(0, 5).map(item => {
+                                                const project = item.project || item;
+                                                return (
+                                                    <tr key={item.id || project.id}>
+                                                        <td className="font-semibold">
+                                                            <Link to={`/project/${project.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                                {project.name}
+                                                            </Link>
+                                                        </td>
+                                                        <td>{project.category || project.industry || '—'}</td>
+                                                        <td><span className="pill">{project.stage || '—'}</span></td>
+                                                        <td>{project.fundingGoal ? formatCurrency(project.fundingGoal) : '—'}</td>
+                                                        <td className="text-success">{project.growth || '—'}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </section>
+
+                            {/* For You Section */}
+                            <section className="dashboard-card side-card">
+                                <div className="card-header">
+                                    <h3>For You</h3>
+                                </div>
+                                {recLoading ? (
+                                    <div style={{ textAlign: 'center', padding: '2rem' }}><Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} /></div>
+                                ) : forYou.length === 0 ? (
+                                    <div style={{ padding: '1rem', color: 'var(--color-gray-500)', fontSize: '0.9rem' }}>No recommendations yet.</div>
+                                ) : (
+                                    <div className="recommendations-list">
+                                        {forYou.slice(0, 3).map(item => (
+                                            <Link key={item.id} to={`/project/${item.id}`} className="rec-item" style={{ textDecoration: 'none', color: 'inherit' }}>
+                                                <div className="rec-icon">
+                                                    <ArrowUpRight size={18} />
+                                                </div>
+                                                <div className="rec-content">
+                                                    <h4>{item.name}</h4>
+                                                    <p>{item.tagline || item.description?.substring(0, 80) || ''}</p>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
+                                <Link to="/discover" className="btn btn-outline w-full mt-4" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>Discover More</Link>
+                            </section>
+                        </div>
+                    </>
+                ) : (
+                    <Outlet />
+                )}
             </main>
 
             <style jsx>{`
@@ -145,16 +190,25 @@ const InvestorDashboard = () => {
           border-radius: var(--radius-md);
           margin-bottom: 0.25rem;
           font-weight: 500;
+          text-decoration: none;
+          border: none;
+          background: none;
+          width: 100%;
+          cursor: pointer;
+          font-size: 0.95rem;
         }
-        
+
         .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
         .sidebar-link.active { background: rgba(255, 91, 0, 0.05); color: var(--color-secondary); font-weight: 600; }
+        .sidebar-link.text-error { color: var(--color-error); }
+        .sidebar-link.text-error:hover { background: #FEF2F2; }
 
         .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
 
         .dashboard-content {
           flex: 1;
           padding: 2rem;
+          overflow-y: auto;
         }
 
         .header {
@@ -179,7 +233,7 @@ const InvestorDashboard = () => {
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
         }
-        
+
         .stat-box.featured {
             background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
             color: white;
@@ -213,13 +267,13 @@ const InvestorDashboard = () => {
           align-items: center;
           margin-bottom: 1.5rem;
         }
-        
+
         /* Watchlist Table */
         .watchlist-table { width: 100%; border-collapse: collapse; }
         .watchlist-table th { text-align: left; padding-bottom: 1rem; color: var(--color-gray-400); font-size: 0.85rem; }
         .watchlist-table td { padding: 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--color-gray-100); }
         .watchlist-table tr:last-child td { border-bottom: none; }
-        
+
         .pill { background: var(--color-gray-100); padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; color: var(--color-gray-600); }
         .text-success { color: var(--color-success); font-weight: 600; }
 
@@ -234,7 +288,7 @@ const InvestorDashboard = () => {
             transition: transform 0.2s;
         }
         .rec-item:hover { transform: translateY(-2px); border-color: var(--color-secondary); }
-        
+
         .rec-icon {
             width: 32px; height: 32px; background: #FFF7ED; border-radius: 50%; color: var(--color-secondary);
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -250,7 +304,10 @@ const InvestorDashboard = () => {
 
         @media (max-width: 768px) {
           .dashboard-layout { flex-direction: column; }
-          .sidebar { width: 100%; border-right: none; display: flex; overflow-x: auto; }
+          .sidebar { width: 100%; border-right: none; display: flex; overflow-x: auto; padding: 0.5rem; border-bottom: 1px solid var(--color-gray-200); }
+          .sidebar-menu { display: flex; gap: 0.5rem; width: 100%; }
+          .sidebar-link { white-space: nowrap; width: auto; }
+          .divider { display: none; }
           .stats-grid { grid-template-columns: 1fr; }
         }
       `}</style>
