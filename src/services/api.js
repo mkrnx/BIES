@@ -10,7 +10,7 @@
  *  - All API methods co-located here for easy maintenance
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/biestest/api';
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 

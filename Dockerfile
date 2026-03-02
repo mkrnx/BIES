@@ -77,7 +77,7 @@ FROM nginx:1.27-alpine AS nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=client-build /app/dist /usr/share/nginx/html
+COPY --from=client-build /app/dist /usr/share/nginx/html/biestest
 
 # Run nginx as non-root
 RUN chown -R nginx:nginx /usr/share/nginx/html \
