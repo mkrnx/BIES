@@ -1,9 +1,35 @@
-import React from 'react';
-import { Hammer, Search, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Hammer, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { builders } from '../data/mockProfiles';
+import { profilesApi } from '../services/api';
 
 const Builders = () => {
+    const [profiles, setProfiles] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    useEffect(() => {
+        const fetchBuilders = async () => {
+            setLoading(true);
+            try {
+                const params = { role: 'BUILDER', page, limit: 12 };
+                if (search) params.search = search;
+                const result = await profilesApi.list(params);
+                const list = result?.data || result || [];
+                setProfiles(Array.isArray(list) ? list : []);
+                setTotalPages(result?.totalPages || 1);
+            } catch {
+                setProfiles([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        const debounce = setTimeout(fetchBuilders, 300);
+        return () => clearTimeout(debounce);
+    }, [search, page]);
+
     return (
         <div className="container py-12">
             <div className="flex flex-col items-center text-center mb-12">
@@ -17,33 +43,58 @@ const Builders = () => {
 
                 <div className="search-bar mt-8">
                     <Search size={20} className="text-gray-400" />
-                    <input type="text" placeholder="Search builders..." />
+                    <input type="text" placeholder="Search builders..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                 </div>
             </div>
 
-            <div className="builders-grid">
-                {builders.map((builder) => (
-                    <Link to={`/builder/${builder.id}`} key={builder.id} className="card-link">
-                        <div className="card">
-                            <div className="h-48 bg-gray-100 relative">
-                                <img src={builder.image} alt={builder.name} className="w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black bg-opacity-10 hover:bg-opacity-0 transition-all"></div>
-                            </div>
-                            <div className="p-5">
-                                <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>
-                                <p className="text-primary font-medium text-sm mb-2">{builder.company}</p>
-                                <p className="text-sm text-gray-500 line-clamp-2 mb-4">{builder.bio}</p>
+            {loading ? (
+                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                </div>
+            ) : profiles.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
+                    No builders found{search ? ` matching "${search}"` : ''}.
+                </div>
+            ) : (
+                <div className="builders-grid">
+                    {profiles.map((builder) => (
+                        <Link to={`/builder/${builder.id}`} key={builder.id} className="card-link">
+                            <div className="card">
+                                <div className="h-48 bg-gray-100 relative">
+                                    {builder.avatar || builder.image ? (
+                                        <img src={builder.avatar || builder.image} alt={builder.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                            <User size={48} style={{ color: 'var(--color-gray-300)' }} />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-5">
+                                    <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>
+                                    {builder.company && <p className="text-primary font-medium text-sm mb-2">{builder.company}</p>}
+                                    <p className="text-sm text-gray-500 line-clamp-2 mb-4">{builder.bio || ''}</p>
 
-                                <div className="flex flex-wrap gap-2 mt-auto">
-                                    {builder.tags.map((tag, i) => (
-                                        <span key={i} className="tag">{tag}</span>
-                                    ))}
+                                    {(builder.skills || builder.tags || []).length > 0 && (
+                                        <div className="flex flex-wrap gap-2 mt-auto">
+                                            {(builder.skills || builder.tags).map((tag, i) => (
+                                                <span key={i} className="tag">{tag}</span>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    </Link>
-                ))}
-            </div>
+                        </Link>
+                    ))}
+                </div>
+            )}
+
+            {totalPages > 1 && (
+                <div className="pagination">
+                    <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
+                    <span>Page {page} of {totalPages}</span>
+                    <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+                </div>
+            )}
 
             <style jsx>{`
                 .builders-grid {
