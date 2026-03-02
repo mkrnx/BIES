@@ -1,16 +1,29 @@
 import { SimplePool, nip19 } from 'nostr-tools';
 
-export const NOSTR_RELAYS = [
+// Private BIES relay (set via env or falls back to relative WebSocket URL)
+export const BIES_RELAY = import.meta.env.VITE_NOSTR_RELAY || (
+    typeof window !== 'undefined'
+        ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/relay`
+        : 'ws://localhost:7777'
+);
+
+// Public relays for fetching external profiles/content
+export const PUBLIC_RELAYS = [
     'wss://relay.damus.io',
     'wss://relay.primal.net',
     'wss://relay.nostr.band',
     'wss://nos.lol',
 ];
 
+// All relays (BIES relay first for priority)
+export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
+
 class NostrService {
     constructor() {
         this.pool = new SimplePool();
         this.relays = NOSTR_RELAYS;
+        this.biesRelay = BIES_RELAY;
+        this.publicRelays = PUBLIC_RELAYS;
     }
 
     async connect() {
