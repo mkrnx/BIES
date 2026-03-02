@@ -9,6 +9,8 @@
   /* Blaze Orange */
   --color-secondary-dark: #CC4A00;
   --color-neutral-dark: #0A192F;
+  --color-neutral-light: #F8F9FA;
+  --color-primary-dark: #003682;
 
   /* Grays */
   --color-gray-50: #F9F5F4;
@@ -17,6 +19,9 @@
   --color-gray-300: #CBD5E1;
   --color-gray-400: #94A3B8;
   --color-gray-500: #64748B;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1E293B;
   --color-gray-900: #0F172A;
 
   /* Semantic */
@@ -27,6 +32,7 @@
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'Barlow Condensed', 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, 'Cascadia Code', monospace;
 
   /* Spacing */
   --spacing-xs: 0.25rem;
@@ -184,7 +190,7 @@ textarea {
 }
 
 .btn-primary:hover {
-  background: #003682;
+  background: var(--color-primary-dark);
   transform: translateY(-1px);
 }
 
@@ -194,7 +200,7 @@ textarea {
 }
 
 .btn-secondary:hover {
-  background: #CC4A00;
+  background: var(--color-secondary-dark);
   transform: translateY(-1px);
 }
 
@@ -208,7 +214,7 @@ textarea {
 }
 
 .text-mono {
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-family: var(--font-mono);
 }
 
 .text-primary {
@@ -217,4 +223,130 @@ textarea {
 
 .text-secondary {
   color: var(--color-secondary);
+}
+
+.text-gray-500 {
+  color: var(--color-gray-500);
+}
+
+.text-3xl {
+  font-size: 2.5rem;
+}
+
+.text-lg {
+  font-size: 1.125rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+/* Spacing Utilities */
+.mb-2 {
+  margin-bottom: 0.5rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
+
+.mb-12 {
+  margin-bottom: 3rem;
+}
+
+.mt-2 {
+  margin-top: 0.75rem;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}
+
+.mt-8 {
+  margin-top: 2rem;
+}
+
+.py-8 {
+  padding-top: 2rem;
+  padding-bottom: 2rem;
+}
+
+.py-12 {
+  padding-top: 3rem;
+  padding-bottom: 3rem;
+}
+
+.py-16 {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.p-5 {
+  padding: 1.25rem;
+}
+
+/* Layout Utilities */
+.w-full {
+  width: 100%;
+}
+
+.h-full {
+  height: 100%;
+}
+
+.max-w-2xl {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.gap-2 {
+  gap: 0.5rem;
+}
+
+/* Background & Border Utilities */
+.bg-white {
+  background: white;
+}
+
+.border-y {
+  border-top: 1px solid var(--color-gray-200);
+  border-bottom: 1px solid var(--color-gray-200);
+}
+
+/* Form Elements */
+.input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-md);
+  outline: none;
+  font-family: inherit;
+}
+
+.input:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(0, 71, 171, 0.1);
+}
+
+.grid-cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-cols-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
 }

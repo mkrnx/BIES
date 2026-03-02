@@ -81,7 +81,7 @@ const ModeSelectionModal = () => {
 
         /* Builder Side Styles */
         .builder-side {
-          background: linear-gradient(135deg, var(--color-primary) 0%, #003682 100%);
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
           color: white;
         }
         .builder-side:hover {
@@ -94,7 +94,7 @@ const ModeSelectionModal = () => {
 
         /* Investor Side Styles */
         .investor-side {
-          background: linear-gradient(135deg, var(--color-secondary) 0%, #CC4A00 100%);
+          background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
           color: white;
         }
         .investor-side:hover {

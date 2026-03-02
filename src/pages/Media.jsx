@@ -137,12 +137,6 @@ const Media = () => {
             </div>
 
             <style jsx>{`
-        .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
-        .mb-12 { margin-bottom: 3rem; }
-        .mt-8 { margin-top: 2rem; }
-        .text-center { text-align: center; }
-        .text-gray-500 { color: var(--color-gray-500); }
-
         .tabs {
           display: flex;
           justify-content: center;
@@ -188,11 +182,11 @@ const Media = () => {
         }
         .video-card:hover {
           transform: translateY(-4px);
-          box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+          box-shadow: var(--shadow-lg);
         }
         .video-thumb {
           height: 200px;
-          background: #0A192F;
+          background: var(--color-neutral-dark);
           position: relative;
           display: flex;
           align-items: center;

@@ -113,7 +113,7 @@ const BuilderOverview = () => {
         }
         
         .stat-box.featured {
-            background: linear-gradient(135deg, #0047AB 0%, #003380 100%);
+            background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
             color: white;
         }
         .stat-box.featured .label { color: rgba(255,255,255,0.8); }
@@ -130,7 +130,7 @@ const BuilderOverview = () => {
             overflow: hidden;
             margin-top: 0.5rem;
         }
-        .progress-fill { height: 100%; background: #4ADE80; border-radius: 99px; }
+        .progress-fill { height: 100%; background: var(--color-success); border-radius: 99px; }
 
         .text-success { color: var(--color-success); }
         .text-secondary { color: var(--color-secondary); }

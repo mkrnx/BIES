@@ -291,7 +291,7 @@ const CreateEvent = () => {
                     display: inline-flex;
                     align-items: center;
                     gap: 0.5rem;
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     font-size: 0.9rem;
                     font-weight: 500;
                     margin: 1.5rem 0;
@@ -301,14 +301,14 @@ const CreateEvent = () => {
                     padding: 0;
                     transition: color 0.2s;
                 }
-                .back-link:hover { color: #0f172a; }
+                .back-link:hover { color: var(--color-gray-900); }
 
                 .form-card {
                     background: white;
-                    border-radius: 16px;
+                    border-radius: var(--radius-xl);
                     padding: 2.5rem;
-                    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06);
-                    border: 1px solid #e2e8f0;
+                    box-shadow: var(--shadow-md);
+                    border: 1px solid var(--color-gray-200);
                 }
 
                 .form-card h1 {
@@ -318,7 +318,7 @@ const CreateEvent = () => {
                 }
 
                 .subtitle {
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     margin-bottom: 2rem;
                 }
 
@@ -332,7 +332,7 @@ const CreateEvent = () => {
                     gap: 0.4rem;
                     font-size: 0.875rem;
                     font-weight: 600;
-                    color: #334155;
+                    color: var(--color-gray-700);
                     margin-bottom: 0.5rem;
                 }
 
@@ -345,10 +345,10 @@ const CreateEvent = () => {
                 .form-group textarea {
                     width: 100%;
                     padding: 0.75rem 1rem;
-                    border: 1px solid #e2e8f0;
-                    border-radius: 10px;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
                     font-size: 0.95rem;
-                    color: #0f172a;
+                    color: var(--color-gray-900);
                     background: var(--color-gray-50);
                     transition: border-color 0.2s, box-shadow 0.2s;
                     box-sizing: border-box;
@@ -358,7 +358,7 @@ const CreateEvent = () => {
                 .form-group select:focus,
                 .form-group textarea:focus {
                     outline: none;
-                    border-color: #FF5B00;
+                    border-color: var(--color-secondary);
                     box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.1);
                 }
 
@@ -377,19 +377,19 @@ const CreateEvent = () => {
                     justify-content: center;
                     gap: 0.5rem;
                     padding: 2rem;
-                    border: 2px dashed #e2e8f0;
-                    border-radius: 12px;
-                    color: #94a3b8;
+                    border: 2px dashed var(--color-gray-200);
+                    border-radius: var(--radius-lg);
+                    color: var(--color-gray-400);
                     cursor: pointer;
                     transition: border-color 0.2s, background 0.2s;
                 }
                 .upload-area:hover {
-                    border-color: #FF5B00;
+                    border-color: var(--color-secondary);
                     background: #fff7ed;
                 }
                 .upload-hint {
                     font-size: 0.75rem;
-                    color: #94a3b8;
+                    color: var(--color-gray-400);
                 }
 
                 .checkbox-group {
@@ -402,19 +402,19 @@ const CreateEvent = () => {
                     gap: 0.5rem;
                     cursor: pointer;
                     font-weight: 500 !important;
-                    color: #475569 !important;
+                    color: var(--color-gray-600) !important;
                 }
 
                 .checkbox-label input[type="checkbox"] {
                     width: 18px;
                     height: 18px;
-                    accent-color: #FF5B00;
+                    accent-color: var(--color-secondary);
                 }
 
                 .satlantis-note {
                     background: #fffbeb;
                     border: 1px solid #fde68a;
-                    border-radius: 10px;
+                    border-radius: var(--radius-md);
                     padding: 1rem 1.25rem;
                     margin-bottom: 2rem;
                 }
@@ -427,7 +427,7 @@ const CreateEvent = () => {
                 }
 
                 .satlantis-note a {
-                    color: #FF5B00;
+                    color: var(--color-secondary);
                     font-weight: 600;
                     text-decoration: underline;
                 }
@@ -440,7 +440,7 @@ const CreateEvent = () => {
 
                 .btn {
                     padding: 0.75rem 1.5rem;
-                    border-radius: 10px;
+                    border-radius: var(--radius-md);
                     font-size: 0.9rem;
                     font-weight: 600;
                     cursor: pointer;
@@ -449,7 +449,7 @@ const CreateEvent = () => {
                 }
 
                 .btn-primary {
-                    background: linear-gradient(135deg, #FF5B00 0%, #CC4A00 100%);
+                    background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
                     color: white;
                 }
                 .btn-primary:hover:not(:disabled) {
@@ -463,12 +463,12 @@ const CreateEvent = () => {
 
                 .btn-outline {
                     background: white;
-                    color: #475569;
-                    border: 1px solid #e2e8f0;
+                    color: var(--color-gray-600);
+                    border: 1px solid var(--color-gray-200);
                 }
                 .btn-outline:hover {
                     background: var(--color-gray-50);
-                    border-color: #cbd5e1;
+                    border-color: var(--color-gray-300);
                 }
 
                 @media (max-width: 640px) {

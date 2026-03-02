@@ -157,24 +157,11 @@ const NewProject = () => {
           align-items: center;
           justify-content: center;
         }
-        .image-upload-area:hover { border-color: var(--color-primary); background: #FFFBF5; }
+        .image-upload-area:hover { border-color: var(--color-primary); background: var(--color-gray-50); }
 
         .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
-        
-        .btn { padding: 0.75rem 1.5rem; border-radius: var(--radius-full); font-weight: 600; cursor: pointer; border: none; font-size: 1rem; }
-        .btn-primary { background: var(--color-primary); color: white; }
-        .btn-primary:hover { filter: brightness(1.1); }
-        .btn-primary:disabled { opacity: 0.7; cursor: wait; }
-        
-        .btn-outline { background: transparent; border: 1px solid var(--color-gray-300); color: var(--color-gray-600); }
-        .btn-outline:hover { background: var(--color-gray-100); }
-        
-        .mb-2 { margin-bottom: 0.5rem; }
-        .text-sm { font-size: 0.875rem; }
-        .text-xs { font-size: 0.75rem; }
+
         .text-gray-400 { color: var(--color-gray-400); }
-        .text-gray-500 { color: var(--color-gray-500); }
-        .text-primary { color: var(--color-primary); }
       `}</style>
         </div>
     );

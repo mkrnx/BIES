@@ -72,8 +72,7 @@ const Settings = () => {
             </div>
 
             <style jsx>{`
-                .container { max-width: 800px; margin: 0 auto; }
-                .mb-8 { margin-bottom: 2rem; }
+                .max-w-3xl { max-width: 48rem; }
 
                 .settings-section { background: white; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem; }
                 .settings-section h2 { padding: 1rem 1.5rem; background: var(--color-gray-50); border-bottom: 1px solid var(--color-gray-200); font-size: 1rem; color: var(--color-gray-600); }
@@ -82,7 +81,7 @@ const Settings = () => {
                 .setting-item:last-child { border-bottom: none; }
 
                 .setting-info { display: flex; align-items: center; gap: 1rem; }
-                .icon-box { w-10 h-10; width: 40px; height: 40px; background: var(--color-gray-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-gray-600); }
+                .icon-box { width: 40px; height: 40px; background: var(--color-gray-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-gray-600); }
                 
                 .setting-label { font-weight: 600; margin-bottom: 2px; }
                 .setting-desc { font-size: 0.85rem; color: var(--color-gray-500); }

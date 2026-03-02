@@ -101,20 +101,7 @@ const Team = () => {
           line-height: 1.8;
         }
 
-        .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
-        .py-16 { padding-top: 4rem; padding-bottom: 4rem; }
-        .border-y { border-top: 1px solid var(--color-gray-200); border-bottom: 1px solid var(--color-gray-200); }
-        .bg-white { background: white; }
-        
-        .mb-2 { margin-bottom: 0.5rem; }
-        .mb-4 { margin-bottom: 1rem; }
-        .mb-8 { margin-bottom: 2rem; }
-        .mb-12 { margin-bottom: 3rem; }
-        .text-center { text-align: center; }
-        .text-3xl { font-size: 2.5rem; }
-        .text-gray-500 { color: var(--color-gray-500); }
-        .text-primary { color: var(--color-primary); }
-        .text-secondary { color: var(--color-secondary); }
+        .text-neutral-dark { color: var(--color-neutral-dark); }
 
         .team-card {
            text-align: center;
@@ -138,22 +125,7 @@ const Team = () => {
           line-height: 1.5;
         }
 
-        .max-w-2xl { max-width: 600px; margin: 0 auto; }
-        
-        .input {
-          width: 100%;
-          padding: 0.75rem 1rem;
-          border: 1px solid var(--color-gray-300);
-          border-radius: var(--radius-md);
-          outline: none;
-          font-family: inherit;
-        }
-        .input:focus { border-color: var(--color-primary); box-shadow: 0 0 0 2px rgba(0, 71, 171, 0.1); }
-        .w-full { width: 100%; }
-
-        @media (max-width: 768px) {
-          .grid-cols-3 { grid-template-columns: 1fr; gap: 2rem; }
-        }
+        .textarea { resize: vertical; }
       `}</style>
         </div>
     );
