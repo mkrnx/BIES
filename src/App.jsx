@@ -23,6 +23,7 @@ import Profile from './pages/Profile';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProjectDetails from './pages/ProjectDetails';
+import Notifications from './pages/Notifications';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import BuilderOverview from './pages/builder/Overview';
@@ -140,6 +141,11 @@ const AppContent = () => {
                     <Route path="/settings" element={
                         <ProtectedRoute>
                             <Settings />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/notifications" element={
+                        <ProtectedRoute>
+                            <Notifications />
                         </ProtectedRoute>
                     } />
                 </Routes>
