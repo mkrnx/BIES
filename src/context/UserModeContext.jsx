@@ -1,31 +1,50 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useAuth } from './AuthContext';
 
 const UserModeContext = createContext();
 
 export const UserModeProvider = ({ children }) => {
+  const { user, isAuthenticated, updateRole } = useAuth();
+
   const [mode, setMode] = useState(() => {
-    // Check localStorage first
     const savedMode = localStorage.getItem('bies_mode');
     return savedMode || null;
   });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
 
+  // Sync mode with authenticated user's role
   useEffect(() => {
-    // Sync mode with localStorage and Body attribute
+    if (isAuthenticated && user?.role) {
+      const roleMode = user.role.toLowerCase(); // 'BUILDER' → 'builder'
+      if (roleMode === 'builder' || roleMode === 'investor') {
+        setMode(roleMode);
+      }
+    }
+  }, [isAuthenticated, user?.role]);
+
+  useEffect(() => {
     if (mode) {
       localStorage.setItem('bies_mode', mode);
       document.body.setAttribute('data-mode', mode);
       setIsModalOpen(false);
     } else {
-      // If no mode selected, open the modal
       document.body.removeAttribute('data-mode');
-      setIsModalOpen(true);
+      // Only show modal for unauthenticated users on first visit
+      if (!isAuthenticated) {
+        setIsModalOpen(true);
+      }
     }
-  }, [mode]);
+  }, [mode, isAuthenticated]);
 
-  const selectMode = (newMode) => {
+  const selectMode = async (newMode) => {
     setMode(newMode);
+    // If authenticated, also update role on backend
+    if (isAuthenticated && updateRole) {
+      try {
+        await updateRole(newMode.toUpperCase());
+      } catch { /* ignore - local mode still updated */ }
+    }
   };
 
   const clearMode = () => {

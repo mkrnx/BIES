@@ -1,11 +1,14 @@
 import React from 'react';
 import { Hammer, TrendingUp, X } from 'lucide-react';
 import { useUserMode } from '../context/UserModeContext';
+import { useAuth } from '../context/AuthContext';
 
 const ModeSelectionModal = () => {
     const { isModalOpen, selectMode } = useUserMode();
+    const { isAuthenticated } = useAuth();
 
-    if (!isModalOpen) return null;
+    // Don't show modal for authenticated users — their role is synced automatically
+    if (!isModalOpen || isAuthenticated) return null;
 
     return (
         <div className="modal-overlay">

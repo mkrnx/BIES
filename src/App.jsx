@@ -152,13 +152,13 @@ const AppContent = () => {
 
 function App() {
     return (
-        <UserModeProvider>
-            <AuthProvider>
+        <AuthProvider>
+            <UserModeProvider>
                 <Router basename="/biestest">
                     <AppContent />
                 </Router>
-            </AuthProvider>
-        </UserModeProvider>
+            </UserModeProvider>
+        </AuthProvider>
     );
 }
 
