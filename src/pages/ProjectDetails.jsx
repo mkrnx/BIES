@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, DollarSign, Users, Download, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle } from 'lucide-react';
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
+import DeckRequestButton from '../components/DeckRequestButton';
 
 const ProjectDetails = () => {
     const { id } = useParams();
@@ -164,7 +165,7 @@ const ProjectDetails = () => {
                                 <p className="text-xs text-gray-500 mt-2">Min. Ticket: {formatCurrency(project.minTicket)}</p>
                             )}
                         </div>
-                        <button className="btn btn-secondary w-full">Request Pitch Deck <Download size={16} style={{ marginLeft: 6 }} /></button>
+                        <DeckRequestButton projectId={id} />
                         <button className={`btn ${isWatchlisted ? 'btn-primary' : 'btn-outline'} w-full mt-2`} onClick={toggleWatchlist}>
                             <Heart size={16} fill={isWatchlisted ? 'currentColor' : 'none'} style={{ marginRight: 6 }} />
                             {isWatchlisted ? 'Watching' : 'Follow Project'}
