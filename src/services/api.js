@@ -93,8 +93,8 @@ export const authApi = {
     nostrChallenge: (pubkey) =>
         get('/auth/nostr-challenge', { pubkey }),
 
-    nostrLogin: (pubkey) =>
-        post('/auth/nostr-login', { pubkey }),
+    nostrLogin: (pubkey, signedEvent) =>
+        post('/auth/nostr-login', { pubkey, signedEvent }),
 
     me: () => get('/auth/me'),
 

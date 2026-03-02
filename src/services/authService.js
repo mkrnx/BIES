@@ -67,15 +67,30 @@ export const authService = {
 
     /**
      * Login using a Nostr browser extension (Alby, nos2x, etc.).
+     * Uses challenge-response: get pubkey → fetch challenge → sign it → verify.
      * Returns the user object + stores JWT.
      */
     loginWithNostr: async () => {
         if (!window.nostr) {
-            throw new Error('No Nostr extension found! Please install Alby or nos2x.');
+            throw new Error('No Nostr extension found. Please install Alby or nos2x.');
         }
 
+        // Step 1: Get pubkey from browser extension
         const pubkey = await window.nostr.getPublicKey();
-        const { user, token } = await authApi.nostrLogin(pubkey);
+
+        // Step 2: Get challenge from backend
+        const { challenge } = await authApi.nostrChallenge(pubkey);
+
+        // Step 3: Sign a kind:27235 event with the challenge as content
+        const signedEvent = await window.nostr.signEvent({
+            kind: 27235,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: challenge,
+        });
+
+        // Step 4: Send signed event to backend for verification
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
 
         authService.setToken(token);
         authService.setCachedUser(user);

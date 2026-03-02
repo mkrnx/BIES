@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
-import { Menu, Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Menu, Bell, User, Search, ChevronDown, LogOut, Zap } from 'lucide-react';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -133,62 +135,73 @@ const Navbar = () => {
           </div>
 
           {/* User Profile / Mode Switcher */}
-          <div className="user-menu relative">
-            <button
-              className={`profile-btn flex items-center gap-sm ${isUserMenuOpen ? 'active' : ''}`}
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            >
-              <div className="avatar">
-                <User size={18} />
-              </div>
-              <div className="flex flex-col items-start hidden-mobile" style={{ lineHeight: 1.2, color: 'white' }}>
-                <span className="text-sm font-semibold">Alex M.</span>
-              </div>
-              <ChevronDown size={14} style={{ transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
-
-            {/* Dropdown */}
-            {isUserMenuOpen && (
-              <>
-                <div className="click-outside-overlay" onClick={() => setIsUserMenuOpen(false)}></div>
-                <div className="dropdown user-dropdown">
-                  {/* Top Section */}
-                  <div className="dropdown-section vertical-stack">
-                    <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
-                    <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
-                    <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
-                    <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
-                  </div>
-
-                  <div className="dropdown-divider"></div>
-
-                  <div className="dropdown-header">
-                    <p className="text-sm font-semibold">Switch View</p>
-                  </div>
-                  <button
-                    className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
-                    onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); }}
-                  >
-                    <div className="dot builder"></div>
-                    Builder View
-                  </button>
-                  <button
-                    className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
-                    onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); }}
-                  >
-                    <div className="dot investor"></div>
-                    Investor View
-                  </button>
-
-                  <div className="dropdown-divider"></div>
-
-                  <button onClick={() => { clearMode(); setIsUserMenuOpen(false); }} className="dropdown-item text-error">
-                    <LogOut size={14} style={{ marginRight: 8 }} /> Reset Demo
-                  </button>
+          {isAuthenticated ? (
+            <div className="user-menu relative">
+              <button
+                className={`profile-btn flex items-center gap-sm ${isUserMenuOpen ? 'active' : ''}`}
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              >
+                <div className="avatar">
+                  {user?.profile?.avatar ? (
+                    <img src={user.profile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={18} />
+                  )}
                 </div>
-              </>
-            )}
-          </div>
+                <div className="flex flex-col items-start hidden-mobile" style={{ lineHeight: 1.2, color: 'white' }}>
+                  <span className="text-sm font-semibold">{user?.profile?.name || 'User'}</span>
+                </div>
+                <ChevronDown size={14} style={{ transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+
+              {/* Dropdown */}
+              {isUserMenuOpen && (
+                <>
+                  <div className="click-outside-overlay" onClick={() => setIsUserMenuOpen(false)}></div>
+                  <div className="dropdown user-dropdown">
+                    {/* Top Section */}
+                    <div className="dropdown-section vertical-stack">
+                      <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
+                      <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
+                      <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
+                      <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
+                    </div>
+
+                    <div className="dropdown-divider"></div>
+
+                    <div className="dropdown-header">
+                      <p className="text-sm font-semibold">Switch View</p>
+                    </div>
+                    <button
+                      className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
+                      onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); }}
+                    >
+                      <div className="dot builder"></div>
+                      Builder View
+                    </button>
+                    <button
+                      className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
+                      onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); }}
+                    >
+                      <div className="dot investor"></div>
+                      Investor View
+                    </button>
+
+                    <div className="dropdown-divider"></div>
+
+                    <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
+                      <LogOut size={14} style={{ marginRight: 8 }} /> Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="login-btn flex items-center gap-sm" style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem', padding: '6px 16px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-full)' }}>
+              <Zap size={16} />
+              <span>Login</span>
+            </Link>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button
