@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
-import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
 
 const Signup = () => {
-    const { signup } = useAuth();
+    const { loginWithNostr, updateRole } = useAuth();
     const navigate = useNavigate();
+    const [error, setError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     // Steps: 0 = Intro, 1 = Key Gen, 2 = Backup, 3 = Profile
     const [step, setStep] = useState(0);
@@ -35,20 +37,37 @@ const Signup = () => {
         setStep(2);
     };
 
-    const handleProfileSubmit = (e) => {
+    const handleProfileSubmit = async (e) => {
         e.preventDefault();
-        if (!profile.name) return;
+        if (!profile.name || submitting) return;
 
-        // Register user in our mock backend
-        signup({
-            npub: keys.pk, // use hex for backend storage usually, or bech32 if preferred. Let's use hex for internal ID.
-            npubBech32: keys.npub,
-            name: profile.name,
-            role: profile.role
-        });
+        setError('');
+        setSubmitting(true);
 
-        // Redirect to dashboard (or onboarding)
-        navigate('/dashboard');
+        try {
+            // The user generated keys in step 1 and should have imported them
+            // into their Nostr extension. We now use loginWithNostr which does
+            // challenge-response auth. The backend auto-creates the user.
+            const result = await loginWithNostr();
+
+            if (result.success) {
+                // Update role to match their selection
+                const role = profile.role.toUpperCase();
+                await updateRole(role);
+
+                // Update profile name via API
+                const { authService } = await import('../services/authService.js');
+                await authService.completeNostrProfile({ name: profile.name });
+
+                navigate('/dashboard');
+            } else {
+                setError(result.error || 'Failed to register. Make sure your keys are imported into your Nostr extension.');
+            }
+        } catch (err) {
+            setError(err.message || 'Registration failed.');
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -72,7 +91,7 @@ const Signup = () => {
                             Generate My Keys
                         </button>
                         <div className="mt-4 text-sm text-gray-400">
-                            Already have keys? <a href="/login" className="text-blue-500">Log in</a>
+                            Already have keys? <Link to="/login" className="text-blue-500">Log in</Link>
                         </div>
                     </div>
                 )}
@@ -125,6 +144,17 @@ const Signup = () => {
                 {step === 2 && (
                     <form onSubmit={handleProfileSubmit} className="w-full">
                         <h2 className="text-2xl font-bold mb-6 text-center">Complete Profile</h2>
+
+                        <p className="text-sm text-gray-500 mb-4 text-center">
+                            Import your secret key into a Nostr extension (like Alby) before continuing.
+                        </p>
+
+                        {error && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '1rem', border: '1px solid #FECACA' }}>
+                                <AlertCircle size={16} />
+                                <span>{error}</span>
+                            </div>
+                        )}
 
                         <div className="mb-4">
                             <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>

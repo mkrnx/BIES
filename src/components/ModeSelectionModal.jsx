@@ -1,11 +1,14 @@
 import React from 'react';
 import { Hammer, TrendingUp, X } from 'lucide-react';
 import { useUserMode } from '../context/UserModeContext';
+import { useAuth } from '../context/AuthContext';
 
 const ModeSelectionModal = () => {
     const { isModalOpen, selectMode } = useUserMode();
+    const { isAuthenticated } = useAuth();
 
-    if (!isModalOpen) return null;
+    // Don't show modal for authenticated users — their role is synced automatically
+    if (!isModalOpen || isAuthenticated) return null;
 
     return (
         <div className="modal-overlay">
@@ -81,7 +84,7 @@ const ModeSelectionModal = () => {
 
         /* Builder Side Styles */
         .builder-side {
-          background: linear-gradient(135deg, var(--color-primary) 0%, #003682 100%);
+          background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
           color: white;
         }
         .builder-side:hover {
@@ -94,7 +97,7 @@ const ModeSelectionModal = () => {
 
         /* Investor Side Styles */
         .investor-side {
-          background: linear-gradient(135deg, var(--color-secondary) 0%, #CC4A00 100%);
+          background: linear-gradient(135deg, var(--color-secondary) 0%, var(--color-secondary-dark) 100%);
           color: white;
         }
         .investor-side:hover {

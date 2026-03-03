@@ -1,23 +1,33 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, Lock, User } from 'lucide-react';
+import { Zap, AlertCircle, Loader2, User } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
 
 const Login = () => {
     const { loginWithNostr, loginWithEmail } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
+
+    const hasNostrExtension = typeof window !== 'undefined' && !!window.nostr;
 
     const handleLogin = async () => {
         setError('');
-        const result = await loginWithNostr();
+        setLoading(true);
 
-        if (result === true) {
-            navigate('/dashboard'); // Direct to dashboard if existing user
-        } else if (result && result.needsSignup) {
-            // Redirect to signup but with pre-filled npub (not implemented yet, just general signup for now)
-            navigate('/signup?npub=' + result.npub);
+        try {
+            const result = await loginWithNostr();
+
+            if (result.success) {
+                navigate('/dashboard');
+            } else {
+                setError(result.error || 'Login failed. Please try again.');
+            }
+        } catch (err) {
+            setError(err.message || 'An unexpected error occurred.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -43,15 +53,42 @@ const Login = () => {
                     Access the Bitcoin Investment Ecosystem of El Salvador
                 </p>
 
-                {error && <div className="text-red-500 mb-4 text-sm text-center">{error}</div>}
+                {error && (
+                    <div className="error-banner">
+                        <AlertCircle size={16} />
+                        <span>{error}</span>
+                    </div>
+                )}
 
-                <button
-                    onClick={handleLogin}
-                    className="w-full btn-primary flex items-center justify-center gap-3 py-3 rounded-full mb-4"
-                >
-                    <Zap size={20} className="text-yellow-400 fill-yellow-400" />
-                    <span>Connect with Nostr</span>
-                </button>
+                {hasNostrExtension ? (
+                    <button
+                        onClick={handleLogin}
+                        disabled={loading}
+                        className="w-full btn-primary flex items-center justify-center gap-3 py-3 rounded-full mb-4"
+                    >
+                        {loading ? (
+                            <Loader2 size={20} className="spin" />
+                        ) : (
+                            <Zap size={20} className="text-yellow-400 fill-yellow-400" />
+                        )}
+                        <span>{loading ? 'Connecting...' : 'Connect with Nostr'}</span>
+                    </button>
+                ) : (
+                    <div className="no-extension-notice">
+                        <p className="text-sm text-gray-600 mb-3">
+                            A Nostr browser extension is required to log in.
+                        </p>
+                        <a
+                            href="https://getalby.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-full btn-primary flex items-center justify-center gap-3 py-3 rounded-full mb-4"
+                        >
+                            <Zap size={20} className="text-yellow-400 fill-yellow-400" />
+                            <span>Get Alby Extension</span>
+                        </a>
+                    </div>
+                )}
 
                 <button
                     onClick={handleDemoLogin}
@@ -107,6 +144,34 @@ const Login = () => {
                 .btn-outline {
                     background: transparent;
                     font-weight: 600;
+                }
+                .btn-primary:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+                .error-banner {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    background: #FEF2F2;
+                    color: var(--color-error);
+                    padding: 0.75rem 1rem;
+                    border-radius: var(--radius-md);
+                    font-size: 0.875rem;
+                    width: 100%;
+                    margin-bottom: 1rem;
+                    border: 1px solid #FECACA;
+                }
+                .no-extension-notice {
+                    width: 100%;
+                    text-align: center;
+                }
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
         </div>

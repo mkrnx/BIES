@@ -1,60 +1,45 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar, MapPin, ExternalLink, Users } from 'lucide-react';
+import { Calendar, MapPin, ExternalLink, Users, Search, Loader2 } from 'lucide-react';
+import { eventsApi } from '../services/api';
 
 const Events = () => {
-    const events = [
-        {
-            id: 1,
-            title: "Adopting Bitcoin 2024",
-            date: "Nov 15-17, 2024",
-            location: "San Salvador, El Salvador",
-            description: "The premier Bitcoin conference promoting Bitcoin adoption in El Salvador and beyond. Join developers, investors, and educators.",
-            image: "https://images.unsplash.com/photo-1591115765373-5207764f72e7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-            category: "Official",
-            attendees: 1200
-        },
-        {
-            id: 2,
-            title: "El Zonte Bitcoin Beach Party",
-            date: "Dec 05, 2024",
-            location: "El Zonte, La Libertad",
-            description: "A sunset gathering for the Bitcoin community. Networking, music, and lightning payments everywhere.",
-            image: "https://images.unsplash.com/photo-1545129139-1eb68079a633?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-            category: "Network",
-            attendees: 350
-        },
-        {
-            id: 3,
-            title: "Tech & Tacos Meetup",
-            date: "Every Tuesday",
-            location: "Bitcoin Embassy, San Salvador",
-            description: "Weekly meetup for builders and developers. Discuss your projects, find collaborators, and eat tacos.",
-            image: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-            category: "Community",
-            attendees: 45
-        },
-        {
-            id: 4,
-            title: "Volcano Bond Strategy Session",
-            date: "Oct 20, 2024",
-            location: "Private Location",
-            description: "Exclusive roundtable for accredited investors discussing the EBB (Volcano Bond) opportunities.",
-            image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-            category: "Private",
-            attendees: 25
-        },
-        {
-            id: 5,
-            title: "Lightning Network Hackathon",
-            date: "Jan 10-12, 2025",
-            location: "Don Bosco University",
-            description: "48-hour hackathon to build the next generation of Lightning apps. Prizes in BTC.",
-            image: "https://images.unsplash.com/photo-1504384308090-c54be3855833?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80",
-            category: "Education",
-            attendees: 200
-        }
-    ];
+    const [events, setEvents] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [search, setSearch] = useState('');
+    const [category, setCategory] = useState('');
+    const [page, setPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(1);
+
+    const categories = ['Official', 'Network', 'Community', 'Private', 'Education'];
+
+    useEffect(() => {
+        const fetchEvents = async () => {
+            setLoading(true);
+            try {
+                const params = { page, limit: 12, upcoming: true };
+                if (search) params.search = search;
+                if (category) params.category = category;
+                const result = await eventsApi.list(params);
+                const list = result?.data || result || [];
+                setEvents(Array.isArray(list) ? list : []);
+                setTotalPages(result?.totalPages || 1);
+            } catch {
+                setEvents([]);
+            } finally {
+                setLoading(false);
+            }
+        };
+        const debounce = setTimeout(fetchEvents, 300);
+        return () => clearTimeout(debounce);
+    }, [search, category, page]);
+
+    const formatDate = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+            return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        } catch { return dateStr; }
+    };
 
     return (
         <div className="events-page">
@@ -66,55 +51,86 @@ const Events = () => {
                     </p>
                 </div>
 
-                <div className="events-grid">
-                    {events.map(event => (
-                        <div key={event.id} className="event-card">
-                            <Link
-                                to={`/events/${event.id}`}
-                                className="card-image"
-                                style={{
-                                    backgroundImage: `url(${event.image})`,
-                                    backgroundSize: 'cover',
-                                    backgroundPosition: 'center',
-                                    height: '160px',
-                                    display: 'block',
-                                    position: 'relative',
-                                }}
-                            >
-                                <span className={`category-badge ${event.category.toLowerCase()}`}>
-                                    {event.category}
-                                </span>
-                            </Link>
-                            <div className="card-content">
-                                <div className="meta-row mb-2">
-                                    <span className="date flex items-center gap-1 text-primary font-semibold text-sm">
-                                        <Calendar size={14} /> {event.date}
-                                    </span>
-                                    <span className="attendees flex items-center gap-1 text-gray-400 text-xs">
-                                        <Users size={12} /> {event.attendees}+
-                                    </span>
-                                </div>
-                                <Link to={`/events/${event.id}`} className="event-title-link">
-                                    <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                                </Link>
-                                <p className="text-gray-500 text-sm mb-4 line-clamp-2">
-                                    {event.description}
-                                </p>
-                                <div className="location mb-4 flex items-center gap-1 text-gray-500 text-sm">
-                                    <MapPin size={14} /> {event.location}
-                                </div>
-                                <a
-                                    href="https://satlantis.io"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="view-btn"
-                                >
-                                    View on Satlantis <ExternalLink size={14} />
-                                </a>
-                            </div>
-                        </div>
-                    ))}
+                <div className="filters">
+                    <div className="search-bar">
+                        <Search size={18} className="text-gray-400" />
+                        <input type="text" placeholder="Search events..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                    </div>
+                    <div className="category-filters">
+                        <button className={`filter-btn ${!category ? 'active' : ''}`} onClick={() => { setCategory(''); setPage(1); }}>All</button>
+                        {categories.map(cat => (
+                            <button key={cat} className={`filter-btn ${category === cat ? 'active' : ''}`} onClick={() => { setCategory(category === cat ? '' : cat); setPage(1); }}>
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
                 </div>
+
+                {loading ? (
+                    <div style={{ textAlign: 'center', padding: '3rem' }}>
+                        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                    </div>
+                ) : events.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
+                        No events found{search ? ` matching "${search}"` : ''}.
+                    </div>
+                ) : (
+                    <div className="events-grid">
+                        {events.map(event => (
+                            <div key={event.id} className="event-card">
+                                <Link
+                                    to={`/events/${event.id}`}
+                                    className="card-image"
+                                    style={{
+                                        backgroundImage: event.image || event.coverImage ? `url(${event.image || event.coverImage})` : undefined,
+                                        backgroundColor: !event.image && !event.coverImage ? 'var(--color-gray-200)' : undefined,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        height: '160px',
+                                        display: 'block',
+                                        position: 'relative',
+                                    }}
+                                >
+                                    <span className={`category-badge ${(event.category || '').toLowerCase()}`}>
+                                        {event.category}
+                                    </span>
+                                </Link>
+                                <div className="card-content">
+                                    <div className="meta-row mb-2">
+                                        <span className="date flex items-center gap-1 text-primary font-semibold text-sm">
+                                            <Calendar size={14} /> {formatDate(event.date || event.startDate)}
+                                        </span>
+                                        {event.attendees > 0 && (
+                                            <span className="attendees flex items-center gap-1 text-gray-400 text-xs">
+                                                <Users size={12} /> {event.attendees}+
+                                            </span>
+                                        )}
+                                    </div>
+                                    <Link to={`/events/${event.id}`} className="event-title-link">
+                                        <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                                    </Link>
+                                    <p className="text-gray-500 text-sm mb-4 line-clamp-2">
+                                        {event.description}
+                                    </p>
+                                    <div className="location mb-4 flex items-center gap-1 text-gray-500 text-sm">
+                                        <MapPin size={14} /> {event.location}
+                                    </div>
+                                    <Link to={`/events/${event.id}`} className="view-btn">
+                                        View Details <ExternalLink size={14} />
+                                    </Link>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {totalPages > 1 && (
+                    <div className="pagination">
+                        <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
+                        <span>Page {page} of {totalPages}</span>
+                        <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+                    </div>
+                )}
             </div>
 
             <style jsx>{`
@@ -122,25 +138,53 @@ const Events = () => {
                     background: var(--color-gray-50);
                     min-height: 100vh;
                 }
-                .container {
-                    padding: 0 1rem;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }
-                .py-12 { padding-top: 3rem; padding-bottom: 3rem; }
                 .mb-10 { margin-bottom: 2.5rem; }
-                .mb-4 { margin-bottom: 1rem; }
-                
-                .grid {
-                    display: grid;
+
+                .filters {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                    margin-bottom: 2rem;
+                    align-items: center;
                 }
-                @media (min-width: 768px) {
-                    .grid-cols-2 { grid-template-columns: repeat(2, 1fr); }
+
+                .search-bar {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1rem;
+                    background: white;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-full);
+                    width: 100%;
+                    max-width: 400px;
+                    box-shadow: var(--shadow-sm);
                 }
-                @media (min-width: 1024px) {
-                    .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+                .search-bar input {
+                    border: none;
+                    outline: none;
+                    width: 100%;
+                    font-size: 1rem;
                 }
-                .gap-8 { gap: 2rem; }
+
+                .category-filters {
+                    display: flex;
+                    gap: 0.5rem;
+                    flex-wrap: wrap;
+                    justify-content: center;
+                }
+                .filter-btn {
+                    padding: 0.4rem 1rem;
+                    border-radius: 99px;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                    color: var(--color-gray-500);
+                    border: 1px solid var(--color-gray-200);
+                    background: white;
+                    transition: all 0.2s;
+                }
+                .filter-btn:hover { border-color: var(--color-primary); color: var(--color-primary); }
+                .filter-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 
                 .event-card {
                     background: white;
@@ -151,7 +195,7 @@ const Events = () => {
                 }
                 .event-card:hover {
                     transform: translateY(-4px);
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+                    box-shadow: var(--shadow-lg);
                 }
 
                 .card-image {
@@ -172,10 +216,13 @@ const Events = () => {
                     backdrop-filter: blur(4px);
                 }
                 .category-badge.official { background: rgba(0, 71, 171, 0.9); color: white; }
-                .category-badge.network { background: rgba(255, 91, 0, 0.9); color: white; }
-                .category-badge.community { background: rgba(16, 185, 129, 0.9); color: white; }
+                .category-badge.network, .category-badge.networking { background: rgba(255, 91, 0, 0.9); color: white; }
+                .category-badge.community, .category-badge.meetup { background: rgba(16, 185, 129, 0.9); color: white; }
                 .category-badge.private { background: rgba(0, 0, 0, 0.8); color: white; }
-                .category-badge.education { background: rgba(124, 58, 237, 0.9); color: white; }
+                .category-badge.education, .category-badge.workshop { background: rgba(124, 58, 237, 0.9); color: white; }
+                .category-badge.conference { background: rgba(0, 71, 171, 0.9); color: white; }
+                .category-badge.hackathon { background: rgba(234, 88, 12, 0.9); color: white; }
+                .category-badge.demo_day { background: rgba(79, 70, 229, 0.9); color: white; }
 
                 .card-content {
                     padding: 1.5rem;
@@ -194,18 +241,19 @@ const Events = () => {
                     gap: 0.5rem;
                     width: 100%;
                     padding: 0.75rem;
-                    background: #f1f5f9;
-                    color: #475569;
+                    background: var(--color-gray-100);
+                    color: var(--color-gray-600);
                     border-radius: 8px;
                     font-size: 0.875rem;
                     font-weight: 600;
                     transition: all 0.2s;
+                    text-decoration: none;
                 }
                 .view-btn:hover {
-                    background: #e2e8f0;
-                    color: #1e293b;
+                    background: var(--color-gray-200);
+                    color: var(--color-gray-800);
                 }
-                
+
                 .line-clamp-2 {
                     display: -webkit-box;
                     -webkit-line-clamp: 2;
@@ -213,18 +261,16 @@ const Events = () => {
                     overflow: hidden;
                 }
 
-                .container { max-width: 1200px; margin: 0 auto; padding: 0 1rem; width: 100%; }
-
                 .events-grid {
                     display: grid;
                     gap: 2rem;
                     grid-template-columns: repeat(1, 1fr);
                 }
-                
+
                 @media (min-width: 640px) {
                     .events-grid { grid-template-columns: repeat(2, 1fr); }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .events-grid { grid-template-columns: repeat(3, 1fr); }
                 }
@@ -234,10 +280,18 @@ const Events = () => {
                     color: inherit;
                 }
                 .event-title-link:hover h3 {
-                    color: #FF5B00;
+                    color: var(--color-secondary);
                 }
                 .event-title-link h3 {
                     transition: color 0.2s;
+                }
+
+                .pagination {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    gap: 1rem;
+                    margin-top: 3rem;
                 }
             `}</style>
         </div>

@@ -10,7 +10,7 @@
  *  - All API methods co-located here for easy maintenance
  */
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const BASE_URL = import.meta.env.VITE_API_URL || '/biestest/api';
 
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
@@ -93,8 +93,8 @@ export const authApi = {
     nostrChallenge: (pubkey) =>
         get('/auth/nostr-challenge', { pubkey }),
 
-    nostrLogin: (pubkey) =>
-        post('/auth/nostr-login', { pubkey }),
+    nostrLogin: (pubkey, signedEvent) =>
+        post('/auth/nostr-login', { pubkey, signedEvent }),
 
     me: () => get('/auth/me'),
 
@@ -265,6 +265,19 @@ export const adminApi = {
     auditLogs: (params = {}) => get('/admin/audit-logs', params),
     broadcast: (message) => post('/admin/broadcast', { message }),
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
+};
+
+// ─── Content (Media / Blog / Resources) ──────────────────────────────────────
+
+export const contentApi = {
+    articles: (params = {}) => get('/content/articles', params),
+    // params: { category, search, page, limit }
+
+    article: (idOrSlug) => get(`/content/articles/${idOrSlug}`),
+
+    videos: (params = {}) => get('/content/videos', params),
+
+    resources: (params = {}) => get('/content/resources', params),
 };
 
 // ─── Health ───────────────────────────────────────────────────────────────────

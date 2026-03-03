@@ -12,7 +12,7 @@ COPY index.html vite.config.js ./
 COPY src/ src/
 
 # In production, API calls go through nginx at the same origin
-ENV VITE_API_URL=/api
+ENV VITE_API_URL=/biestest/api
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ FROM nginx:1.27-alpine AS nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=client-build /app/dist /usr/share/nginx/html
+COPY --from=client-build /app/dist /usr/share/nginx/html/biestest
 
 # Run nginx as non-root
 RUN chown -R nginx:nginx /usr/share/nginx/html \

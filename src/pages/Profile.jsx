@@ -1,22 +1,118 @@
-import React from 'react';
-import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { profilesApi, uploadApi } from '../services/api';
 
 const Profile = () => {
+    const { user, refreshUser } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
+    const [error, setError] = useState('');
+    const [form, setForm] = useState({
+        name: '',
+        bio: '',
+        location: '',
+        website: '',
+        twitter: '',
+        linkedin: '',
+        github: '',
+        company: '',
+        title: '',
+        avatar: '',
+    });
+
+    useEffect(() => {
+        loadProfile();
+    }, []);
+
+    const loadProfile = async () => {
+        try {
+            const profile = await profilesApi.me();
+            setForm({
+                name: profile.name || '',
+                bio: profile.bio || '',
+                location: profile.location || '',
+                website: profile.website || '',
+                twitter: profile.twitter || '',
+                linkedin: profile.linkedin || '',
+                github: profile.github || '',
+                company: profile.company || '',
+                title: profile.title || '',
+                avatar: profile.avatar || '',
+            });
+        } catch (err) {
+            setError('Failed to load profile.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleChange = (field) => (e) => {
+        setForm(prev => ({ ...prev, [field]: e.target.value }));
+        setSaved(false);
+    };
+
+    const handleAvatarUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        try {
+            const result = await uploadApi.media(file);
+            setForm(prev => ({ ...prev, avatar: result.url }));
+        } catch (err) {
+            setError('Failed to upload image.');
+        }
+    };
+
+    const handleSave = async (e) => {
+        e.preventDefault();
+        setSaving(true);
+        setError('');
+
+        try {
+            await profilesApi.update(form);
+            await refreshUser();
+            setSaved(true);
+            setTimeout(() => setSaved(false), 3000);
+        } catch (err) {
+            setError(err.message || 'Failed to save profile.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+                <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+        );
+    }
+
     return (
         <div className="profile-page">
 
-
-            <div className="container py-8 max-w-6xl">
+            <form onSubmit={handleSave} className="container py-8 max-w-6xl">
                 <div className="flex justify-between items-center mb-8">
                     <div>
                         <h1 className="h1-title mb-1">Edit Profile</h1>
                         <p className="text-gray-500">Manage your builder profile visibility and information.</p>
                     </div>
                     <div className="flex gap-4">
-                        <button className="btn btn-outline bg-white shadow-sm hover:border-primary">Cancel</button>
-                        <button className="btn btn-primary shadow-sm">Save Changes</button>
+                        <button type="button" className="btn btn-outline bg-white shadow-sm hover:border-primary">Cancel</button>
+                        <button type="submit" className="btn btn-primary shadow-sm" disabled={saving}>
+                            {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
+                            {saved && <CheckCircle size={16} style={{ marginLeft: 6 }} />}
+                        </button>
                     </div>
                 </div>
+
+                {error && (
+                    <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                        {error}
+                    </div>
+                )}
 
                 <div className="profile-grid">
 
@@ -29,44 +125,56 @@ const Profile = () => {
 
                             <div className="flex items-center gap-6 mb-8">
                                 <div className="avatar-wrapper relative overflow-visible">
-                                    <div className="avatar-large">AM</div>
-                                    <button className="avatar-edit-btn absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-2 shadow-sm hover:text-primary transition-colors">
-                                        <User size={16} />
-                                    </button>
+                                    <div className="avatar-large" style={{ overflow: 'hidden' }}>
+                                        {form.avatar ? (
+                                            <img src={form.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                        ) : (
+                                            (form.name || 'U').substring(0, 2).toUpperCase()
+                                        )}
+                                    </div>
+                                    <label className="avatar-edit-btn absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-2 shadow-sm hover:text-primary transition-colors cursor-pointer">
+                                        <Camera size={16} />
+                                        <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                                    </label>
                                 </div>
                                 <div>
-                                    <span className="badge-role mb-2">Builder</span>
+                                    <span className="badge-role mb-2">{user?.role || 'Builder'}</span>
                                     <p className="text-sm text-gray-500">JPG, GIF or PNG. 1MB max.</p>
+                                    {user?.nostrPubkey && (
+                                        <p className="text-sm text-gray-400 mt-1 font-mono text-xs">
+                                            {user.nostrPubkey.substring(0, 16)}...
+                                        </p>
+                                    )}
                                 </div>
                             </div>
 
                             <div className="grid-2-cols gap-4 mb-4">
                                 <div className="form-group">
-                                    <label>First Name</label>
-                                    <input type="text" defaultValue="Alex" className="input-field" />
+                                    <label>Display Name</label>
+                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your name" />
                                 </div>
                                 <div className="form-group">
-                                    <label>Last Name</label>
-                                    <input type="text" defaultValue="Mendoza" className="input-field" />
+                                    <label>Company</label>
+                                    <input type="text" value={form.company} onChange={handleChange('company')} className="input-field" placeholder="Your company" />
                                 </div>
                             </div>
 
                             <div className="form-group mb-4">
-                                <label>Current Role & Company</label>
-                                <input type="text" defaultValue="Lead Engineer at Volcano Energy" className="input-field" />
+                                <label>Current Role / Title</label>
+                                <input type="text" value={form.title} onChange={handleChange('title')} className="input-field" placeholder="e.g. CEO, Developer" />
                             </div>
 
                             <div className="form-group mb-4">
                                 <label>Location</label>
                                 <div className="input-with-icon">
                                     <MapPin size={18} className="icon" />
-                                    <input type="text" defaultValue="San Salvador, El Salvador" className="input-field pl-10" />
+                                    <input type="text" value={form.location} onChange={handleChange('location')} className="input-field pl-10" placeholder="City, Country" />
                                 </div>
                             </div>
 
                             <div className="form-group">
                                 <label>Bio / About</label>
-                                <textarea rows="4" className="input-field" defaultValue="Building the future of energy in El Salvador. Passionate about Bitcoin and renewable infrastructure."></textarea>
+                                <textarea rows="4" className="input-field" value={form.bio} onChange={handleChange('bio')} placeholder="Tell us about yourself..."></textarea>
                             </div>
                         </div>
 
@@ -77,7 +185,7 @@ const Profile = () => {
                                     <Briefcase size={20} className="text-gray-400" />
                                     Experience
                                 </h3>
-                                <button className="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
+                                <button type="button" className="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
                                     <Plus size={16} /> Add Experience
                                 </button>
                             </div>
@@ -103,8 +211,14 @@ const Profile = () => {
                             <div className="verification-box">
                                 <Shield size={24} className="text-success" />
                                 <div>
-                                    <p className="font-bold text-gray-900">Identity Verified</p>
-                                    <p className="text-xs text-green-700 mt-1">Your account is fully verified for network actions.</p>
+                                    <p className="font-bold text-gray-900">
+                                        {user?.nostrPubkey ? 'Identity Verified' : 'Pending Verification'}
+                                    </p>
+                                    <p className="text-xs text-green-700 mt-1">
+                                        {user?.nostrPubkey
+                                            ? 'Your account is fully verified for network actions.'
+                                            : 'Connect a Nostr extension to verify your identity.'}
+                                    </p>
                                 </div>
                             </div>
                         </div>
@@ -121,7 +235,7 @@ const Profile = () => {
                                 <label>Public Key (NPUB)</label>
                                 <input type="text" placeholder="npub1..." defaultValue="npub1alex..." className="input-field font-mono text-sm" />
                             </div>
-                            <button className="btn w-full btn-outline text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50">Test Connection</button>
+                            <button type="button" className="btn w-full btn-outline text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50">Test Connection</button>
                         </div>
 
                         {/* Links/Socials Form */}
@@ -131,19 +245,25 @@ const Profile = () => {
                             <div className="form-group mb-3">
                                 <div className="input-with-icon">
                                     <Globe size={18} className="icon" />
-                                    <input type="url" placeholder="Personal Website" className="input-field pl-10" />
+                                    <input type="url" value={form.website} onChange={handleChange('website')} placeholder="Personal Website" className="input-field pl-10" />
                                 </div>
                             </div>
                             <div className="form-group mb-3">
                                 <div className="input-with-icon">
                                     <Twitter size={18} className="icon" />
-                                    <input type="url" placeholder="Twitter Profile" className="input-field pl-10" />
+                                    <input type="text" value={form.twitter} onChange={handleChange('twitter')} placeholder="Twitter Profile" className="input-field pl-10" />
+                                </div>
+                            </div>
+                            <div className="form-group mb-3">
+                                <div className="input-with-icon">
+                                    <Linkedin size={18} className="icon" />
+                                    <input type="url" value={form.linkedin} onChange={handleChange('linkedin')} placeholder="LinkedIn Profile" className="input-field pl-10" />
                                 </div>
                             </div>
                             <div className="form-group">
                                 <div className="input-with-icon">
-                                    <Linkedin size={18} className="icon" />
-                                    <input type="url" placeholder="LinkedIn Profile" className="input-field pl-10" />
+                                    <Globe size={18} className="icon" />
+                                    <input type="text" value={form.github} onChange={handleChange('github')} placeholder="GitHub Username" className="input-field pl-10" />
                                 </div>
                             </div>
                         </div>
@@ -151,7 +271,7 @@ const Profile = () => {
                     </div>
 
                 </div>
-            </div>
+            </form>
 
             <style jsx>{`
                 .profile-page {
@@ -251,7 +371,6 @@ const Profile = () => {
                 .border-purple-200 { border-color: #e9d5ff; }
                 .hover\\:border-purple-500:hover { border-color: #8b5cf6; }
                 .hover\\:bg-purple-50:hover { background-color: #faf5ff; }
-
             `}</style>
         </div>
     );

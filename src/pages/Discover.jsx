@@ -1,48 +1,72 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { projectsApi, watchlistApi } from '../services/api';
 
 const ProjectCard = ({ project }) => {
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(project._watchlisted || false);
+
+  const toggleWatchlist = async () => {
+    try {
+      if (isLiked) {
+        await watchlistApi.remove(project.id);
+      } else {
+        await watchlistApi.add(project.id);
+      }
+      setIsLiked(!isLiked);
+    } catch {
+      // Silently fail (user might not be logged in)
+      setIsLiked(!isLiked);
+    }
+  };
+
+  const formatFunding = (val) => {
+    if (!val) return '—';
+    if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
+    return `$${val}`;
+  };
 
   return (
     <div className="project-card">
       <div
         className="card-image"
         style={{
-          backgroundColor: project.color,
-          backgroundImage: project.image ? `url(${project.image})` : 'none'
+          backgroundColor: project.color || '#E0F2FE',
+          backgroundImage: project.coverImage || project.image ? `url(${project.coverImage || project.image})` : 'none'
         }}
       >
-        <span className="industry-badge">{project.industry}</span>
-        <span className="stage-badge">{project.stage}</span>
+        <span className="industry-badge">{project.category || project.industry || '—'}</span>
+        <span className="stage-badge">{project.stage || '—'}</span>
       </div>
       <div className="card-body">
         <h3>{project.name}</h3>
-        <p className="description">{project.description}</p>
+        <p className="description">{project.tagline || project.description || ''}</p>
 
         <div className="meta-row">
           <div className="meta-item">
             <MapPin size={14} />
-            <span>{project.location}</span>
+            <span>{project.location || 'El Salvador'}</span>
           </div>
           <div className="meta-item">
             <DollarSign size={14} />
-            <span>{project.funding}</span>
+            <span>{formatFunding(project.fundingGoal || project.funding)}</span>
           </div>
         </div>
 
-        <div className="builder-row">
-          <div className="avatar">{project.builder[0]}</div>
-          <span>{project.builder}</span>
-        </div>
+        {(project.builder || project.owner?.name) && (
+          <div className="builder-row">
+            <div className="avatar">{(project.builder || project.owner?.name || '?')[0]}</div>
+            <span>{project.builder || project.owner?.name}</span>
+          </div>
+        )}
 
         <div className="actions">
           <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">Details</Link>
           <button
             className={`icon-btn ${isLiked ? 'liked' : ''}`}
             title="Add to Watchlist"
-            onClick={() => setIsLiked(!isLiked)}
+            onClick={toggleWatchlist}
           >
             <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
@@ -192,17 +216,23 @@ const Discover = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   const handleIndustryChange = (industry) => {
     setSelectedIndustries(prev =>
       prev.includes(industry) ? prev.filter(i => i !== industry) : [...prev, industry]
     );
+    setPage(1);
   };
 
   const handleStageChange = (stage) => {
     setSelectedStages(prev =>
       prev.includes(stage) ? prev.filter(s => s !== stage) : [...prev, stage]
     );
+    setPage(1);
   };
 
   // Read the URL query param ?q= on load
@@ -214,42 +244,45 @@ const Discover = () => {
     }
   }, [location.search]);
 
-  // Mock Projects
-  const projects = [
-    { id: 1, name: 'Volcano Energy Solutions', industry: 'Energy', stage: 'Early Revenue', location: 'San Salvador', funding: '$2.5M', builder: 'Carlos M.', description: 'Geothermal energy harvesting for Bitcoin mining infrastructure.', color: '#E0F2FE', image: 'https://images.unsplash.com/photo-1549321473-b3c9b74070be?auto=format&fit=crop&q=80&w=800' },
-    { id: 2, name: 'Surf City Logistics', industry: 'Infrastructure', stage: 'Seed', location: 'La Libertad', funding: '$500K', builder: 'Elena R.', description: 'Last-mile delivery drones for the coastal tourism corridor.', color: '#FEF3C7', image: 'https://images.unsplash.com/photo-1473221326025-9183b464bb7e?auto=format&fit=crop&q=80&w=800' },
-    { id: 3, name: 'BitPupusas Franchise', industry: 'Food & Bev', stage: 'Scaling', location: 'Santa Ana', funding: '$1.0M', builder: 'Juan P.', description: 'Global franchise model for authentic Salvadoran cuisine accepting only BTC.', color: '#FCE7F3', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&q=80&w=800' },
-    { id: 4, name: 'NeoBank El Salvador', industry: 'Fintech', stage: 'Idea', location: 'San Salvador', funding: '$150K', builder: 'Sofia L.', description: 'Digital-first banking combining FIAT and Lightning Network.', color: '#DCFCE7', image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&q=80&w=800' },
-    { id: 5, name: 'AgroTech Coffee', industry: 'Agriculture', stage: 'MVP', location: 'Sonsonate', funding: '$300K', builder: 'Miguel A.', description: 'IoT sensors for premium coffee growing optimization.', color: '#F3E8FF', image: 'https://images.unsplash.com/photo-1497935586351-b67a49e012bf?auto=format&fit=crop&q=80&w=800' },
-    { id: 6, name: 'Pacific Resort DAO', industry: 'Real Estate', stage: 'Series A', location: 'El Zonte', funding: '$5.0M', builder: 'DAO Team', description: 'Tokenized resort ownership on the Bitcoin beach.', color: '#FFEDD5', image: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&q=80&w=800' },
-  ];
+  // Fetch projects from API
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setLoading(true);
+      try {
+        const params = {
+          page,
+          limit: 12,
+        };
+        if (searchQuery) params.search = searchQuery;
+        if (selectedIndustries.length === 1) params.category = selectedIndustries[0];
+        if (selectedStages.length === 1) params.stage = selectedStages[0];
 
-  // Filter Logic
+        const result = await projectsApi.list(params);
+        const list = result?.data || result || [];
+        setProjects(Array.isArray(list) ? list : []);
+        setTotalPages(result?.totalPages || 1);
+      } catch {
+        setProjects([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const debounce = setTimeout(fetchProjects, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, selectedIndustries, selectedStages, page]);
+
+  // Client-side multi-filter (API may not support multi-select)
   const filteredProjects = projects.filter(p => {
-    // 1. Search Query Filter
-    let matchesSearch = true;
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      matchesSearch = (
-        p.name.toLowerCase().includes(q) ||
-        p.industry.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q)
-      );
+    if (selectedIndustries.length > 1) {
+      const cat = p.category || p.industry || '';
+      if (!selectedIndustries.some(i => i.toLowerCase() === cat.toLowerCase())) return false;
     }
-
-    // 2. Industry Filter
-    let matchesIndustry = true;
-    if (selectedIndustries.length > 0) {
-      matchesIndustry = selectedIndustries.includes(p.industry);
+    if (selectedStages.length > 1) {
+      const stage = p.stage || '';
+      if (!selectedStages.some(s => s.toLowerCase() === stage.toLowerCase())) return false;
     }
-
-    // 3. Stage Filter
-    let matchesStage = true;
-    if (selectedStages.length > 0) {
-      matchesStage = selectedStages.includes(p.stage);
-    }
-
-    return matchesSearch && matchesIndustry && matchesStage;
+    return true;
   });
 
   return (
@@ -321,14 +354,25 @@ const Discover = () => {
 
         {/* Project Grid */}
         <div className="project-grid">
-          {filteredProjects.length > 0 ? (
+          {loading ? (
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
+              <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+            </div>
+          ) : filteredProjects.length > 0 ? (
             filteredProjects.map(p => <ProjectCard key={p.id} project={p} />)
           ) : (
             <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-              No projects found matching "{searchQuery}"
+              No projects found{searchQuery ? ` matching "${searchQuery}"` : ''}
             </div>
           )}
         </div>
+        {totalPages > 1 && (
+          <div className="pagination">
+            <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
+            <span>Page {page} of {totalPages}</span>
+            <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+          </div>
+        )}
       </div>
 
       <style jsx>{`
@@ -442,6 +486,16 @@ const Discover = () => {
         @media (max-width: 1024px) {
           .project-grid { grid-template-columns: repeat(2, 1fr); }
         }
+
+        .pagination {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 1rem;
+          margin-top: 2rem;
+          padding: 1rem;
+        }
+        .pagination span { font-size: 0.9rem; color: var(--color-gray-500); }
 
         @media (max-width: 768px) {
           .content-layout { flex-direction: column; }

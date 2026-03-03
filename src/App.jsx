@@ -23,6 +23,8 @@ import Profile from './pages/Profile';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProjectDetails from './pages/ProjectDetails';
+import Notifications from './pages/Notifications';
+import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import BuilderOverview from './pages/builder/Overview';
@@ -59,8 +61,10 @@ const DashboardRedirect = () => {
 
     if (mode === 'builder') return <Navigate to="/dashboard/builder" replace />;
     if (mode === 'investor') return <Navigate to="/dashboard/investor" replace />;
-    if (user?.role === 'BUILDER') return <Navigate to="/dashboard/builder" replace />;
 
+    if (user?.role?.toUpperCase() === 'BUILDER') {
+        return <Navigate to="/dashboard/builder" replace />;
+    }
     return <Navigate to="/dashboard/investor" replace />;
 };
 
@@ -89,6 +93,7 @@ const AppContent = () => {
                     <Route path="/investor/:id" element={<PublicProfile type="investor" />} />
                     <Route path="/media" element={<Media />} />
                     <Route path="/news" element={<News />} />
+                    <Route path="/news/:slug" element={<ArticleDetail />} />
                     <Route path="/about" element={<Team />} />
 
                     {/* Protected Routes */}
@@ -98,12 +103,7 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
 
-                    {/* Specific Dashboard Routes if accessed directly */}
-
-
-                    // ... (in routes)
-
-                    {/* Specific Dashboard Routes if accessed directly */}
+                    {/* Specific Dashboard Routes */}
                     <Route path="/dashboard/builder" element={
                         <ProtectedRoute>
                             <BuilderDashboard />
@@ -121,12 +121,13 @@ const AppContent = () => {
                         <ProtectedRoute>
                             <InvestorDashboard />
                         </ProtectedRoute>
-                    } />
-                    <Route path="/dashboard/investor/create-event" element={
-                        <ProtectedRoute>
-                            <CreateEvent />
-                        </ProtectedRoute>
-                    } />
+                    }>
+                        <Route path="watchlist" element={<Discover />} />
+                        <Route path="messages" element={<Messages />} />
+                        <Route path="deal-flow" element={<Discover />} />
+                        <Route path="create-event" element={<CreateEvent />} />
+                        <Route path="settings" element={<Settings />} />
+                    </Route>
 
                     <Route path="/project/:id" element={
                         <ProtectedRoute>
@@ -149,6 +150,11 @@ const AppContent = () => {
                             <Settings />
                         </ProtectedRoute>
                     } />
+                    <Route path="/notifications" element={
+                        <ProtectedRoute>
+                            <Notifications />
+                        </ProtectedRoute>
+                    } />
                 </Routes>
             </div>
         </>
@@ -157,13 +163,13 @@ const AppContent = () => {
 
 function App() {
     return (
-        <UserModeProvider>
-            <AuthProvider>
-                <Router>
+        <AuthProvider>
+            <UserModeProvider>
+                <Router basename="/biestest">
                     <AppContent />
                 </Router>
-            </AuthProvider>
-        </UserModeProvider>
+            </UserModeProvider>
+        </AuthProvider>
     );
 }
 

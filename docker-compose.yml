@@ -9,9 +9,11 @@ services:
       NODE_ENV: production
       PORT: "3001"
       DATABASE_URL: "file:../data/bies.db"
+      NOSTR_PRIVATE_RELAY: "ws://bies-relay:7777"
     volumes:
       - bies-data:/app/data
       - bies-uploads:/app/uploads
+      - relay-whitelist:/app/relay-whitelist
     networks:
       - bies-net
     deploy:
@@ -25,13 +27,27 @@ services:
       retries: 3
       start_period: 10s
 
+  bies-relay:
+    build:
+      context: ./relay
+    restart: unless-stopped
+    volumes:
+      - relay-data:/app/strfry-db
+      - relay-whitelist:/app/data
+    networks:
+      - bies-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
   bies-nginx:
     build:
       context: .
       target: nginx
     restart: unless-stopped
     ports:
-      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:8082:8080"
     depends_on:
       bies-server:
         condition: service_healthy
@@ -45,6 +61,8 @@ services:
 volumes:
   bies-data:
   bies-uploads:
+  relay-data:
+  relay-whitelist:
 
 networks:
   bies-net:

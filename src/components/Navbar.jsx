@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
-import { Menu, Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { Menu, Bell, User, Search, ChevronDown, LogOut, Zap } from 'lucide-react';
+import { notificationsApi } from '../services/api';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
+  const { user, isAuthenticated, notifications, unreadCount, clearNotificationCount, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -13,6 +16,13 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      clearNotificationCount();
+    } catch { /* ignore */ }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -94,7 +104,7 @@ const Navbar = () => {
               onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             >
               <Bell size={20} />
-              <span className="badge">3</span>
+              {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
 
             {isNotificationsOpen && (
@@ -103,29 +113,30 @@ const Navbar = () => {
                 <div className="dropdown notifications-dropdown">
                   <div className="dropdown-header">Notifications</div>
                   <div className="notification-list">
-                    <div className="notification-item unread">
-                      <div className="dot-indicator"></div>
-                      <div>
-                        <p className="notif-text"><strong>Surf City Logistics</strong> viewed your profile.</p>
-                        <span className="notif-time">2m ago</span>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-gray-400)', fontSize: '0.85rem' }}>
+                        No notifications yet
                       </div>
-                    </div>
-                    <div className="notification-item unread">
-                      <div className="dot-indicator"></div>
-                      <div>
-                        <p className="notif-text">New message from <strong>Capital Ventures</strong>.</p>
-                        <span className="notif-time">1h ago</span>
-                      </div>
-                    </div>
-                    <div className="notification-item">
-                      <div>
-                        <p className="notif-text">Your project was approved.</p>
-                        <span className="notif-time">1d ago</span>
-                      </div>
-                    </div>
+                    ) : (
+                      notifications.slice(0, 5).map((notif) => (
+                        <div key={notif.id} className={`notification-item ${!notif.read ? 'unread' : ''}`}>
+                          {!notif.read && <div className="dot-indicator"></div>}
+                          <div>
+                            <p className="notif-text">{notif.message || notif.text}</p>
+                            <span className="notif-time">{notif.timeAgo || notif.createdAt}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                   <div className="dropdown-footer">
-                    <button className="text-secondary text-sm">Mark all as read</button>
+                    {unreadCount > 0 && (
+                      <button className="text-secondary text-sm" onClick={handleMarkAllRead}>Mark all as read</button>
+                    )}
+                    <Link to="/notifications" className="text-primary text-sm" style={{ display: 'block', marginTop: unreadCount > 0 ? '0.25rem' : 0 }}
+                      onClick={() => setIsNotificationsOpen(false)}>
+                      View all
+                    </Link>
                   </div>
                 </div>
               </>
@@ -133,62 +144,79 @@ const Navbar = () => {
           </div>
 
           {/* User Profile / Mode Switcher */}
-          <div className="user-menu relative">
-            <button
-              className={`profile-btn flex items-center gap-sm ${isUserMenuOpen ? 'active' : ''}`}
-              onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-            >
-              <div className="avatar">
-                <User size={18} />
-              </div>
-              <div className="flex flex-col items-start hidden-mobile" style={{ lineHeight: 1.2, color: 'white' }}>
-                <span className="text-sm font-semibold">Alex M.</span>
-              </div>
-              <ChevronDown size={14} style={{ transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
-            </button>
-
-            {/* Dropdown */}
-            {isUserMenuOpen && (
-              <>
-                <div className="click-outside-overlay" onClick={() => setIsUserMenuOpen(false)}></div>
-                <div className="dropdown user-dropdown">
-                  {/* Top Section */}
-                  <div className="dropdown-section vertical-stack">
-                    <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
-                    <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
-                    <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
-                    <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
-                  </div>
-
-                  <div className="dropdown-divider"></div>
-
-                  <div className="dropdown-header">
-                    <p className="text-sm font-semibold">Switch View</p>
-                  </div>
-                  <button
-                    className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
-                    onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); navigate('/dashboard'); }}
-                  >
-                    <div className="dot builder"></div>
-                    Builder View
-                  </button>
-                  <button
-                    className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
-                    onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); navigate('/dashboard'); }}
-                  >
-                    <div className="dot investor"></div>
-                    Investor View
-                  </button>
-
-                  <div className="dropdown-divider"></div>
-
-                  <button onClick={() => { clearMode(); setIsUserMenuOpen(false); }} className="dropdown-item text-error">
-                    <LogOut size={14} style={{ marginRight: 8 }} /> Reset Demo
-                  </button>
+          {isAuthenticated ? (
+            <div className="user-menu relative">
+              <button
+                className={`profile-btn flex items-center gap-sm ${isUserMenuOpen ? 'active' : ''}`}
+                onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+              >
+                <div className="avatar">
+                  {user?.profile?.avatar ? (
+                    <img src={user.profile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={18} />
+                  )}
                 </div>
-              </>
-            )}
-          </div>
+                <div className="flex flex-col items-start hidden-mobile" style={{ lineHeight: 1.2, color: 'white' }}>
+                  <span className="text-sm font-semibold">{user?.profile?.name || user?.name || 'Guest'}</span>
+                </div>
+                <ChevronDown size={14} style={{ transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
+              </button>
+
+              {/* Dropdown */}
+              {isUserMenuOpen && (
+                <>
+                  <div className="click-outside-overlay" onClick={() => setIsUserMenuOpen(false)}></div>
+                  <div className="dropdown user-dropdown">
+                    {/* Top Section */}
+                    <div className="dropdown-section vertical-stack">
+                      <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
+                      <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
+                      <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
+                      <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
+                    </div>
+
+                    <div className="dropdown-divider"></div>
+
+                    <div className="dropdown-header">
+                      <p className="text-sm font-semibold">Switch View</p>
+                    </div>
+                    <button
+                      className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
+                      onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); }}
+                    >
+                      <div className="dot builder"></div>
+                      Builder View
+                    </button>
+                    <button
+                      className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
+                      onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); }}
+                    >
+                      <div className="dot investor"></div>
+                      Investor View
+                    </button>
+
+                    <div className="dropdown-divider"></div>
+
+                    {isAuthenticated ? (
+                      <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
+                        <LogOut size={14} style={{ marginRight: 8 }} /> Log Out
+                      </button>
+                    ) : (
+                      <Link to="/login" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                        Log In
+                      </Link>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="login-btn flex items-center gap-sm" style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem', padding: '6px 16px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-full)' }}>
+              <Zap size={16} />
+              <span>Login</span>
+            </Link>
+          )}
 
           {/* Mobile Menu Toggle */}
           <button
@@ -203,12 +231,12 @@ const Navbar = () => {
       {/* Mode Indicator Strip - Removed since it conflicts with the bottom orange border in this layout */}
 
       {/* Bitcoin Orange Line */}
-      <div style={{ height: '3px', width: '100%', backgroundColor: '#FF5B00', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
+      <div style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
 
       <style jsx>{`
         .navbar {
           height: 70px;
-          background: #0047AB; /* Salvadoran blue */
+          background: var(--color-primary);
           position: sticky;
           top: 0;
           z-index: 100;

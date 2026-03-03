@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
-import { BiesWebSocket } from '../services/api';
+import { BiesWebSocket, notificationsApi } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -24,6 +24,7 @@ export const AuthProvider = ({ children }) => {
                 if (user) {
                     setUser(user);
                     initWebSocket(user);
+                    fetchInitialNotifications();
                 }
             })
             .finally(() => {
@@ -134,6 +135,17 @@ export const AuthProvider = ({ children }) => {
         return updated;
     };
 
+    const fetchInitialNotifications = async () => {
+        try {
+            const result = await notificationsApi.list({ limit: 20 });
+            const list = result?.data || result || [];
+            if (Array.isArray(list)) {
+                setNotifications(list);
+                setUnreadCount(list.filter(n => !n.read).length);
+            }
+        } catch { /* ignore on failure */ }
+    };
+
     const clearNotificationCount = () => setUnreadCount(0);
 
     return (
@@ -144,6 +156,7 @@ export const AuthProvider = ({ children }) => {
             notifications,
             unreadCount,
             clearNotificationCount,
+            refreshNotifications: fetchInitialNotifications,
             loginWithNostr,
             loginWithNostrAndCheckNew,
             loginWithEmail,

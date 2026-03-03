@@ -111,10 +111,7 @@ const SocialPulse = () => {
                     border-top: 1px solid var(--color-gray-200);
                 }
 
-                .py-16 { padding-top: 4rem; padding-bottom: 4rem; }
-                .mb-12 { margin-bottom: 3rem; }
                 .ml-auto { margin-left: auto; }
-                .ml-1 { margin-left: 0.25rem; }
 
                 .feed-grid {
                     display: grid;
@@ -141,7 +138,7 @@ const SocialPulse = () => {
                 .avatar-circle {
                     width: 40px;
                     height: 40px;
-                    background: #e2e8f0;
+                    background: var(--color-gray-200);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
@@ -152,7 +149,7 @@ const SocialPulse = () => {
                 }
 
                 .verified-badge {
-                    color: #1DA1F2;
+                    color: var(--color-primary);
                     font-size: 0.8rem;
                 }
 
@@ -182,7 +179,7 @@ const SocialPulse = () => {
                 }
                 .action-item:hover { color: var(--color-primary); }
 
-                .text-blue-400 { color: #60A5FA; }
+                .text-blue-400 { color: var(--color-primary); }
 
                 @media (max-width: 1024px) {
                     .feed-grid { grid-template-columns: repeat(2, 1fr); }
