@@ -167,14 +167,14 @@ const Navbar = () => {
                   </div>
                   <button
                     className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
-                    onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); }}
+                    onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); navigate('/dashboard'); }}
                   >
                     <div className="dot builder"></div>
                     Builder View
                   </button>
                   <button
                     className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
-                    onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); }}
+                    onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); navigate('/dashboard'); }}
                   >
                     <div className="dot investor"></div>
                     Investor View

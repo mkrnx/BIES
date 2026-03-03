@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, Lock } from 'lucide-react';
+import { Zap, Lock, User } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
 
 const Login = () => {
-    const { loginWithNostr } = useAuth();
+    const { loginWithNostr, loginWithEmail } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
 
@@ -21,6 +21,16 @@ const Login = () => {
         }
     };
 
+    const handleDemoLogin = async () => {
+        setError('');
+        const result = await loginWithEmail('maria.santos@bies.dev', 'password123');
+        if (result.success) {
+            navigate('/dashboard');
+        } else {
+            setError(result.error || 'Failed to login with demo account');
+        }
+    };
+
     return (
         <div className="login-container">
             <div className="login-card">
@@ -33,12 +43,22 @@ const Login = () => {
                     Access the Bitcoin Investment Ecosystem of El Salvador
                 </p>
 
+                {error && <div className="text-red-500 mb-4 text-sm text-center">{error}</div>}
+
                 <button
                     onClick={handleLogin}
                     className="w-full btn-primary flex items-center justify-center gap-3 py-3 rounded-full mb-4"
                 >
                     <Zap size={20} className="text-yellow-400 fill-yellow-400" />
                     <span>Connect with Nostr</span>
+                </button>
+
+                <button
+                    onClick={handleDemoLogin}
+                    className="w-full btn-outline flex items-center justify-center gap-3 py-3 rounded-full mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                    <User size={20} />
+                    <span>Demo Login (Builder Mode)</span>
                 </button>
 
                 <div className="text-sm text-center text-gray-500 mt-4">
@@ -83,6 +103,10 @@ const Login = () => {
                 }
                 .btn-primary:hover {
                     opacity: 0.9;
+                }
+                .btn-outline {
+                    background: transparent;
+                    font-weight: 600;
                 }
             `}</style>
         </div>

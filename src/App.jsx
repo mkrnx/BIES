@@ -1,6 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { UserModeProvider } from './context/UserModeContext';
+import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import ModeSelectionModal from './components/ModeSelectionModal';
@@ -52,11 +52,16 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
-// Dashboard Redirect based on Role
+// Dashboard Redirect based on Role or Mode switch
 const DashboardRedirect = () => {
     const { user } = useAuth();
-    if (user?.role === 'builder') return <BuilderDashboard />;
-    return <InvestorDashboard />;
+    const { mode } = useUserMode();
+
+    if (mode === 'builder') return <Navigate to="/dashboard/builder" replace />;
+    if (mode === 'investor') return <Navigate to="/dashboard/investor" replace />;
+    if (user?.role === 'BUILDER') return <Navigate to="/dashboard/builder" replace />;
+
+    return <Navigate to="/dashboard/investor" replace />;
 };
 
 const AppContent = () => {
