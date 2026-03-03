@@ -1,7 +1,47 @@
-import React from 'react';
-import { Mail, MapPin } from 'lucide-react';
+import React, { useState } from 'react';
+import { Mail, MapPin, Loader2, CheckCircle } from 'lucide-react';
 
 const Team = () => {
+    const [form, setForm] = useState({ name: '', email: '', role: 'Builder', message: '' });
+    const [submitting, setSubmitting] = useState(false);
+    const [submitted, setSubmitted] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleChange = (e) => {
+        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+
+        if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
+            setError('Please fill in all required fields.');
+            return;
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+            setError('Please enter a valid email address.');
+            return;
+        }
+
+        setSubmitting(true);
+        try {
+            const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+            const res = await fetch(`${BASE_URL}/contact`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form),
+            });
+            if (!res.ok) throw new Error('Failed to send message');
+            setSubmitted(true);
+            setForm({ name: '', email: '', role: 'Builder', message: '' });
+        } catch (err) {
+            setError(err.message || 'Something went wrong. Please try again.');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
     return (
         <div className="about-page">
             {/* Mission */}
@@ -63,19 +103,37 @@ const Team = () => {
             <section className="contact-section py-16 bg-white">
                 <div className="container max-w-2xl">
                     <h2 className="text-center mb-8">Get in Touch</h2>
-                    <form className="contact-form">
-                        <div className="grid grid-cols-2 gap-md mb-4">
-                            <input type="text" placeholder="Name" className="input" />
-                            <input type="email" placeholder="Email" className="input" />
+
+                    {submitted ? (
+                        <div style={{ textAlign: 'center', padding: '2rem' }}>
+                            <CheckCircle size={48} style={{ color: 'var(--color-success)', margin: '0 auto 1rem' }} />
+                            <h3>Message Sent!</h3>
+                            <p style={{ color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>Thank you for reaching out. We'll get back to you shortly.</p>
+                            <button className="btn btn-outline" style={{ marginTop: '1.5rem' }} onClick={() => setSubmitted(false)}>Send Another</button>
                         </div>
-                        <select className="input mb-4">
-                            <option>I am a Builder</option>
-                            <option>I am an Investor</option>
-                            <option>Media Inquiry</option>
-                        </select>
-                        <textarea placeholder="Message" className="input textarea mb-4" rows="5"></textarea>
-                        <button className="btn btn-primary w-full">Send Message</button>
-                    </form>
+                    ) : (
+                        <form className="contact-form" onSubmit={handleSubmit}>
+                            {error && (
+                                <div style={{ padding: '0.75rem 1rem', background: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                                    {error}
+                                </div>
+                            )}
+                            <div className="grid grid-cols-2 gap-md mb-4">
+                                <input type="text" name="name" placeholder="Name *" className="input" value={form.name} onChange={handleChange} required />
+                                <input type="email" name="email" placeholder="Email *" className="input" value={form.email} onChange={handleChange} required />
+                            </div>
+                            <select name="role" className="input mb-4" value={form.role} onChange={handleChange}>
+                                <option value="Builder">I am a Builder</option>
+                                <option value="Investor">I am an Investor</option>
+                                <option value="Media">Media Inquiry</option>
+                                <option value="Other">Other</option>
+                            </select>
+                            <textarea name="message" placeholder="Message *" className="input textarea mb-4" rows="5" value={form.message} onChange={handleChange} required></textarea>
+                            <button className="btn btn-primary w-full" type="submit" disabled={submitting}>
+                                {submitting ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite', marginRight: 8 }} /> Sending...</> : 'Send Message'}
+                            </button>
+                        </form>
+                    )}
 
                     <div className="flex justify-center gap-lg mt-8 text-gray-500">
                         <div className="flex items-center gap-2">
