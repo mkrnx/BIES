@@ -55,8 +55,10 @@ const PublicRoute = ({ children }) => {
 // Dashboard Redirect based on Role
 const DashboardRedirect = () => {
     const { user } = useAuth();
-    if (user?.role?.toUpperCase() === 'BUILDER') return <BuilderDashboard />;
-    return <InvestorDashboard />;
+    if (user?.role?.toUpperCase() === 'BUILDER') {
+        return <Navigate to="/dashboard/builder" replace />;
+    }
+    return <Navigate to="/dashboard/investor" replace />;
 };
 
 const AppContent = () => {
@@ -93,12 +95,7 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
 
-                    {/* Specific Dashboard Routes if accessed directly */}
-
-
-                    // ... (in routes)
-
-                    {/* Specific Dashboard Routes if accessed directly */}
+                    {/* Specific Dashboard Routes */}
                     <Route path="/dashboard/builder" element={
                         <ProtectedRoute>
                             <BuilderDashboard />
@@ -116,12 +113,13 @@ const AppContent = () => {
                         <ProtectedRoute>
                             <InvestorDashboard />
                         </ProtectedRoute>
-                    } />
-                    <Route path="/dashboard/investor/create-event" element={
-                        <ProtectedRoute>
-                            <CreateEvent />
-                        </ProtectedRoute>
-                    } />
+                    }>
+                        <Route path="watchlist" element={<Discover />} />
+                        <Route path="messages" element={<Messages />} />
+                        <Route path="deal-flow" element={<Discover />} />
+                        <Route path="create-event" element={<CreateEvent />} />
+                        <Route path="settings" element={<Settings />} />
+                    </Route>
 
                     <Route path="/project/:id" element={
                         <ProtectedRoute>

@@ -1,13 +1,35 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Eye, MessageSquare, Plus, MoreHorizontal } from 'lucide-react';
+import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { useApiQuery } from '../../hooks/useApi';
+import { projectsApi, analyticsApi } from '../../services/api';
 
 const BuilderOverview = () => {
-    // Mock Data
-    const projects = [
-        { id: 1, name: 'Volcano Energy Solutions', status: 'Active', views: '2.4k', likes: 145, enquiries: 12, raised: '250k', goal: '1.2M' },
-        { id: 2, name: 'Surf City Logistics', status: 'Draft', views: 0, likes: 0, enquiries: 0, raised: '0', goal: '500k' },
-    ];
+    const { user } = useAuth();
+    const { data: projects, loading: projectsLoading } = useApiQuery(projectsApi.list, { ownerId: user?.id });
+    const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.builderDashboard);
+
+    const projectList = projects?.data || projects || [];
+    const totalRaised = stats?.totalRaised || 0;
+    const totalGoal = stats?.totalGoal || 0;
+    const totalViews = stats?.totalViews || 0;
+    const activeEnquiries = stats?.activeEnquiries || 0;
+    const progressPct = totalGoal > 0 ? Math.round((totalRaised / totalGoal) * 100) : 0;
+
+    const formatCurrency = (val) => {
+        if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
+        return `$${val}`;
+    };
+
+    if (projectsLoading && statsLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
+            </div>
+        );
+    }
 
     return (
         <>
@@ -26,25 +48,25 @@ const BuilderOverview = () => {
                 <div className="stat-box featured">
                     <span className="label">Total Capital Raised</span>
                     <div className="value-row">
-                        <span className="value">$250k</span>
-                        <span className="fraction">/ $1.7M Goal</span>
+                        <span className="value">{formatCurrency(totalRaised)}</span>
+                        <span className="fraction">/ {formatCurrency(totalGoal)} Goal</span>
                     </div>
                     <div className="progress-bar">
-                        <div className="progress-fill" style={{ width: '15%' }}></div>
+                        <div className="progress-fill" style={{ width: `${Math.min(progressPct, 100)}%` }}></div>
                     </div>
                 </div>
                 <div className="stat-box">
                     <span className="label">Total Project Views</span>
                     <div className="value-row">
                         <Eye size={20} className="text-secondary" />
-                        <span className="value">2.4k</span>
+                        <span className="value">{totalViews.toLocaleString()}</span>
                     </div>
                 </div>
                 <div className="stat-box">
                     <span className="label">Active Enquiries</span>
                     <div className="value-row">
                         <MessageSquare size={20} className="text-primary" />
-                        <span className="value">12</span>
+                        <span className="value">{activeEnquiries}</span>
                     </div>
                 </div>
             </div>
@@ -52,39 +74,47 @@ const BuilderOverview = () => {
             {/* Projects Section */}
             <section className="section">
                 <h2>Recent Projects</h2>
-                <div className="projects-table-container">
-                    <table className="projects-table">
-                        <thead>
-                            <tr>
-                                <th>Project Name</th>
-                                <th>Status</th>
-                                <th>Capital Progress</th>
-                                <th>Views</th>
-                                <th>Likes</th>
-                                <th>Enquiries</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {projects.map(project => (
-                                <tr key={project.id}>
-                                    <td className="font-semibold">{project.name}</td>
-                                    <td><span className={`status-badge ${project.status.toLowerCase()}`}>{project.status}</span></td>
-                                    <td>
-                                        <div className="text-sm font-semibold">${project.raised} / ${project.goal}</div>
-                                    </td>
-                                    <td>{project.views}</td>
-                                    <td>{project.likes}</td>
-                                    <td>{project.enquiries}</td>
-                                    <td>
-                                        <button className="icon-btn-sm"><MoreHorizontal size={18} /></button>
-                                    </td>
+                {projectList.length === 0 ? (
+                    <div className="empty-state">
+                        <p>No projects yet. Create your first project to get started.</p>
+                        <Link to="/dashboard/builder/new-project" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', textDecoration: 'none', marginTop: '1rem' }}>
+                            <Plus size={18} style={{ marginRight: 8 }} /> Create Project
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="projects-table-container">
+                        <table className="projects-table">
+                            <thead>
+                                <tr>
+                                    <th>Project Name</th>
+                                    <th>Status</th>
+                                    <th>Capital Progress</th>
+                                    <th>Views</th>
+                                    <th>Likes</th>
+                                    <th>Enquiries</th>
+                                    <th>Actions</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
+                            </thead>
+                            <tbody>
+                                {projectList.slice(0, 5).map(project => (
+                                    <tr key={project.id}>
+                                        <td className="font-semibold">{project.name}</td>
+                                        <td><span className={`status-badge ${(project.status || 'draft').toLowerCase()}`}>{project.status || 'Draft'}</span></td>
+                                        <td>
+                                            <div className="text-sm font-semibold">{formatCurrency(project.raised || 0)} / {formatCurrency(project.fundingGoal || 0)}</div>
+                                        </td>
+                                        <td>{project.views || 0}</td>
+                                        <td>{project.likes || 0}</td>
+                                        <td>{project.enquiries || 0}</td>
+                                        <td>
+                                            <Link to={`/project/${project.id}`} className="icon-btn-sm"><MoreHorizontal size={18} /></Link>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </section>
 
             <style jsx>{`
@@ -96,6 +126,15 @@ const BuilderOverview = () => {
         }
 
         .subtitle { color: var(--color-gray-500); }
+
+        .empty-state {
+          background: white;
+          border-radius: var(--radius-lg);
+          padding: 3rem;
+          text-align: center;
+          color: var(--color-gray-500);
+          border: 1px solid var(--color-gray-200);
+        }
 
         /* Stats */
         .stats-grid {
@@ -111,7 +150,7 @@ const BuilderOverview = () => {
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
         }
-        
+
         .stat-box.featured {
             background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
             color: white;
@@ -122,7 +161,7 @@ const BuilderOverview = () => {
         .stat-box .label { display: block; color: var(--color-gray-400); font-size: 0.875rem; margin-bottom: 0.5rem; }
         .value-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
         .value-row .value { font-size: 1.75rem; font-weight: 700; font-family: var(--font-mono); }
-        
+
         .progress-bar {
             height: 6px;
             background: rgba(255,255,255,0.2);
@@ -142,12 +181,12 @@ const BuilderOverview = () => {
             box-shadow: var(--shadow-sm);
             overflow: hidden;
         }
-        
+
         .projects-table {
             width: 100%;
             border-collapse: collapse;
         }
-        
+
         .projects-table th {
             text-align: left;
             padding: 1rem 1.5rem;
@@ -156,7 +195,7 @@ const BuilderOverview = () => {
             font-size: 0.85rem;
             font-weight: 600;
         }
-        
+
         .projects-table td {
             padding: 1rem 1.5rem;
             border-bottom: 1px solid var(--color-gray-100);
@@ -175,9 +214,9 @@ const BuilderOverview = () => {
         .status-badge.active { background: #DCFCE7; color: #166534; }
         .status-badge.draft { background: #F3F4F6; color: #4B5563; }
 
-        .icon-btn-sm { padding: 0.5rem; border-radius: 4px; color: var(--color-gray-400); }
+        .icon-btn-sm { padding: 0.5rem; border-radius: 4px; color: var(--color-gray-400); display: inline-flex; }
         .icon-btn-sm:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        
+
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
             .projects-table-container { overflow-x: auto; }
