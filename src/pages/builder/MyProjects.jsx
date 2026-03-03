@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ExternalLink, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Send } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery, useApiMutation } from '../../hooks/useApi';
@@ -17,7 +17,8 @@ const MyProjects = () => {
 
     const filtered = projectList.filter(p => {
         if (filter !== 'all' && (p.status || 'draft').toLowerCase() !== filter) return false;
-        if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+        const projectName = (p.name || p.title || '').toLowerCase();
+        if (search && !projectName.includes(search.toLowerCase())) return false;
         return true;
     });
 
@@ -27,6 +28,16 @@ const MyProjects = () => {
             await deleteProject(id);
             refetch();
         } catch { /* error handled by hook */ }
+    };
+
+    const handleSubmit = async (id, name) => {
+        if (!window.confirm(`Submit "${name}" for admin review? It will appear on the Discover page once approved.`)) return;
+        try {
+            await projectsApi.submit(id);
+            refetch();
+        } catch (err) {
+            alert(err?.message || 'Failed to submit project');
+        }
     };
 
     const formatCurrency = (val) => {
@@ -61,6 +72,7 @@ const MyProjects = () => {
                     <div className="tabs">
                         <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All Projects</button>
                         <button className={`tab ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>Active</button>
+                        <button className={`tab ${filter === 'pending-review' ? 'active' : ''}`} onClick={() => setFilter('pending-review')}>Pending Review</button>
                         <button className={`tab ${filter === 'draft' ? 'active' : ''}`} onClick={() => setFilter('draft')}>Drafts</button>
                     </div>
                     <div className="search-wrapper">
@@ -106,9 +118,12 @@ const MyProjects = () => {
                                             </td>
                                             <td>
                                                 <div className="actions-cell">
+                                                    {(project.status || 'draft') === 'draft' && (
+                                                        <button className="action-btn text-submit" title="Submit to Website" onClick={() => handleSubmit(project.id, project.name || project.title)}><Send size={16} /></button>
+                                                    )}
                                                     <Link to={`/dashboard/builder/new-project?edit=${project.id}`} className="action-btn" title="Edit"><Edit size={16} /></Link>
                                                     <Link to={`/project/${project.id}`} className="action-btn" title="View"><ExternalLink size={16} /></Link>
-                                                    <button className="action-btn text-error" title="Delete" onClick={() => handleDelete(project.id, project.name)} disabled={deleting}><Trash2 size={16} /></button>
+                                                    <button className="action-btn text-error" title="Delete" onClick={() => handleDelete(project.id, project.name || project.title)} disabled={deleting}><Trash2 size={16} /></button>
                                                 </div>
                                             </td>
                                         </tr>
@@ -189,6 +204,8 @@ const MyProjects = () => {
                 .action-btn { padding: 4px; color: var(--color-gray-400); border-radius: 4px; cursor: pointer; display: inline-flex; border: none; background: none; }
                 .action-btn:hover { background: var(--color-gray-100); color: var(--color-gray-700); }
                 .action-btn.text-error:hover { background: #FEF2F2; color: var(--color-error); }
+                .action-btn.text-submit { color: var(--color-primary); }
+                .action-btn.text-submit:hover { background: #EDF5FF; color: var(--color-primary); }
             `}</style>
         </div>
     );

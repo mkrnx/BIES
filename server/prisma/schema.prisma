@@ -119,6 +119,7 @@ model Project {
   demoUrl      String   @default("") @map("demo_url")
   websiteUrl   String   @default("") @map("website_url")
   tags         String   @default("[]") // JSON array
+  status       String   @default("draft") // draft | pending-review | active
   isPublished  Boolean  @default(true) @map("is_published")
   isFeatured   Boolean  @default(false) @map("is_featured")
   viewCount    Int      @default(0) @map("view_count")
@@ -285,6 +286,7 @@ model Event {
   thumbnail   String   @default("")
   maxAttendees Int?    @map("max_attendees")
   isPublished Boolean  @default(true) @map("is_published")
+  isFeatured  Boolean  @default(false) @map("is_featured")
   tags        String   @default("[]") // JSON array
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")

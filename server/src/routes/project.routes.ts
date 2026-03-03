@@ -15,6 +15,7 @@ import {
     deckRequestSchema,
     listDeckRequests,
     reviewDeckRequest,
+    submitProject,
 } from '../controllers/project.controller';
 
 const router = Router();
@@ -25,6 +26,7 @@ router.get('/:id', optionalAuth, getProject);
 
 // Protected routes
 router.post('/', authenticate, validate(createProjectSchema), createProject);
+router.put('/:id/submit', authenticate, submitProject);
 router.put('/:id', authenticate, validate(updateProjectSchema), updateProject);
 router.delete('/:id', authenticate, deleteProject);
 router.get('/:id/deck', authenticate, getProjectDeck);

@@ -32,6 +32,14 @@ import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
 
+// Admin pages
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminOverview from './pages/admin/AdminOverview';
+import AdminProjects from './pages/admin/AdminProjects';
+import AdminEvents from './pages/admin/AdminEvents';
+import AdminUsers from './pages/admin/AdminUsers';
+import AdminAuditLog from './pages/admin/AdminAuditLog';
+
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -54,9 +62,24 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
+// Admin Route Guard
+const AdminRoute = ({ children }) => {
+    const { user, loading, isAdmin } = useAuth();
+    const location = useLocation();
+
+    if (loading) return <div className="p-10 text-center">Loading...</div>;
+    if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
+    if (!isAdmin) return <Navigate to="/dashboard" replace />;
+
+    return children;
+};
+
 // Dashboard Redirect based on Role
 const DashboardRedirect = () => {
     const { user } = useAuth();
+    if (user?.role?.toUpperCase() === 'ADMIN') {
+        return <Navigate to="/admin" replace />;
+    }
     if (user?.role?.toUpperCase() === 'BUILDER') {
         return <Navigate to="/dashboard/builder" replace />;
     }
@@ -122,6 +145,19 @@ const AppContent = () => {
                         <Route path="deal-flow" element={<Discover />} />
                         <Route path="create-event" element={<CreateEvent />} />
                         <Route path="settings" element={<Settings />} />
+                    </Route>
+
+                    {/* Admin Routes */}
+                    <Route path="/admin" element={
+                        <AdminRoute>
+                            <AdminDashboard />
+                        </AdminRoute>
+                    }>
+                        <Route index element={<AdminOverview />} />
+                        <Route path="projects" element={<AdminProjects />} />
+                        <Route path="events" element={<AdminEvents />} />
+                        <Route path="users" element={<AdminUsers />} />
+                        <Route path="audit-log" element={<AdminAuditLog />} />
                     </Route>
 
                     <Route path="/project/:id" element={

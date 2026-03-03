@@ -130,6 +130,8 @@ export const projectsApi = {
 
     getDeck: (id) => get(`/projects/${id}/deck`),
 
+    submit: (id) => put(`/projects/${id}/submit`, {}),
+
     postUpdate: (id, title, content) =>
         post(`/projects/${id}/updates`, { title, content }),
 };
@@ -262,6 +264,10 @@ export const adminApi = {
     verifyUser: (id) => put(`/admin/users/${id}/verify`, {}),
     featureProject: (id, featured) => put(`/admin/projects/${id}/feature`, { featured }),
     deleteProject: (id) => del(`/admin/projects/${id}`),
+    listProjects: (params = {}) => get('/admin/projects', params),
+    reviewProject: (id, action) => put(`/admin/projects/${id}/review`, { action }),
+    listEvents: (params = {}) => get('/admin/events', params),
+    featureEvent: (id, featured) => put(`/admin/events/${id}/feature`, { featured }),
     auditLogs: (params = {}) => get('/admin/audit-logs', params),
     broadcast: (message) => post('/admin/broadcast', { message }),
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
