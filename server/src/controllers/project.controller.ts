@@ -176,6 +176,16 @@ export async function getProject(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // Only allow owner/admin to view unpublished/non-active projects
+        if (!project.isPublished || project.status !== 'active') {
+            const isOwner = req.user && project.ownerId === req.user.id;
+            const isAdmin = req.user && req.user.role === 'ADMIN';
+            if (!isOwner && !isAdmin) {
+                res.status(404).json({ error: 'Project not found' });
+                return;
+            }
+        }
+
         const result = { ...project, tags: JSON.parse(project.tags || '[]') };
         await cache.setJson(cKey, result, TTL.PROJECT_DETAIL);
         res.json(result);
@@ -191,11 +201,16 @@ export async function getProject(req: Request, res: Response): Promise<void> {
  */
 export async function createProject(req: Request, res: Response): Promise<void> {
     try {
-        const data: any = { ...req.body };
+        // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, etc.
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags'];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
         if (data.tags) data.tags = JSON.stringify(data.tags);
 
         const project = await prisma.project.create({
-            data: { ...data, ownerId: req.user!.id, status: 'draft' },
+            data: { ...data, ownerId: req.user!.id, status: 'draft', isPublished: false },
             include: {
                 owner: {
                     select: {
@@ -240,7 +255,12 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             res.status(403).json({ error: 'Not authorized to update this project' }); return;
         }
 
-        const data: any = { ...req.body };
+        // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, ownerId, etc.
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags'];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
         if (data.tags) data.tags = JSON.stringify(data.tags);
 
         const project = await prisma.project.update({

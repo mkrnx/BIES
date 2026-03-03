@@ -8,8 +8,12 @@ COPY strfry.conf /etc/strfry.conf
 COPY write-policy.sh /app/write-policy.sh
 RUN chmod +x /app/write-policy.sh
 
-# Create data directories
-RUN mkdir -p /app/strfry-db /app/data
+# Create data directories and non-root user
+RUN mkdir -p /app/strfry-db /app/data && \
+    groupadd -g 1001 relay && useradd -u 1001 -g relay -s /bin/sh relay && \
+    chown -R relay:relay /app/strfry-db /app/data
+
+USER relay
 
 EXPOSE 7777
 

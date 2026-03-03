@@ -86,7 +86,7 @@ export function auditLog(req: Request, res: Response, next: NextFunction): void 
                 userAgent,
                 metadata: JSON.stringify(metadata),
             },
-        }).catch(() => {}); // Never throw — audit logging is best-effort
+        }).catch((err) => console.error('[Audit] Failed to write audit log:', err.message));
     });
 
     next();

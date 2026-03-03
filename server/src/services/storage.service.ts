@@ -42,12 +42,38 @@ const PRIVATE_DIR = path.join(UPLOAD_DIR, 'private');
 });
 
 /**
- * Generate a unique filename preserving the extension.
+ * Map of MIME types to safe extensions. Used instead of trusting user-provided filenames.
  */
-function generateFilename(originalName: string): string {
-    const ext = path.extname(originalName);
+const SAFE_EXTENSIONS: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'image/svg+xml': '.svg',
+    'application/pdf': '.pdf',
+    'application/vnd.ms-powerpoint': '.ppt',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+};
+
+/**
+ * Generate a unique filename with a safe extension derived from MIME type.
+ */
+function generateFilename(originalName: string, mimeType?: string): string {
+    // Derive extension from validated MIME type, falling back to original extension
+    const ext = (mimeType && SAFE_EXTENSIONS[mimeType]) || path.extname(originalName);
     const hash = crypto.randomBytes(16).toString('hex');
     return `${Date.now()}-${hash}${ext}`;
+}
+
+/**
+ * Validate that a resolved path stays within the allowed directory (prevent path traversal).
+ */
+function validatePath(basedir: string, key: string): string {
+    const fullPath = path.resolve(basedir, key);
+    if (!fullPath.startsWith(path.resolve(basedir))) {
+        throw new Error('Invalid file path: path traversal detected');
+    }
+    return fullPath;
 }
 
 /**
@@ -59,7 +85,7 @@ export async function uploadPublicFile(
     originalName: string,
     mimeType: string
 ): Promise<string> {
-    const filename = generateFilename(originalName);
+    const filename = generateFilename(originalName, mimeType);
     const key = `media/${filename}`;
 
     if (s3Client) {
@@ -79,7 +105,7 @@ export async function uploadPublicFile(
     }
 
     // Local fallback
-    const filePath = path.join(PUBLIC_DIR, filename);
+    const filePath = validatePath(PUBLIC_DIR, filename);
     fs.writeFileSync(filePath, fileBuffer);
     return `/uploads/public/${filename}`;
 }
@@ -93,7 +119,7 @@ export async function uploadPrivateFile(
     originalName: string,
     mimeType: string
 ): Promise<string> {
-    const filename = generateFilename(originalName);
+    const filename = generateFilename(originalName, mimeType);
     const key = `decks/${filename}`;
 
     if (s3Client) {
@@ -111,7 +137,7 @@ export async function uploadPrivateFile(
     }
 
     // Local fallback
-    const filePath = path.join(PRIVATE_DIR, filename);
+    const filePath = validatePath(PRIVATE_DIR, filename);
     fs.writeFileSync(filePath, fileBuffer);
     return `private/${filename}`;
 }
@@ -147,8 +173,8 @@ export async function deleteFile(key: string): Promise<void> {
         return;
     }
 
-    // Local fallback
-    const fullPath = path.join(UPLOAD_DIR, key);
+    // Local fallback — validate path to prevent directory traversal
+    const fullPath = validatePath(UPLOAD_DIR, key);
     if (fs.existsSync(fullPath)) {
         fs.unlinkSync(fullPath);
     }

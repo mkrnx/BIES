@@ -1,15 +1,33 @@
 import dotenv from 'dotenv';
+import crypto from 'crypto';
 dotenv.config();
+
+const nodeEnv = process.env.NODE_ENV || 'development';
+const isProduction = nodeEnv === 'production';
+
+// ─── Security: refuse to start in production with default secrets ───────
+if (isProduction) {
+    if (!process.env.JWT_SECRET) {
+        throw new Error('FATAL: JWT_SECRET environment variable must be set in production');
+    }
+    if (!process.env.ENCRYPTION_SECRET) {
+        throw new Error('FATAL: ENCRYPTION_SECRET environment variable must be set in production');
+    }
+}
+
+// In development, generate a random secret per process instead of using a static default
+const devJwtSecret = crypto.randomBytes(32).toString('hex');
+const devEncryptionSecret = crypto.randomBytes(16).toString('hex') + crypto.randomBytes(16).toString('hex');
 
 export const config = {
     port: parseInt(process.env.PORT || '3001', 10),
-    nodeEnv: process.env.NODE_ENV || 'development',
+    nodeEnv,
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 
     // ─── Auth ───────────────────────────────────────────────────────────────
-    jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
+    jwtSecret: process.env.JWT_SECRET || devJwtSecret,
     jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    encryptionSecret: process.env.ENCRYPTION_SECRET || 'dev-encrypt-secret-32characters!',
+    encryptionSecret: process.env.ENCRYPTION_SECRET || devEncryptionSecret,
 
     // ─── Redis (optional — falls back to in-memory) ─────────────────────────
     redisUrl: process.env.REDIS_URL || '',
