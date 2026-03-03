@@ -24,6 +24,9 @@ export const config = {
         publicUrl: process.env.S3_PUBLIC_URL || '',
     },
 
+    // ─── Admin ───────────────────────────────────────────────────────────────
+    adminPubkeys: (process.env.ADMIN_PUBKEYS || '').split(',').filter(Boolean),
+
     // ─── Nostr ───────────────────────────────────────────────────────────────
     nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
 
