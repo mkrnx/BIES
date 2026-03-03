@@ -20,6 +20,7 @@ import CreateEvent from './pages/CreateEvent';
 import Team from './pages/Team';
 import PublicProfile from './pages/PublicProfile';
 import Profile from './pages/Profile';
+import ProfileEdit from './pages/ProfileEdit';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProjectDetails from './pages/ProjectDetails';
@@ -180,6 +181,11 @@ const AppContent = () => {
                     <Route path="/profile" element={
                         <ProtectedRoute>
                             <Profile />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/profile/edit" element={
+                        <ProtectedRoute>
+                            <ProfileEdit />
                         </ProtectedRoute>
                     } />
                     <Route path="/messages" element={

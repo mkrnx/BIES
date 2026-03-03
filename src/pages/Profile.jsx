@@ -1,962 +1,391 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, ArrowLeft, MoreHorizontal, Share, Save, Search, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, Zap, Loader2, Pencil } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
-import { profilesApi, uploadApi, projectsApi } from '../services/api';
-import { Link } from 'react-router-dom';
+import { profilesApi } from '../services/api';
+import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 
 const Profile = () => {
-    const { user, refreshUser } = useAuth();
+    const { user } = useAuth();
+    const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [error, setError] = useState('');
     const [nostrProfile, setNostrProfile] = useState(null);
-    const [loadingNostr, setLoadingNostr] = useState(false);
-    const [nostrForm, setNostrForm] = useState({ name: '', about: '', picture: '', website: '', nip05: '', lud16: '', banner: '' });
-    const [savingNostr, setSavingNostr] = useState(false);
-    const [nostrSaved, setNostrSaved] = useState(false);
-    const [form, setForm] = useState({
-        name: '',
-        bio: '',
-        location: '',
-        website: '',
-        twitter: '',
-        linkedin: '',
-        company: '',
-        title: '',
-        avatar: '',
-        banner: '',
-        tags: [],
-        showExperience: true,
-        showNostrFeed: true,
-        experience: [],
-        biesProjects: [],
-        nostrNpub: '',
-    });
-
-    // Project Search State
-    const [projectSearch, setProjectSearch] = useState('');
-    const [isSearchingProjects, setIsSearchingProjects] = useState(false);
-    const [projectResults, setProjectResults] = useState([]);
-    const [showProjectDropdown, setShowProjectDropdown] = useState(false);
-    const [newProjectRole, setNewProjectRole] = useState('');
-    const searchRef = useRef(null);
-
-    // Click outside handler for project dropdown
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (searchRef.current && !searchRef.current.contains(event.target)) {
-                setShowProjectDropdown(false);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
 
     useEffect(() => {
         loadProfile();
     }, []);
 
-    useEffect(() => {
-        if (user?.nostrPubkey) {
-            fetchNostrProfile();
-        }
-    }, [user?.nostrPubkey]);
-
-    const fetchNostrProfile = async () => {
-        setLoadingNostr(true);
-        try {
-            const profile = await nostrService.getProfile(user.nostrPubkey);
-            setNostrProfile(profile);
-            if (profile) {
-                setNostrForm({
-                    name: profile.name || '',
-                    about: profile.about || '',
-                    picture: profile.picture || '',
-                    website: profile.website || '',
-                    nip05: profile.nip05 || '',
-                    lud16: profile.lud16 || '',
-                    banner: profile.banner || '',
-                });
-            }
-        } catch (err) {
-            console.error('Failed to fetch Nostr profile:', err);
-        } finally {
-            setLoadingNostr(false);
-        }
-    };
-
-    const handleNostrFormChange = (field) => (e) => {
-        setNostrForm(prev => ({ ...prev, [field]: e.target.value }));
-        setNostrSaved(false);
-    };
-
-    const handleSaveToNostr = async () => {
-        setSavingNostr(true);
-        setError('');
-        try {
-            const data = {};
-            if (nostrForm.name) data.name = nostrForm.name;
-            if (nostrForm.about) data.about = nostrForm.about;
-            if (nostrForm.picture) data.picture = nostrForm.picture;
-            if (nostrForm.website) data.website = nostrForm.website;
-            if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
-            if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
-            if (nostrForm.banner) data.banner = nostrForm.banner;
-
-            await nostrService.updateProfile(data);
-            setNostrSaved(true);
-            setTimeout(() => setNostrSaved(false), 3000);
-            await fetchNostrProfile();
-        } catch (err) {
-            setError(err.message || 'Failed to publish to Nostr.');
-        } finally {
-            setSavingNostr(false);
-        }
-    };
-
-    const handleSyncFromNostr = () => {
-        if (!nostrProfile) return;
-        setForm(prev => ({
-            ...prev,
-            bio: nostrProfile.about || prev.bio,
-            avatar: nostrProfile.picture || prev.avatar,
-            website: nostrProfile.website || prev.website,
-        }));
-        setSaved(false);
-    };
-
     const loadProfile = async () => {
         try {
-            const profile = await profilesApi.me();
-            setForm({
-                id: profile.id, // Need ID for saving/displaying
-                name: profile.name || '',
-                bio: profile.bio || '',
-                location: profile.location || '',
-                website: profile.website || '',
-                twitter: profile.twitter || '',
-                linkedin: profile.linkedin || '',
-                company: profile.company || '',
-                title: profile.title || profile.role || '',
-                avatar: profile.avatar || profile.image || '',
-                banner: profile.banner || '',
-                tags: profile.tags || [],
-                showExperience: profile.showExperience ?? true,
-                showNostrFeed: profile.showNostrFeed ?? true,
-                experience: profile.experience || [],
-                biesProjects: profile.biesProjects || [],
-                nostrNpub: profile.nostrNpub || '',
-            });
+            const res = await profilesApi.me();
+            setProfile(res.data || res);
         } catch (err) {
-            setError('Failed to load profile.');
+            console.error('Failed to load profile:', err);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleChange = (field) => (e) => {
-        setForm(prev => ({ ...prev, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
-        setSaved(false);
-    };
-
-    const handleAvatarUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        try {
-            const result = await uploadApi.media(file);
-            setForm(prev => ({ ...prev, avatar: result.url }));
-        } catch (err) {
-            setError('Failed to upload image.');
-        }
-    };
-
-    const handleBannerUpload = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        try {
-            const result = await uploadApi.media(file);
-            setForm(prev => ({ ...prev, banner: result.url }));
-        } catch (err) {
-            setError('Failed to upload banner.');
-        }
-    };
-
-    const handleSave = async (e) => {
-        e?.preventDefault();
-        setSaving(true);
-        setError('');
-
-        try {
-            await profilesApi.update(form);
-            await refreshUser();
-            setSaved(true);
-            setTimeout(() => setSaved(false), 3000);
-        } catch (err) {
-            setError(err.message || 'Failed to save profile.');
-        } finally {
-            setSaving(false);
-        }
-    };
-
-    // --- Tags Logic ---
-    const handleTagKeyDown = (e) => {
-        if (e.key === 'Enter' && e.target.value.trim()) {
-            e.preventDefault();
-            const newTag = e.target.value.trim();
-            if (!form.tags.includes(newTag)) {
-                setForm(prev => ({ ...prev, tags: [...prev.tags, newTag] }));
-            }
-            e.target.value = '';
-            setSaved(false);
-        }
-    };
-
-    const removeTag = (tagToRemove) => {
-        setForm(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tagToRemove) }));
-        setSaved(false);
-    };
-
-    // --- Experience Logic ---
-    const handleAddExperience = () => {
-        setForm(prev => ({
-            ...prev,
-            experience: [
-                ...prev.experience,
-                { title: '', company: '', date: '', description: '' }
-            ]
-        }));
-        setSaved(false);
-    };
-
-    const handleExperienceChange = (index, field) => (e) => {
-        const newExp = [...form.experience];
-        newExp[index][field] = e.target.value;
-        setForm(prev => ({ ...prev, experience: newExp }));
-        setSaved(false);
-    };
-
-    const handleRemoveExperience = (index) => {
-        const newExp = [...form.experience];
-        newExp.splice(index, 1);
-        setForm(prev => ({ ...prev, experience: newExp }));
-        setSaved(false);
-    };
-
-    // --- Project Search Logic ---
     useEffect(() => {
-        const searchProjects = async () => {
-            if (!projectSearch.trim()) {
-                setProjectResults([]);
-                return;
-            }
-            setIsSearchingProjects(true);
-            try {
-                // Mock search for active projects
-                const res = await projectsApi.list({ search: projectSearch, limit: 5 });
-                setProjectResults(res.data || res || []);
-                setShowProjectDropdown(true);
-            } catch (error) {
-                console.error("Failed to search projects", error);
-            } finally {
-                setIsSearchingProjects(false);
-            }
-        };
-
-        const debounce = setTimeout(searchProjects, 300);
-        return () => clearTimeout(debounce);
-    }, [projectSearch]);
-
-    const handleAddProject = (project) => {
-        if (!form.biesProjects.find(p => p.id === project.id)) {
-            setForm(prev => ({
-                ...prev,
-                biesProjects: [...prev.biesProjects, {
-                    id: project.id,
-                    name: project.name,
-                    role: newProjectRole || 'Contributor',
-                    status: project.status || 'Active',
-                    image: project.image || project.coverImage
-                }]
-            }));
-            setSaved(false);
+        const pubkey = profile?.nostrPubkey || user?.nostrPubkey;
+        if (pubkey) {
+            nostrService.getProfile(pubkey).then(setNostrProfile).catch(() => {});
         }
-        setProjectSearch('');
-        setNewProjectRole('');
-        setShowProjectDropdown(false);
-    };
-
-    const handleRemoveProject = (projectId) => {
-        setForm(prev => ({
-            ...prev,
-            biesProjects: prev.biesProjects.filter(p => p.id !== projectId)
-        }));
-        setSaved(false);
-    };
+    }, [profile?.nostrPubkey, user?.nostrPubkey]);
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-                <Loader2 size={32} className="spin" style={{ animation: 'spin 1s linear infinite' }} />
+            <div className="profile-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
             </div>
         );
     }
 
-    const projectsTitle = user?.role === 'INVESTOR' ? 'Invested In' : 'Working On';
+    // First-time user with no profile yet — send straight to edit page
+    if (!profile || (!profile.name && !profile.bio && !profile.title)) {
+        return <Navigate to="/profile/edit" replace />;
+    }
+
+    const npub = user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : profile?.nostrNpub;
+    const role = user?.role || 'BUILDER';
+    const projectsTitle = role === 'INVESTOR' ? 'Invested In' : 'Working On';
 
     return (
         <div className="profile-page">
-            <div className="container py-8 max-w-6xl">
-
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="h1-title mb-1">Edit Profile</h1>
-                        <p className="text-gray-500">Manage your profile appearance and information.</p>
-                    </div>
-                </div>
-
-                {error && (
-                    <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
-                        {error}
-                    </div>
-                )}
-
-                {/* Facebook Style Header Card (Editable) */}
+            <div className="container py-8">
+                {/* Header Card */}
                 <div className="profile-card mb-8" style={{ padding: 0, overflow: 'hidden' }}>
-                    {/* Cover Banner Editable */}
-                    <div className="relative group" style={{
+                    {/* Cover Banner */}
+                    <div style={{
+                        position: 'relative',
                         height: '240px',
-                        background: form.banner ? `url(${form.banner}) center/cover no-repeat` : 'linear-gradient(to right, #0052cc, #0a192f)'
+                        background: profile.banner
+                            ? `url(${profile.banner}) center/cover no-repeat`
+                            : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
-                        {/* Top-Left Edit Banner Button Inside Banner */}
-                        <div className="absolute z-10" style={{ top: '24px', left: '24px' }}>
-                            <label className="shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 cursor-pointer" style={{ backgroundColor: 'white', color: '#1f2937', borderRadius: 'var(--radius-md)', height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: '700', fontFamily: 'var(--font-display)', fontSize: '1rem', letterSpacing: '0.02em' }}>
-                                <Camera size={18} />
-                                Edit Banner
-                                <input type="file" accept="image/*" onChange={handleBannerUpload} style={{ display: 'none' }} />
-                            </label>
-                        </div>
-
-                        {/* Top-Right Save Buttons Inside Banner */}
-                        <div className="absolute flex gap-4 z-10" style={{ bottom: '24px', right: '24px' }}>
-                            <button onClick={handleSave} className="btn btn-primary shadow-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2" disabled={saving} style={{ borderRadius: 'var(--radius-md)', height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: '700', fontFamily: 'var(--font-display)', fontSize: '1rem', letterSpacing: '0.02em' }}>
-                                {saving ? <Loader2 size={16} className="spin" /> : <Save size={18} />}
-                                {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
-                            </button>
+                        {/* Edit Profile Button */}
+                        <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20 }}>
+                            <Link
+                                to="/profile/edit"
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: 'var(--color-primary, #0052cc)',
+                                    color: 'white',
+                                    borderRadius: 'var(--radius-md, 8px)',
+                                    height: '44px',
+                                    padding: '0 24px',
+                                    fontWeight: 700,
+                                    fontFamily: 'var(--font-display)',
+                                    fontSize: '1rem',
+                                    letterSpacing: '0.02em',
+                                    textDecoration: 'none',
+                                    boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                <Pencil size={18} />
+                                Edit Profile
+                            </Link>
                         </div>
                     </div>
 
-                    {/* Profile Info Section (Editable) */}
-                    <div className="pb-8 relative">
-                        {/* Avatar Editable */}
-                        <div className="relative" style={{ marginTop: '-80px', zIndex: 10, width: 'fit-content' }}>
-                            <div className="relative" style={{ width: '168px', height: '168px', borderRadius: '50%', overflow: 'hidden', border: '5px solid white', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}>
-                                <img src={form.avatar || `https://ui-avatars.com/api/?name=${form.name}&background=random`} alt={form.name} className="bg-white" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            </div>
-
-                            <label className="absolute cursor-pointer transition-colors z-20 flex items-center justify-center hover:bg-gray-50 shadow-md" style={{ width: '40px', height: '40px', bottom: '4px', right: '4px', backgroundColor: 'white', borderRadius: '50%', border: '1px solid #e5e7eb' }}>
-                                <Camera size={18} className="text-gray-700" />
-                                <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
-                            </label>
+                    {/* Profile Info Section */}
+                    <div className="pb-8" style={{ paddingLeft: '24px', paddingRight: '24px', position: 'relative', zIndex: 5 }}>
+                        {/* Avatar */}
+                        <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5 }}>
+                            {profile.avatar ? (
+                                <img src={profile.avatar} alt={profile.name} className="shadow-md bg-white flex-shrink-0" style={{ width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover', border: '5px solid white' }} />
+                            ) : (
+                                <div className="shadow-md bg-white flex-shrink-0 flex items-center justify-center" style={{ width: '168px', height: '168px', borderRadius: '50%', border: '5px solid white', background: 'var(--color-gray-100)', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
+                                    {(profile.name || user?.email || '?').charAt(0).toUpperCase()}
+                                </div>
+                            )}
                         </div>
 
-                        {/* Labeled Form Inputs Section */}
-                        <div className="w-full max-w-2xl">
-                            {/* Profile Status Toggles */}
-                            <div className="form-row mb-8 items-center">
-                                <label className="form-label">Profile Status</label>
-                                <div className="form-content flex items-center gap-6">
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-600">Public</span>
-                                        <label className="toggle-switch">
-                                            <input type="checkbox" checked={form.isPublic} onChange={handleChange('isPublic')} />
-                                            <span className="toggle-slider"></span>
-                                        </label>
+                        {/* Name & Title */}
+                        <div style={{ marginTop: '16px' }}>
+                            <h1 className="h1-title mb-1" style={{ fontSize: '2rem' }}>
+                                {profile.name || profile.biesDisplayName || user?.email || 'Unnamed'}
+                            </h1>
+                            {(profile.title || profile.company) && (
+                                <p className="role-text mb-3 text-xl text-gray-600">
+                                    {profile.title}{profile.title && profile.company && ' at '}
+                                    {profile.company && <span className="text-primary font-semibold">{profile.company}</span>}
+                                </p>
+                            )}
+
+                            <div className="flex items-center flex-wrap gap-4 text-gray-500 text-sm mb-6">
+                                {profile.location && (
+                                    <span className="flex items-center gap-2"><MapPin size={16} /> {profile.location}</span>
+                                )}
+                                {profile.tags && profile.tags.length > 0 && (
+                                    <div className="flex flex-wrap gap-2">
+                                        {profile.tags.map((tag, index) => (
+                                            <span key={index} style={{ padding: '2px 12px', backgroundColor: 'var(--color-gray-100)', color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500 }}>
+                                                {tag}
+                                            </span>
+                                        ))}
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm text-gray-600">Show on BIES</span>
-                                        <label className="toggle-switch">
-                                            <input type="checkbox" checked={form.showOnProfile} onChange={handleChange('showOnProfile')} />
-                                            <span className="toggle-slider"></span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Name</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.name} onChange={handleChange('name')} className="editable-title" placeholder="Your Name" />
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Current Role</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.title} onChange={handleChange('title')} className="input-field" placeholder="Role/Title" />
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Company</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.company} onChange={handleChange('company')} className="input-field" placeholder="Company" />
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Location</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon text-gray-900 w-full">
-                                        <MapPin size={18} className="icon pointer-events-none" />
-                                        <input type="text" value={form.location} onChange={handleChange('location')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="City, Country" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Tags</label>
-                                <div className="form-content">
-                                    <div className="space-y-4">
-                                        <input
-                                            type="text"
-                                            className="input-field"
-                                            placeholder="Add tag (press Enter)"
-                                            onKeyDown={handleTagKeyDown}
-                                        />
-                                        <div className="flex flex-wrap gap-2">
-                                            {form.tags.map((tag, idx) => (
-                                                <span key={idx} className="status-badge flex items-center gap-2 py-1.5 px-3">
-                                                    {tag}
-                                                    <button onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={12} /></button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
+                                )}
                             </div>
                         </div>
+
+                        {/* About/Bio */}
+                        {profile.bio && (
+                            <div className="pt-8 pb-6 border-t border-gray-100">
+                                <h3 className="h3-title mb-2">About</h3>
+                                <p className="text-gray-600 leading-relaxed max-w-4xl" style={{ fontSize: '1.125rem' }}>
+                                    {profile.bio}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 
-                {/* Detailed Sections Stack */}
-                <div className="flex flex-col gap-8 mb-16">
-
-                    {/* About Section */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title mb-8 border-b pb-4">About</h3>
-                            <div className="form-row mb-0">
-                                <label className="form-label">Bio</label>
-                                <div className="form-content">
-                                    <textarea
-                                        rows="5"
-                                        className="text-lg text-gray-600 leading-relaxed input-field resize-y min-h-[160px]"
-                                        value={form.bio}
-                                        onChange={handleChange('bio')}
-                                        placeholder="Tell us about yourself..."
-                                    />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Experience Manager */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <div className="flex justify-between items-center mb-6 border-b pb-4">
-                                <h3 className="h3-title flex items-center gap-4">
+                <div className="profile-grid">
+                    {/* Left Column - Main Content */}
+                    <div className="profile-main space-y-6">
+                        {/* Experience */}
+                        {profile.experience && profile.experience.length > 0 && (
+                            <div className="profile-card">
+                                <h3 className="h3-title mb-6 flex items-center gap-4">
                                     <Briefcase size={20} style={{ color: 'var(--color-gray-400)' }} />
                                     Experience
                                 </h3>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-gray-600">Show on profile</span>
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" checked={form.showExperience} onChange={handleChange('showExperience')} />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        {form.showExperience && (
-                            <div className="w-full max-w-2xl">
-                                <div className="space-y-12">
-                                    {form.experience.map((exp, idx) => (
+                                <div className="space-y-6" style={{ marginLeft: '10px' }}>
+                                    {profile.experience.map((exp, idx) => (
                                         <div key={idx} className="experience-item relative pl-6 border-l-2 border-gray-100 pb-2">
                                             <div className="experience-dot"></div>
-                                            <div className="flex flex-col gap-6 relative">
-                                                <button onClick={() => handleRemoveExperience(idx)} className="absolute -top-1 right-0 text-gray-400 hover:text-red-500 p-1"><X size={16} /></button>
-
-                                                <div className="form-row mb-0" style={{ gridTemplateColumns: '136px 1fr' }}>
-                                                    <label className="form-label" style={{ width: '136px' }}>Role</label>
-                                                    <div className="form-content">
-                                                        <input type="text" value={exp.title} onChange={handleExperienceChange(idx, 'title')} placeholder="Job Title" className="input-field" />
-                                                    </div>
-                                                </div>
-                                                <div className="form-row mb-0" style={{ gridTemplateColumns: '136px 1fr' }}>
-                                                    <label className="form-label" style={{ width: '136px' }}>Company</label>
-                                                    <div className="form-content">
-                                                        <input type="text" value={exp.company} onChange={handleExperienceChange(idx, 'company')} placeholder="Company Name" className="input-field" />
-                                                    </div>
-                                                </div>
-                                                <div className="form-row mb-0" style={{ gridTemplateColumns: '136px 1fr' }}>
-                                                    <label className="form-label" style={{ width: '136px' }}>Date</label>
-                                                    <div className="form-content">
-                                                        <input type="text" value={exp.date} onChange={handleExperienceChange(idx, 'date')} placeholder="e.g. 2020 - Present" className="input-field" />
-                                                    </div>
-                                                </div>
-                                                <div className="form-row mb-0" style={{ gridTemplateColumns: '136px 1fr' }}>
-                                                    <label className="form-label" style={{ width: '136px' }}>Details</label>
-                                                    <div className="form-content">
-                                                        <textarea rows="3" value={exp.description} onChange={handleExperienceChange(idx, 'description')} placeholder="Describe your experience..." className="input-field resize-y" />
-                                                    </div>
-                                                </div>
-                                            </div>
+                                            <h4 className="font-semibold" style={{ fontSize: '1.125rem', color: 'var(--color-gray-900)' }}>{exp.title}</h4>
+                                            <p className="text-primary font-medium mb-1">{exp.company}</p>
+                                            <p className="text-sm text-gray-400 mb-2">{exp.date}</p>
+                                            {exp.description && <p className="text-gray-600 text-sm leading-relaxed">{exp.description}</p>}
                                         </div>
                                     ))}
-                                    <div className="form-row-offset">
-                                        <button onClick={handleAddExperience} type="button" className="btn btn-outline border-dashed w-full text-gray-500 flex justify-center gap-2 hover:bg-gray-50">
-                                            <Plus size={18} /> Add Experience Detail
-                                        </button>
-                                    </div>
                                 </div>
+                            </div>
+                        )}
+
+                        {/* Nostr Notes Feed */}
+                        {npub && (
+                            <div className="profile-card">
+                                <NostrFeed npub={npub} />
                             </div>
                         )}
                     </div>
 
-                    {/* Links Section */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title mb-8 border-b pb-4">Links</h3>
-                            <div className="w-full">
-                                <div className="form-row">
-                                    <label className="form-label">Website</label>
-                                    <div className="form-content">
-                                        <div className="input-with-icon w-full text-gray-900">
-                                            <Globe size={18} className="icon pointer-events-none" />
-                                            <input type="url" value={form.website} onChange={handleChange('website')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="https://" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="form-row">
-                                    <label className="form-label">X (Twitter)</label>
-                                    <div className="form-content">
-                                        <div className="input-with-icon w-full text-gray-900">
-                                            <div className="icon pointer-events-none flex items-center">
-                                                <svg viewBox="0 0 24 24" aria-hidden="true" fill="currentColor" width="18" height="18"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+                    {/* Right Column - Side Panels */}
+                    <div className="profile-sidebar space-y-6">
+                        {/* Projects Panel */}
+                        <div className="profile-card bg-gray-50 border border-gray-200">
+                            <h3 className="h3-title mb-4">{projectsTitle}</h3>
+                            {profile.biesProjects && profile.biesProjects.length > 0 ? (
+                                <div>
+                                    {profile.biesProjects.map((proj, idx) => (
+                                        <Link
+                                            to={`/project/${proj.id}`}
+                                            key={idx}
+                                            className="project-link flex items-stretch justify-between gap-4 p-4 bg-white border border-gray-200 rounded-xl transition-all hover:border-primary"
+                                            style={{ marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0' }}
+                                        >
+                                            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                                <div className="flex items-center gap-2">
+                                                    <h4 className="font-semibold text-gray-900 text-lg truncate">{proj.name}</h4>
+                                                </div>
+                                                <div className="flex items-center gap-3 text-sm mt-2">
+                                                    <span className="text-primary font-medium truncate">{proj.role}</span>
+                                                    <span className="text-gray-300">•</span>
+                                                    <span className="status-badge flex-shrink-0">{proj.status}</span>
+                                                </div>
                                             </div>
-                                            <input type="text" value={form.twitter} onChange={handleChange('twitter')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="X (Twitter) handle" />
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="form-row">
-                                    <label className="form-label">LinkedIn</label>
-                                    <div className="form-content">
-                                        <div className="input-with-icon w-full text-gray-900">
-                                            <Linkedin size={18} className="icon pointer-events-none" />
-                                            <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="LinkedIn Profile" />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Nostr Profile Card */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title flex items-center gap-2 mb-6 border-b pb-4">
-                                <Zap size={20} className="text-purple-500" />
-                                Nostr Profile
-                            </h3>
-                            <p className="text-sm text-gray-600 mb-6 leading-relaxed">Edit your Nostr identity. Changes are published to relays.</p>
-
-                            {user?.nostrPubkey && (
-                                <div className="form-row">
-                                    <label className="form-label">Public Key (npub)</label>
-                                    <div className="form-content">
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={nip19.npubEncode(user.nostrPubkey)}
-                                            className="input-field font-mono text-sm w-full"
-                                            style={{ cursor: 'default', background: '#f9fafb' }}
-                                        />
-                                    </div>
-                                </div>
-                            )}
-
-                            {loadingNostr ? (
-                                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                                    <Loader2 size={20} className="spin" style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
-                                    <p className="text-sm text-gray-400" style={{ marginTop: '0.5rem' }}>Fetching from relays...</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="form-row">
-                                        <label className="form-label">Nostr Name</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field w-full" placeholder="Name on Nostr" />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">About</label>
-                                        <div className="form-content">
-                                            <textarea rows="3" className="input-field w-full" value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr"></textarea>
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Picture URL</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="input-field w-full" placeholder="https://..." />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Website</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="input-field w-full" placeholder="https://..." />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">NIP-05</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="input-field w-full" placeholder="you@domain.com" />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">LUD-16</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="input-field w-full" placeholder="you@wallet.com" />
-                                        </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Banner URL</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="input-field w-full mb-6" placeholder="https://..." />
-                                        </div>
-                                    </div>
-                                </>
-                            )}
-
-                            <div className="flex gap-4 mt-8">
-                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary flex-1 flex items-center justify-center gap-2" style={{ background: '#7c3aed', padding: '0.625rem 1rem' }}>
-                                    {savingNostr ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-                                    {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : 'Save to Nostr'}
-                                    {nostrSaved && <CheckCircle size={16} />}
-                                </button>
-                                <button type="button" onClick={fetchNostrProfile} className="btn btn-outline flexitems-center justify-center gap-2 text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50" style={{ flex: '0.5' }}>
-                                    <RefreshCw size={16} /> Refresh
-                                </button>
-                                <button type="button" onClick={handleSyncFromNostr} className="btn btn-outline flex items-center justify-center gap-2" style={{ flex: '0.5', color: '#2563eb', borderColor: '#bfdbfe' }}>
-                                    Sync to BIES
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Nostr Identity & Feed Toggle */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <div className="flex justify-between items-center mb-8 border-b pb-4">
-                                <h3 className="h3-title flex items-center gap-2">
-                                    <Hash size={20} className="text-purple-500" />
-                                    Nostr Identity & Feed
-                                </h3>
-                                <div className="flex items-center gap-3">
-                                    <span className="text-sm font-medium text-gray-600">Show feed</span>
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div className="form-row-offset mb-8">
-                                <p className="text-sm text-gray-600 leading-relaxed">Connect your Nostr NPUB to display your notes directly on your profile.</p>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Nostr npub</label>
-                                <div className="form-content">
-                                    <input type="text" placeholder="1..." value={form.nostrNpub ? form.nostrNpub.replace(/^npub/, '') : ''} onChange={(e) => handleChange('nostrNpub')({ target: { value: 'npub' + e.target.value } })} className="input-field w-full font-mono text-sm bg-gray-50/50 hover:bg-gray-100/50 focus:bg-white" />
-                                </div>
-                            </div>
-
-                            {form.showNostrFeed && form.nostrNpub && (
-                                <div className="mt-8 border-t pt-8 opacity-60 pointer-events-none w-full">
-                                    <div className="form-row-offset">
-                                        <p className="text-sm text-gray-500 font-medium mb-4">Feed Preview:</p>
-                                        <NostrFeed npub={form.nostrNpub} notes={[]} />
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Working On / Projects Section */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <div className="flex justify-between items-center mb-8 border-b pb-4">
-                                <h3 className="h3-title">{projectsTitle}</h3>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Add Project</label>
-                                <div className="form-content space-y-5">
-                                    <div className="relative group">
-                                        <input
-                                            type="text"
-                                            placeholder="Your Role / Contribution"
-                                            className="input-field"
-                                            value={newProjectRole}
-                                            onChange={(e) => setNewProjectRole(e.target.value)}
-                                        />
-                                    </div>
-                                    <div className="relative">
-                                        <div className="flex items-center border border-gray-200 bg-white rounded-lg focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all overflow-hidden">
-                                            <div className="pl-4 text-gray-400">
-                                                <Search size={18} />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                className="w-full py-2.5 px-3 border-none outline-none text-sm font-medium"
-                                                placeholder="Search projects to add..."
-                                                value={projectSearch}
-                                                onChange={(e) => {
-                                                    setProjectSearch(e.target.value);
-                                                    setShowProjectDropdown(true);
-                                                }}
-                                                onFocus={() => setShowProjectDropdown(true)}
-                                            />
-                                            {projectSearch && (
-                                                <button onClick={() => setProjectSearch('')} className="pr-4 text-gray-400 hover:text-gray-600">
-                                                    <X size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {showProjectDropdown && projectSearch.length > 0 && (
-                                            <div className="absolute z-20 mt-2 w-full bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto py-2">
-                                                {PROJECTS_DATABASE.filter(p =>
-                                                    p.name.toLowerCase().includes(projectSearch.toLowerCase()) &&
-                                                    !form.biesProjects.some(bp => bp.id === p.id)
-                                                ).map(project => (
-                                                    <button
-                                                        key={project.id}
-                                                        className="w-full px-4 py-3 text-left hover:bg-gray-50 flex items-center gap-3 transition-colors border-b border-gray-50 last:border-0"
-                                                        onClick={() => handleAddProject(project)}
-                                                    >
-                                                        <img src={project.image} alt="" className="w-8 h-8 rounded shadow-sm object-cover" />
-                                                        <div>
-                                                            <p className="text-sm font-semibold text-gray-900">{project.name}</p>
-                                                            <p className="text-xs text-gray-500">{project.status}</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                                {PROJECTS_DATABASE.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                                                    <div className="px-4 py-6 text-center text-gray-500 text-sm italic">
-                                                        No projects found matching "{projectSearch}"
-                                                    </div>
+                                            <div className="bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-200" style={{ width: '120px', height: '68px', minWidth: '120px', minHeight: '68px' }}>
+                                                {proj.image ? (
+                                                    <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    <span className="text-gray-400 font-bold text-xl">{proj.name.charAt(0)}</span>
                                                 )}
                                             </div>
-                                        )}
-                                    </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-gray-500">No active network projects listed.</p>
+                            )}
+                        </div>
+
+                        {/* Links Panel */}
+                        {(profile.website || profile.twitter || profile.linkedin) && (
+                            <div className="profile-card">
+                                <h3 className="h3-title mb-4">Links</h3>
+                                <div className="flex flex-col gap-3">
+                                    {profile.website && (
+                                        <a href={profile.website} target="_blank" rel="noopener noreferrer" className="social-link">
+                                            <Globe size={18} /> {profile.website.replace(/^https?:\/\//, '')}
+                                        </a>
+                                    )}
+                                    {profile.twitter && (
+                                        <a href={`https://x.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="social-link">
+                                            <Twitter size={18} /> @{profile.twitter.replace('@', '')}
+                                        </a>
+                                    )}
+                                    {profile.linkedin && (
+                                        <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="social-link">
+                                            <Linkedin size={18} /> LinkedIn Profile
+                                        </a>
+                                    )}
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        {/* List of current projects - keep this as a grid below the standardized row */}
-                        <div className="form-row-offset mt-8 max-w-2xl">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {form.biesProjects.map(project => (
-                                    <div key={project.id} className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-xl hover:border-primary/30 transition-all hover:shadow-md group">
-                                        <div className="flex items-center gap-3">
-                                            <img src={project.image} alt="" className="w-12 h-12 rounded-lg shadow-sm object-cover" />
-                                            <div>
-                                                <p className="text-sm font-bold text-gray-900">{project.name}</p>
-                                                <p className="text-xs font-semibold text-primary/80">{project.role}</p>
-                                            </div>
+                        {/* Nostr Identity Card */}
+                        {(npub || nostrProfile) && (
+                            <div className="profile-card">
+                                <h3 className="h3-title mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Zap size={20} style={{ color: '#8b5cf6' }} />
+                                    Nostr Identity
+                                </h3>
+                                {nostrProfile ? (
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                            {nostrProfile.picture && (
+                                                <img src={nostrProfile.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                            )}
+                                            <span className="font-medium text-gray-900">{nostrProfile.name || 'Unnamed'}</span>
                                         </div>
-                                        <button onClick={() => handleRemoveProject(project.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-all">
-                                            <X size={16} />
-                                        </button>
+                                        {nostrProfile.about && (
+                                            <p className="text-sm text-gray-600 leading-relaxed" style={{ marginBottom: '0.75rem' }}>
+                                                {nostrProfile.about.length > 140
+                                                    ? nostrProfile.about.substring(0, 140) + '...'
+                                                    : nostrProfile.about}
+                                            </p>
+                                        )}
                                     </div>
-                                ))}
+                                ) : (
+                                    <p className="text-sm text-gray-400">Loading Nostr profile...</p>
+                                )}
+                                {npub && (
+                                    <p className="text-xs text-gray-400" style={{ fontFamily: 'monospace', marginTop: '0.5rem' }}>
+                                        {npub.substring(0, 24)}...
+                                    </p>
+                                )}
                             </div>
-                        </div>
+                        )}
                     </div>
-
                 </div>
             </div>
 
             <style jsx>{`
-        .profile-page {
-             background-color: #f8fafc;
-             min-height: 100vh;
-        }
+                .profile-page {
+                    min-height: 100vh;
+                    background: var(--color-gray-50);
+                    padding-bottom: 4rem;
+                }
 
-        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+                .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+                .mb-8 { margin-bottom: 2rem; }
+                .mb-6 { margin-bottom: 1.5rem; }
+                .mb-4 { margin-bottom: 1rem; }
+                .mb-3 { margin-bottom: 0.75rem; }
+                .mb-2 { margin-bottom: 0.5rem; }
+                .mb-1 { margin-bottom: 0.25rem; }
+                .pb-6 { padding-bottom: 1.5rem; }
+                .pt-8 { padding-top: 2rem; }
 
-        /* Profile Grid Layout */
-        .profile-grid {
-             display: grid;
-             grid-template-columns: 1fr;
-             gap: 2.5rem;
-        }
+                .profile-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                }
 
-        @media(min-width: 768px) {
-             .profile-grid {
-                  grid-template-columns: 2fr 1fr;
-                  gap: 3rem;
-             }
-        }
+                @media (min-width: 768px) {
+                    .profile-grid {
+                        grid-template-columns: 2fr 1fr;
+                    }
+                }
 
-        .profile-card {
-             background: white;
-             padding: 2rem;
-             border-radius: var(--radius-xl);
-             box-shadow: var(--shadow-sm);
-             border: 1px solid var(--color-gray-200);
-        }
+                .profile-card {
+                    background: white;
+                    padding: 2rem;
+                    border-radius: var(--radius-xl);
+                    box-shadow: var(--shadow-sm);
+                    border: 1px solid var(--color-gray-200);
+                }
 
-        .form-row {
-            display: grid;
-            grid-template-columns: 160px 1fr;
-            gap: 2rem;
-            align-items: start;
-            margin-bottom: 2rem;
-        }
+                .bg-gray-50 { background-color: var(--color-gray-50); }
 
-        .form-label {
-            text-align: right;
-            color: var(--color-gray-700);
-            font-weight: 600;
-            font-size: 0.875rem;
-            padding-top: 0.5rem;
-        }
+                .h1-title { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
+                .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
+                .role-text { font-size: 1.25rem; color: var(--color-gray-700); }
+                .text-gray-400 { color: var(--color-gray-400); }
+                .text-gray-500 { color: var(--color-gray-500); }
+                .text-gray-600 { color: var(--color-gray-600); }
+                .text-gray-700 { color: var(--color-gray-700); }
+                .text-gray-900 { color: var(--color-gray-900); }
+                .text-sm { font-size: 0.875rem; }
+                .text-xs { font-size: 0.75rem; }
+                .font-semibold { font-weight: 600; font-family: var(--font-display); }
+                .font-medium { font-weight: 500; }
+                .font-bold { font-weight: 700; font-family: var(--font-display); }
+                .leading-relaxed { line-height: 1.625; }
 
-        .form-content {
-            min-width: 0;
-        }
+                .space-y-6 > * + * { margin-top: 1.5rem; }
+                .flex-wrap { flex-wrap: wrap; }
+                .gap-4 { gap: 1rem; }
 
-        .form-help-text {
-            margin-left: 0;
-            padding-top: 0.5rem;
-            font-size: 0.875rem;
-            color: var(--color-gray-600);
-        }
-        
-        /* Adjusted specifically for rows without labels to maintain alignment */
-        .form-row-offset {
-            margin-left: calc(160px + 2rem);
-        }
+                .experience-item {
+                    padding-left: 1.5rem;
+                    border-left: 2px solid var(--color-gray-200);
+                    position: relative;
+                    padding-bottom: 0.5rem;
+                }
+                .experience-dot {
+                    position: absolute;
+                    width: 12px;
+                    height: 12px;
+                    background: var(--color-primary);
+                    border-radius: 50%;
+                    left: -7px;
+                    top: 6px;
+                }
 
-        /* Editable Title */
-        .editable-title {
-             font-size: 2rem;
-             line-height: 2.25rem;
-             font-weight: 700;
-             font-family: var(--font-display);
-             width: 100%;
-             border: 1px solid var(--color-gray-200);
-             background: white;
-             padding: 0.75rem 1rem;
-             border-radius: var(--radius-md);
-             transition: all 0.2s;
-             color: var(--color-gray-900);
-        }
-        .editable-title:hover, .editable-title:focus {
-             background: white;
-             border-color: var(--color-gray-300);
-             outline: none;
-        }
-        .editable-title:focus {
-             border-color: var(--color-primary);
-             box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1);
-        }
+                .project-link { text-decoration: none; color: inherit; display: block; }
+                .project-link:hover { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
-        .form-input-inline {
-             border: 1px solid var(--color-gray-200);
-             background: var(--color-gray-50);
-             padding-left: 12px;
-             padding-right: 12px;
-             border-radius: var(--radius-md);
-             transition: all 0.2s;
-        }
-        .form-input-inline:hover {
-             background: rgba(0,0,0,0.02);
-        }
-        .form-input-inline:focus {
-             background: white;
-             border-color: var(--color-primary);
-             padding-left: 12px;
-             outline: none;
-             box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1);
-        }
+                .status-badge {
+                    background: #dcfce7;
+                    color: #15803d;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 9999px;
+                    font-size: 0.75rem;
+                }
 
-        /* Text Utilities */
-        .h1-title { font-size: 2rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); }
-        .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
+                .social-link {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    color: var(--color-gray-600);
+                    text-decoration: none;
+                    padding: 0.5rem;
+                    border-radius: 0.375rem;
+                    transition: background 0.2s, color 0.2s;
+                }
+                .social-link:hover {
+                    color: var(--color-primary);
+                    background: var(--color-gray-100);
+                }
 
-        /* Inputs */
-        .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: white; border-radius: var(--radius-md); outline: none; transition: all 0.2s; }
-        .input-field:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1); }
+                @media (max-width: 768px) {
+                    .flex.justify-between { flex-direction: column; align-items: flex-start; gap: 1rem; }
+                }
 
-        .input-with-icon { position: relative; }
-        .input-with-icon .icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-gray-400); }
-
-        /* Utilities */
-        .status-badge { background: #dcfce7; color: #15803d; padding: 0.25rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; }
-        .experience-item { padding-left: 1.5rem; border-left: 2px solid var(--color-gray-200); position: relative; padding-bottom: 0.5rem; }
-        /* Toggle Switch */
-        .toggle-switch {
-            position: relative;
-            display: inline-block;
-            width: 44px;
-            height: 24px;
-        }
-        .toggle-switch input {
-            opacity: 0;
-            width: 0;
-            height: 0;
-        }
-        .toggle-slider {
-            position: absolute;
-            cursor: pointer;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: #cbd5e1;
-            transition: .3s;
-            border-radius: 24px;
-        }
-        .toggle-slider:before {
-            position: absolute;
-            content: "";
-            height: 18px;
-            width: 18px;
-            left: 3px;
-            bottom: 3px;
-            background-color: white;
-            transition: .3s;
-            border-radius: 50%;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
-        }
-        .toggle-switch input:checked + .toggle-slider {
-            background-color: var(--color-primary);
-        }
-        .toggle-switch input:focus + .toggle-slider {
-            box-shadow: 0 0 1px var(--color-primary);
-        }
-        .toggle-switch input:checked + .toggle-slider:before {
-            transform: translateX(20px);
-        }
-    `}</style>
+                @keyframes spin {
+                    to { transform: rotate(360deg); }
+                }
+            `}</style>
         </div>
     );
 };

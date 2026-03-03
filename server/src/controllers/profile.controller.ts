@@ -7,10 +7,10 @@ import { z } from 'zod';
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 export const updateProfileSchema = z.object({
-    name: z.string().min(1).optional(),
+    name: z.string().optional(),
     bio: z.string().optional(),
-    avatar: z.string().url().optional().or(z.literal('')),
-    banner: z.string().url().optional().or(z.literal('')),
+    avatar: z.string().optional(),
+    banner: z.string().optional(),
     location: z.string().optional(),
     skills: z.array(z.string()).optional(),
     website: z.string().url().optional().or(z.literal('')),
@@ -20,6 +20,23 @@ export const updateProfileSchema = z.object({
     company: z.string().optional(),
     title: z.string().optional(),
     tags: z.array(z.string()).optional(),
+    // Profile sections
+    experience: z.array(z.object({
+        title: z.string().optional(),
+        company: z.string().optional(),
+        date: z.string().optional(),
+        description: z.string().optional(),
+    })).optional(),
+    biesProjects: z.array(z.object({
+        id: z.string(),
+        name: z.string(),
+        role: z.string().optional(),
+        status: z.string().optional(),
+        image: z.string().optional(),
+    })).optional(),
+    showExperience: z.boolean().optional(),
+    showNostrFeed: z.boolean().optional(),
+    nostrNpub: z.string().optional(),
     // Investor-specific
     investmentFocus: z.array(z.string()).optional(),
     investmentStage: z.array(z.string()).optional(),
@@ -97,6 +114,8 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
             investmentFocus: JSON.parse(p.investmentFocus || '[]'),
             investmentStage: JSON.parse(p.investmentStage || '[]'),
             lookingFor: JSON.parse(p.lookingFor || '[]'),
+            experience: JSON.parse(p.experience || '[]'),
+            biesProjects: JSON.parse(p.biesProjects || '[]'),
         }));
 
         const result = {
@@ -187,6 +206,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
             investmentFocus: JSON.parse(profile.investmentFocus || '[]'),
             investmentStage: JSON.parse(profile.investmentStage || '[]'),
             lookingFor: JSON.parse(profile.lookingFor || '[]'),
+            experience: JSON.parse(profile.experience || '[]'),
+            biesProjects: JSON.parse(profile.biesProjects || '[]'),
         };
 
         await cache.setJson(cKey, result, TTL.PROFILE_DETAIL);
@@ -205,10 +226,10 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
     try {
         const data: any = { ...req.body };
 
-        // Convert arrays to JSON strings for SQLite
-        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor'];
+        // Convert arrays/objects to JSON strings for SQLite
+        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
         for (const field of arrayFields) {
-            if (data[field]) data[field] = JSON.stringify(data[field]);
+            if (data[field] !== undefined) data[field] = JSON.stringify(data[field]);
         }
 
         const profile = await prisma.profile.upsert({
@@ -224,7 +245,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             cache.delPattern('profiles:'),
         ]);
 
-        const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor'];
+        const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
         const parsed: any = { ...profile };
         for (const f of arrayParsedFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
@@ -267,7 +288,7 @@ export async function getMyProfile(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor'];
+        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
         const parsed: any = { ...profile };
         for (const f of arrayFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
