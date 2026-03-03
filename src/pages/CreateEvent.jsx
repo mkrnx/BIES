@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Upload, Calendar, MapPin, Clock, Users, Globe, Tag } from 'lucide-react';
+import { eventsApi, uploadApi } from '../services/api';
 
 const CreateEvent = () => {
     const navigate = useNavigate();
@@ -39,16 +40,46 @@ const CreateEvent = () => {
         }));
     };
 
+    const [submitError, setSubmitError] = useState('');
+
+    const handleImageUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        try {
+            const result = await uploadApi.media(file);
+            setForm(prev => ({ ...prev, thumbnail: result.url || result.path }));
+        } catch {
+            setSubmitError('Failed to upload image');
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-
-        // TODO: Wire to eventsApi.create(data) when backend is connected
-        // For now, simulate a delay and redirect
-        setTimeout(() => {
-            setLoading(false);
+        setSubmitError('');
+        try {
+            const data = {
+                title: form.title,
+                category: form.category,
+                description: form.description,
+                location: form.location,
+                isOnline: form.isOnline,
+                onlineUrl: form.onlineUrl || undefined,
+                startDate: form.startDate,
+                startTime: form.startTime,
+                endDate: form.endDate || undefined,
+                endTime: form.endTime || undefined,
+                maxAttendees: form.maxAttendees ? parseInt(form.maxAttendees) : undefined,
+                image: form.thumbnail || undefined,
+                tags: form.tags ? form.tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+            };
+            await eventsApi.create(data);
             navigate('/events');
-        }, 1000);
+        } catch (err) {
+            setSubmitError(err.message || 'Failed to create event');
+        } finally {
+            setLoading(false);
+        }
     };
 
     return (
@@ -63,14 +94,31 @@ const CreateEvent = () => {
                     <p className="subtitle">Host an event for the BIES community</p>
 
                     <form onSubmit={handleSubmit}>
+                        {submitError && (
+                            <div style={{ padding: '0.75rem 1rem', background: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                                {submitError}
+                            </div>
+                        )}
+
                         {/* Thumbnail Upload */}
                         <div className="form-group">
                             <label>Cover Image</label>
-                            <div className="upload-area">
-                                <Upload size={24} />
-                                <span>Drag & drop or click to upload</span>
-                                <span className="upload-hint">Recommended: 1200 x 600px</span>
-                            </div>
+                            {form.thumbnail ? (
+                                <div style={{ position: 'relative', marginBottom: '0.5rem' }}>
+                                    <img src={form.thumbnail} alt="Cover" style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '12px' }} />
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, thumbnail: null }))}
+                                        style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', borderRadius: '50%', width: 28, height: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}>
+                                        &times;
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="upload-area" style={{ cursor: 'pointer' }}>
+                                    <Upload size={24} />
+                                    <span>Click to upload</span>
+                                    <span className="upload-hint">Recommended: 1200 x 600px</span>
+                                    <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
+                                </label>
+                            )}
                         </div>
 
                         {/* Title */}
