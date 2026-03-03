@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronLeft, Loader2 } from 'lucide-react';
+import { Upload, ChevronLeft, Loader2, FileText, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectsApi, uploadApi } from '../../services/api';
 
@@ -11,6 +11,8 @@ const NewProject = () => {
     const [loading, setLoading] = useState(false);
     const [loadingProject, setLoadingProject] = useState(!!editId);
     const [error, setError] = useState('');
+    const [deckFile, setDeckFile] = useState(null);
+    const [deckUploading, setDeckUploading] = useState(false);
     const [form, setForm] = useState({
         name: '',
         category: '',
@@ -54,6 +56,21 @@ const NewProject = () => {
         }
     };
 
+    const handleDeckUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (file.type !== 'application/pdf') {
+            setError('Please upload a PDF file');
+            return;
+        }
+        if (file.size > 20 * 1024 * 1024) {
+            setError('File must be under 20MB');
+            return;
+        }
+        setDeckFile(file);
+        setError('');
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -65,16 +82,25 @@ const NewProject = () => {
                 fundingGoal: form.fundingGoal ? Number(form.fundingGoal) : 0,
             };
 
+            let project;
             if (editId) {
-                await projectsApi.update(editId, payload);
+                project = await projectsApi.update(editId, payload);
             } else {
-                await projectsApi.create(payload);
+                project = await projectsApi.create(payload);
             }
+
+            // Upload deck if selected
+            if (deckFile && project?.id) {
+                setDeckUploading(true);
+                await uploadApi.deck(deckFile, project.id);
+            }
+
             navigate('/dashboard/builder/projects');
         } catch (err) {
             setError(err.message || 'Failed to save project.');
         } finally {
             setLoading(false);
+            setDeckUploading(false);
         }
     };
 
@@ -168,6 +194,28 @@ const NewProject = () => {
                         </div>
                     </div>
 
+                    {/* Pitch Deck Upload */}
+                    <div className="form-group">
+                        <label>Pitch Deck (PDF)</label>
+                        {deckFile ? (
+                            <div className="deck-file-display">
+                                <FileText size={20} style={{ color: 'var(--color-primary)' }} />
+                                <span className="deck-name">{deckFile.name}</span>
+                                <span className="deck-size">({(deckFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                                <button type="button" className="deck-remove" onClick={() => setDeckFile(null)}>
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <label className="deck-upload-area">
+                                <FileText size={28} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
+                                <p className="text-sm font-semibold text-primary">Upload Pitch Deck</p>
+                                <p className="text-xs text-gray-500">PDF only, max 20MB</p>
+                                <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
+                            </label>
+                        )}
+                    </div>
+
                     <div className="form-actions">
                         <button type="button" onClick={() => navigate(-1)} className="btn btn-outline">Cancel</button>
                         <button type="submit" className="btn btn-primary" disabled={loading}>
@@ -251,6 +299,42 @@ const NewProject = () => {
           border: none; padding: 4px 12px; border-radius: var(--radius-md);
           cursor: pointer; font-size: 0.8rem;
         }
+
+        .deck-upload-area {
+          border: 2px dashed var(--color-gray-300);
+          border-radius: var(--radius-lg);
+          padding: 1.5rem;
+          text-align: center;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: var(--color-gray-50);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+        .deck-upload-area:hover { border-color: var(--color-primary); background: #FFFBF5; }
+
+        .deck-file-display {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.75rem 1rem;
+          background: var(--color-gray-50);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-md);
+        }
+        .deck-name { font-weight: 500; flex: 1; }
+        .deck-size { color: var(--color-gray-400); font-size: 0.85rem; }
+        .deck-remove {
+          padding: 4px;
+          border-radius: 4px;
+          color: var(--color-gray-400);
+          cursor: pointer;
+          background: none;
+          border: none;
+        }
+        .deck-remove:hover { color: var(--color-error); background: var(--color-gray-100); }
 
         .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
 
