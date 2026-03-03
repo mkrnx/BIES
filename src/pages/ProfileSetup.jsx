@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { nostrService } from '../services/nostrService';
 import { profilesApi } from '../services/api';
-import { ArrowRight, Loader2, AlertCircle, Zap } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, Zap, ChevronDown, ChevronUp, Send } from 'lucide-react';
 
 const ProfileSetup = () => {
     const { user, updateRole, refreshUser } = useAuth();
@@ -14,6 +14,8 @@ const ProfileSetup = () => {
     const [role, setRole] = useState('BUILDER');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
+    const [showNostrEdit, setShowNostrEdit] = useState(false);
+    const [nostrForm, setNostrForm] = useState({ name: '', about: '', picture: '', website: '', nip05: '', lud16: '' });
 
     useEffect(() => {
         // Redirect if user doesn't need setup (returning user)
@@ -29,11 +31,25 @@ const ProfileSetup = () => {
                 if (profile?.name) {
                     setBiesName(profile.name);
                 }
+                if (profile) {
+                    setNostrForm({
+                        name: profile.name || '',
+                        about: profile.about || '',
+                        picture: profile.picture || '',
+                        website: profile.website || '',
+                        nip05: profile.nip05 || '',
+                        lud16: profile.lud16 || '',
+                    });
+                }
             }).finally(() => setLoadingNostr(false));
         } else {
             setLoadingNostr(false);
         }
     }, [user, navigate]);
+
+    const handleNostrFormChange = (field) => (e) => {
+        setNostrForm(prev => ({ ...prev, [field]: e.target.value }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -43,13 +59,31 @@ const ProfileSetup = () => {
         setError('');
 
         try {
+            // Save BIES profile
             const updateData = { name: biesName.trim() };
-            if (nostrProfile?.picture) updateData.avatar = nostrProfile.picture;
-            if (nostrProfile?.about) updateData.bio = nostrProfile.about;
-            if (nostrProfile?.website) updateData.website = nostrProfile.website;
+            if (nostrForm.picture || nostrProfile?.picture) updateData.avatar = nostrForm.picture || nostrProfile?.picture;
+            if (nostrForm.about || nostrProfile?.about) updateData.bio = nostrForm.about || nostrProfile?.about;
+            if (nostrForm.website || nostrProfile?.website) updateData.website = nostrForm.website || nostrProfile?.website;
 
             await profilesApi.update(updateData);
             await updateRole(role);
+
+            // Publish Nostr profile if user edited it
+            if (showNostrEdit && nostrForm.name) {
+                try {
+                    const data = {};
+                    if (nostrForm.name) data.name = nostrForm.name;
+                    if (nostrForm.about) data.about = nostrForm.about;
+                    if (nostrForm.picture) data.picture = nostrForm.picture;
+                    if (nostrForm.website) data.website = nostrForm.website;
+                    if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
+                    if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
+                    await nostrService.updateProfile(data);
+                } catch (nostrErr) {
+                    console.error('Nostr publish failed (non-blocking):', nostrErr);
+                }
+            }
+
             await refreshUser();
             navigate('/dashboard');
         } catch (err) {
@@ -127,6 +161,49 @@ const ProfileSetup = () => {
                         <p className="text-xs text-gray-400 mt-1">
                             This name is shown on BIES only and won't change your Nostr profile.
                         </p>
+                    </div>
+
+                    {/* Nostr Profile Editing (collapsible) */}
+                    <div className="mb-4">
+                        <button
+                            type="button"
+                            onClick={() => setShowNostrEdit(!showNostrEdit)}
+                            className="nostr-edit-toggle"
+                        >
+                            <Zap size={16} style={{ color: '#8b5cf6' }} />
+                            <span>{showNostrEdit ? 'Hide' : 'Edit'} Nostr Profile</span>
+                            {showNostrEdit ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        </button>
+
+                        {showNostrEdit && (
+                            <div className="nostr-edit-section">
+                                <p className="text-xs text-gray-400 mb-3">These changes will be published to Nostr relays when you submit.</p>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Nostr Name</label>
+                                    <input type="text" className="input-field text-sm" value={nostrForm.name} onChange={handleNostrFormChange('name')} placeholder="Name on Nostr" />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">About</label>
+                                    <textarea rows="2" className="input-field text-sm" value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr"></textarea>
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Picture URL</label>
+                                    <input type="url" className="input-field text-sm" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} placeholder="https://..." />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+                                    <input type="url" className="input-field text-sm" value={nostrForm.website} onChange={handleNostrFormChange('website')} placeholder="https://..." />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">NIP-05</label>
+                                    <input type="text" className="input-field text-sm" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} placeholder="you@domain.com" />
+                                </div>
+                                <div className="mb-3">
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">Lightning Address</label>
+                                    <input type="text" className="input-field text-sm" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} placeholder="you@wallet.com" />
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     <div className="mb-6">
@@ -241,6 +318,34 @@ const ProfileSetup = () => {
                 }
                 .nostr-about {
                     line-height: 1.5;
+                }
+
+                .nostr-edit-toggle {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem 1rem;
+                    border: 1px solid #e9d5ff;
+                    border-radius: var(--radius-md);
+                    background: #faf5ff;
+                    color: #7c3aed;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .nostr-edit-toggle:hover {
+                    border-color: #8b5cf6;
+                    background: #f3e8ff;
+                }
+                .nostr-edit-toggle span { flex: 1; text-align: left; }
+                .nostr-edit-section {
+                    margin-top: 0.75rem;
+                    padding: 1rem;
+                    border: 1px solid #e2e8f0;
+                    border-radius: var(--radius-md);
+                    background: #f8fafc;
                 }
 
                 .error-banner {
