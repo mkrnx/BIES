@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { publishProfileUpdate } from '../services/nostr.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { notifyProfileView } from '../services/notification.service';
 import { z } from 'zod';
@@ -224,14 +223,6 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             cache.del(cacheKey.profileDetail(profile.id)),
             cache.delPattern('profiles:'),
         ]);
-
-        // Sync to Nostr (best-effort)
-        publishProfileUpdate(req.user!.id, {
-            name: profile.name,
-            about: profile.bio,
-            picture: profile.avatar,
-            website: profile.website,
-        }).catch((err) => console.error('[Nostr] Profile sync failed:', err));
 
         const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor'];
         const parsed: any = { ...profile };

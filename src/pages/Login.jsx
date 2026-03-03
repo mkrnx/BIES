@@ -5,7 +5,7 @@ import { Zap, AlertCircle, Loader2, User } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
 
 const Login = () => {
-    const { loginWithNostr, loginWithEmail } = useAuth();
+    const { loginWithNostrAndCheckNew, loginWithEmail } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -17,10 +17,14 @@ const Login = () => {
         setLoading(true);
 
         try {
-            const result = await loginWithNostr();
+            const result = await loginWithNostrAndCheckNew();
 
             if (result.success) {
-                navigate('/dashboard');
+                if (result.needsProfileSetup) {
+                    navigate('/profile-setup');
+                } else {
+                    navigate('/dashboard');
+                }
             } else {
                 setError(result.error || 'Login failed. Please try again.');
             }
