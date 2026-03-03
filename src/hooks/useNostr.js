@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { nostrService } from '../services/nostrService';
 import { nip19 } from 'nostr-tools';
 
@@ -12,7 +12,6 @@ export const useNostrFeed = (npubs) => {
 
         setLoading(true);
         const sub = nostrService.subscribeToFeed(npubs, async (event) => {
-            // Fetch profile if not already fetched
             if (!profiles[event.pubkey]) {
                 const profile = await nostrService.getProfile(event.pubkey);
                 setProfiles(prev => ({
@@ -22,9 +21,7 @@ export const useNostrFeed = (npubs) => {
             }
 
             setPosts(prev => {
-                // Deduplicate based on id
                 if (prev.find(p => p.id === event.id)) return prev;
-                // Add new post and sort by created_at desc
                 const newPosts = [...prev, event].sort((a, b) => b.created_at - a.created_at);
                 return newPosts;
             });
@@ -34,81 +31,137 @@ export const useNostrFeed = (npubs) => {
         return () => {
             if (sub) sub.close();
         };
-    }, [JSON.stringify(npubs)]); // stringify to compare array content
+    }, [JSON.stringify(npubs)]);
 
     return { posts, loading, profiles };
 };
 
+/**
+ * NIP-17 Direct Messages hook
+ *
+ * Subscribes to kind:1059 gift-wraps, unwraps them to extract kind:14 rumors,
+ * and groups messages by conversation partner.
+ */
 export const useNostrDMs = () => {
     const [messages, setMessages] = useState([]);
-    const [conversations, setConversations] = useState({});
     const [loading, setLoading] = useState(false);
     const [publicKey, setPublicKey] = useState(null);
     const [error, setError] = useState(null);
+    const [profiles, setProfiles] = useState({});
+    const subRef = useRef(null);
+    const processedIds = useRef(new Set());
 
-    const connect = async () => {
+    const connect = useCallback(async () => {
         setLoading(true);
         setError(null);
 
         try {
             if (!window.nostr) {
-                throw new Error("Nostr extension not found. Please install Alby or nos2x.");
+                throw new Error('Nostr extension not found. Please install Alby or nos2x.');
+            }
+
+            if (!window.nostr.nip44) {
+                throw new Error('Your Nostr extension does not support NIP-44. Please update to the latest version.');
             }
 
             const pubkey = await window.nostr.getPublicKey();
             setPublicKey(pubkey);
 
-            nostrService.subscribeToDMs(pubkey, async (event) => {
-                // Determine counterpart
-                const isSender = event.pubkey === pubkey;
-                const otherParty = isSender
-                    ? event.tags.find(t => t[0] === 'p')?.[1]
-                    : event.pubkey;
+            // Subscribe to NIP-17 gift-wraps (kind:1059)
+            subRef.current = nostrService.subscribeToNip17DMs(pubkey, async (giftWrapEvent) => {
+                // Skip already processed
+                if (processedIds.current.has(giftWrapEvent.id)) return;
+                processedIds.current.add(giftWrapEvent.id);
 
-                if (!otherParty) return;
+                try {
+                    const { rumor, sealPubkey } = await nostrService.unwrapGiftWrap(giftWrapEvent);
 
-                // Try to decrypt content
-                // Note: This might prompt user for each message if not handled carefully by extension
-                // For better UX, we usually only decrypt active chat or list preview
-                // Here we fetch metadata but decrypting might be done on demand or carefully
+                    // Determine the conversation partner
+                    const isSender = sealPubkey === pubkey;
+                    const partnerPubkey = isSender
+                        ? rumor.tags.find(t => t[0] === 'p')?.[1]
+                        : sealPubkey;
 
-                // For now, let's just group them
-                setMessages(prev => {
-                    if (prev.find(m => m.id === event.id)) return prev;
-                    return [...prev, event].sort((a, b) => a.created_at - b.created_at);
-                });
+                    if (!partnerPubkey) return;
+
+                    // Fetch partner profile if not cached
+                    if (!profiles[partnerPubkey]) {
+                        nostrService.getProfile(partnerPubkey).then(profile => {
+                            if (profile) {
+                                setProfiles(prev => ({ ...prev, [partnerPubkey]: profile }));
+                            }
+                        });
+                    }
+
+                    const dm = {
+                        id: giftWrapEvent.id,
+                        content: rumor.content,
+                        created_at: rumor.created_at,
+                        senderPubkey: sealPubkey,
+                        partnerPubkey,
+                        isSender,
+                    };
+
+                    setMessages(prev => {
+                        if (prev.find(m => m.id === dm.id)) return prev;
+                        return [...prev, dm].sort((a, b) => a.created_at - b.created_at);
+                    });
+                } catch (err) {
+                    // Skip messages we can't decrypt (not for us, corrupted, etc.)
+                    console.debug('Could not unwrap gift-wrap:', err.message);
+                }
             });
 
         } catch (err) {
-            console.error("Failed to connect Nostr:", err);
+            console.error('Failed to connect Nostr DMs:', err);
             setError(err.message);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const decryptMessage = async (peerPubkey, ciphertext) => {
-        if (!window.nostr) return "[Encrypted]";
-        try {
-            return await window.nostr.nip04.decrypt(peerPubkey, ciphertext);
-        } catch (e) {
-            console.error("Decryption failed", e);
-            return "[Decryption Error]";
-        }
-    };
+    // Cleanup subscription on unmount
+    useEffect(() => {
+        return () => {
+            if (subRef.current) {
+                subRef.current.close();
+            }
+        };
+    }, []);
 
-    const sendMessage = async (recipientPubkey, content) => {
-        return nostrService.sendDM(recipientPubkey, content);
-    };
+    const sendMessage = useCallback(async (recipientPubkey, content) => {
+        const rumor = await nostrService.sendNip17DM(recipientPubkey, content);
+
+        // Optimistically add to local messages
+        const dm = {
+            id: 'pending-' + Date.now(),
+            content: rumor.content,
+            created_at: rumor.created_at,
+            senderPubkey: publicKey,
+            partnerPubkey: recipientPubkey,
+            isSender: true,
+        };
+
+        setMessages(prev => [...prev, dm]);
+        return dm;
+    }, [publicKey]);
+
+    // Group messages by conversation partner
+    const conversations = messages.reduce((acc, msg) => {
+        const key = msg.partnerPubkey;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(msg);
+        return acc;
+    }, {});
 
     return {
         messages,
         conversations,
+        profiles,
         loading,
         error,
         connect,
         publicKey,
-        decryptMessage,
-        sendMessage
+        sendMessage,
     };
 };
