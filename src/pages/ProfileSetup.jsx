@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { nostrService } from '../services/nostrService';
 import { profilesApi } from '../services/api';
 import { ArrowRight, Loader2, AlertCircle, Zap, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import NostrIcon from '../components/NostrIcon';
 
 const ProfileSetup = () => {
     const { user, updateRole, refreshUser } = useAuth();
@@ -170,7 +171,7 @@ const ProfileSetup = () => {
                             onClick={() => setShowNostrEdit(!showNostrEdit)}
                             className="nostr-edit-toggle"
                         >
-                            <Zap size={16} style={{ color: '#8b5cf6' }} />
+                            <NostrIcon size={16} style={{ color: '#8b5cf6' }} />
                             <span>{showNostrEdit ? 'Hide' : 'Edit'} Nostr Profile</span>
                             {showNostrEdit ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>

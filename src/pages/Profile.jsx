@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, ArrowLeft, MoreHorizontal, Share, Save, Search, X } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Camera, Loader2, CheckCircle, ArrowLeft, MoreHorizontal, Share, Save, Search, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi, uploadApi, projectsApi } from '../services/api';
 import { Link } from 'react-router-dom';
 import NostrFeed from '../components/NostrFeed';
+import NostrIcon from '../components/NostrIcon';
 
 const Profile = () => {
     const { user, refreshUser } = useAuth();
@@ -571,7 +572,7 @@ const Profile = () => {
                     <div className="profile-card">
                         <div className="w-full max-w-2xl">
                             <h3 className="h3-title flex items-center gap-2 mb-6 border-b pb-4">
-                                <Zap size={20} className="text-purple-500" />
+                                <NostrIcon size={20} className="text-purple-500" />
                                 Nostr Profile
                             </h3>
                             <p className="text-sm text-gray-600 mb-6 leading-relaxed">Edit your Nostr identity. Changes are published to relays.</p>
@@ -664,7 +665,7 @@ const Profile = () => {
                         <div className="w-full max-w-2xl">
                             <div className="flex justify-between items-center mb-8 border-b pb-4">
                                 <h3 className="h3-title flex items-center gap-2">
-                                    <Hash size={20} className="text-purple-500" />
+                                    <NostrIcon size={20} className="text-purple-500" />
                                     Nostr Identity & Feed
                                 </h3>
                                 <div className="flex items-center gap-3">
