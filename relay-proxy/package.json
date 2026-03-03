@@ -1,0 +1,12 @@
+{
+  "name": "bies-relay-auth-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.0",
+    "nostr-tools": "^2.10.4"
+  }
+}

@@ -19,7 +19,7 @@ const WHITELIST_PATH = process.env.RELAY_WHITELIST_PATH || '/app/relay-whitelist
  * Add a pubkey to the Nostr relay whitelist file.
  * The strfry write-policy plugin reads this file to authorize publishers.
  */
-function addToRelayWhitelist(pubkey: string): void {
+export function addToRelayWhitelist(pubkey: string): void {
     try {
         const dir = path.dirname(WHITELIST_PATH);
         if (!fs.existsSync(dir)) {
@@ -39,6 +39,23 @@ function addToRelayWhitelist(pubkey: string): void {
         }
     } catch (err) {
         console.error('[Relay] Failed to update whitelist:', err);
+    }
+}
+
+/**
+ * Remove a pubkey from the Nostr relay whitelist file.
+ * Called when a user is banned to revoke relay access.
+ */
+export function removeFromRelayWhitelist(pubkey: string): void {
+    try {
+        if (!fs.existsSync(WHITELIST_PATH)) return;
+
+        const existing = fs.readFileSync(WHITELIST_PATH, 'utf8');
+        const lines = existing.split('\n').filter((line) => line !== pubkey && line.trim() !== '');
+        fs.writeFileSync(WHITELIST_PATH, lines.join('\n') + (lines.length ? '\n' : ''));
+        console.log(`[Relay] Removed ${pubkey.substring(0, 8)}... from whitelist`);
+    } catch (err) {
+        console.error('[Relay] Failed to remove from whitelist:', err);
     }
 }
 
@@ -110,6 +127,9 @@ export async function register(req: Request, res: Response): Promise<void> {
             },
         });
 
+        // Add custodial pubkey to relay whitelist so email users can access the private relay
+        addToRelayWhitelist(nostrPubkey);
+
         // Generate JWT
         const token = generateToken(user.id, user.role);
 
@@ -150,6 +170,11 @@ export async function login(req: Request, res: Response): Promise<void> {
         const isValid = await bcrypt.compare(password, user.passwordHash);
         if (!isValid) {
             res.status(401).json({ error: 'Invalid email or password' });
+            return;
+        }
+
+        if (user.isBanned) {
+            res.status(403).json({ error: 'Your account has been suspended' });
             return;
         }
 
@@ -264,6 +289,12 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 },
                 include: { profile: true },
             });
+        }
+
+        // Block banned users from logging in and re-whitelisting
+        if (user.isBanned) {
+            res.status(403).json({ error: 'Your account has been suspended' });
+            return;
         }
 
         const token = generateToken(user.id, user.role);
