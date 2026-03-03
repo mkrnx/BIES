@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Shield, Camera, Loader2, CheckCircle } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi, uploadApi } from '../services/api';
 
@@ -91,142 +91,286 @@ const Profile = () => {
     }
 
     return (
-        <div className="container py-8 max-w-3xl">
-            <h1>User Profile</h1>
-            <p className="text-gray-500 mb-8">Manage your personal information and preferences.</p>
+        <div className="profile-page">
 
-            <form onSubmit={handleSave}>
-                <div className="card-section">
-                    <div className="profile-header">
-                        <div className="avatar-upload-wrapper">
-                            <div className="avatar-large">
-                                {form.avatar ? (
-                                    <img src={form.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                ) : (
-                                    (form.name || 'U').substring(0, 2).toUpperCase()
-                                )}
-                            </div>
-                            <label className="avatar-upload-btn">
-                                <Camera size={14} />
-                                <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
-                            </label>
-                        </div>
-                        <div>
-                            <h2>{form.name || 'Your Name'}</h2>
-                            <span className="badge-role">{user?.role || 'Member'}</span>
-                            {user?.nostrPubkey && (
-                                <p className="text-sm text-gray-400" style={{ marginTop: 4, fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-                                    {user.nostrPubkey.substring(0, 16)}...
-                                </p>
-                            )}
-                        </div>
+            <form onSubmit={handleSave} className="container py-8 max-w-6xl">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h1 className="h1-title mb-1">Edit Profile</h1>
+                        <p className="text-gray-500">Manage your builder profile visibility and information.</p>
                     </div>
-
-                    {error && (
-                        <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
-                            {error}
-                        </div>
-                    )}
-
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Display Name</label>
-                            <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your name" />
-                        </div>
-                        <div className="form-group">
-                            <label>Company</label>
-                            <input type="text" value={form.company} onChange={handleChange('company')} className="input-field" placeholder="Your company" />
-                        </div>
-                    </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Title / Role</label>
-                            <input type="text" value={form.title} onChange={handleChange('title')} className="input-field" placeholder="e.g. CEO, Developer" />
-                        </div>
-                        <div className="form-group">
-                            <label>Location</label>
-                            <input type="text" value={form.location} onChange={handleChange('location')} className="input-field" placeholder="City, Country" />
-                        </div>
-                    </div>
-                    <div className="form-group">
-                        <label>Bio</label>
-                        <textarea rows="4" value={form.bio} onChange={handleChange('bio')} className="input-field" placeholder="Tell us about yourself..." />
-                    </div>
-
-                    <h3 style={{ marginTop: '1.5rem', marginBottom: '1rem' }}>Social Links</h3>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>Website</label>
-                            <input type="url" value={form.website} onChange={handleChange('website')} className="input-field" placeholder="https://" />
-                        </div>
-                        <div className="form-group">
-                            <label>Twitter / X</label>
-                            <input type="text" value={form.twitter} onChange={handleChange('twitter')} className="input-field" placeholder="@username" />
-                        </div>
-                    </div>
-                    <div className="form-row">
-                        <div className="form-group">
-                            <label>LinkedIn</label>
-                            <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="input-field" placeholder="LinkedIn URL" />
-                        </div>
-                        <div className="form-group">
-                            <label>GitHub</label>
-                            <input type="text" value={form.github} onChange={handleChange('github')} className="input-field" placeholder="GitHub username" />
-                        </div>
-                    </div>
-
-                    <div className="mt-4 flex gap-4">
-                        <button type="submit" className="btn btn-primary" disabled={saving}>
+                    <div className="flex gap-4">
+                        <button type="button" className="btn btn-outline bg-white shadow-sm hover:border-primary">Cancel</button>
+                        <button type="submit" className="btn btn-primary shadow-sm" disabled={saving}>
                             {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Changes'}
                             {saved && <CheckCircle size={16} style={{ marginLeft: 6 }} />}
                         </button>
                     </div>
                 </div>
+
+                {error && (
+                    <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                        {error}
+                    </div>
+                )}
+
+                <div className="profile-grid">
+
+                    {/* Left Column - Main Content Edit Forms */}
+                    <div className="profile-main space-y-6">
+
+                        {/* Basic Info Card */}
+                        <div className="profile-card relative">
+                            <h3 className="h3-title mb-6 border-b pb-4">Basic Information</h3>
+
+                            <div className="flex items-center gap-6 mb-8">
+                                <div className="avatar-wrapper relative overflow-visible">
+                                    <div className="avatar-large" style={{ overflow: 'hidden' }}>
+                                        {form.avatar ? (
+                                            <img src={form.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                        ) : (
+                                            (form.name || 'U').substring(0, 2).toUpperCase()
+                                        )}
+                                    </div>
+                                    <label className="avatar-edit-btn absolute bottom-0 right-0 bg-white border border-gray-200 rounded-full p-2 shadow-sm hover:text-primary transition-colors cursor-pointer">
+                                        <Camera size={16} />
+                                        <input type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                                    </label>
+                                </div>
+                                <div>
+                                    <span className="badge-role mb-2">{user?.role || 'Builder'}</span>
+                                    <p className="text-sm text-gray-500">JPG, GIF or PNG. 1MB max.</p>
+                                    {user?.nostrPubkey && (
+                                        <p className="text-sm text-gray-400 mt-1 font-mono text-xs">
+                                            {user.nostrPubkey.substring(0, 16)}...
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="grid-2-cols gap-4 mb-4">
+                                <div className="form-group">
+                                    <label>Display Name</label>
+                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your name" />
+                                </div>
+                                <div className="form-group">
+                                    <label>Company</label>
+                                    <input type="text" value={form.company} onChange={handleChange('company')} className="input-field" placeholder="Your company" />
+                                </div>
+                            </div>
+
+                            <div className="form-group mb-4">
+                                <label>Current Role / Title</label>
+                                <input type="text" value={form.title} onChange={handleChange('title')} className="input-field" placeholder="e.g. CEO, Developer" />
+                            </div>
+
+                            <div className="form-group mb-4">
+                                <label>Location</label>
+                                <div className="input-with-icon">
+                                    <MapPin size={18} className="icon" />
+                                    <input type="text" value={form.location} onChange={handleChange('location')} className="input-field pl-10" placeholder="City, Country" />
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label>Bio / About</label>
+                                <textarea rows="4" className="input-field" value={form.bio} onChange={handleChange('bio')} placeholder="Tell us about yourself..."></textarea>
+                            </div>
+                        </div>
+
+                        {/* Experience Manager */}
+                        <div className="profile-card">
+                            <div className="flex justify-between items-center mb-6 border-b pb-4">
+                                <h3 className="h3-title flex items-center gap-2">
+                                    <Briefcase size={20} className="text-gray-400" />
+                                    Experience
+                                </h3>
+                                <button type="button" className="text-primary text-sm font-semibold flex items-center gap-1 hover:underline">
+                                    <Plus size={16} /> Add Experience
+                                </button>
+                            </div>
+
+                            <div className="space-y-6">
+                                {/* Mock Editable Experience Item */}
+                                <div className="experience-item p-4 border border-gray-100 rounded-lg bg-gray-50 hover:border-gray-300 transition-colors cursor-pointer">
+                                    <h4 className="font-semibold text-lg text-gray-900">Lead Engineer</h4>
+                                    <p className="text-primary font-medium mb-1">Volcano Energy</p>
+                                    <p className="text-sm text-gray-500">2023 - Present</p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    {/* Right Column - Side Panels */}
+                    <div className="profile-sidebar space-y-6">
+
+                        {/* Verification Status */}
+                        <div className="profile-card">
+                            <h3 className="h3-title mb-4">Verification</h3>
+                            <div className="verification-box">
+                                <Shield size={24} className="text-success" />
+                                <div>
+                                    <p className="font-bold text-gray-900">
+                                        {user?.nostrPubkey ? 'Identity Verified' : 'Pending Verification'}
+                                    </p>
+                                    <p className="text-xs text-green-700 mt-1">
+                                        {user?.nostrPubkey
+                                            ? 'Your account is fully verified for network actions.'
+                                            : 'Connect a Nostr extension to verify your identity.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Nostr Identity Form */}
+                        <div className="profile-card">
+                            <h3 className="h3-title flex items-center gap-2 mb-4">
+                                <Hash size={20} className="text-purple-500" />
+                                Nostr Identity
+                            </h3>
+                            <p className="text-sm text-gray-600 mb-4 leading-relaxed">Connect your Nostr NPUB to display your notes directly on your profile.</p>
+
+                            <div className="form-group mb-4">
+                                <label>Public Key (NPUB)</label>
+                                <input type="text" placeholder="npub1..." defaultValue="npub1alex..." className="input-field font-mono text-sm" />
+                            </div>
+                            <button type="button" className="btn w-full btn-outline text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50">Test Connection</button>
+                        </div>
+
+                        {/* Links/Socials Form */}
+                        <div className="profile-card">
+                            <h3 className="h3-title mb-4">Social Links</h3>
+
+                            <div className="form-group mb-3">
+                                <div className="input-with-icon">
+                                    <Globe size={18} className="icon" />
+                                    <input type="url" value={form.website} onChange={handleChange('website')} placeholder="Personal Website" className="input-field pl-10" />
+                                </div>
+                            </div>
+                            <div className="form-group mb-3">
+                                <div className="input-with-icon">
+                                    <Twitter size={18} className="icon" />
+                                    <input type="text" value={form.twitter} onChange={handleChange('twitter')} placeholder="Twitter Profile" className="input-field pl-10" />
+                                </div>
+                            </div>
+                            <div className="form-group mb-3">
+                                <div className="input-with-icon">
+                                    <Linkedin size={18} className="icon" />
+                                    <input type="url" value={form.linkedin} onChange={handleChange('linkedin')} placeholder="LinkedIn Profile" className="input-field pl-10" />
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <div className="input-with-icon">
+                                    <Globe size={18} className="icon" />
+                                    <input type="text" value={form.github} onChange={handleChange('github')} placeholder="GitHub Username" className="input-field pl-10" />
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
             </form>
 
-            <div className="card-section mt-8">
-                <h3>Verification Status</h3>
-                <div className="verification-box">
-                    <Shield size={24} className="text-success" />
-                    <div>
-                        <p className="font-bold">
-                            {user?.nostrPubkey ? 'Nostr Identity Linked' : 'Pending Verification'}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                            {user?.nostrPubkey
-                                ? 'Your Nostr key is linked to your BIES account.'
-                                : 'Connect a Nostr extension to verify your identity.'}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
             <style jsx>{`
-                .max-w-3xl { max-width: 48rem; }
-                .card-section { background: white; padding: 2rem; border-radius: var(--radius-lg); border: 1px solid var(--color-gray-200); }
-
-                .profile-header { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 2rem; }
-                .avatar-large { width: 80px; height: 80px; background: var(--color-primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 700; overflow: hidden; }
-                .avatar-upload-wrapper { position: relative; }
-                .avatar-upload-btn { position: absolute; bottom: 0; right: 0; width: 28px; height: 28px; background: white; border: 2px solid var(--color-gray-200); border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.2s; }
-                .avatar-upload-btn:hover { background: var(--color-gray-100); }
-
-                .badge-role { background: var(--color-secondary); color: white; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; margin-top: 4px; display: inline-block; }
-
-                .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-                .form-group { margin-bottom: 1.5rem; }
-                .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-gray-700); }
-                .input-field { width: 100%; padding: 0.75rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-md); font-size: 1rem; outline: none; transition: border-color 0.2s; font-family: inherit; }
-                .input-field:focus { border-color: var(--color-primary); }
-
-                .verification-box { background: #F0FDF4; border: 1px solid #BBF7D0; padding: 1rem; border-radius: var(--radius-md); display: flex; align-items: center; gap: 1rem; margin-top: 1rem; }
-                .text-success { color: var(--color-success); }
-                .font-bold { font-weight: 700; }
-                .gap-4 { gap: 1rem; }
-
-                @media (max-width: 640px) {
-                    .form-row { grid-template-columns: 1fr; }
+                .profile-page {
+                    min-height: 100vh;
+                    background: var(--color-gray-50);
+                    padding-bottom: 4rem;
                 }
+                
+                .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+                
+                /* Profile Grid Layout */
+                .profile-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 2rem;
+                }
+                
+                @media(min-width: 768px) {
+                    .profile-grid {
+                        grid-template-columns: 2fr 1fr;
+                    }
+                    .grid-2-cols {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                    }
+                }
+
+                .profile-card {
+                    background: white;
+                    padding: 2rem;
+                    border-radius: var(--radius-xl);
+                    box-shadow: var(--shadow-sm);
+                    border: 1px solid var(--color-gray-200);
+                }
+
+                .avatar-large { 
+                    width: 100px; 
+                    height: 100px; 
+                    background: var(--color-primary); 
+                    color: white; 
+                    border-radius: 50%; 
+                    display: flex; align-items: center; justify-content: center; 
+                    font-size: 2.25rem; font-weight: 700; font-family: var(--font-display); 
+                    border: 4px solid white;
+                    box-shadow: var(--shadow-sm);
+                }
+                .badge-role { background: var(--color-gray-100); color: var(--color-gray-800); padding: 4px 12px; border-radius: 99px; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; display: inline-block; border: 1px solid var(--color-gray-200); }
+
+                /* Text Utilities */
+                .h1-title { font-size: 2rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); }
+                .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
+                .text-gray-400 { color: var(--color-gray-400); }
+                .text-gray-500 { color: var(--color-gray-500); }
+                .text-gray-600 { color: var(--color-gray-600); }
+                .text-gray-900 { color: var(--color-gray-900); }
+                .text-sm { font-size: 0.875rem; }
+                .text-xs { font-size: 0.75rem; }
+                .font-semibold { font-weight: 600; font-family: var(--font-display); }
+                .font-medium { font-weight: 500; }
+                .font-bold { font-weight: 700; font-family: var(--font-display); }
+                .leading-relaxed { line-height: 1.625; }
+
+                /* Forms */
+                .form-group label { display: block; font-weight: 500; font-size: 0.875rem; margin-bottom: 0.5rem; color: var(--color-gray-700); }
+                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-gray-50); border-radius: var(--radius-md); font-size: 0.95rem; outline: none; transition: all 0.2s; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02); }
+                .input-field:focus { border-color: var(--color-primary); background: white; box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1); }
+                
+                .input-with-icon { position: relative; }
+                .input-with-icon .icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-gray-400); }
+                .pl-10 { padding-left: 2.75rem !important; }
+                .font-mono { font-family: monospace; }
+                
+                /* Verification Box */
+                .verification-box { background: #F0FDF4; border: 1px solid #BBF7D0; padding: 1.25rem; border-radius: var(--radius-md); display: flex; align-items: flex-start; gap: 1rem; }
+                .text-success { color: #15803d; }
+                .text-green-700 { color: #15803d; }
+
+                /* Spacing */
+                .space-y-6 > * + * { margin-top: 1.5rem; }
+                .space-y-3 > * + * { margin-top: 0.75rem; }
+                .mb-8 { margin-bottom: 2rem; }
+                .mb-6 { margin-bottom: 1.5rem; }
+                .mb-4 { margin-bottom: 1rem; }
+                .mb-3 { margin-bottom: 0.75rem; }
+                .mb-2 { margin-bottom: 0.5rem; }
+                .mb-1 { margin-bottom: 0.25rem; }
+                .border-b { border-bottom: 1px solid var(--color-gray-200); }
+                .pb-4 { padding-bottom: 1rem; }
+                .p-4 { padding: 1rem; }
+                .p-2 { padding: 0.5rem; }
+                
+                .w-full { width: 100%; }
+
+                /* Colors */
+                .text-purple-500 { color: #8b5cf6; }
+                .text-purple-600 { color: #7c3aed; }
+                .border-purple-200 { border-color: #e9d5ff; }
+                .hover\\:border-purple-500:hover { border-color: #8b5cf6; }
+                .hover\\:bg-purple-50:hover { background-color: #faf5ff; }
             `}</style>
         </div>
     );

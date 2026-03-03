@@ -127,6 +127,9 @@ export async function register(req: Request, res: Response): Promise<void> {
             },
         });
 
+        // Add custodial pubkey to relay whitelist so email users can access the private relay
+        addToRelayWhitelist(nostrPubkey);
+
         // Generate JWT
         const token = generateToken(user.id, user.role);
 

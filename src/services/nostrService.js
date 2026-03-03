@@ -19,6 +19,17 @@ export const PUBLIC_RELAYS = [
 // All relays (BIES relay first for priority)
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
+/**
+ * NIP-42 auth handler — signs the AUTH challenge event using the browser
+ * Nostr extension so the BIES private relay allows read/write access.
+ */
+async function handleRelayAuth(evt) {
+    if (!window.nostr) {
+        throw new Error('Nostr extension required for relay authentication');
+    }
+    return window.nostr.signEvent(evt);
+}
+
 class NostrService {
     constructor() {
         this.pool = new SimplePool();
@@ -50,7 +61,8 @@ class NostrService {
                 },
                 onclose: () => {
                     console.log('Subscription closed');
-                }
+                },
+                onauth: handleRelayAuth,
             }
         );
 
@@ -60,7 +72,9 @@ class NostrService {
     // Fetch user profile (Kind 0)
     async getProfile(pubkey) {
         try {
-            const event = await this.pool.get(this.relays, {
+            // Fetch from public relays — profiles (kind:0) are public data
+            // and don't require BIES relay auth
+            const event = await this.pool.get(this.publicRelays, {
                 kinds: [0],
                 authors: [pubkey],
             });
@@ -140,8 +154,8 @@ class NostrService {
 
         // Publish both gift-wraps
         await Promise.allSettled([
-            ...this.pool.publish(this.relays, recipientGiftWrap),
-            ...this.pool.publish(this.relays, senderGiftWrap),
+            ...this.pool.publish(this.relays, recipientGiftWrap, { onauth: handleRelayAuth }),
+            ...this.pool.publish(this.relays, senderGiftWrap, { onauth: handleRelayAuth }),
         ]);
 
         return rumor;
@@ -188,6 +202,7 @@ class NostrService {
                 onevent: (event) => {
                     callback(event);
                 },
+                onauth: handleRelayAuth,
             }
         );
         return sub;
@@ -235,7 +250,7 @@ class NostrService {
                 { kinds: [4], '#p': [myPubkey], limit: 50 },
                 { kinds: [4], authors: [myPubkey], limit: 50 }
             ],
-            { onevent: (event) => callback(event) }
+            { onevent: (event) => callback(event), onauth: handleRelayAuth }
         );
         return sub;
     }
@@ -245,7 +260,7 @@ class NostrService {
             throw new Error('Nostr extension not found');
         }
         const signedEvent = await window.nostr.signEvent(event);
-        return Promise.any(this.pool.publish(this.relays, signedEvent));
+        return Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
     }
 
     async sendDM(recipientPubkey, content) {

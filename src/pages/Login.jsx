@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, AlertCircle, Loader2 } from 'lucide-react';
+import { Zap, AlertCircle, Loader2, User } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
 
 const Login = () => {
-    const { loginWithNostr } = useAuth();
+    const { loginWithNostr, loginWithEmail } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -28,6 +28,16 @@ const Login = () => {
             setError(err.message || 'An unexpected error occurred.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleDemoLogin = async () => {
+        setError('');
+        const result = await loginWithEmail('maria.santos@bies.dev', 'password123');
+        if (result.success) {
+            navigate('/dashboard');
+        } else {
+            setError(result.error || 'Failed to login with demo account');
         }
     };
 
@@ -80,6 +90,14 @@ const Login = () => {
                     </div>
                 )}
 
+                <button
+                    onClick={handleDemoLogin}
+                    className="w-full btn-outline flex items-center justify-center gap-3 py-3 rounded-full mb-4 border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                    <User size={20} />
+                    <span>Demo Login (Builder Mode)</span>
+                </button>
+
                 <div className="text-sm text-center text-gray-500 mt-4">
                     Don't have an extension?{' '}
                     <a href="https://getalby.com/" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
@@ -122,6 +140,10 @@ const Login = () => {
                 }
                 .btn-primary:hover {
                     opacity: 0.9;
+                }
+                .btn-outline {
+                    background: transparent;
+                    font-weight: 600;
                 }
                 .btn-primary:disabled {
                     opacity: 0.6;
