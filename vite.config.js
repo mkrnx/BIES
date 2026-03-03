@@ -15,4 +15,18 @@ export default defineConfig({
             protocolImports: true,
         }),
     ],
+    server: {
+        proxy: {
+            '/biestest/api': {
+                target: 'http://localhost:3001',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/biestest\/api/, '/api'),
+            },
+            '/biestest/ws': {
+                target: 'ws://localhost:3001',
+                ws: true,
+                rewrite: (path) => path.replace(/^\/biestest/, ''),
+            },
+        },
+    },
 })
