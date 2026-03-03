@@ -312,6 +312,41 @@ class NostrService {
         return this.publishEvent(event);
     }
 
+    /**
+     * Search Nostr profiles by name using NIP-50 search on relay.nostr.band.
+     * Returns an array of { pubkey, name, display_name, picture, nip05 }.
+     */
+    async searchProfiles(query, limit = 10) {
+        try {
+            const events = await this.pool.querySync(
+                ['wss://relay.nostr.band'],
+                {
+                    kinds: [0],
+                    search: query,
+                    limit,
+                }
+            );
+
+            return events.map(event => {
+                try {
+                    const profile = JSON.parse(event.content);
+                    return {
+                        pubkey: event.pubkey,
+                        name: profile.name || '',
+                        display_name: profile.display_name || '',
+                        picture: profile.picture || '',
+                        nip05: profile.nip05 || '',
+                    };
+                } catch {
+                    return null;
+                }
+            }).filter(Boolean);
+        } catch (error) {
+            console.error('Nostr profile search failed:', error);
+            return [];
+        }
+    }
+
     async sendDM(recipientPubkey, content) {
         // Use NIP-17 by default
         return this.sendNip17DM(recipientPubkey, content);
