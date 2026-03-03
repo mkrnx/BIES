@@ -24,6 +24,7 @@ import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import ProjectDetails from './pages/ProjectDetails';
 import Notifications from './pages/Notifications';
+import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import BuilderOverview from './pages/builder/Overview';
@@ -87,6 +88,7 @@ const AppContent = () => {
                     <Route path="/investor/:id" element={<PublicProfile type="investor" />} />
                     <Route path="/media" element={<Media />} />
                     <Route path="/news" element={<News />} />
+                    <Route path="/news/:slug" element={<ArticleDetail />} />
                     <Route path="/about" element={<Team />} />
 
                     {/* Protected Routes */}
