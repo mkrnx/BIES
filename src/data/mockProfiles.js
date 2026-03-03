@@ -1,6 +1,6 @@
 export const builders = [
     {
-        id: 1,
+        id: 'builder-1',
         name: "Maria Santos",
         company: "Volcano Energy Solutions",
         role: "Founder & CEO",
@@ -57,7 +57,7 @@ export const builders = [
         ]
     },
     {
-        id: 2,
+        id: 'builder-2',
         name: "David Li",
         company: "Lightning POS",
         role: "CTO",
@@ -100,19 +100,19 @@ export const builders = [
     },
     // The rest of the mock builders can just have empty arrays so it doesn't break
     {
-        id: 3, name: "Elena Rodriguez", company: "Educación Bitcoin", role: "Director", bio: "Empowering the next generation...", location: "San Salvador", tags: ["Education"], image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'builder-3', name: "Elena Rodriguez", company: "Educación Bitcoin", role: "Director", bio: "Empowering the next generation...", location: "San Salvador", tags: ["Education"], image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     },
     {
-        id: 4, name: "Carlos Mendez", company: "AgriBit", role: "Co-Founder", bio: "Tokenizing coffee...", location: "Apaneca", tags: ["Agriculture"], image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'builder-4', name: "Carlos Mendez", company: "AgriBit", role: "Co-Founder", bio: "Tokenizing coffee...", location: "Apaneca", tags: ["Agriculture"], image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     },
     {
-        id: 5, name: "Sarah Chen", company: "BitDevs SV", role: "Organizer", bio: "Connecting developers...", location: "San Salvador", tags: ["Developer Tools"], image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'builder-5', name: "Sarah Chen", company: "BitDevs SV", role: "Organizer", bio: "Connecting developers...", location: "San Salvador", tags: ["Developer Tools"], image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     }
 ];
 
 export const investors = [
     {
-        id: 1,
+        id: 'investor-1',
         name: "Freedom Capital",
         company: "Freedom Capital",
         role: "Venture Fund",
@@ -149,15 +149,15 @@ export const investors = [
     },
     // The rest of the mock investors can just have empty arrays
     {
-        id: 2, name: "Global Macro Ventures", company: "GMV", role: "Family Office", bio: "Allocating capital to hard assets...", location: "New York / El Salvador", tags: ["Real Estate"], image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'investor-2', name: "Global Macro Ventures", company: "GMV", role: "Family Office", bio: "Allocating capital to hard assets...", location: "New York / El Salvador", tags: ["Real Estate"], image: "https://images.unsplash.com/photo-1556761175-5973dc0f32e7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     },
     {
-        id: 3, name: "Lightning Ventures", company: "Lightning Ventures", role: "Angel Syndicate", bio: "Backing the best founders...", location: "Distributed", tags: ["Lightning"], image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'investor-3', name: "Lightning Ventures", company: "Lightning Ventures", role: "Angel Syndicate", bio: "Backing the best founders...", location: "Distributed", tags: ["Lightning"], image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     },
     {
-        id: 4, name: "El Zonte Capital", company: "El Zonte Capital", role: "Micro VC", bio: "Hyper-local fund...", location: "El Zonte", tags: ["Local Business"], image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'investor-4', name: "El Zonte Capital", company: "El Zonte Capital", role: "Micro VC", bio: "Hyper-local fund...", location: "El Zonte", tags: ["Local Business"], image: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     },
     {
-        id: 5, name: "Sovereign Wealth", company: "Individual Angel", role: "Angel Investor", bio: "Looking for high-risk...", location: "Bitcoin City", tags: ["Angel"], image: "https://images.unsplash.com/photo-1507679799987-97341b64e727?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
+        id: 'investor-5', name: "Sovereign Wealth", company: "Individual Angel", role: "Angel Investor", bio: "Looking for high-risk...", location: "Bitcoin City", tags: ["Angel"], image: "https://images.unsplash.com/photo-1507679799987-97341b64e727?ixlib=rb-1.2.1&auto=format&fit=crop&w=800&q=80", nostrNpub: "npub1...", experience: [], biesProjects: [], notes: []
     }
 ];

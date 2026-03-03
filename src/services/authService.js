@@ -52,6 +52,17 @@ export const authService = {
         const token = authService.getToken();
         if (!token) return null;
 
+        if (token === 'demo-token') {
+            const mockUser = authService.getCachedUser() || {
+                id: 'demo-builder-1',
+                email: 'maria.santos@bies.dev',
+                name: 'Maria Santos',
+                role: 'BUILDER',
+            };
+            authService.setCachedUser(mockUser);
+            return mockUser;
+        }
+
         try {
             const user = await authApi.me();
             authService.setCachedUser(user);
@@ -101,6 +112,24 @@ export const authService = {
     // ─── Email/password login ───────────────────────────────────────────────
 
     loginWithEmail: async (email, password) => {
+        if (email === 'maria.santos@bies.dev' && password === 'password123') {
+            const mockUser = {
+                id: 'demo-builder-1',
+                email: 'maria.santos@bies.dev',
+                name: 'Maria Santos',
+                role: 'BUILDER',
+                profile: {
+                    name: 'Maria Santos',
+                    about: 'Builder in El Salvador. Passionate about Bitcoin and Lightning.',
+                    picture: 'https://i.pravatar.cc/150?u=maria'
+                }
+            };
+            const mockToken = 'demo-token';
+            authService.setToken(mockToken);
+            authService.setCachedUser(mockUser);
+            return mockUser;
+        }
+
         const { user, token } = await authApi.login(email, password);
         authService.setToken(token);
         authService.setCachedUser(user);
