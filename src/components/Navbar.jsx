@@ -3,11 +3,12 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
 import { Menu, Bell, User, Search, ChevronDown, LogOut, Zap } from 'lucide-react';
+import { notificationsApi } from '../services/api';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, notifications, unreadCount, clearNotificationCount, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
@@ -15,6 +16,13 @@ const Navbar = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationsApi.markAllRead();
+      clearNotificationCount();
+    } catch { /* ignore */ }
+  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -96,7 +104,7 @@ const Navbar = () => {
               onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
             >
               <Bell size={20} />
-              <span className="badge">3</span>
+              {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
             </button>
 
             {isNotificationsOpen && (
@@ -105,29 +113,30 @@ const Navbar = () => {
                 <div className="dropdown notifications-dropdown">
                   <div className="dropdown-header">Notifications</div>
                   <div className="notification-list">
-                    <div className="notification-item unread">
-                      <div className="dot-indicator"></div>
-                      <div>
-                        <p className="notif-text"><strong>Surf City Logistics</strong> viewed your profile.</p>
-                        <span className="notif-time">2m ago</span>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-gray-400)', fontSize: '0.85rem' }}>
+                        No notifications yet
                       </div>
-                    </div>
-                    <div className="notification-item unread">
-                      <div className="dot-indicator"></div>
-                      <div>
-                        <p className="notif-text">New message from <strong>Capital Ventures</strong>.</p>
-                        <span className="notif-time">1h ago</span>
-                      </div>
-                    </div>
-                    <div className="notification-item">
-                      <div>
-                        <p className="notif-text">Your project was approved.</p>
-                        <span className="notif-time">1d ago</span>
-                      </div>
-                    </div>
+                    ) : (
+                      notifications.slice(0, 5).map((notif) => (
+                        <div key={notif.id} className={`notification-item ${!notif.read ? 'unread' : ''}`}>
+                          {!notif.read && <div className="dot-indicator"></div>}
+                          <div>
+                            <p className="notif-text">{notif.message || notif.text}</p>
+                            <span className="notif-time">{notif.timeAgo || notif.createdAt}</span>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                   <div className="dropdown-footer">
-                    <button className="text-secondary text-sm">Mark all as read</button>
+                    {unreadCount > 0 && (
+                      <button className="text-secondary text-sm" onClick={handleMarkAllRead}>Mark all as read</button>
+                    )}
+                    <Link to="/notifications" className="text-primary text-sm" style={{ display: 'block', marginTop: unreadCount > 0 ? '0.25rem' : 0 }}
+                      onClick={() => setIsNotificationsOpen(false)}>
+                      View all
+                    </Link>
                   </div>
                 </div>
               </>
@@ -149,7 +158,7 @@ const Navbar = () => {
                   )}
                 </div>
                 <div className="flex flex-col items-start hidden-mobile" style={{ lineHeight: 1.2, color: 'white' }}>
-                  <span className="text-sm font-semibold">{user?.profile?.name || 'User'}</span>
+                  <span className="text-sm font-semibold">{user?.profile?.name || user?.name || 'Guest'}</span>
                 </div>
                 <ChevronDown size={14} style={{ transform: isUserMenuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
               </button>
@@ -189,9 +198,15 @@ const Navbar = () => {
 
                     <div className="dropdown-divider"></div>
 
-                    <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
-                      <LogOut size={14} style={{ marginRight: 8 }} /> Sign Out
-                    </button>
+                    {isAuthenticated ? (
+                      <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
+                        <LogOut size={14} style={{ marginRight: 8 }} /> Log Out
+                      </button>
+                    ) : (
+                      <Link to="/login" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
+                        Log In
+                      </Link>
+                    )}
                   </div>
                 </>
               )}
