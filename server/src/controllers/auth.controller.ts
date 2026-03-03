@@ -14,6 +14,8 @@ import path from 'path';
 
 // ─── Relay whitelist helper ───
 
+const HEX_PUBKEY_RE = /^[0-9a-f]{64}$/;
+
 const WHITELIST_PATH = process.env.RELAY_WHITELIST_PATH || '/app/relay-whitelist/whitelist.txt';
 
 /**
@@ -22,6 +24,12 @@ const WHITELIST_PATH = process.env.RELAY_WHITELIST_PATH || '/app/relay-whitelist
  */
 export function addToRelayWhitelist(pubkey: string): void {
     try {
+        // Validate pubkey format to prevent injection into whitelist file
+        if (!HEX_PUBKEY_RE.test(pubkey)) {
+            console.error('[Relay] Invalid pubkey format, refusing to whitelist');
+            return;
+        }
+
         const dir = path.dirname(WHITELIST_PATH);
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
@@ -205,7 +213,7 @@ export async function getNostrChallenge(req: Request, res: Response): Promise<vo
     const challenge = crypto.randomBytes(32).toString('hex');
     const pubkey = req.query.pubkey as string;
 
-    if (!pubkey || pubkey.length !== 64) {
+    if (!pubkey || !HEX_PUBKEY_RE.test(pubkey)) {
         res.status(400).json({ error: 'Valid hex pubkey required' });
         return;
     }
@@ -227,7 +235,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
     try {
         const { pubkey, signedEvent } = req.body;
 
-        if (!pubkey || pubkey.length !== 64) {
+        if (!pubkey || !HEX_PUBKEY_RE.test(pubkey)) {
             res.status(400).json({ error: 'Valid hex pubkey required' });
             return;
         }
@@ -257,6 +265,19 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
 
         if (signedEvent.content !== stored.challenge) {
             res.status(400).json({ error: 'Challenge mismatch' });
+            return;
+        }
+
+        // Verify event kind (NIP-98 HTTP auth)
+        if (signedEvent.kind !== 27235) {
+            res.status(400).json({ error: 'Signed event must be kind 27235' });
+            return;
+        }
+
+        // Verify event timestamp is recent (within 5 minutes)
+        const now = Math.floor(Date.now() / 1000);
+        if (Math.abs(now - signedEvent.created_at) > 300) {
+            res.status(400).json({ error: 'Signed event timestamp is too old or too far in the future' });
             return;
         }
 

@@ -203,7 +203,17 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
  */
 export async function updateMyProfile(req: Request, res: Response): Promise<void> {
     try {
-        const data: any = { ...req.body };
+        // Explicitly pick allowed fields to prevent mass assignment
+        const allowedFields = [
+            'name', 'bio', 'avatar', 'banner', 'location', 'skills', 'website',
+            'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
+            'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
+            'lookingFor', 'isPublic',
+        ];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
 
         // Convert arrays to JSON strings for SQLite
         const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor'];

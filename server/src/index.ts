@@ -62,7 +62,11 @@ app.use(helmet({
 const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
 app.use(cors({
     origin: (origin, callback) => {
-        if (!origin) return callback(null, true); // Allow server-to-server / Postman
+        // Allow missing origin only in development (Postman, server-to-server)
+        if (!origin) {
+            if (config.nodeEnv === 'development') return callback(null, true);
+            return callback(new Error('CORS: origin required'));
+        }
         if (allowedOrigins.includes(origin)) return callback(null, true);
         callback(new Error(`CORS: origin ${origin} not allowed`));
     },
@@ -159,8 +163,6 @@ app.get('/api/health', (_req, res) => {
     res.json({
         status: 'ok',
         timestamp: new Date().toISOString(),
-        version: '0.2.0',
-        env: config.nodeEnv,
     });
 });
 

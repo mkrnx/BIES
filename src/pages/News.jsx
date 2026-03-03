@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, TrendingUp, Loader2 } from 'lucide-react';
+import { TrendingUp, Loader2 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useNostrFeed } from '../hooks/useNostr';
+import NostrIcon from '../components/NostrIcon';
 import { contentApi } from '../services/api';
 
 const BIES_NPUBS = [
@@ -69,7 +70,7 @@ const News = () => {
                                             </div>
                                             <div className="u-info">
                                                 <span className="u-name">{profile.name || post.pubkey.slice(0, 8)}</span>
-                                                <Zap size={12} style={{ color: '#a855f7', marginLeft: 4 }} />
+                                                <NostrIcon size={12} style={{ color: '#a855f7', marginLeft: 4 }} />
                                             </div>
                                         </div>
                                         <p>{post.content?.slice(0, 280)}{post.content?.length > 280 ? '...' : ''}</p>

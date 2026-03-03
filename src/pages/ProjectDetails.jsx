@@ -172,7 +172,7 @@ const ProjectDetails = () => {
                         </button>
                     </div>
 
-                    {project.website && (
+                    {project.website && (project.website.startsWith('https://') || project.website.startsWith('http://')) && (
                         <div className="detail-card">
                             <h3>Links</h3>
                             <a href={project.website} target="_blank" rel="noopener noreferrer" className="project-link">{project.website}</a>

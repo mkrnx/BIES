@@ -65,8 +65,8 @@ const DeckRequestButton = ({ projectId, className = '' }) => {
     };
 
     const handleDownload = () => {
-        if (deckUrl) {
-            window.open(deckUrl, '_blank');
+        if (deckUrl && (deckUrl.startsWith('https://') || deckUrl.startsWith('http://') || deckUrl.startsWith('/'))) {
+            window.open(deckUrl, '_blank', 'noopener,noreferrer');
         }
     };
 

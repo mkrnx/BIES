@@ -1,5 +1,6 @@
 import React from 'react';
-import { Twitter, Heart, MessageCircle, Repeat, Share, Zap } from 'lucide-react';
+import { Twitter, Heart, MessageCircle, Repeat, Share } from 'lucide-react';
+import NostrIcon from './NostrIcon';
 // import { useNostrFeed } from '../hooks/useNostr';
 
 const SocialPulse = () => {
@@ -76,7 +77,7 @@ const SocialPulse = () => {
                                             <span className="text-gray-500 text-sm">{post.time}</span>
                                         </div>
                                     </div>
-                                    <Zap size={16} className="text-purple-400 ml-auto" />
+                                    <NostrIcon size={16} className="text-purple-400 ml-auto" />
                                 </div>
 
                                 <p className="tweet-content" style={{ whiteSpace: 'pre-wrap' }}>{post.content}</p>
