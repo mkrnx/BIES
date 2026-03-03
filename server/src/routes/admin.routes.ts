@@ -7,6 +7,10 @@ import {
     verifyUser,
     featureProject,
     hardDeleteProject,
+    listAdminProjects,
+    reviewProject,
+    listAdminEvents,
+    featureEvent,
     getAuditLogs,
     broadcastMessage,
     clearCache,
@@ -24,8 +28,14 @@ router.put('/users/:id/role', setUserRole);
 router.put('/users/:id/verify', verifyUser);
 
 // Projects
+router.get('/projects', listAdminProjects);
 router.put('/projects/:id/feature', featureProject);
+router.put('/projects/:id/review', reviewProject);
 router.delete('/projects/:id', hardDeleteProject);
+
+// Events
+router.get('/events', listAdminEvents);
+router.put('/events/:id/feature', featureEvent);
 
 // Audit & System
 router.get('/audit-logs', getAuditLogs);

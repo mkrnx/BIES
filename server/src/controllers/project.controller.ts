@@ -63,11 +63,18 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
             if (cached) { res.setHeader('X-Cache', 'HIT'); res.json(cached); return; }
         }
 
-        const where: any = { isPublished: true };
+        const where: any = { isPublished: true, status: 'active' };
 
         if (category && typeof category === 'string') where.category = category.toUpperCase();
         if (stage && typeof stage === 'string') where.stage = stage.toUpperCase();
-        if (ownerId && typeof ownerId === 'string') where.ownerId = ownerId;
+        if (ownerId && typeof ownerId === 'string') {
+            where.ownerId = ownerId;
+            // When viewing own projects, show all statuses
+            if (req.user && req.user.id === ownerId) {
+                delete where.isPublished;
+                delete where.status;
+            }
+        }
         if (featured === 'true') where.isFeatured = true;
         if (search && typeof search === 'string') {
             where.OR = [
@@ -188,7 +195,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         if (data.tags) data.tags = JSON.stringify(data.tags);
 
         const project = await prisma.project.create({
-            data: { ...data, ownerId: req.user!.id },
+            data: { ...data, ownerId: req.user!.id, status: 'draft' },
             include: {
                 owner: {
                     select: {
@@ -533,5 +540,59 @@ export async function reviewDeckRequest(req: Request, res: Response): Promise<vo
     } catch (error) {
         console.error('Review deck request error:', error);
         res.status(500).json({ error: 'Failed to review deck request' });
+    }
+}
+
+/**
+ * PUT /projects/:id/submit
+ * Submit a project for admin review (owner only).
+ * Changes status from draft to pending-review.
+ */
+export async function submitProject(req: Request, res: Response): Promise<void> {
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id: req.params.id },
+            select: { ownerId: true, status: true, title: true },
+        });
+
+        if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+        if (project.ownerId !== req.user!.id) {
+            res.status(403).json({ error: 'Not authorized' }); return;
+        }
+        if (project.status === 'pending-review') {
+            res.status(400).json({ error: 'Project is already pending review' }); return;
+        }
+        if (project.status === 'active') {
+            res.status(400).json({ error: 'Project is already approved' }); return;
+        }
+
+        const updated = await prisma.project.update({
+            where: { id: req.params.id },
+            data: { status: 'pending-review' },
+        });
+
+        await cache.delPattern('projects:');
+
+        // Notify admins
+        const admins = await prisma.user.findMany({
+            where: { role: 'ADMIN' },
+            select: { id: true },
+        });
+        for (const admin of admins) {
+            await prisma.notification.create({
+                data: {
+                    userId: admin.id,
+                    type: 'SYSTEM',
+                    title: 'New Project Submission',
+                    body: `"${project.title}" has been submitted for review.`,
+                    data: JSON.stringify({ projectId: req.params.id }),
+                },
+            });
+        }
+
+        res.json({ id: updated.id, status: updated.status });
+    } catch (error) {
+        console.error('Submit project error:', error);
+        res.status(500).json({ error: 'Failed to submit project' });
     }
 }

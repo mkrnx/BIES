@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
+import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -70,8 +71,15 @@ export async function banUser(req: Request, res: Response): Promise<void> {
         const user = await prisma.user.update({
             where: { id: req.params.id },
             data: { isBanned: banned },
-            select: { id: true, email: true, isBanned: true },
+            select: { id: true, email: true, nostrPubkey: true, isBanned: true },
         });
+
+        // Update relay whitelist: remove on ban, restore on unban
+        if (banned) {
+            removeFromRelayWhitelist(user.nostrPubkey);
+        } else {
+            addToRelayWhitelist(user.nostrPubkey);
+        }
 
         // Log the action
         await prisma.auditLog.create({
@@ -291,5 +299,192 @@ export async function clearCache(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Clear cache error:', error);
         res.status(500).json({ error: 'Failed to clear cache' });
+    }
+}
+
+// ─── Admin Project Management ────────────────────────────────────────────────
+
+/**
+ * GET /admin/projects
+ * List projects with optional status filter, search, and pagination.
+ */
+export async function listAdminProjects(req: Request, res: Response): Promise<void> {
+    try {
+        const { status, search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (status && typeof status === 'string') where.status = status;
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { title: { contains: search } },
+                { description: { contains: search } },
+            ];
+        }
+
+        const [projects, total] = await Promise.all([
+            prisma.project.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    owner: {
+                        select: {
+                            id: true, email: true,
+                            profile: { select: { name: true, avatar: true } },
+                        },
+                    },
+                },
+            }),
+            prisma.project.count({ where }),
+        ]);
+
+        const parsed = projects.map((p) => ({
+            ...p,
+            tags: JSON.parse(p.tags || '[]'),
+        }));
+
+        res.json({
+            data: parsed,
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list projects error:', error);
+        res.status(500).json({ error: 'Failed to list projects' });
+    }
+}
+
+/**
+ * PUT /admin/projects/:id/review
+ * Approve or reject a project submission.
+ * Body: { action: 'approve' | 'reject' }
+ */
+export async function reviewProject(req: Request, res: Response): Promise<void> {
+    try {
+        const { action } = req.body;
+        if (!['approve', 'reject'].includes(action)) {
+            res.status(400).json({ error: 'action must be "approve" or "reject"' }); return;
+        }
+
+        const data: any = action === 'approve'
+            ? { status: 'active', isPublished: true }
+            : { status: 'draft', isPublished: false };
+
+        const project = await prisma.project.update({
+            where: { id: req.params.id },
+            data,
+            select: { id: true, title: true, status: true, ownerId: true },
+        });
+
+        await cache.delPattern('projects:');
+
+        // Notify project owner
+        await prisma.notification.create({
+            data: {
+                userId: project.ownerId,
+                type: 'SYSTEM',
+                title: action === 'approve' ? 'Project Approved' : 'Project Not Approved',
+                body: action === 'approve'
+                    ? `Your project "${project.title}" has been approved and is now live on the Discover page.`
+                    : `Your project "${project.title}" was not approved for the Discover page. Please review and resubmit.`,
+                data: JSON.stringify({ projectId: project.id }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: action === 'approve' ? 'PROJECT_APPROVED' : 'PROJECT_REJECTED',
+                resource: `project:${req.params.id}`,
+                metadata: JSON.stringify({ projectTitle: project.title }),
+            },
+        });
+
+        res.json(project);
+    } catch (error) {
+        console.error('Review project error:', error);
+        res.status(500).json({ error: 'Failed to review project' });
+    }
+}
+
+// ─── Admin Event Management ─────────────────────────────────────────────────
+
+/**
+ * GET /admin/events
+ * List all events (including unpublished) with pagination.
+ */
+export async function listAdminEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const { search, category, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (category && typeof category === 'string') where.category = category.toUpperCase();
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { title: { contains: search } },
+                { description: { contains: search } },
+            ];
+        }
+
+        const [events, total] = await Promise.all([
+            prisma.event.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { startDate: 'desc' },
+                include: {
+                    host: {
+                        select: {
+                            id: true, email: true,
+                            profile: { select: { name: true } },
+                        },
+                    },
+                    _count: { select: { attendees: true } },
+                },
+            }),
+            prisma.event.count({ where }),
+        ]);
+
+        const parsed = events.map((e) => ({
+            ...e,
+            tags: JSON.parse(e.tags || '[]'),
+        }));
+
+        res.json({
+            data: parsed,
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list events error:', error);
+        res.status(500).json({ error: 'Failed to list events' });
+    }
+}
+
+/**
+ * PUT /admin/events/:id/feature
+ * Feature or unfeature an event.
+ */
+export async function featureEvent(req: Request, res: Response): Promise<void> {
+    try {
+        const { featured } = req.body;
+        if (typeof featured !== 'boolean') {
+            res.status(400).json({ error: '"featured" must be a boolean' }); return;
+        }
+
+        const event = await prisma.event.update({
+            where: { id: req.params.id },
+            data: { isFeatured: featured },
+        });
+
+        await cache.delPattern('events:');
+
+        res.json({ id: event.id, isFeatured: event.isFeatured });
+    } catch (error) {
+        console.error('Feature event error:', error);
+        res.status(500).json({ error: 'Failed to feature event' });
     }
 }
