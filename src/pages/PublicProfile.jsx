@@ -1,7 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Briefcase, Tag, ArrowLeft, Globe, Twitter, Linkedin, MessageSquare, ExternalLink, UserCheck, MoreHorizontal, Share } from 'lucide-react';
+import { MapPin, Briefcase, Tag, ArrowLeft, Globe, Twitter, Linkedin, MessageSquare, ExternalLink, UserCheck, MoreHorizontal, Share, Zap } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { builders, investors } from '../data/mockProfiles';
+import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 
 const PublicProfile = ({ type }) => {
@@ -10,6 +12,20 @@ const PublicProfile = ({ type }) => {
     const profile = data.find(p => p.id === parseInt(id));
     const [showMenu, setShowMenu] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
+    const [nostrProfile, setNostrProfile] = useState(null);
+
+    useEffect(() => {
+        if (profile?.nostrNpub) {
+            try {
+                const decoded = nip19.decode(profile.nostrNpub);
+                if (decoded.type === 'npub') {
+                    nostrService.getProfile(decoded.data).then(setNostrProfile);
+                }
+            } catch {
+                // Invalid npub (e.g. mock data placeholder) — skip
+            }
+        }
+    }, [profile?.nostrNpub]);
 
     if (!profile) {
         return <div className="p-10 text-center text-gray-500">Profile not found</div>;
@@ -190,6 +206,40 @@ const PublicProfile = ({ type }) => {
                                 </a>
                             </div>
                         </div>
+
+                        {/* Nostr Identity Card */}
+                        {(profile.nostrNpub || nostrProfile) && (
+                            <div className="profile-card">
+                                <h3 className="h3-title mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Zap size={20} style={{ color: '#8b5cf6' }} />
+                                    Nostr Identity
+                                </h3>
+                                {nostrProfile ? (
+                                    <div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                            {nostrProfile.picture && (
+                                                <img src={nostrProfile.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                            )}
+                                            <span className="font-medium text-gray-900">{nostrProfile.name || 'Unnamed'}</span>
+                                        </div>
+                                        {nostrProfile.about && (
+                                            <p className="text-sm text-gray-600 leading-relaxed" style={{ marginBottom: '0.75rem' }}>
+                                                {nostrProfile.about.length > 140
+                                                    ? nostrProfile.about.substring(0, 140) + '...'
+                                                    : nostrProfile.about}
+                                            </p>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-400">Loading Nostr profile...</p>
+                                )}
+                                {profile.nostrNpub && (
+                                    <p className="text-xs text-gray-400" style={{ fontFamily: 'monospace', marginTop: '0.5rem' }}>
+                                        {profile.nostrNpub.substring(0, 24)}...
+                                    </p>
+                                )}
+                            </div>
+                        )}
 
                     </div>
 

@@ -263,6 +263,39 @@ class NostrService {
         return Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
     }
 
+    /**
+     * Update the user's Nostr profile (kind:0 metadata).
+     * Signs via browser extension and publishes to all relays.
+     * @param {Object} profileData - { name, about, picture, website, nip05, banner, lud16, ... }
+     * @returns {Promise} resolves when published to at least one relay
+     */
+    async updateProfile(profileData) {
+        if (!window.nostr) {
+            throw new Error('Nostr extension required to update Nostr profile');
+        }
+
+        const pubkey = await window.nostr.getPublicKey();
+
+        // Fetch existing kind:0 to preserve fields we're not editing
+        const existing = await this.getProfile(pubkey);
+        const merged = { ...existing, ...profileData };
+
+        // Remove null/undefined values
+        Object.keys(merged).forEach(k => {
+            if (merged[k] == null || merged[k] === '') delete merged[k];
+        });
+
+        const event = {
+            kind: 0,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: JSON.stringify(merged),
+        };
+
+        return this.publishEvent(event);
+    }
+
     async sendDM(recipientPubkey, content) {
         // Use NIP-17 by default
         return this.sendNip17DM(recipientPubkey, content);

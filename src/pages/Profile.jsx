@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle } from 'lucide-react';
+import { User, Mail, Globe, MapPin, Shield, Twitter, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, RefreshCw, Zap, Send } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi, uploadApi } from '../services/api';
+import { nostrService } from '../services/nostrService';
 
 const Profile = () => {
     const { user, refreshUser } = useAuth();
@@ -9,6 +11,11 @@ const Profile = () => {
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
     const [error, setError] = useState('');
+    const [nostrProfile, setNostrProfile] = useState(null);
+    const [loadingNostr, setLoadingNostr] = useState(false);
+    const [nostrForm, setNostrForm] = useState({ name: '', about: '', picture: '', website: '', nip05: '', lud16: '', banner: '' });
+    const [savingNostr, setSavingNostr] = useState(false);
+    const [nostrSaved, setNostrSaved] = useState(false);
     const [form, setForm] = useState({
         name: '',
         bio: '',
@@ -25,6 +32,76 @@ const Profile = () => {
     useEffect(() => {
         loadProfile();
     }, []);
+
+    useEffect(() => {
+        if (user?.nostrPubkey) {
+            fetchNostrProfile();
+        }
+    }, [user?.nostrPubkey]);
+
+    const fetchNostrProfile = async () => {
+        setLoadingNostr(true);
+        try {
+            const profile = await nostrService.getProfile(user.nostrPubkey);
+            setNostrProfile(profile);
+            if (profile) {
+                setNostrForm({
+                    name: profile.name || '',
+                    about: profile.about || '',
+                    picture: profile.picture || '',
+                    website: profile.website || '',
+                    nip05: profile.nip05 || '',
+                    lud16: profile.lud16 || '',
+                    banner: profile.banner || '',
+                });
+            }
+        } catch (err) {
+            console.error('Failed to fetch Nostr profile:', err);
+        } finally {
+            setLoadingNostr(false);
+        }
+    };
+
+    const handleNostrFormChange = (field) => (e) => {
+        setNostrForm(prev => ({ ...prev, [field]: e.target.value }));
+        setNostrSaved(false);
+    };
+
+    const handleSaveToNostr = async () => {
+        setSavingNostr(true);
+        setError('');
+        try {
+            const data = {};
+            if (nostrForm.name) data.name = nostrForm.name;
+            if (nostrForm.about) data.about = nostrForm.about;
+            if (nostrForm.picture) data.picture = nostrForm.picture;
+            if (nostrForm.website) data.website = nostrForm.website;
+            if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
+            if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
+            if (nostrForm.banner) data.banner = nostrForm.banner;
+
+            await nostrService.updateProfile(data);
+            setNostrSaved(true);
+            setTimeout(() => setNostrSaved(false), 3000);
+            // Refresh to show updated data
+            await fetchNostrProfile();
+        } catch (err) {
+            setError(err.message || 'Failed to publish to Nostr.');
+        } finally {
+            setSavingNostr(false);
+        }
+    };
+
+    const handleSyncFromNostr = () => {
+        if (!nostrProfile) return;
+        setForm(prev => ({
+            ...prev,
+            bio: nostrProfile.about || prev.bio,
+            avatar: nostrProfile.picture || prev.avatar,
+            website: nostrProfile.website || prev.website,
+        }));
+        setSaved(false);
+    };
 
     const loadProfile = async () => {
         try {
@@ -150,8 +227,8 @@ const Profile = () => {
 
                             <div className="grid-2-cols gap-4 mb-4">
                                 <div className="form-group">
-                                    <label>Display Name</label>
-                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your name" />
+                                    <label>BIES Display Name</label>
+                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your name on BIES" />
                                 </div>
                                 <div className="form-group">
                                     <label>Company</label>
@@ -223,19 +300,96 @@ const Profile = () => {
                             </div>
                         </div>
 
-                        {/* Nostr Identity Form */}
+                        {/* Nostr Profile Card */}
                         <div className="profile-card">
                             <h3 className="h3-title flex items-center gap-2 mb-4">
-                                <Hash size={20} className="text-purple-500" />
-                                Nostr Identity
+                                <Zap size={20} className="text-purple-500" />
+                                Nostr Profile
                             </h3>
-                            <p className="text-sm text-gray-600 mb-4 leading-relaxed">Connect your Nostr NPUB to display your notes directly on your profile.</p>
+                            <p className="text-sm text-gray-600 mb-4 leading-relaxed">Edit your Nostr identity. Changes are published to relays.</p>
 
-                            <div className="form-group mb-4">
-                                <label>Public Key (NPUB)</label>
-                                <input type="text" placeholder="npub1..." defaultValue="npub1alex..." className="input-field font-mono text-sm" />
+                            {user?.nostrPubkey && (
+                                <div className="form-group mb-3">
+                                    <label>Public Key (npub)</label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        value={nip19.npubEncode(user.nostrPubkey)}
+                                        className="input-field font-mono text-sm"
+                                        style={{ cursor: 'default', background: '#f9fafb' }}
+                                    />
+                                </div>
+                            )}
+
+                            {loadingNostr ? (
+                                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                                    <Loader2 size={20} className="spin" style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
+                                    <p className="text-sm text-gray-400" style={{ marginTop: '0.5rem' }}>Fetching from relays...</p>
+                                </div>
+                            ) : (
+                                <>
+                                    <div className="form-group mb-3">
+                                        <label>Nostr Display Name</label>
+                                        <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="Name on Nostr" />
+                                    </div>
+                                    <div className="form-group mb-3">
+                                        <label>About</label>
+                                        <textarea rows="3" className="input-field" value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr"></textarea>
+                                    </div>
+                                    <div className="form-group mb-3">
+                                        <label>Picture URL</label>
+                                        <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="input-field text-sm" placeholder="https://..." />
+                                    </div>
+                                    <div className="form-group mb-3">
+                                        <label>Website</label>
+                                        <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="input-field text-sm" placeholder="https://..." />
+                                    </div>
+                                    <div className="form-group mb-3">
+                                        <label>NIP-05</label>
+                                        <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="input-field text-sm" placeholder="you@domain.com" />
+                                    </div>
+                                    <div className="form-group mb-3">
+                                        <label>Lightning Address (LUD-16)</label>
+                                        <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="input-field text-sm" placeholder="you@wallet.com" />
+                                    </div>
+                                    <div className="form-group mb-4">
+                                        <label>Banner URL</label>
+                                        <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="input-field text-sm" placeholder="https://..." />
+                                    </div>
+                                </>
+                            )}
+
+                            <div style={{ display: 'flex', gap: '0.5rem', flexDirection: 'column' }}>
+                                <button
+                                    type="button"
+                                    onClick={handleSaveToNostr}
+                                    disabled={savingNostr}
+                                    className="btn btn-primary"
+                                    style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', background: '#7c3aed', borderRadius: 'var(--radius-md)', padding: '0.625rem 1rem' }}
+                                >
+                                    {savingNostr ? <Loader2 size={14} className="spin" style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={14} />}
+                                    {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : 'Save to Nostr'}
+                                    {nostrSaved && <CheckCircle size={14} />}
+                                </button>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button
+                                        type="button"
+                                        onClick={fetchNostrProfile}
+                                        className="btn btn-outline text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50"
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem' }}
+                                    >
+                                        <RefreshCw size={14} /> Refresh
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSyncFromNostr}
+                                        className="btn btn-outline"
+                                        style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.375rem', color: '#2563eb', borderColor: '#bfdbfe' }}
+                                    >
+                                        Sync to BIES
+                                    </button>
+                                </div>
                             </div>
-                            <button type="button" className="btn w-full btn-outline text-purple-600 border-purple-200 hover:border-purple-500 hover:bg-purple-50">Test Connection</button>
                         </div>
 
                         {/* Links/Socials Form */}

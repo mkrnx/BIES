@@ -27,6 +27,7 @@ import Notifications from './pages/Notifications';
 import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ProfileSetup from './pages/ProfileSetup';
 import BuilderOverview from './pages/builder/Overview';
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
@@ -171,6 +172,11 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
 
+                    <Route path="/profile-setup" element={
+                        <ProtectedRoute>
+                            <ProfileSetup />
+                        </ProtectedRoute>
+                    } />
                     <Route path="/profile" element={
                         <ProtectedRoute>
                             <Profile />
