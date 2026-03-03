@@ -84,6 +84,7 @@ export const authService = {
         // Step 3: Sign a kind:27235 event with the challenge as content
         const signedEvent = await window.nostr.signEvent({
             kind: 27235,
+            pubkey,
             created_at: Math.floor(Date.now() / 1000),
             tags: [],
             content: challenge,
