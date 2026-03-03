@@ -41,6 +41,27 @@ services:
         limits:
           memory: 256M
 
+  bies-auth-proxy:
+    build:
+      context: ./relay-proxy
+    restart: unless-stopped
+    environment:
+      PROXY_PORT: "7778"
+      UPSTREAM_RELAY: "ws://bies-relay:7777"
+      WHITELIST_PATH: "/app/data/whitelist.txt"
+      RELAY_URL: "wss://bies.sovit.xyz/relay"
+      AUTH_TIMEOUT_MS: "30000"
+    volumes:
+      - relay-whitelist:/app/data:ro
+    networks:
+      - bies-net
+    depends_on:
+      - bies-relay
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
   bies-nginx:
     build:
       context: .
