@@ -6,6 +6,7 @@ import prisma from '../lib/prisma';
 import { generateToken } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
 import { cache } from '../services/redis.service';
+import { config } from '../config';
 import { z } from 'zod';
 import crypto from 'crypto';
 import fs from 'fs';
@@ -275,18 +276,27 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             include: { profile: true },
         });
 
+        const isAdminPubkey = config.adminPubkeys.includes(pubkey);
+
         if (!user) {
             // Auto-create user for Nostr login (no custodial key needed — they manage their own)
             user = await prisma.user.create({
                 data: {
                     nostrPubkey: pubkey,
-                    role: 'BUILDER', // Default role, can be changed later
+                    role: isAdminPubkey ? 'ADMIN' : 'BUILDER',
                     profile: {
                         create: {
                             name: `nostr:${pubkey.substring(0, 8)}`,
                         },
                     },
                 },
+                include: { profile: true },
+            });
+        } else if (isAdminPubkey && user.role !== 'ADMIN') {
+            // Promote existing user to admin if their pubkey is in the admin list
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { role: 'ADMIN' },
                 include: { profile: true },
             });
         }
