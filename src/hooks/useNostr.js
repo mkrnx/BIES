@@ -50,6 +50,7 @@ export const useNostrDMs = () => {
     const [profiles, setProfiles] = useState({});
     const subRef = useRef(null);
     const processedIds = useRef(new Set());
+    const fetchedProfiles = useRef(new Set());
 
     const connect = useCallback(async () => {
         setLoading(true);
@@ -84,8 +85,9 @@ export const useNostrDMs = () => {
 
                     if (!partnerPubkey) return;
 
-                    // Fetch partner profile if not cached
-                    if (!profiles[partnerPubkey]) {
+                    // Fetch partner profile if not already fetched (use ref to avoid stale closure)
+                    if (!fetchedProfiles.current.has(partnerPubkey)) {
+                        fetchedProfiles.current.add(partnerPubkey);
                         nostrService.getProfile(partnerPubkey).then(profile => {
                             if (profile) {
                                 setProfiles(prev => ({ ...prev, [partnerPubkey]: profile }));
