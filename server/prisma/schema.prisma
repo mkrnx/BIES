@@ -89,6 +89,12 @@ model Profile {
   portfolioCount Int    @default(0) @map("portfolio_count")
   // Builder-specific
   lookingFor   String   @default("[]") @map("looking_for") // JSON array (funding, cofounder, etc.)
+  // Profile sections
+  experience     String   @default("[]")  // JSON array of {title,company,date,description}
+  biesProjects   String   @default("[]") @map("bies_projects")  // JSON array of {id,name,role,status,image}
+  showExperience Boolean  @default(true) @map("show_experience")
+  showNostrFeed  Boolean  @default(true) @map("show_nostr_feed")
+  nostrNpub      String   @default("") @map("nostr_npub")
   // Misc
   isPublic     Boolean  @default(true) @map("is_public")
   viewCount    Int      @default(0) @map("view_count")

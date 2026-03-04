@@ -27,6 +27,10 @@ export default defineConfig({
                 ws: true,
                 rewrite: (path) => path.replace(/^\/biestest/, ''),
             },
+            '/uploads': {
+                target: 'http://localhost:3001',
+                changeOrigin: true,
+            },
         },
     },
 })
