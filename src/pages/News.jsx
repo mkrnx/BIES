@@ -1,32 +1,47 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Loader2 } from 'lucide-react';
+import { TrendingUp, Loader2, Twitter, Heart, Repeat, MessageCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useNostrFeed } from '../hooks/useNostr';
 import NostrIcon from '../components/NostrIcon';
-import { contentApi } from '../services/api';
-
-const BIES_NPUBS = [
-    'npub1qqqqqq9rxsat07sykh39gg0gapnnlnmz3wjyw5m576jh85n225dsqfcwhm', // placeholder
-];
+import { contentApi, newsApi } from '../services/api';
 
 const News = () => {
-    const { posts, loading: feedLoading, profiles } = useNostrFeed(BIES_NPUBS);
+    // Dynamic npubs from admin settings
+    const [npubs, setNpubs] = useState([]);
+    const { posts, loading: feedLoading, profiles } = useNostrFeed(npubs);
+
     const [articles, setArticles] = useState([]);
     const [articlesLoading, setArticlesLoading] = useState(true);
 
+    const [tweets, setTweets] = useState([]);
+    const [tweetsLoading, setTweetsLoading] = useState(true);
+
+    // Fetch admin-configured settings (npubs + handles)
     useEffect(() => {
-        const fetchNews = async () => {
-            try {
-                const result = await contentApi.articles({ limit: 10 });
+        newsApi.settings()
+            .then(res => {
+                setNpubs(res?.nostrNpubs || []);
+            })
+            .catch(() => setNpubs([]));
+    }, []);
+
+    // Fetch articles from content API
+    useEffect(() => {
+        contentApi.articles({ limit: 10 })
+            .then(result => {
                 const list = result?.data || result || [];
                 setArticles(Array.isArray(list) ? list : []);
-            } catch {
-                setArticles([]);
-            } finally {
-                setArticlesLoading(false);
-            }
-        };
-        fetchNews();
+            })
+            .catch(() => setArticles([]))
+            .finally(() => setArticlesLoading(false));
+    }, []);
+
+    // Fetch Twitter/X feed
+    useEffect(() => {
+        newsApi.twitterFeed()
+            .then(res => setTweets(res?.data || []))
+            .catch(() => setTweets([]))
+            .finally(() => setTweetsLoading(false));
     }, []);
 
     const formatDate = (dateStr) => {
@@ -34,6 +49,19 @@ const News = () => {
         try {
             return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
         } catch { return dateStr; }
+    };
+
+    const timeAgo = (dateStr) => {
+        if (!dateStr) return '';
+        try {
+            const diff = Date.now() - new Date(dateStr).getTime();
+            const mins = Math.floor(diff / 60000);
+            if (mins < 60) return `${mins}m`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs}h`;
+            const days = Math.floor(hrs / 24);
+            return `${days}d`;
+        } catch { return ''; }
     };
 
     return (
@@ -44,17 +72,17 @@ const News = () => {
                 <aside className="news-col sidebar-col">
                     <div className="col-header">
                         <h3>Social Pulse</h3>
-                        <span className="live-badge">LIVE</span>
+                        {npubs.length > 0 && <span className="live-badge">LIVE</span>}
                     </div>
                     <div className="social-feed">
-                        {feedLoading ? (
+                        {npubs.length === 0 && !feedLoading ? (
+                            <p className="empty-text">No Nostr accounts configured.</p>
+                        ) : feedLoading ? (
                             <div style={{ textAlign: 'center', padding: '2rem' }}>
                                 <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
                             </div>
                         ) : posts.length === 0 ? (
-                            <p style={{ color: 'var(--color-gray-400)', fontSize: '0.9rem', textAlign: 'center', padding: '1rem' }}>
-                                No posts from the Nostr relay yet.
-                            </p>
+                            <p className="empty-text">No posts from the Nostr relay yet.</p>
                         ) : (
                             posts.slice(0, 10).map(post => {
                                 const profile = profiles[post.pubkey] || {};
@@ -99,8 +127,8 @@ const News = () => {
                         articles.map((article, i) => (
                             <Link to={`/news/${article.slug || article.id}`} key={article.id} className="news-item-link">
                                 <div className={`news-item ${i === 0 ? 'featured' : ''}`}>
-                                    {i === 0 && (article.image || article.coverImage) && (
-                                        <div className="news-img" style={{ backgroundImage: `url(${article.image || article.coverImage})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                                    {i === 0 && (article.image || article.coverImage || article.thumbnail) && (
+                                        <div className="news-img" style={{ backgroundImage: `url(${article.image || article.coverImage || article.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                                     )}
                                     <div className="news-content">
                                         {article.category && <span className="tag">{article.category}</span>}
@@ -123,19 +151,53 @@ const News = () => {
                     )}
                 </main>
 
-                {/* Right Column: Platform Updates */}
+                {/* Right Column: X/Twitter Feed */}
                 <aside className="news-col sidebar-col">
                     <div className="col-header">
-                        <h3>BIES Updates</h3>
+                        <h3>X / Twitter</h3>
+                        {tweets.length > 0 && <span className="live-badge">LIVE</span>}
                     </div>
-                    <div className="update-card">
-                        <TrendingUp size={24} className="text-secondary mb-2" />
-                        <h4>New Feature: Investor Match</h4>
-                        <p>Our algorithm now suggests investors based on your project thesis.</p>
-                    </div>
-                    <div className="update-card">
-                        <h4>Builder Spotlight</h4>
-                        <p>Meet the team building the first lightning-native POS system in San Miguel.</p>
+                    <div className="social-feed">
+                        {tweetsLoading ? (
+                            <div style={{ textAlign: 'center', padding: '2rem' }}>
+                                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                            </div>
+                        ) : tweets.length === 0 ? (
+                            <p className="empty-text">No X/Twitter accounts configured.</p>
+                        ) : (
+                            tweets.slice(0, 10).map(tweet => (
+                                <a
+                                    key={tweet.id}
+                                    href={`https://x.com/${tweet.authorHandle}/status/${tweet.id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="tweet-card-link"
+                                >
+                                    <div className="tweet-card">
+                                        <div className="tweet-header">
+                                            <div className="avatar">
+                                                {tweet.authorAvatar ? (
+                                                    <img src={tweet.authorAvatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    (tweet.authorName || 'X')[0].toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className="u-info">
+                                                <span className="u-name">{tweet.authorName}</span>
+                                                <Twitter size={12} style={{ color: '#1d9bf0', marginLeft: 4 }} />
+                                            </div>
+                                            <span className="tweet-time">{timeAgo(tweet.createdAt)}</span>
+                                        </div>
+                                        <p>{tweet.text?.slice(0, 280)}{tweet.text?.length > 280 ? '...' : ''}</p>
+                                        <div className="tweet-metrics">
+                                            <span><MessageCircle size={12} /> {tweet.metrics?.replies || 0}</span>
+                                            <span><Repeat size={12} /> {tweet.metrics?.retweets || 0}</span>
+                                            <span><Heart size={12} /> {tweet.metrics?.likes || 0}</span>
+                                        </div>
+                                    </div>
+                                </a>
+                            ))
+                        )}
                     </div>
                 </aside>
 
@@ -177,13 +239,23 @@ const News = () => {
           100% { opacity: 1; }
         }
 
+        .empty-text {
+          color: var(--color-gray-400);
+          font-size: 0.9rem;
+          text-align: center;
+          padding: 1rem;
+        }
+
         .tweet-card {
           background: white;
           padding: 1rem;
           border-radius: var(--radius-md);
           border: 1px solid var(--color-gray-200);
           margin-bottom: 1rem;
+          transition: transform 0.2s;
         }
+        .tweet-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-sm); }
+        .tweet-card-link { text-decoration: none; color: inherit; display: block; }
         .tweet-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
         .avatar {
           width: 32px; height: 32px; background: var(--color-neutral-dark);
@@ -192,8 +264,18 @@ const News = () => {
           overflow: hidden; flex-shrink: 0;
         }
         .u-info { font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; }
-        .u-name { }
+        .tweet-time { margin-left: auto; font-size: 0.75rem; color: var(--color-gray-400); }
         .tweet-card p { font-size: 0.9rem; line-height: 1.4; }
+        .tweet-metrics {
+          display: flex;
+          gap: 1rem;
+          margin-top: 0.5rem;
+          padding-top: 0.5rem;
+          border-top: 1px solid var(--color-gray-100);
+          font-size: 0.75rem;
+          color: var(--color-gray-400);
+        }
+        .tweet-metrics span { display: flex; align-items: center; gap: 3px; }
 
         .news-item-link { text-decoration: none; color: inherit; display: block; }
         .news-item {
@@ -216,19 +298,8 @@ const News = () => {
         .excerpt { color: var(--color-gray-500); font-size: 1rem; margin-bottom: 0.5rem; }
         .date { color: var(--color-gray-400); font-size: 0.8rem; }
 
-        .update-card {
-          background: var(--color-neutral-dark);
-          color: white;
-          padding: 1.5rem;
-          border-radius: var(--radius-md);
-          margin-bottom: 1rem;
-        }
-        .update-card h4 { color: white; margin-bottom: 0.5rem; }
-        .update-card p { font-size: 0.9rem; opacity: 0.8; }
-
         @media (max-width: 1024px) {
           .news-layout { grid-template-columns: 1fr; }
-          .sidebar-col { display: none; }
         }
       `}</style>
         </div>

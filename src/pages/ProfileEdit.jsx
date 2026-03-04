@@ -329,6 +329,27 @@ const ProfileEdit = () => {
         }));
     };
 
+    const handlePushBiesToNostr = async () => {
+        setSavingNostr(true);
+        setError('');
+        try {
+            const data = {};
+            if (form.name) data.name = form.name;
+            if (form.bio) data.about = form.bio;
+            if (form.avatar) data.picture = form.avatar;
+            if (form.website) data.website = form.website;
+            if (form.banner) data.banner = form.banner;
+            await nostrService.updateProfile(data);
+            setNostrSaved(true);
+            setTimeout(() => setNostrSaved(false), 3000);
+            await fetchNostrProfile();
+        } catch (err) {
+            setError(err.message || 'Failed to push BIES profile to Nostr.');
+        } finally {
+            setSavingNostr(false);
+        }
+    };
+
     // ─── Render ───
 
     if (loading) {
@@ -363,7 +384,7 @@ const ProfileEdit = () => {
                     {/* Banner */}
                     <div className="relative" style={{
                         height: '240px',
-                        background: form.banner ? `url(${form.banner}) center/cover no-repeat` : 'linear-gradient(to right, #0052cc, #0a192f)'
+                        background: (form.banner || nostrProfile?.banner) ? `url(${form.banner || nostrProfile?.banner}) center/cover no-repeat` : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
                         <div className="absolute z-10 flex gap-3" style={{ top: '24px', left: '24px' }}>
                             <label className="banner-btn" style={{ cursor: 'pointer' }}>
@@ -403,8 +424,8 @@ const ProfileEdit = () => {
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5, width: 'fit-content' }}>
                             <div style={{ width: '168px', height: '168px', borderRadius: '50%', overflow: 'hidden', border: '5px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
-                                {form.avatar ? (
-                                    <img src={form.avatar} alt={form.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                {(form.avatar || nostrProfile?.picture) ? (
+                                    <img src={form.avatar || nostrProfile?.picture} alt={form.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
                                     <div style={{ width: '100%', height: '100%', background: 'var(--color-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
                                         {(form.name || user?.email || '?').charAt(0).toUpperCase()}
@@ -668,17 +689,20 @@ const ProfileEdit = () => {
                                 </>
                             )}
 
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem' }}>
-                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ flex: 1, background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '2rem' }}>
+                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ flex: 1, minWidth: '160px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem' }}>
                                     {savingNostr ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
                                     {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : 'Save to Nostr'}
                                     {nostrSaved && <CheckCircle size={16} />}
                                 </button>
-                                <button type="button" onClick={fetchNostrProfile} style={{ flex: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md)', background: 'none', color: '#7c3aed', cursor: 'pointer', fontWeight: 500 }}>
+                                <button type="button" onClick={fetchNostrProfile} style={{ flex: 0.5, minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md)', background: 'none', color: '#7c3aed', cursor: 'pointer', fontWeight: 500 }}>
                                     <RefreshCw size={16} /> Refresh
                                 </button>
-                                <button type="button" onClick={handleSyncFromNostr} style={{ flex: 0.5, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 500 }}>
+                                <button type="button" onClick={handleSyncFromNostr} style={{ flex: 0.5, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 500 }}>
                                     Sync to BIES
+                                </button>
+                                <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} style={{ flex: 0.5, minWidth: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', background: 'none', color: '#16a34a', cursor: 'pointer', fontWeight: 500 }}>
+                                    <Send size={16} /> Push BIES to Nostr
                                 </button>
                             </div>
                         </div>

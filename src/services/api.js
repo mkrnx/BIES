@@ -286,6 +286,14 @@ export const contentApi = {
     resources: (params = {}) => get('/content/resources', params),
 };
 
+// ─── News Settings & Feeds ──────────────────────────────────────────────────
+
+export const newsApi = {
+    settings: () => get('/news/settings'),
+    twitterFeed: () => get('/news/twitter-feed'),
+    updateSettings: (data) => put('/news/settings', data),
+};
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export const healthApi = {
