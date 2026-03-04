@@ -7,6 +7,7 @@ import {
     getMyProfile,
     updateMyProfile,
     updateProfileSchema,
+    checkNip05,
 } from '../controllers/profile.controller';
 import {
     followUser,
@@ -16,6 +17,9 @@ import {
 } from '../controllers/follow.controller';
 
 const router = Router();
+
+// NIP-05 availability check (before /:id to avoid being swallowed)
+router.get('/check-nip05', checkNip05);
 
 // /me routes MUST come before /:id to avoid being swallowed as an id param
 router.get('/me', authenticate, getMyProfile);

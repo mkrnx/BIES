@@ -95,6 +95,9 @@ model Profile {
   showExperience Boolean  @default(true) @map("show_experience")
   showNostrFeed  Boolean  @default(true) @map("show_nostr_feed")
   nostrNpub      String   @default("") @map("nostr_npub")
+  // NIP-05 & Lightning
+  nip05Name        String?  @unique @map("nip05_name")
+  lightningAddress String   @default("") @map("lightning_address")
   // Misc
   isPublic     Boolean  @default(true) @map("is_public")
   viewCount    Int      @default(0) @map("view_count")
@@ -144,6 +147,7 @@ model Project {
   views        ProjectView[]
   updates      ProjectUpdate[]
   deckRequests DeckRequest[]
+  zapReceipts  ZapReceipt[]
 
   @@map("projects")
 }
@@ -484,4 +488,29 @@ model LegalResource {
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@map("legal_resources")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Zap Receipts (Lightning zaps via Nostr NIP-57)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model ZapReceipt {
+  id              String   @id @default(cuid())
+  eventId         String   @unique @map("event_id")
+  senderPubkey    String   @map("sender_pubkey")
+  recipientPubkey String   @map("recipient_pubkey")
+  amountMsats     BigInt   @map("amount_msats")
+  amountSats      Int      @map("amount_sats")
+  comment         String   @default("")
+  zappedEventId   String?  @map("zapped_event_id")
+  projectId       String?  @map("project_id")
+  bolt11          String   @default("")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([recipientPubkey])
+  @@index([projectId])
+  @@index([senderPubkey])
+  @@map("zap_receipts")
 }

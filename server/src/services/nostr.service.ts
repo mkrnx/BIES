@@ -58,18 +58,24 @@ export async function publishProfileUpdate(
         about?: string;
         picture?: string;
         website?: string;
+        nip05?: string;
+        lud16?: string;
     }
 ): Promise<boolean> {
+    const content: Record<string, string> = {
+        name: profile.name,
+        about: profile.about || '',
+        picture: profile.picture || '',
+        website: profile.website || '',
+    };
+    if (profile.nip05) content.nip05 = profile.nip05;
+    if (profile.lud16) content.lud16 = profile.lud16;
+
     const event: EventTemplate = {
         kind: 0,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
-        content: JSON.stringify({
-            name: profile.name,
-            about: profile.about || '',
-            picture: profile.picture || '',
-            website: profile.website || '',
-        }),
+        content: JSON.stringify(content),
     };
 
     return publishEvent(userId, event);
