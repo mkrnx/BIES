@@ -62,11 +62,8 @@ app.use(helmet({
 const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow missing origin only in development (Postman, server-to-server)
-        if (!origin) {
-            if (config.nodeEnv === 'development') return callback(null, true);
-            return callback(new Error('CORS: origin required'));
-        }
+        // Allow requests with no Origin (same-origin browser requests and server-to-server)
+        if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
         callback(new Error(`CORS: origin ${origin} not allowed`));
     },
