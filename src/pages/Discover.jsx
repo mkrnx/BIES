@@ -27,21 +27,30 @@ const ProjectCard = ({ project }) => {
     return `$${val}`;
   };
 
+  const categoryLabel = (c) => {
+    if (!c) return '—';
+    const special = {
+      SAAS: 'SaaS', ECOMMERCE: 'E-Commerce', WEB3: 'Web3', REAL_ESTATE: 'Real Estate'
+    };
+    if (special[c]) return special[c];
+    return c.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
+  };
+
   return (
     <div className="project-card">
       <div
         className="card-image"
         style={{
           backgroundColor: project.color || '#E0F2FE',
-          backgroundImage: project.coverImage || project.image ? `url(${project.coverImage || project.image})` : 'none'
+          backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${project.thumbnail || project.coverImage || project.image})` : 'none'
         }}
       >
-        <span className="industry-badge">{project.category || project.industry || '—'}</span>
+        <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
         <span className="stage-badge">{project.stage || '—'}</span>
       </div>
       <div className="card-body">
-        <h3>{project.name}</h3>
-        <p className="description">{project.tagline || project.description || ''}</p>
+        <h3>{project.title || project.name}</h3>
+        <p className="description">{project.description || ''}</p>
 
         <div className="meta-row">
           <div className="meta-item">
@@ -54,10 +63,10 @@ const ProjectCard = ({ project }) => {
           </div>
         </div>
 
-        {(project.builder || project.owner?.name) && (
+        {(project.owner?.profile?.name || project.owner?.name || project.builder) && (
           <div className="builder-row">
-            <div className="avatar">{(project.builder || project.owner?.name || '?')[0]}</div>
-            <span>{project.builder || project.owner?.name}</span>
+            <div className="avatar">{(project.owner?.profile?.name || project.owner?.name || project.builder || '?')[0]}</div>
+            <span>{project.owner?.profile?.name || project.owner?.name || project.builder}</span>
           </div>
         )}
 
@@ -221,9 +230,27 @@ const Discover = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
-  const handleIndustryChange = (industry) => {
+  const categories = [
+    { id: 'FINTECH', label: 'Fintech' },
+    { id: 'INFRASTRUCTURE', label: 'Infrastructure' },
+    { id: 'ENERGY', label: 'Energy' },
+    { id: 'TOURISM', label: 'Tourism' },
+    { id: 'AGRICULTURE', label: 'Agriculture' },
+    { id: 'REAL_ESTATE', label: 'Real Estate' },
+    { id: 'TECHNOLOGY', label: 'Technology' },
+    { id: 'FITNESS', label: 'Fitness / Sports' },
+    { id: 'HEALTH', label: 'Health / Wellness' },
+    { id: 'SAAS', label: 'SaaS' },
+    { id: 'ECOMMERCE', label: 'E-Commerce' },
+    { id: 'WEB3', label: 'Web3' },
+    { id: 'ENTERTAINMENT', label: 'Entertainment' },
+    { id: 'LOGISTICS', label: 'Logistics' },
+    { id: 'EDUCATION', label: 'Education' }
+  ];
+
+  const handleIndustryChange = (industryId) => {
     setSelectedIndustries(prev =>
-      prev.includes(industry) ? prev.filter(i => i !== industry) : [...prev, industry]
+      prev.includes(industryId) ? prev.filter(i => i !== industryId) : [...prev, industryId]
     );
     setPage(1);
   };
@@ -313,14 +340,14 @@ const Discover = () => {
           <div className="filter-group">
             <label>Industry</label>
             <div className="checkbox-list">
-              {['Fintech', 'Infrastructure', 'Energy', 'Tourism', 'Food & Bev', 'Agriculture', 'Real Estate'].map(ind => (
-                <label key={ind}>
+              {categories.map(cat => (
+                <label key={cat.id}>
                   <input
                     type="checkbox"
-                    checked={selectedIndustries.includes(ind)}
-                    onChange={() => handleIndustryChange(ind)}
+                    checked={selectedIndustries.includes(cat.id)}
+                    onChange={() => handleIndustryChange(cat.id)}
                   />
-                  {ind}
+                  {cat.label}
                 </label>
               ))}
             </div>

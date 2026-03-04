@@ -125,6 +125,9 @@ model Project {
   demoUrl      String   @default("") @map("demo_url")
   websiteUrl   String   @default("") @map("website_url")
   tags         String   @default("[]") // JSON array
+  customSections String  @default("[]") @map("custom_sections") // JSON array of { title, body }
+  teamInfo     String   @default("[]") @map("team_info") // JSON array of { name, position, avatar }
+  ownerRole    String?  @map("owner_role")
   status       String   @default("draft") // draft | pending-review | active
   isPublished  Boolean  @default(true) @map("is_published")
   isFeatured   Boolean  @default(false) @map("is_featured")

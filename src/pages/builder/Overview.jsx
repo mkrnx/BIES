@@ -1,13 +1,64 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
-import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
 import { projectsApi, analyticsApi } from '../../services/api';
 
+const ActionMenu = ({ project, onDelete, onSubmit }) => {
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef(null);
+    const navigate = useNavigate();
+    const name = project.title || project.name;
+    const close = () => setOpen(false);
+
+    const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setPos({ top: rect.bottom + 4, left: rect.right });
+        }
+        setOpen(v => !v);
+    };
+
+    return (
+        <>
+            <button ref={btnRef} className="action-menu-trigger" onClick={handleToggle} title="Actions">
+                <MoreHorizontal size={18} />
+            </button>
+            {open && ReactDOM.createPortal(
+                <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={close} />
+                    <div className="ctx-menu" style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-100%)', zIndex: 9999 }}>
+                        <button className="ctx-item" onClick={() => { close(); navigate(`/dashboard/builder/new-project?edit=${project.id}`); }}>
+                            <Edit size={15} /> Edit Project
+                        </button>
+                        <button className="ctx-item" onClick={() => { close(); navigate(`/project/${project.id}`); }}>
+                            <ExternalLink size={15} /> View Project
+                        </button>
+                        {(project.status || 'draft') === 'draft' && (
+                            <button className="ctx-item ctx-submit" onClick={() => { close(); onSubmit(project.id, name); }}>
+                                <Send size={15} /> Submit for Review
+                            </button>
+                        )}
+                        <div className="ctx-divider" />
+                        <button className="ctx-item ctx-delete" onClick={() => { close(); onDelete(project.id, name); }}>
+                            <Trash2 size={15} /> Delete
+                        </button>
+                    </div>
+                </>,
+                document.body
+            )}
+        </>
+    );
+};
+
 const BuilderOverview = () => {
     const { user } = useAuth();
-    const { data: projects, loading: projectsLoading } = useApiQuery(projectsApi.list, { ownerId: user?.id });
+    const { data: projects, loading: projectsLoading, refetch } = useApiQuery(projectsApi.list, { ownerId: user?.id });
     const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.builderDashboard);
 
     const projectList = projects?.data || projects || [];
@@ -21,6 +72,26 @@ const BuilderOverview = () => {
         if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
         if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
         return `$${val}`;
+    };
+
+    const handleDelete = async (id, name) => {
+        if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        try {
+            await projectsApi.delete(id);
+            refetch();
+        } catch (err) {
+            alert(err?.message || 'Failed to delete project.');
+        }
+    };
+
+    const handleSubmit = async (id, name) => {
+        if (!window.confirm(`Submit "${name}" for admin review?`)) return;
+        try {
+            await projectsApi.submit(id);
+            refetch();
+        } catch (err) {
+            alert(err?.message || 'Failed to submit project');
+        }
     };
 
     if (projectsLoading && statsLoading) {
@@ -92,13 +163,17 @@ const BuilderOverview = () => {
                                     <th>Views</th>
                                     <th>Likes</th>
                                     <th>Enquiries</th>
-                                    <th>Actions</th>
+                                    <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {projectList.slice(0, 5).map(project => (
                                     <tr key={project.id}>
-                                        <td className="font-semibold">{project.name}</td>
+                                        <td>
+                                            <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                                {project.title || project.name}
+                                            </Link>
+                                        </td>
                                         <td><span className={`status-badge ${(project.status || 'draft').toLowerCase()}`}>{project.status || 'Draft'}</span></td>
                                         <td>
                                             <div className="text-sm font-semibold">{formatCurrency(project.raised || 0)} / {formatCurrency(project.fundingGoal || 0)}</div>
@@ -106,8 +181,8 @@ const BuilderOverview = () => {
                                         <td>{project.views || 0}</td>
                                         <td>{project.likes || 0}</td>
                                         <td>{project.enquiries || 0}</td>
-                                        <td>
-                                            <Link to={`/project/${project.id}`} className="icon-btn-sm"><MoreHorizontal size={18} /></Link>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <ActionMenu project={project} onDelete={handleDelete} onSubmit={handleSubmit} />
                                         </td>
                                     </tr>
                                 ))}
@@ -214,14 +289,52 @@ const BuilderOverview = () => {
         .status-badge.active { background: #DCFCE7; color: #166534; }
         .status-badge.draft { background: #F3F4F6; color: #4B5563; }
 
-        .icon-btn-sm { padding: 0.5rem; border-radius: 4px; color: var(--color-gray-400); display: inline-flex; }
-        .icon-btn-sm:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-
         @media (max-width: 768px) {
             .stats-grid { grid-template-columns: 1fr; }
             .projects-table-container { overflow-x: auto; }
         }
       `}</style>
+
+            <style>{`
+                .action-menu-trigger {
+                    width: 32px; height: 32px;
+                    display: flex; align-items: center; justify-content: center;
+                    border-radius: 6px; border: 1px solid transparent;
+                    background: none; color: #6b7280; cursor: pointer;
+                    transition: all 0.15s;
+                }
+                .action-menu-trigger:hover { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+
+                .ctx-menu {
+                    min-width: 190px;
+                    background: rgba(255,255,255,0.98);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 10px;
+                    box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+                    padding: 4px 0;
+                    animation: ctxIn 0.1s ease-out;
+                }
+                @keyframes ctxIn {
+                    from { opacity: 0; transform: translateX(-100%) scale(0.95); }
+                    to { opacity: 1; transform: translateX(-100%) scale(1); }
+                }
+                .ctx-item {
+                    display: flex; align-items: center; gap: 0.6rem;
+                    width: 100%; padding: 0.5rem 0.85rem;
+                    font-size: 0.84rem; font-weight: 500; color: #374151;
+                    background: none; border: none; cursor: pointer;
+                    text-align: left; transition: background 0.08s; white-space: nowrap;
+                }
+                .ctx-item:hover { background: #f3f4f6; }
+                .ctx-item:first-child { border-radius: 8px 8px 0 0; }
+                .ctx-item:last-child { border-radius: 0 0 8px 8px; }
+                .ctx-submit { color: var(--color-primary, #0052cc); }
+                .ctx-submit:hover { background: #eff6ff; }
+                .ctx-delete { color: #ef4444; }
+                .ctx-delete:hover { background: #fef2f2; }
+                .ctx-divider { height: 1px; background: #e5e7eb; margin: 3px 0; }
+            `}</style>
         </>
     );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Upload, ChevronLeft, Loader2, FileText, X } from 'lucide-react';
+import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectsApi, uploadApi } from '../../services/api';
 
@@ -10,31 +10,43 @@ const NewProject = () => {
 
     const [loading, setLoading] = useState(false);
     const [loadingProject, setLoadingProject] = useState(!!editId);
+    const [imageUploading, setImageUploading] = useState(false);
     const [error, setError] = useState('');
     const [deckFile, setDeckFile] = useState(null);
     const [deckUploading, setDeckUploading] = useState(false);
+    const [existingDeck, setExistingDeck] = useState(false);
+    const [teamAvatarUploading, setTeamAvatarUploading] = useState(null); // index of uploading member
     const [form, setForm] = useState({
         name: '',
         category: '',
-        tagline: '',
+        stage: 'IDEA',
         description: '',
         fundingGoal: '',
+        raisedAmount: '',
         website: '',
         coverImage: '',
+        ownerRole: '',
+        teamInfo: [],
+        customSections: [],
     });
 
     useEffect(() => {
         if (editId) {
             projectsApi.get(editId).then(project => {
                 setForm({
-                    name: project.name || '',
+                    name: project.title || '',
                     category: project.category || '',
-                    tagline: project.tagline || '',
+                    stage: project.stage || 'IDEA',
                     description: project.description || '',
                     fundingGoal: project.fundingGoal || '',
-                    website: project.website || '',
-                    coverImage: project.coverImage || '',
+                    raisedAmount: project.raisedAmount || '',
+                    website: project.websiteUrl || '',
+                    coverImage: project.thumbnail || '',
+                    ownerRole: project.ownerRole || '',
+                    teamInfo: project.teamInfo || [],
+                    customSections: project.customSections || [],
                 });
+                if (project.deckKey) setExistingDeck(true);
             }).catch(() => {
                 setError('Failed to load project for editing.');
             }).finally(() => setLoadingProject(false));
@@ -48,39 +60,108 @@ const NewProject = () => {
     const handleImageUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
+        setImageUploading(true);
+        setError('');
         try {
             const result = await uploadApi.media(file);
             setForm(prev => ({ ...prev, coverImage: result.url }));
         } catch {
-            setError('Failed to upload image.');
+            setError('Failed to upload image. Please try again.');
+        } finally {
+            setImageUploading(false);
         }
     };
 
     const handleDeckUpload = (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        if (file.type !== 'application/pdf') {
-            setError('Please upload a PDF file');
-            return;
-        }
-        if (file.size > 20 * 1024 * 1024) {
-            setError('File must be under 20MB');
-            return;
-        }
+        if (file.type !== 'application/pdf') { setError('Please upload a PDF file'); return; }
+        if (file.size > 20 * 1024 * 1024) { setError('File must be under 20MB'); return; }
         setDeckFile(file);
         setError('');
     };
 
+    // ─── Team Members ────────────────────────────────────────
+    const addTeamMember = () => {
+        setForm(prev => ({
+            ...prev,
+            teamInfo: [...prev.teamInfo, { name: '', position: '', avatar: '' }],
+        }));
+    };
+
+    const updateTeamMember = (index, field, value) => {
+        setForm(prev => {
+            const updated = [...prev.teamInfo];
+            updated[index] = { ...updated[index], [field]: value };
+            return { ...prev, teamInfo: updated };
+        });
+    };
+
+    const removeTeamMember = (index) => {
+        setForm(prev => ({
+            ...prev,
+            teamInfo: prev.teamInfo.filter((_, i) => i !== index),
+        }));
+    };
+
+    const handleTeamAvatarUpload = async (index, e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setTeamAvatarUploading(index);
+        try {
+            const result = await uploadApi.media(file);
+            updateTeamMember(index, 'avatar', result.url);
+        } catch {
+            setError('Failed to upload team member photo.');
+        } finally {
+            setTeamAvatarUploading(null);
+        }
+    };
+
+    // ─── Custom Sections ─────────────────────────────────────
+    const addSection = () => {
+        setForm(prev => ({
+            ...prev,
+            customSections: [...prev.customSections, { title: '', body: '' }],
+        }));
+    };
+
+    const updateSection = (index, field, value) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            updated[index] = { ...updated[index], [field]: value };
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const removeSection = (index) => {
+        setForm(prev => ({
+            ...prev,
+            customSections: prev.customSections.filter((_, i) => i !== index),
+        }));
+    };
+
+    // ─── Submit ──────────────────────────────────────────────
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        e?.preventDefault();
         setLoading(true);
         setError('');
 
         try {
             const payload = {
-                ...form,
-                fundingGoal: form.fundingGoal ? Number(form.fundingGoal) : 0,
+                title: form.name,
+                description: form.description,
+                category: form.category || undefined,
+                stage: form.stage || undefined,
+                fundingGoal: form.fundingGoal ? Number(form.fundingGoal) : undefined,
+                raisedAmount: form.raisedAmount !== '' ? Number(form.raisedAmount) : undefined,
+                websiteUrl: form.website || undefined,
+                thumbnail: form.coverImage || undefined,
+                ownerRole: form.ownerRole || undefined,
+                teamInfo: form.teamInfo.filter(m => m.name.trim()),
+                customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
             };
+            Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
             let project;
             if (editId) {
@@ -89,7 +170,6 @@ const NewProject = () => {
                 project = await projectsApi.create(payload);
             }
 
-            // Upload deck if selected
             if (deckFile && project?.id) {
                 setDeckUploading(true);
                 await uploadApi.deck(deckFile, project.id);
@@ -112,234 +192,526 @@ const NewProject = () => {
         );
     }
 
+    const isBusy = loading || imageUploading || deckUploading;
+
     return (
-        <div className="container py-8 max-w-3xl">
-            <button onClick={() => navigate(-1)} className="back-btn">
-                <ChevronLeft size={20} /> Back
-            </button>
+        <div className="project-edit-page">
+            <div className="container py-8 max-w-6xl">
 
-            <div className="header">
-                <h1>{editId ? 'Edit Project' : 'Create New Project'}</h1>
-                <p className="subtitle">Launch your venture on the Bitcoin network</p>
-            </div>
-
-            {error && (
-                <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
-                    {error}
+                {/* Page Header */}
+                <div className="page-header">
+                    <div>
+                        <button onClick={() => navigate(-1)} className="back-link">
+                            <ChevronLeft size={18} /> Back
+                        </button>
+                        <h1 className="h1-title">{editId ? 'Edit Project' : 'Create New Project'}</h1>
+                        <p className="text-gray-500">Launch your venture on the Bitcoin network</p>
+                    </div>
                 </div>
-            )}
 
-            <div className="form-card">
-                <form onSubmit={handleSubmit}>
-                    {/* Cover Image Upload */}
-                    <div className="form-group">
-                        <label>Cover Image</label>
-                        {form.coverImage ? (
-                            <div className="image-preview">
-                                <img src={form.coverImage} alt="Cover" />
-                                <button type="button" onClick={() => setForm(prev => ({ ...prev, coverImage: '' }))} className="remove-img">Remove</button>
+                {error && <div className="error-banner">{error}</div>}
+
+                {/* Cover Image Banner Card */}
+                <div className="profile-card mb-8" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="cover-banner" style={{
+                        backgroundImage: form.coverImage ? `url(${form.coverImage})` : 'none',
+                    }}>
+                        {imageUploading && (
+                            <div className="upload-overlay">
+                                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
+                                <span style={{ color: 'white', fontWeight: 600, marginTop: '0.5rem' }}>Uploading...</span>
                             </div>
-                        ) : (
-                            <label className="image-upload-area">
-                                <Upload size={32} className="text-gray-400 mb-2" />
-                                <p className="text-sm font-semibold text-primary">Click to upload</p>
-                                <p className="text-xs text-gray-500">SVG, PNG, JPG or GIF (max. 5MB)</p>
-                                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} />
-                            </label>
                         )}
-                    </div>
-
-                    <div className="grid-2">
-                        <div className="form-group">
-                            <label htmlFor="name">Project Name</label>
-                            <input type="text" id="name" placeholder="e.g. Volcano Mining" className="input" required value={form.name} onChange={handleChange('name')} />
-                        </div>
-
-                        <div className="form-group">
-                            <label htmlFor="category">Category</label>
-                            <select id="category" className="input select" required value={form.category} onChange={handleChange('category')}>
-                                <option value="">Select a category</option>
-                                <option value="infrastructure">Infrastructure</option>
-                                <option value="finance">Finance / DeFi</option>
-                                <option value="education">Education</option>
-                                <option value="tourism">Tourism</option>
-                                <option value="technology">Technology</option>
-                                <option value="agriculture">Agriculture</option>
-                                <option value="energy">Energy</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="tagline">Tagline</label>
-                        <input type="text" id="tagline" placeholder="Short description (max 100 chars)" className="input" maxLength={100} value={form.tagline} onChange={handleChange('tagline')} />
-                    </div>
-
-                    <div className="form-group">
-                        <label htmlFor="description">Detailed Description</label>
-                        <textarea id="description" rows={5} placeholder="Describe your project, goals, and team..." className="input textarea" required value={form.description} onChange={handleChange('description')}></textarea>
-                    </div>
-
-                    <div className="grid-2">
-                        <div className="form-group">
-                            <label htmlFor="goal">Funding Goal (USD)</label>
-                            <div className="input-with-prefix">
-                                <span className="prefix">$</span>
-                                <input type="number" id="goal" placeholder="500000" className="input pl-8" value={form.fundingGoal} onChange={handleChange('fundingGoal')} />
-                            </div>
-                        </div>
-                        <div className="form-group">
-                            <label htmlFor="website">Website URL</label>
-                            <input type="url" id="website" placeholder="https://" className="input" value={form.website} onChange={handleChange('website')} />
-                        </div>
-                    </div>
-
-                    {/* Pitch Deck Upload */}
-                    <div className="form-group">
-                        <label>Pitch Deck (PDF)</label>
-                        {deckFile ? (
-                            <div className="deck-file-display">
-                                <FileText size={20} style={{ color: 'var(--color-primary)' }} />
-                                <span className="deck-name">{deckFile.name}</span>
-                                <span className="deck-size">({(deckFile.size / 1024 / 1024).toFixed(1)} MB)</span>
-                                <button type="button" className="deck-remove" onClick={() => setDeckFile(null)}>
-                                    <X size={16} />
+                        <div className="banner-actions-left">
+                            <label className="banner-btn" style={{ cursor: imageUploading ? 'not-allowed' : 'pointer' }}>
+                                {imageUploading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
+                                {form.coverImage ? 'Change Cover' : 'Add Cover Image'}
+                                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={imageUploading} />
+                            </label>
+                            {form.coverImage && !imageUploading && (
+                                <button className="banner-btn danger" onClick={() => setForm(prev => ({ ...prev, coverImage: '' }))}>
+                                    <X size={16} /> Remove
                                 </button>
+                            )}
+                        </div>
+                        <div className="banner-actions-right">
+                            <button onClick={handleSubmit} type="button" disabled={isBusy} className="save-btn">
+                                {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
+                                {loading ? 'Saving...' : deckUploading ? 'Uploading Deck...' : (editId ? 'Save Changes' : 'Create Project')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Form Sections */}
+                <div className="sections">
+
+                    {/* Project Details */}
+                    <div className="profile-card">
+                        <div className="section-inner">
+                            <h3 className="h3-title section-heading">Project Details</h3>
+
+                            <div className="form-row">
+                                <label className="form-label">Project Name</label>
+                                <div className="form-content">
+                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="e.g. Volcano Mining" required />
+                                </div>
                             </div>
-                        ) : (
-                            <label className="deck-upload-area">
-                                <FileText size={28} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
-                                <p className="text-sm font-semibold text-primary">Upload Pitch Deck</p>
-                                <p className="text-xs text-gray-500">PDF only, max 20MB</p>
-                                <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
-                            </label>
-                        )}
+
+                            <div className="form-row">
+                                <label className="form-label">Category</label>
+                                <div className="form-content">
+                                    <select value={form.category} onChange={handleChange('category')} className="input-field" required>
+                                        <option value="">Select a category</option>
+                                        <option value="INFRASTRUCTURE">Infrastructure</option>
+                                        <option value="FINTECH">Finance / DeFi</option>
+                                        <option value="EDUCATION">Education</option>
+                                        <option value="TOURISM">Tourism</option>
+                                        <option value="TECHNOLOGY">Technology</option>
+                                        <option value="FITNESS">Fitness / Sports</option>
+                                        <option value="HEALTH">Healthcare / Wellness</option>
+                                        <option value="SAAS">Software as a Service (SaaS)</option>
+                                        <option value="ECOMMERCE">E-Commerce</option>
+                                        <option value="WEB3">Web3 / Crypto</option>
+                                        <option value="ENTERTAINMENT">Entertainment / Media</option>
+                                        <option value="LOGISTICS">Logistics / Supply Chain</option>
+                                        <option value="AGRICULTURE">Agriculture</option>
+                                        <option value="ENERGY">Energy</option>
+                                        <option value="REAL_ESTATE">Real Estate</option>
+                                        <option value="OTHER">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <label className="form-label">Stage</label>
+                                <div className="form-content">
+                                    <select value={form.stage} onChange={handleChange('stage')} className="input-field">
+                                        <option value="IDEA">Idea</option>
+                                        <option value="MVP">MVP</option>
+                                        <option value="GROWTH">Growth</option>
+                                        <option value="SCALING">Scaling</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <label className="form-label">Description</label>
+                                <div className="form-content">
+                                    <textarea
+                                        rows="5"
+                                        value={form.description}
+                                        onChange={handleChange('description')}
+                                        className="input-field"
+                                        style={{ resize: 'vertical', minHeight: '120px' }}
+                                        placeholder="Describe your project, goals, and team..."
+                                        required
+                                    />
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="form-actions">
+                    {/* Funding */}
+                    <div className="profile-card">
+                        <div className="section-inner">
+                            <h3 className="h3-title section-heading">Funding</h3>
+
+                            <div className="form-row">
+                                <label className="form-label">Funding Goal (USD)</label>
+                                <div className="form-content">
+                                    <div className="input-with-prefix">
+                                        <span className="prefix">$</span>
+                                        <input type="number" value={form.fundingGoal} onChange={handleChange('fundingGoal')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="500000" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <label className="form-label">Amount Raised (USD)</label>
+                                <div className="form-content">
+                                    <div className="input-with-prefix">
+                                        <span className="prefix">$</span>
+                                        <input type="number" value={form.raisedAmount} onChange={handleChange('raisedAmount')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="0" />
+                                    </div>
+                                    <p className="form-hint">Update this as you raise funds. This is displayed on your project page.</p>
+                                </div>
+                            </div>
+
+                            <div className="form-row" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Website URL</label>
+                                <div className="form-content">
+                                    <input type="url" value={form.website} onChange={handleChange('website')} className="input-field" placeholder="https://" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Team Members */}
+                    <div className="profile-card">
+                        <div className="section-inner">
+                            <h3 className="h3-title section-heading">Core Team</h3>
+
+                            {form.teamInfo.length === 0 && (
+                                <p className="empty-hint">Add team members to showcase who's building this project.</p>
+                            )}
+
+                            {/* Main Builder (Owner) Role Input */}
+                            <div className="team-entry" style={{ background: '#f0f7ff', borderColor: '#bfdbfe' }}>
+                                <div className="team-avatar-upload">
+                                    <div className="team-avatar-label" style={{ cursor: 'default', background: 'var(--color-primary)', color: 'white', border: 'none' }}>
+                                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>You</span>
+                                    </div>
+                                </div>
+                                <div className="team-fields" style={{ justifyContent: 'center' }}>
+                                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Main Builder</span>
+                                    <input
+                                        type="text"
+                                        value={form.ownerRole}
+                                        onChange={handleChange('ownerRole')}
+                                        className="input-field"
+                                        placeholder="Your Role in the Project (e.g. Founder, CEO)"
+                                    />
+                                </div>
+                            </div>
+
+                            {form.teamInfo.map((member, idx) => (
+                                <div key={idx} className="team-entry">
+                                    <div className="team-avatar-upload">
+                                        <label className="team-avatar-label">
+                                            {teamAvatarUploading === idx ? (
+                                                <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                                            ) : member.avatar ? (
+                                                <img src={member.avatar} alt="" className="team-avatar-img" />
+                                            ) : (
+                                                <Camera size={18} />
+                                            )}
+                                            <input type="file" accept="image/*" onChange={(e) => handleTeamAvatarUpload(idx, e)} style={{ display: 'none' }} />
+                                        </label>
+                                    </div>
+                                    <div className="team-fields">
+                                        <input
+                                            type="text"
+                                            value={member.name}
+                                            onChange={(e) => updateTeamMember(idx, 'name', e.target.value)}
+                                            className="input-field"
+                                            placeholder="Name"
+                                        />
+                                        <input
+                                            type="text"
+                                            value={member.position}
+                                            onChange={(e) => updateTeamMember(idx, 'position', e.target.value)}
+                                            className="input-field"
+                                            placeholder="Position / Role"
+                                        />
+                                    </div>
+                                    <button type="button" className="team-remove" onClick={() => removeTeamMember(idx)}>
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))}
+
+                            <button type="button" className="add-btn" onClick={addTeamMember}>
+                                <UserPlus size={16} /> Add Team Member
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Custom Content Sections */}
+                    <div className="profile-card">
+                        <div className="section-inner">
+                            <h3 className="h3-title section-heading">Additional Sections</h3>
+                            <p className="empty-hint" style={{ marginBottom: '1rem' }}>Add extra info about your project — property details, roadmap, traction, anything relevant.</p>
+
+                            {form.customSections.map((section, idx) => (
+                                <div key={idx} className="custom-section-entry">
+                                    <div className="custom-section-header">
+                                        <span className="custom-section-num">Section {idx + 1}</span>
+                                        <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={section.title}
+                                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                                        className="input-field"
+                                        placeholder="Section Title"
+                                        style={{ marginBottom: '0.75rem' }}
+                                    />
+                                    <textarea
+                                        rows="4"
+                                        value={section.body}
+                                        onChange={(e) => updateSection(idx, 'body', e.target.value)}
+                                        className="input-field"
+                                        style={{ resize: 'vertical', minHeight: '100px' }}
+                                        placeholder="Section content..."
+                                    />
+                                </div>
+                            ))}
+
+                            <button type="button" className="add-btn" onClick={addSection}>
+                                <Plus size={16} /> Add Section
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Pitch Deck */}
+                    <div className="profile-card">
+                        <div className="section-inner">
+                            <h3 className="h3-title section-heading">Pitch Deck</h3>
+
+                            <div className="form-row" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Upload PDF</label>
+                                <div className="form-content">
+                                    {deckFile ? (
+                                        <div className="deck-file-display">
+                                            <FileText size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                                            <span className="deck-name">{deckFile.name}</span>
+                                            <span className="deck-size">({(deckFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                                            <button type="button" className="deck-remove" onClick={() => setDeckFile(null)}>
+                                                <X size={16} />
+                                            </button>
+                                        </div>
+                                    ) : existingDeck ? (
+                                        <div className="deck-file-display">
+                                            <FileText size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                                            <span className="deck-name" style={{ color: 'var(--color-gray-600)' }}>Pitch deck uploaded</span>
+                                            <label className="deck-replace-btn">
+                                                Replace
+                                                <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
+                                            </label>
+                                        </div>
+                                    ) : (
+                                        <label className="deck-upload-area">
+                                            <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
+                                            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)' }}>Upload Pitch Deck</p>
+                                            <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-400)', marginTop: '0.25rem' }}>PDF only, max 20MB</p>
+                                            <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
+                                        </label>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Bottom Save */}
+                    <div className="bottom-actions">
                         <button type="button" onClick={() => navigate(-1)} className="btn btn-outline">Cancel</button>
-                        <button type="submit" className="btn btn-primary" disabled={loading}>
-                            {loading ? (editId ? 'Saving...' : 'Creating...') : (editId ? 'Save Changes' : 'Create Project')}
+                        <button type="button" onClick={handleSubmit} className="btn btn-primary" disabled={isBusy}>
+                            {loading ? (editId ? 'Saving...' : 'Creating...') : deckUploading ? 'Uploading deck...' : (editId ? 'Save Changes' : 'Create Project')}
                         </button>
                     </div>
-                </form>
+
+                </div>
             </div>
 
             <style jsx>{`
-        .container { max-width: 800px; margin: 0 auto; }
-        .max-w-3xl { max-width: 48rem; }
+                .project-edit-page {
+                    background-color: #f8fafc;
+                    min-height: 100vh;
+                    padding-bottom: 4rem;
+                }
+                .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+                .mb-8 { margin-bottom: 2rem; }
 
-        .header { margin-bottom: 2rem; }
-        .subtitle { color: var(--color-gray-500); margin-top: 0.5rem; }
+                .page-header { margin-bottom: 2rem; }
+                .back-link {
+                    display: inline-flex; align-items: center; gap: 0.25rem;
+                    color: var(--color-gray-500); font-weight: 500; font-size: 0.9rem;
+                    background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 0.75rem;
+                }
+                .back-link:hover { color: var(--color-primary); }
 
-        .back-btn {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          color: var(--color-gray-500);
-          background: none;
-          border: none;
-          cursor: pointer;
-          margin-bottom: 1.5rem;
-          font-weight: 500;
-          padding: 0;
-        }
-        .back-btn:hover { color: var(--color-primary); }
+                .h1-title { font-size: 2rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
+                .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
+                .text-gray-500 { color: var(--color-gray-500); margin: 0; }
 
-        .form-card {
-          background: white;
-          padding: 2rem;
-          border-radius: var(--radius-lg);
-          box-shadow: var(--shadow-sm);
-          border: 1px solid var(--color-gray-200);
-        }
+                .error-banner {
+                    background: #FEF2F2; color: #EF4444;
+                    padding: 0.75rem 1rem; border-radius: 8px;
+                    margin-bottom: 1rem; font-size: 0.875rem;
+                }
 
-        .form-group { margin-bottom: 1.5rem; }
-        .form-group label { display: block; font-weight: 500; margin-bottom: 0.5rem; color: var(--color-gray-700); font-size: 0.95rem; }
+                .profile-card {
+                    background: white;
+                    border-radius: var(--radius-xl, 16px);
+                    box-shadow: var(--shadow-sm);
+                    border: 1px solid var(--color-gray-200);
+                }
+                .section-inner { padding: 2rem; }
+                .sections { display: flex; flex-direction: column; gap: 2rem; }
+                .section-heading {
+                    margin-bottom: 1.5rem; padding-bottom: 1rem;
+                    border-bottom: 1px solid var(--color-gray-200);
+                }
 
-        .input {
-          width: 100%;
-          padding: 0.75rem 1rem;
-          border-radius: var(--radius-md);
-          border: 1px solid var(--color-gray-300);
-          font-size: 1rem;
-          transition: border-color 0.2s;
-        }
-        .input:focus { outline: none; border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(255, 91, 0, 0.1); }
+                .cover-banner {
+                    position: relative; height: 220px;
+                    background-color: #0a192f; background-size: cover; background-position: center;
+                    display: flex; align-items: flex-end; justify-content: space-between;
+                    padding: 1.25rem;
+                }
+                .cover-banner::before {
+                    content: ''; position: absolute; inset: 0;
+                    background: linear-gradient(transparent 40%, rgba(0,0,0,0.45));
+                    pointer-events: none;
+                }
 
-        .textarea { resize: vertical; }
+                .upload-overlay {
+                    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
+                    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 15;
+                }
 
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-        @media (max-width: 640px) { .grid-2 { grid-template-columns: 1fr; } }
+                .banner-actions-left, .banner-actions-right {
+                    position: relative; z-index: 20; display: flex; gap: 0.5rem;
+                }
 
-        .input-with-prefix { position: relative; }
-        .input-with-prefix .prefix { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--color-gray-500); pointer-events: none; }
-        .input.pl-8 { padding-left: 2rem; }
+                .banner-btn {
+                    display: flex; align-items: center; gap: 0.4rem;
+                    background: white; color: #1f2937;
+                    border-radius: var(--radius-md, 8px); height: 38px; padding: 0 16px;
+                    font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap;
+                }
+                .banner-btn:hover { opacity: 0.9; }
+                .banner-btn.danger { color: #EF4444; }
 
-        .image-upload-area {
-          border: 2px dashed var(--color-gray-300);
-          border-radius: var(--radius-lg);
-          padding: 2rem;
-          text-align: center;
-          cursor: pointer;
-          transition: all 0.2s;
-          background: var(--color-gray-50);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
-        .image-upload-area:hover { border-color: var(--color-primary); background: var(--color-gray-50); }
+                .save-btn {
+                    display: inline-flex; align-items: center; gap: 0.5rem;
+                    background: var(--color-primary, #0052cc); color: white; border: none;
+                    border-radius: var(--radius-md, 8px); height: 44px; padding: 0 24px;
+                    font-weight: 700; font-family: var(--font-display); font-size: 1rem;
+                    letter-spacing: 0.02em; box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+                    cursor: pointer; white-space: nowrap;
+                }
+                .save-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
-        .image-preview { position: relative; border-radius: var(--radius-lg); overflow: hidden; max-height: 200px; }
-        .image-preview img { width: 100%; height: 200px; object-fit: cover; }
-        .image-preview .remove-img {
-          position: absolute; top: 8px; right: 8px;
-          background: rgba(0,0,0,0.6); color: white;
-          border: none; padding: 4px 12px; border-radius: var(--radius-md);
-          cursor: pointer; font-size: 0.8rem;
-        }
+                .form-row {
+                    display: grid; grid-template-columns: 160px 1fr;
+                    gap: 2rem; align-items: start; margin-bottom: 2rem;
+                }
+                .form-label {
+                    text-align: right; color: var(--color-gray-700);
+                    font-weight: 600; font-size: 0.875rem; padding-top: 0.6rem;
+                }
+                .form-content { min-width: 0; }
+                .form-hint { font-size: 0.78rem; color: var(--color-gray-400); margin-top: 0.4rem; }
 
-        .deck-upload-area {
-          border: 2px dashed var(--color-gray-300);
-          border-radius: var(--radius-lg);
-          padding: 1.5rem;
-          text-align: center;
-          cursor: pointer;
-          transition: all 0.2s;
-          background: var(--color-gray-50);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-        }
-        .deck-upload-area:hover { border-color: var(--color-primary); background: #FFFBF5; }
+                .input-field {
+                    width: 100%; padding: 0.75rem 1rem;
+                    border: 1px solid var(--color-gray-300); background: white;
+                    border-radius: var(--radius-md, 8px); outline: none;
+                    font-size: 0.95rem; transition: all 0.2s;
+                }
+                .input-field:focus {
+                    border-color: var(--color-primary);
+                    box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
+                }
+                select.input-field { appearance: auto; cursor: pointer; }
 
-        .deck-file-display {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem 1rem;
-          background: var(--color-gray-50);
-          border: 1px solid var(--color-gray-200);
-          border-radius: var(--radius-md);
-        }
-        .deck-name { font-weight: 500; flex: 1; }
-        .deck-size { color: var(--color-gray-400); font-size: 0.85rem; }
-        .deck-remove {
-          padding: 4px;
-          border-radius: 4px;
-          color: var(--color-gray-400);
-          cursor: pointer;
-          background: none;
-          border: none;
-        }
-        .deck-remove:hover { color: var(--color-error); background: var(--color-gray-100); }
+                .input-with-prefix { position: relative; }
+                .input-with-prefix .prefix {
+                    position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+                    color: var(--color-gray-500); pointer-events: none; font-weight: 500;
+                }
 
-        .form-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 2rem; }
+                .empty-hint { color: var(--color-gray-400); font-size: 0.88rem; }
 
-        .text-gray-400 { color: var(--color-gray-400); }
-      `}</style>
+                /* Team Members */
+                .team-entry {
+                    display: flex; align-items: flex-start; gap: 1rem;
+                    padding: 1rem; margin-bottom: 1rem;
+                    background: var(--color-gray-50, #f9fafb);
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: 10px;
+                }
+                .team-avatar-upload { flex-shrink: 0; }
+                .team-avatar-label {
+                    width: 56px; height: 56px; border-radius: 50%;
+                    background: var(--color-gray-100); border: 2px dashed var(--color-gray-300);
+                    display: flex; align-items: center; justify-content: center;
+                    cursor: pointer; overflow: hidden; color: var(--color-gray-400);
+                    transition: border-color 0.15s;
+                }
+                .team-avatar-label:hover { border-color: var(--color-primary); }
+                .team-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+                .team-fields { flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
+                .team-remove {
+                    background: none; border: none; cursor: pointer; padding: 0.35rem;
+                    color: var(--color-gray-400); border-radius: 6px; transition: all 0.15s;
+                }
+                .team-remove:hover { color: #ef4444; background: #fef2f2; }
+
+                /* Custom Sections */
+                .custom-section-entry {
+                    padding: 1.25rem; margin-bottom: 1rem;
+                    background: var(--color-gray-50, #f9fafb);
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: 10px;
+                }
+                .custom-section-header {
+                    display: flex; justify-content: space-between; align-items: center;
+                    margin-bottom: 0.75rem;
+                }
+                .custom-section-num {
+                    font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
+                    letter-spacing: 0.05em; color: var(--color-gray-400);
+                }
+
+                /* Add buttons */
+                .add-btn {
+                    display: inline-flex; align-items: center; gap: 0.4rem;
+                    padding: 0.6rem 1.25rem; border-radius: 8px;
+                    border: 2px dashed var(--color-gray-300); background: none;
+                    color: var(--color-primary); font-weight: 600; font-size: 0.88rem;
+                    cursor: pointer; transition: all 0.15s;
+                }
+                .add-btn:hover { border-color: var(--color-primary); background: #f0f7ff; }
+
+                /* Deck */
+                .deck-upload-area {
+                    border: 2px dashed var(--color-gray-300);
+                    border-radius: var(--radius-lg, 12px); padding: 1.5rem;
+                    text-align: center; cursor: pointer; transition: all 0.2s;
+                    background: var(--color-gray-50, #f9fafb);
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                }
+                .deck-upload-area:hover { border-color: var(--color-primary); background: #FFFBF5; }
+
+                .deck-file-display {
+                    display: flex; align-items: center; gap: 0.75rem;
+                    padding: 0.75rem 1rem; background: var(--color-gray-50, #f9fafb);
+                    border: 1px solid var(--color-gray-200); border-radius: var(--radius-md, 8px);
+                }
+                .deck-name { font-weight: 500; flex: 1; }
+                .deck-size { color: var(--color-gray-400); font-size: 0.85rem; }
+                .deck-remove {
+                    padding: 4px; border-radius: 4px; color: var(--color-gray-400);
+                    cursor: pointer; background: none; border: none;
+                }
+                .deck-remove:hover { color: var(--color-error, #EF4444); background: var(--color-gray-100); }
+                .deck-replace-btn {
+                    padding: 4px 12px; border-radius: var(--radius-md, 8px);
+                    font-size: 0.8rem; font-weight: 600; color: var(--color-primary);
+                    background: white; border: 1px solid var(--color-gray-200); cursor: pointer;
+                }
+                .deck-replace-btn:hover { background: var(--color-gray-50, #f9fafb); }
+
+                .bottom-actions {
+                    display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem;
+                }
+
+                @media (max-width: 768px) {
+                    .form-row { grid-template-columns: 1fr; gap: 0.5rem; }
+                    .form-label { text-align: left; padding-top: 0; }
+                    .cover-banner { height: 180px; flex-direction: column; align-items: stretch; }
+                    .banner-actions-left, .banner-actions-right { justify-content: center; }
+                    .team-entry { flex-direction: column; align-items: center; }
+                }
+
+                @keyframes spin { to { transform: rotate(360deg); } }
+            `}</style>
         </div>
     );
 };

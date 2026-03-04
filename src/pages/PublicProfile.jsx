@@ -3,17 +3,20 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
 
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
+    const { user: currentUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showMenu, setShowMenu] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
+    const [followLoading, setFollowLoading] = useState(false);
     const [nostrProfile, setNostrProfile] = useState(null);
 
     useEffect(() => {
@@ -31,6 +34,20 @@ const PublicProfile = ({ type }) => {
         fetchProfile();
     }, [id]);
 
+    // The URL :id can be a profileId or userId — the follow API needs the userId
+    const targetUserId = profile?.user?.id || profile?.userId;
+
+    // Check if current user is following this profile
+    useEffect(() => {
+        if (!currentUser?.id || !targetUserId || currentUser.id === targetUserId) return;
+        profilesApi.getFollowing(currentUser.id, { limit: 100 })
+            .then(res => {
+                const list = res?.data || res || [];
+                setIsFollowing(list.some(u => u.id === targetUserId));
+            })
+            .catch(() => { });
+    }, [currentUser?.id, targetUserId]);
+
     useEffect(() => {
         if (!profile) return;
         const npub = profile.user?.nostrPubkey
@@ -40,7 +57,7 @@ const PublicProfile = ({ type }) => {
             try {
                 const decoded = nip19.decode(npub);
                 if (decoded.type === 'npub') {
-                    nostrService.getProfile(decoded.data).then(setNostrProfile).catch(() => {});
+                    nostrService.getProfile(decoded.data).then(setNostrProfile).catch(() => { });
                 }
             } catch {
                 // Invalid npub — skip
@@ -90,18 +107,40 @@ const PublicProfile = ({ type }) => {
 
                         {/* Action Buttons */}
                         <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
-                            <button
-                                onClick={() => setIsFollowing(!isFollowing)}
-                                style={{
-                                    borderRadius: 'var(--radius-md)',
-                                    background: isFollowing ? 'var(--color-primary)' : 'white',
-                                    color: isFollowing ? 'white' : 'var(--color-neutral-dark)',
-                                    border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
-                                    height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
-                                    cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                }}>
-                                {isFollowing ? 'Following' : 'Follow'}
-                            </button>
+                            {currentUser && targetUserId && currentUser.id !== targetUserId && (
+                                <button
+                                    onClick={async () => {
+                                        setFollowLoading(true);
+                                        try {
+                                            if (isFollowing) {
+                                                await profilesApi.unfollow(targetUserId);
+                                                setIsFollowing(false);
+                                            } else {
+                                                await profilesApi.follow(targetUserId);
+                                                setIsFollowing(true);
+                                            }
+                                        } catch (err) {
+                                            // 409 = already following
+                                            if (err?.status === 409) setIsFollowing(true);
+                                            else alert(err?.message || 'Failed to update follow');
+                                        } finally {
+                                            setFollowLoading(false);
+                                        }
+                                    }}
+                                    disabled={followLoading}
+                                    style={{
+                                        borderRadius: 'var(--radius-md)',
+                                        background: isFollowing ? 'var(--color-primary)' : 'white',
+                                        color: isFollowing ? 'white' : 'var(--color-neutral-dark)',
+                                        border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
+                                        height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
+                                        cursor: followLoading ? 'wait' : 'pointer',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                        opacity: followLoading ? 0.7 : 1,
+                                    }}>
+                                    {followLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
+                                </button>
+                            )}
                             <Link to="/messages" style={{
                                 borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
                                 height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',

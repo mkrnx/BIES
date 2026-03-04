@@ -112,6 +112,12 @@ export const profilesApi = {
     me: () => get('/profiles/me'),
 
     update: (data) => put('/profiles/me', data),
+
+    // Follow system
+    follow: (id) => post(`/profiles/${id}/follow`),
+    unfollow: (id) => del(`/profiles/${id}/follow`),
+    getFollowing: (id, params = {}) => get(`/profiles/${id}/following`, params),
+    getFollowers: (id, params = {}) => get(`/profiles/${id}/followers`, params),
 };
 
 // ─── Projects ────────────────────────────────────────────────────────────────

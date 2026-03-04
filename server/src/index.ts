@@ -127,7 +127,6 @@ const contactLimiter = rateLimit({
 });
 
 app.use('/api/', generalLimiter);
-app.use('/api/auth', authLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/search', searchLimiter);
 app.use('/api/contact', contactLimiter);
