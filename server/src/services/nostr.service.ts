@@ -39,9 +39,11 @@ export async function publishEvent(
         const privateKeyBytes = hexToBytes(privateKeyHex);
 
         // Finalize (sign) the event
+        const { finalizeEvent } = await import('nostr-tools/pure');
         const signedEvent = finalizeEvent(eventTemplate, privateKeyBytes);
 
         // Publish to relays
+        const pool = await getPool();
         const results = await Promise.allSettled(
             pool.publish(config.nostrRelays, signedEvent)
         );
