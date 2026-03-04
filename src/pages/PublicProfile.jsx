@@ -75,8 +75,8 @@ const PublicProfile = ({ type }) => {
                     <div style={{
                         position: 'relative',
                         height: '240px',
-                        background: profile.banner
-                            ? `url(${profile.banner}) center/cover no-repeat`
+                        background: (profile.banner || nostrProfile?.banner)
+                            ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
                             : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
                         <Link to={type === 'builder' ? '/builders' : '/investors'} style={{
@@ -142,8 +142,8 @@ const PublicProfile = ({ type }) => {
                     <div className="pb-8" style={{ paddingLeft: '24px', paddingRight: '24px', position: 'relative', zIndex: 5 }}>
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5 }}>
-                            {profile.avatar ? (
-                                <img src={profile.avatar} alt={profile.name} style={{
+                            {(profile.avatar || nostrProfile?.picture) ? (
+                                <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} style={{
                                     width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover',
                                     border: '5px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', background: 'white',
                                 }} />

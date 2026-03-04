@@ -62,8 +62,8 @@ const Profile = () => {
                     <div style={{
                         position: 'relative',
                         height: '240px',
-                        background: profile.banner
-                            ? `url(${profile.banner}) center/cover no-repeat`
+                        background: (profile.banner || nostrProfile?.banner)
+                            ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
                             : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
                         {/* Edit Profile Button */}
@@ -98,8 +98,8 @@ const Profile = () => {
                     <div className="pb-8" style={{ paddingLeft: '24px', paddingRight: '24px', position: 'relative', zIndex: 5 }}>
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5 }}>
-                            {profile.avatar ? (
-                                <img src={profile.avatar} alt={profile.name} className="shadow-md bg-white flex-shrink-0" style={{ width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover', border: '5px solid white' }} />
+                            {(profile.avatar || nostrProfile?.picture) ? (
+                                <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} className="shadow-md bg-white flex-shrink-0" style={{ width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover', border: '5px solid white' }} />
                             ) : (
                                 <div className="shadow-md bg-white flex-shrink-0 flex items-center justify-center" style={{ width: '168px', height: '168px', borderRadius: '50%', border: '5px solid white', background: 'var(--color-gray-100)', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
                                     {(profile.name || user?.email || '?').charAt(0).toUpperCase()}
