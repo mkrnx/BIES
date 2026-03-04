@@ -17,6 +17,8 @@ const ProfileEdit = () => {
     const [saving, setSaving] = useState(false);
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [uploadingBanner, setUploadingBanner] = useState(false);
+    const [avatarImageLoading, setAvatarImageLoading] = useState(false);
+    const [bannerImageLoading, setBannerImageLoading] = useState(false);
     const [cropImage, setCropImage] = useState(null); // { src, type: 'avatar'|'banner' }
     const [error, setError] = useState('');
     const [hasExistingProfile, setHasExistingProfile] = useState(false);
@@ -224,11 +226,30 @@ const ProfileEdit = () => {
 
         try {
             const result = await uploadApi.media(croppedFile);
-            setForm(prev => ({ ...prev, [type]: result.url }));
+            // Preload the image before showing it, so it doesn't flash white
+            if (type === 'avatar') {
+                setAvatarImageLoading(true);
+                setUploadingAvatar(false);
+            } else {
+                setBannerImageLoading(true);
+                setUploadingBanner(false);
+            }
+            const img = new Image();
+            img.onload = () => {
+                setForm(prev => ({ ...prev, [type]: result.url }));
+                if (type === 'avatar') setAvatarImageLoading(false);
+                else setBannerImageLoading(false);
+            };
+            img.onerror = () => {
+                // Still set the URL even if preload fails
+                setForm(prev => ({ ...prev, [type]: result.url }));
+                if (type === 'avatar') setAvatarImageLoading(false);
+                else setBannerImageLoading(false);
+            };
+            img.src = result.url;
         } catch (err) {
             console.error(`${type} upload error:`, err);
             setError(`Failed to upload ${type}. Make sure the backend server is running.`);
-        } finally {
             if (type === 'avatar') setUploadingAvatar(false);
             else setUploadingBanner(false);
         }
@@ -386,6 +407,17 @@ const ProfileEdit = () => {
                         height: '240px',
                         background: (form.banner || nostrProfile?.banner) ? `url(${form.banner || nostrProfile?.banner}) center/cover no-repeat` : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
+                        {(uploadingBanner || bannerImageLoading) && (
+                            <div style={{ position: 'absolute', inset: 0, zIndex: 15, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', gap: '0.75rem' }}>
+                                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
+                                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.875rem' }}>
+                                    {uploadingBanner ? 'Uploading banner...' : 'Loading image...'}
+                                </span>
+                                <div style={{ width: '160px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', borderRadius: '2px', background: 'white', animation: 'progress-indeterminate 1.5s ease-in-out infinite' }} />
+                                </div>
+                            </div>
+                        )}
                         <div className="absolute z-10 flex gap-3" style={{ top: '24px', left: '24px' }}>
                             <label className="banner-btn" style={{ cursor: 'pointer' }}>
                                 {uploadingBanner ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={18} />}
@@ -432,9 +464,12 @@ const ProfileEdit = () => {
                                     </div>
                                 )}
                             </div>
-                            {uploadingAvatar && (
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: '50%' }}>
+                            {(uploadingAvatar || avatarImageLoading) && (
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: '50%', gap: '0.25rem' }}>
                                     <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />
+                                    <span style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                                        {uploadingAvatar ? 'Uploading...' : 'Loading...'}
+                                    </span>
                                 </div>
                             )}
                             <label style={{ position: 'absolute', bottom: '4px', right: '4px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '50%', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -999,6 +1034,11 @@ const ProfileEdit = () => {
                 .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
 
                 @keyframes spin { to { transform: rotate(360deg); } }
+                @keyframes progress-indeterminate {
+                    0% { width: 0%; margin-left: 0%; }
+                    50% { width: 60%; margin-left: 20%; }
+                    100% { width: 0%; margin-left: 100%; }
+                }
             `}</style>
         </div>
     );
