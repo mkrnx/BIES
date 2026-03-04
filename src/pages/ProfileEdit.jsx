@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, Zap } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send } from 'lucide-react';
+import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi, uploadApi, projectsApi } from '../services/api';
@@ -652,7 +653,7 @@ const ProfileEdit = () => {
                     <div className="profile-card">
                         <div className="w-full max-w-2xl">
                             <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
-                                <Zap size={20} style={{ color: '#8b5cf6' }} />
+                                <NostrIcon size={20} color="#8b5cf6" />
                                 Nostr Profile
                             </h3>
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>Edit your Nostr identity. Changes are published to relays.</p>

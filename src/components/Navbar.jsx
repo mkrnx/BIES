@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Bell, User, Search, ChevronDown, LogOut, Zap } from 'lucide-react';
+import { Menu, Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import NostrIcon from './NostrIcon';
 import { notificationsApi } from '../services/api';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 
@@ -216,7 +217,7 @@ const Navbar = () => {
             </div>
           ) : (
             <Link to="/login" className="login-btn flex items-center gap-sm" style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem', padding: '6px 16px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-full)' }}>
-              <Zap size={16} />
+              <NostrIcon size={16} />
               <span>Login</span>
             </Link>
           )}

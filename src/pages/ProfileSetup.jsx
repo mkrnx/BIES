@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { nostrService } from '../services/nostrService';
 import { profilesApi } from '../services/api';
-import { ArrowRight, Loader2, AlertCircle, Zap, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 
 const ProfileSetup = () => {
@@ -98,7 +98,7 @@ const ProfileSetup = () => {
         <div className="setup-container">
             <div className="setup-card">
                 <div className="text-center mb-6">
-                    <Zap size={32} className="text-yellow-400 fill-yellow-400 mx-auto mb-3" />
+                    <NostrIcon size={32} className="mx-auto mb-3" color="#8b5cf6" />
                     <h2 className="text-2xl font-bold mb-2">Welcome to BIES</h2>
                     <p className="text-gray-500 text-sm">
                         Set up your BIES profile to get started.
