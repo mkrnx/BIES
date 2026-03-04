@@ -1,16 +1,37 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Zap, AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
+import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
     const { loginWithNostrAndCheckNew } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [hasNostrExtension, setHasNostrExtension] = useState(
+        typeof window !== 'undefined' && !!window.nostr
+    );
 
-    const hasNostrExtension = typeof window !== 'undefined' && !!window.nostr;
+    useEffect(() => {
+        if (hasNostrExtension) return;
+
+        // Extensions like Alby inject window.nostr asynchronously after page load
+        const check = setInterval(() => {
+            if (window.nostr) {
+                setHasNostrExtension(true);
+                clearInterval(check);
+            }
+        }, 100);
+
+        const timeout = setTimeout(() => clearInterval(check), 3000);
+
+        return () => {
+            clearInterval(check);
+            clearTimeout(timeout);
+        };
+    }, [hasNostrExtension]);
 
     const handleLogin = async () => {
         setError('');
@@ -63,7 +84,7 @@ const Login = () => {
                         {loading ? (
                             <Loader2 size={20} className="spin" />
                         ) : (
-                            <Zap size={20} className="text-yellow-400 fill-yellow-400" />
+                            <NostrIcon size={20} color="#8b5cf6" />
                         )}
                         <span>{loading ? 'Connecting...' : 'Connect with Nostr'}</span>
                     </button>
@@ -78,7 +99,7 @@ const Login = () => {
                             rel="noopener noreferrer"
                             className="w-full btn-primary flex items-center justify-center gap-3 py-3 rounded-full mb-4"
                         >
-                            <Zap size={20} className="text-yellow-400 fill-yellow-400" />
+                            <NostrIcon size={20} color="#8b5cf6" />
                             <span>Get Alby Extension</span>
                         </a>
                     </div>
