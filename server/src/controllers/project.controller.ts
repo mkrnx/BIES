@@ -164,7 +164,7 @@ export async function getProject(req: Request, res: Response): Promise<void> {
                     include: {
                         user: {
                             select: {
-                                id: true,
+                                id: true, nostrPubkey: true,
                                 profile: { select: { name: true, avatar: true, title: true } },
                             },
                         },

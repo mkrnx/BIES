@@ -3,6 +3,7 @@ import { TrendingUp, Loader2, Twitter, Heart, Repeat, MessageCircle } from 'luci
 import { Link } from 'react-router-dom';
 import { useNostrFeed } from '../hooks/useNostr';
 import NostrIcon from '../components/NostrIcon';
+import ZapButton from '../components/ZapButton';
 import { contentApi, newsApi } from '../services/api';
 
 const News = () => {
@@ -102,6 +103,13 @@ const News = () => {
                                             </div>
                                         </div>
                                         <p>{post.content?.slice(0, 280)}{post.content?.length > 280 ? '...' : ''}</p>
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                                            <ZapButton
+                                                recipients={[{ pubkey: post.pubkey, name: profile.name || post.pubkey.slice(0, 8), avatar: profile.picture || '' }]}
+                                                eventId={post.id}
+                                                size="sm"
+                                            />
+                                        </div>
                                     </div>
                                 );
                             })

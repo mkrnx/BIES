@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { Calendar, MapPin, Users, ExternalLink, ArrowLeft, Clock, Tag, Loader2, CheckCircle } from 'lucide-react';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import ZapButton from '../components/ZapButton';
 
 const EventDetail = () => {
     const { id } = useParams();
@@ -98,7 +99,17 @@ const EventDetail = () => {
                 <div className="detail-grid">
                     <div className="main-content">
                         <h1>{event.title}</h1>
-                        {event.organizer && <p className="organizer">Hosted by {event.organizer}</p>}
+                        {event.organizer && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <p className="organizer" style={{ margin: 0 }}>Hosted by {event.organizer}</p>
+                                {event.host?.nostrPubkey && (
+                                    <ZapButton
+                                        recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: event.host?.profile?.avatar || '' }]}
+                                        size="sm"
+                                    />
+                                )}
+                            </div>
+                        )}
 
                         <div className="description">
                             {description.split('\n\n').map((paragraph, i) => (
