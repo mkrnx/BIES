@@ -1,23 +1,81 @@
-import React, { useState } from 'react';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Send } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Send, MoreHorizontal } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { useApiQuery, useApiMutation } from '../../hooks/useApi';
+import { useApiQuery } from '../../hooks/useApi';
 import { projectsApi } from '../../services/api';
+
+const ActionMenu = ({ project, onDelete, onSubmit }) => {
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef(null);
+    const navigate = useNavigate();
+    const name = project.title || project.name;
+
+    const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setPos({ top: rect.bottom + 4, left: rect.right });
+        }
+        setOpen(v => !v);
+    };
+
+    const close = () => setOpen(false);
+
+    return (
+        <>
+            <button ref={btnRef} className="action-menu-trigger" onClick={handleToggle} title="Actions">
+                <MoreHorizontal size={18} />
+            </button>
+
+            {open && ReactDOM.createPortal(
+                <>
+                    {/* Full-screen invisible backdrop */}
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={close} />
+                    <div
+                        className="ctx-menu"
+                        style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-100%)', zIndex: 9999 }}
+                    >
+                        <button className="ctx-item" onClick={() => { close(); navigate(`/dashboard/builder/new-project?edit=${project.id}`); }}>
+                            <Edit size={15} /> Edit Project
+                        </button>
+                        <button className="ctx-item" onClick={() => { close(); navigate(`/project/${project.id}`); }}>
+                            <ExternalLink size={15} /> View Project
+                        </button>
+                        {(project.status || 'draft') === 'draft' && (
+                            <button className="ctx-item ctx-submit" onClick={() => { close(); onSubmit(project.id, name); }}>
+                                <Send size={15} /> Submit for Review
+                            </button>
+                        )}
+                        <div className="ctx-divider" />
+                        <button className="ctx-item ctx-delete" onClick={() => { close(); onDelete(project.id, name); }}>
+                            <Trash2 size={15} /> Delete
+                        </button>
+                    </div>
+                </>,
+                document.body
+            )}
+        </>
+    );
+};
 
 const MyProjects = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [copiedId, setCopiedId] = useState(null); // Added for copyLink functionality, though copyLink is not used in this component
 
     const { data: projects, loading, refetch } = useApiQuery(projectsApi.list, { ownerId: user?.id });
-    const { mutate: deleteProject, loading: deleting } = useApiMutation(projectsApi.delete);
 
     const projectList = projects?.data || projects || [];
 
     const filtered = projectList.filter(p => {
         if (filter !== 'all' && (p.status || 'draft').toLowerCase() !== filter) return false;
-        const projectName = (p.name || p.title || '').toLowerCase();
+        const projectName = (p.title || p.name || '').toLowerCase();
         if (search && !projectName.includes(search.toLowerCase())) return false;
         return true;
     });
@@ -25,13 +83,15 @@ const MyProjects = () => {
     const handleDelete = async (id, name) => {
         if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
         try {
-            await deleteProject(id);
+            await projectsApi.delete(id);
             refetch();
-        } catch { /* error handled by hook */ }
+        } catch (err) {
+            alert(err?.message || 'Failed to delete project.');
+        }
     };
 
     const handleSubmit = async (id, name) => {
-        if (!window.confirm(`Submit "${name}" for admin review? It will appear on the Discover page once approved.`)) return;
+        if (!window.confirm(`Submit "${name}" for admin review? It will be highlighted as a verified project on the Discover page.`)) return;
         try {
             await projectsApi.submit(id);
             refetch();
@@ -45,6 +105,19 @@ const MyProjects = () => {
         if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
         if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
         return `$${val}`;
+    };
+
+    const copyLink = (id) => {
+        navigator.clipboard.writeText(`${window.location.origin}/project/${id}`);
+        setCopiedId(id);
+        setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const categoryLabel = (c) => {
+        if (!c) return '—';
+        const special = { SAAS: 'SaaS', ECOMMERCE: 'E-Commerce', WEB3: 'Web3', REAL_ESTATE: 'Real Estate' };
+        if (special[c]) return special[c];
+        return c.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
     };
 
     if (loading) {
@@ -90,11 +163,12 @@ const MyProjects = () => {
                             <thead>
                                 <tr>
                                     <th>Project Name</th>
+                                    <th>Stage</th>
                                     <th>Category</th>
                                     <th>Status</th>
                                     <th>Date Created</th>
                                     <th>Fundraising</th>
-                                    <th>Actions</th>
+                                    <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -105,9 +179,12 @@ const MyProjects = () => {
                                     return (
                                         <tr key={project.id}>
                                             <td>
-                                                <div className="font-semibold">{project.name}</div>
+                                                <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                                    {project.title || project.name}
+                                                </Link>
                                             </td>
-                                            <td>{project.category || '—'}</td>
+                                            <td>{project.stage || '—'}</td>
+                                            <td>{categoryLabel(project.category)}</td>
                                             <td><span className={`status-badge ${(project.status || 'draft').toLowerCase().replace(' ', '-')}`}>{project.status || 'Draft'}</span></td>
                                             <td className="text-gray-500">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : '—'}</td>
                                             <td>
@@ -116,15 +193,12 @@ const MyProjects = () => {
                                                     <div className="fill" style={{ width: `${Math.min(pct, 100)}%` }}></div>
                                                 </div>
                                             </td>
-                                            <td>
-                                                <div className="actions-cell">
-                                                    {(project.status || 'draft') === 'draft' && (
-                                                        <button className="action-btn text-submit" title="Submit to Website" onClick={() => handleSubmit(project.id, project.name || project.title)}><Send size={16} /></button>
-                                                    )}
-                                                    <Link to={`/dashboard/builder/new-project?edit=${project.id}`} className="action-btn" title="Edit"><Edit size={16} /></Link>
-                                                    <Link to={`/project/${project.id}`} className="action-btn" title="View"><ExternalLink size={16} /></Link>
-                                                    <button className="action-btn text-error" title="Delete" onClick={() => handleDelete(project.id, project.name || project.title)} disabled={deleting}><Trash2 size={16} /></button>
-                                                </div>
+                                            <td style={{ textAlign: 'center' }}>
+                                                <ActionMenu
+                                                    project={project}
+                                                    onDelete={handleDelete}
+                                                    onSubmit={handleSubmit}
+                                                />
                                             </td>
                                         </tr>
                                     );
@@ -144,7 +218,6 @@ const MyProjects = () => {
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
-                    overflow: hidden;
                 }
 
                 .toolbar {
@@ -176,7 +249,7 @@ const MyProjects = () => {
                     width: 250px;
                 }
 
-                .table-wrapper { overflow-x: auto; }
+                .table-wrapper { overflow-x: auto; overflow-y: visible; }
                 .projects-table { width: 100%; border-collapse: collapse; }
 
                 .projects-table th {
@@ -199,13 +272,75 @@ const MyProjects = () => {
 
                 .progress-bar-sm { width: 100px; height: 4px; background: #E5E7EB; border-radius: 99px; margin-top: 4px; overflow: hidden; }
                 .progress-bar-sm .fill { height: 100%; background: var(--color-success); border-radius: 99px; }
+            `}</style>
 
-                .actions-cell { display: flex; gap: 0.5rem; }
-                .action-btn { padding: 4px; color: var(--color-gray-400); border-radius: 4px; cursor: pointer; display: inline-flex; border: none; background: none; }
-                .action-btn:hover { background: var(--color-gray-100); color: var(--color-gray-700); }
-                .action-btn.text-error:hover { background: #FEF2F2; color: var(--color-error); }
-                .action-btn.text-submit { color: var(--color-primary); }
-                .action-btn.text-submit:hover { background: #EDF5FF; color: var(--color-primary); }
+            {/* Global styles for action menu (child component) and portal context menu */}
+            <style>{`
+                .action-menu-trigger {
+                    width: 32px;
+                    height: 32px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 6px;
+                    border: 1px solid transparent;
+                    background: none;
+                    color: #6b7280;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                .action-menu-trigger:hover {
+                    background: #f3f4f6;
+                    border-color: #e5e7eb;
+                    color: #374151;
+                }
+
+                .ctx-menu {
+                    min-width: 190px;
+                    background: rgba(255,255,255,0.98);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border-radius: 10px;
+                    box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+                    z-index: 9999;
+                    padding: 4px 0;
+                    animation: ctxIn 0.1s ease-out;
+                }
+
+                @keyframes ctxIn {
+                    from { opacity: 0; transform: translateX(-100%) scale(0.95); }
+                    to { opacity: 1; transform: translateX(-100%) scale(1); }
+                }
+
+                .ctx-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                    width: 100%;
+                    padding: 0.5rem 0.85rem;
+                    font-size: 0.84rem;
+                    font-weight: 500;
+                    color: #374151;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: background 0.08s;
+                    white-space: nowrap;
+                }
+                .ctx-item:hover { background: #f3f4f6; }
+                .ctx-item:first-child { border-radius: 8px 8px 0 0; }
+                .ctx-item:last-child { border-radius: 0 0 8px 8px; }
+                .ctx-submit { color: var(--color-primary, #0052cc); }
+                .ctx-submit:hover { background: #eff6ff; }
+                .ctx-delete { color: #ef4444; }
+                .ctx-delete:hover { background: #fef2f2; }
+
+                .ctx-divider {
+                    height: 1px;
+                    background: #e5e7eb;
+                    margin: 3px 0;
+                }
             `}</style>
         </div>
     );

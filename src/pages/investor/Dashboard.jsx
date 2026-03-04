@@ -35,6 +35,7 @@ const InvestorDashboard = () => {
                 <div className="sidebar-menu">
                     <NavLink to="/dashboard/investor" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Dashboard</NavLink>
                     <NavLink to="/dashboard/investor/watchlist" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>My Watchlist</NavLink>
+                    <NavLink to="/dashboard/investor/following" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Following</NavLink>
                     <NavLink to="/dashboard/investor/messages" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Messages</NavLink>
                     <NavLink to="/dashboard/investor/deal-flow" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Deal Flow</NavLink>
                     <NavLink to="/dashboard/investor/create-event" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>Create Event</NavLink>

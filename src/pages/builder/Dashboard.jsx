@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Folder, MessageSquare, BarChart2, Settings, LogOut, CalendarPlus } from 'lucide-react';
+import { LayoutDashboard, Folder, Heart, MessageSquare, BarChart2, Settings, LogOut, CalendarPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const BuilderDashboard = () => {
@@ -30,6 +30,12 @@ const BuilderDashboard = () => {
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
               <Folder size={18} /> My Projects
+            </NavLink>
+            <NavLink
+              to="/dashboard/builder/following"
+              className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
+            >
+              <Heart size={18} /> Following
             </NavLink>
             <NavLink
               to="/dashboard/builder/messages"

@@ -13,14 +13,19 @@ export const createProjectSchema = z.object({
     description: z.string().min(1),
     category: z.enum([
         'ENERGY', 'FINTECH', 'EDUCATION', 'AGRICULTURE',
-        'REAL_ESTATE', 'INFRASTRUCTURE', 'TOURISM', 'TECHNOLOGY', 'OTHER',
+        'REAL_ESTATE', 'INFRASTRUCTURE', 'TOURISM', 'TECHNOLOGY',
+        'FITNESS', 'HEALTH', 'SAAS', 'ECOMMERCE', 'WEB3', 'ENTERTAINMENT', 'LOGISTICS', 'OTHER',
     ]).default('OTHER'),
     stage: z.enum(['IDEA', 'MVP', 'GROWTH', 'SCALING']).default('IDEA'),
     fundingGoal: z.number().positive().optional(),
-    thumbnail: z.string().url().optional().or(z.literal('')),
+    raisedAmount: z.number().min(0).optional(),
+    thumbnail: z.string().optional().or(z.literal('')),
     demoUrl: z.string().url().optional().or(z.literal('')),
     websiteUrl: z.string().url().optional().or(z.literal('')),
     tags: z.array(z.string()).optional(),
+    customSections: z.array(z.object({ title: z.string(), body: z.string() })).optional(),
+    teamInfo: z.array(z.object({ name: z.string(), position: z.string().optional(), avatar: z.string().optional() })).optional(),
+    ownerRole: z.string().optional(),
     isPublished: z.boolean().optional(),
 });
 
@@ -63,7 +68,7 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
             if (cached) { res.setHeader('X-Cache', 'HIT'); res.json(cached); return; }
         }
 
-        const where: any = { isPublished: true, status: 'active' };
+        const where: any = { isPublished: true };
 
         if (category && typeof category === 'string') where.category = category.toUpperCase();
         if (stage && typeof stage === 'string') where.stage = stage.toUpperCase();
@@ -111,6 +116,8 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
         const parsed = projects.map((p) => ({
             ...p,
             tags: JSON.parse(p.tags || '[]'),
+            customSections: JSON.parse(p.customSections || '[]'),
+            teamInfo: JSON.parse(p.teamInfo || '[]'),
         }));
 
         const result = {
@@ -176,8 +183,8 @@ export async function getProject(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // Only allow owner/admin to view unpublished/non-active projects
-        if (!project.isPublished || project.status !== 'active') {
+        // Only allow owner/admin to view unpublished projects
+        if (!project.isPublished) {
             const isOwner = req.user && project.ownerId === req.user.id;
             const isAdmin = req.user && req.user.role === 'ADMIN';
             if (!isOwner && !isAdmin) {
@@ -186,7 +193,7 @@ export async function getProject(req: Request, res: Response): Promise<void> {
             }
         }
 
-        const result = { ...project, tags: JSON.parse(project.tags || '[]') };
+        const result = { ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') };
         await cache.setJson(cKey, result, TTL.PROJECT_DETAIL);
         res.json(result);
     } catch (error) {
@@ -210,7 +217,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         if (data.tags) data.tags = JSON.stringify(data.tags);
 
         const project = await prisma.project.create({
-            data: { ...data, ownerId: req.user!.id, status: 'draft', isPublished: false },
+            data: { ...data, ownerId: req.user!.id, status: 'draft', isPublished: true },
             include: {
                 owner: {
                     select: {
@@ -232,7 +239,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
             thumbnail: project.thumbnail,
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
 
-        res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]') });
+        res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
     } catch (error) {
         console.error('Create project error:', error);
         res.status(500).json({ error: 'Failed to create project' });
@@ -256,12 +263,14 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         }
 
         // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, ownerId, etc.
-        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags'];
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'raisedAmount', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'ownerRole'];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
         }
         if (data.tags) data.tags = JSON.stringify(data.tags);
+        if (data.customSections) data.customSections = JSON.stringify(data.customSections);
+        if (data.teamInfo) data.teamInfo = JSON.stringify(data.teamInfo);
 
         const project = await prisma.project.update({
             where: { id: req.params.id },
@@ -282,7 +291,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             thumbnail: project.thumbnail,
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
 
-        res.json({ ...project, tags: JSON.parse(project.tags || '[]') });
+        res.json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
     } catch (error) {
         console.error('Update project error:', error);
         res.status(500).json({ error: 'Failed to update project' });
@@ -305,9 +314,8 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
             res.status(403).json({ error: 'Not authorized to delete this project' }); return;
         }
 
-        await prisma.project.update({
+        await prisma.project.delete({
             where: { id: req.params.id },
-            data: { isPublished: false },
         });
 
         await Promise.all([

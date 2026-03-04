@@ -33,6 +33,8 @@ import BuilderOverview from './pages/builder/Overview';
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
+import BuilderFollowing from './pages/builder/Following';
+import InvestorFollowing from './pages/investor/Following';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -139,6 +141,7 @@ const AppContent = () => {
                         <Route path="projects" element={<MyProjects />} />
                         <Route path="messages" element={<Messages />} />
                         <Route path="analytics" element={<Analytics />} />
+                        <Route path="following" element={<BuilderFollowing />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="new-project" element={<NewProject />} />
                         <Route path="create-event" element={<CreateEvent />} />
@@ -149,6 +152,7 @@ const AppContent = () => {
                         </ProtectedRoute>
                     }>
                         <Route path="watchlist" element={<Discover />} />
+                        <Route path="following" element={<InvestorFollowing />} />
                         <Route path="messages" element={<Messages />} />
                         <Route path="deal-flow" element={<Discover />} />
                         <Route path="create-event" element={<CreateEvent />} />
