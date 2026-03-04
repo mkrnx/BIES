@@ -192,6 +192,8 @@ export const TTL = {
     PLATFORM_STATS: 300,     // 5 min – public homepage
     CONTENT_LIST: 300,       // 5 min
     CONTENT_DETAIL: 600,     // 10 min
+    TWITTER_FEED: 300,       // 5 min
+    SITE_SETTINGS: 300,      // 5 min
     MATCH_RESULTS: 120,      // 2 min
     FOLLOW_LIST: 120,        // 2 min
 };
@@ -221,4 +223,6 @@ export const cacheKey = {
     following: (userId: string) => `following:${userId}`,
     matches: (projectId: string) => `matches:${projectId}`,
     investorRecs: (userId: string) => `investor_recs:${userId}`,
+    twitterFeed: () => 'twitter:feed',
+    siteSettings: () => 'site_settings:default',
 };

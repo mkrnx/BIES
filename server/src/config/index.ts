@@ -48,6 +48,9 @@ export const config = {
     // ─── Nostr ───────────────────────────────────────────────────────────────
     nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
 
+    // ─── Twitter/X ──────────────────────────────────────────────────────────
+    twitterBearerToken: process.env.TWITTER_BEARER_TOKEN || '',
+
     // ─── Email (optional, for notification emails) ───────────────────────────
     smtp: {
         host: process.env.SMTP_HOST || '',

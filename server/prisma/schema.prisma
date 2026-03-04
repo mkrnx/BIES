@@ -414,6 +414,19 @@ model UserSettings {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Site Settings (singleton row for platform-wide config)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model SiteSettings {
+  id              String   @id @default("default")
+  nostrNpubs      String   @default("[]") @map("nostr_npubs")
+  twitterHandles  String   @default("[]") @map("twitter_handles")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@map("site_settings")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Content: Articles
 // ─────────────────────────────────────────────────────────────────────────────
 

@@ -41,6 +41,7 @@ import AdminProjects from './pages/admin/AdminProjects';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
+import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -165,6 +166,7 @@ const AppContent = () => {
                         <Route path="events" element={<AdminEvents />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
+                        <Route path="news-settings" element={<AdminNewsSettings />} />
                     </Route>
 
                     <Route path="/project/:id" element={

@@ -8,27 +8,43 @@ export const useNostrFeed = (npubs) => {
     const [profiles, setProfiles] = useState({});
 
     useEffect(() => {
-        if (!npubs || npubs.length === 0) return;
+        if (!npubs || npubs.length === 0) {
+            setLoading(false);
+            return;
+        }
 
         setLoading(true);
-        const sub = nostrService.subscribeToFeed(npubs, async (event) => {
-            if (!profiles[event.pubkey]) {
-                const profile = await nostrService.getProfile(event.pubkey);
-                setProfiles(prev => ({
-                    ...prev,
-                    [event.pubkey]: profile
-                }));
-            }
 
-            setPosts(prev => {
-                if (prev.find(p => p.id === event.id)) return prev;
-                const newPosts = [...prev, event].sort((a, b) => b.created_at - a.created_at);
-                return newPosts;
+        // Stop loading after 15s even if no events arrive
+        const timeout = setTimeout(() => setLoading(false), 15000);
+
+        let sub;
+        try {
+            sub = nostrService.subscribeToFeed(npubs, async (event) => {
+                if (!profiles[event.pubkey]) {
+                    const profile = await nostrService.getProfile(event.pubkey);
+                    setProfiles(prev => ({
+                        ...prev,
+                        [event.pubkey]: profile
+                    }));
+                }
+
+                setPosts(prev => {
+                    if (prev.find(p => p.id === event.id)) return prev;
+                    const newPosts = [...prev, event].sort((a, b) => b.created_at - a.created_at);
+                    return newPosts;
+                });
+                clearTimeout(timeout);
+                setLoading(false);
             });
+        } catch (err) {
+            console.error('[Nostr] Feed subscription error:', err);
             setLoading(false);
-        });
+            clearTimeout(timeout);
+        }
 
         return () => {
+            clearTimeout(timeout);
             if (sub) sub.close();
         };
     }, [JSON.stringify(npubs)]);

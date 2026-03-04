@@ -49,7 +49,21 @@ class NostrService {
 
     // Subscribe to posts (Kind 1) from specific authors
     subscribeToFeed(authors, callback) {
-        const authorsHex = authors.map(a => a.startsWith('npub') ? nip19.decode(a).data : a);
+        const authorsHex = authors
+            .map(a => {
+                try {
+                    return a.startsWith('npub') ? nip19.decode(a).data : a;
+                } catch (err) {
+                    console.warn(`[Nostr] Invalid npub skipped: ${a.slice(0, 20)}...`, err.message);
+                    return null;
+                }
+            })
+            .filter(Boolean);
+
+        if (authorsHex.length === 0) {
+            console.warn('[Nostr] No valid authors to subscribe to');
+            return { close: () => {} };
+        }
 
         const sub = this.pool.subscribeMany(
             this.relays,
