@@ -13,7 +13,7 @@ const pool = new SimplePool();
 export async function publishEvent(
     userId: string,
     eventTemplate: EventTemplate
-): Promise<boolean> {
+): Promise<string | null> {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
@@ -23,7 +23,7 @@ export async function publishEvent(
         if (!user || !user.encryptedPrivkey) {
             // Nostr-native user — they sign on the client side
             console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side publish`);
-            return false;
+            return null;
         }
 
         // Decrypt the private key
@@ -41,10 +41,10 @@ export async function publishEvent(
         const published = results.filter((r) => r.status === 'fulfilled').length;
         console.log(`[Nostr] Published to ${published}/${config.nostrRelays.length} relays`);
 
-        return published > 0;
+        return published > 0 ? signedEvent.id : null;
     } catch (error) {
         console.error('[Nostr] Publish error:', error);
-        return false;
+        return null;
     }
 }
 
@@ -61,7 +61,7 @@ export async function publishProfileUpdate(
         nip05?: string;
         lud16?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
     const content: Record<string, string> = {
         name: profile.name,
         about: profile.about || '',
@@ -94,7 +94,7 @@ export async function publishProject(
         stage: string;
         thumbnail?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
     const event: EventTemplate = {
         kind: 30023,
         created_at: Math.floor(Date.now() / 1000),
