@@ -1,5 +1,9 @@
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { config } from '../config';
 import { cache, TTL, cacheKey } from './redis.service';
+
+const execFileAsync = promisify(execFile);
 
 interface Tweet {
     id: string;
@@ -15,14 +19,62 @@ interface Tweet {
     };
 }
 
-const TWITTER_API_BASE = 'https://api.twitter.com/2';
-
 let warnedOnce = false;
 
+async function fetchPostsForHandle(handle: string): Promise<Tweet[]> {
+    const args = [
+        '--cookies', config.twitterCookiesPath,
+        '--dump-json',
+        '--range', '1-10',
+        `https://x.com/${handle}`,
+    ];
+
+    try {
+        const { stdout } = await execFileAsync('gallery-dl', args, {
+            timeout: 30000,
+            maxBuffer: 5 * 1024 * 1024,
+        });
+
+        if (!stdout.trim()) return [];
+
+        const tweets: Tweet[] = [];
+        for (const line of stdout.trim().split('\n')) {
+            try {
+                const entry = JSON.parse(line);
+                // gallery-dl outputs arrays: [directory_info, metadata]
+                // We want the metadata objects that have tweet content
+                const meta = Array.isArray(entry) ? entry[entry.length - 1] : entry;
+                if (!meta || (!meta.content && !meta.text)) continue;
+
+                tweets.push({
+                    id: String(meta.tweet_id || meta.id || ''),
+                    text: meta.content || meta.text || '',
+                    createdAt: meta.date ? new Date(meta.date).toISOString() : '',
+                    authorName: meta.author?.name || meta.user?.name || handle,
+                    authorHandle: meta.author?.nick || meta.user?.screen_name || handle,
+                    authorAvatar: meta.author?.profile_image || meta.user?.profile_image_url_https || '',
+                    metrics: {
+                        likes: meta.favorite_count ?? meta.like_count ?? 0,
+                        retweets: meta.retweet_count ?? 0,
+                        replies: meta.reply_count ?? 0,
+                    },
+                });
+            } catch {
+                // Skip unparseable lines
+            }
+        }
+
+        return tweets;
+    } catch (err: any) {
+        console.error(`[Twitter] gallery-dl error for @${handle}:`, err.message);
+        return [];
+    }
+}
+
 export async function fetchTweetsByHandles(handles: string[]): Promise<Tweet[]> {
-    if (!config.twitterBearerToken) {
+    if (!config.twitterCookiesPath) {
         if (!warnedOnce) {
-            console.warn('[Twitter] TWITTER_BEARER_TOKEN not set — X feed disabled');
+            console.warn('[Twitter] TWITTER_COOKIES_PATH not set — X feed disabled');
             warnedOnce = true;
         }
         return [];
@@ -35,56 +87,15 @@ export async function fetchTweetsByHandles(handles: string[]): Promise<Tweet[]> 
     if (cached) return cached;
 
     try {
-        const query = handles.map(h => `from:${h}`).join(' OR ');
-        const params = new URLSearchParams({
-            query,
-            max_results: '30',
-            'tweet.fields': 'created_at,public_metrics,author_id',
-            expansions: 'author_id',
-            'user.fields': 'name,username,profile_image_url',
-        });
+        // Fetch all handles in parallel
+        const results = await Promise.all(handles.map(h => fetchPostsForHandle(h)));
+        const allTweets = results
+            .flat()
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+            .slice(0, 30);
 
-        const resp = await fetch(`${TWITTER_API_BASE}/tweets/search/recent?${params}`, {
-            headers: { Authorization: `Bearer ${config.twitterBearerToken}` },
-        });
-
-        if (!resp.ok) {
-            const body = await resp.text();
-            console.error(`[Twitter] API error ${resp.status}: ${body}`);
-            return [];
-        }
-
-        const json: any = await resp.json();
-
-        if (!json.data || !Array.isArray(json.data)) return [];
-
-        // Build a lookup of users by author_id
-        const usersById: Record<string, any> = {};
-        if (json.includes?.users) {
-            for (const u of json.includes.users) {
-                usersById[u.id] = u;
-            }
-        }
-
-        const tweets: Tweet[] = json.data.map((t: any) => {
-            const author = usersById[t.author_id] || {};
-            return {
-                id: t.id,
-                text: t.text,
-                createdAt: t.created_at,
-                authorName: author.name || '',
-                authorHandle: author.username || '',
-                authorAvatar: author.profile_image_url || '',
-                metrics: {
-                    likes: t.public_metrics?.like_count || 0,
-                    retweets: t.public_metrics?.retweet_count || 0,
-                    replies: t.public_metrics?.reply_count || 0,
-                },
-            };
-        });
-
-        await cache.setJson(cacheKey.twitterFeed(), tweets, TTL.TWITTER_FEED);
-        return tweets;
+        await cache.setJson(cacheKey.twitterFeed(), allTweets, TTL.TWITTER_FEED);
+        return allTweets;
     } catch (err: any) {
         console.error('[Twitter] Fetch error:', err.message);
         return [];
