@@ -1,6 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, Users } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
+import { nostrService } from '../services/nostrService';
+import { searchApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
 
 const Messages = () => {
@@ -19,9 +21,12 @@ const Messages = () => {
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [newChatPubkey, setNewChatPubkey] = useState('');
+    const [newChatInput, setNewChatInput] = useState('');
     const [showNewChat, setShowNewChat] = useState(false);
+    const [userSearchResults, setUserSearchResults] = useState([]);
+    const [searchingUsers, setSearchingUsers] = useState(false);
     const chatEndRef = useRef(null);
+    const searchTimerRef = useRef(null);
 
     // Auto-connect on mount
     useEffect(() => {
@@ -49,22 +54,95 @@ const Messages = () => {
         }
     };
 
-    const handleStartNewChat = () => {
-        let pubkey = newChatPubkey.trim();
-        if (!pubkey) return;
+    // Search users by name (BIES + Nostr) with debounce
+    const handleUserSearch = useCallback((query) => {
+        setNewChatInput(query);
 
-        // Convert npub to hex if needed
+        if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+
+        // If it looks like an npub or hex pubkey, don't search by name
+        if (!query.trim() || query.trim().length < 2 || query.startsWith('npub') || /^[0-9a-f]{10,}$/i.test(query)) {
+            setUserSearchResults([]);
+            setSearchingUsers(false);
+            return;
+        }
+
+        setSearchingUsers(true);
+        searchTimerRef.current = setTimeout(async () => {
+            try {
+                const [biesRes, nostrResults] = await Promise.allSettled([
+                    searchApi.search(query, 'profiles', 1, 8),
+                    nostrService.searchProfiles(query, 8),
+                ]);
+
+                const results = [];
+                const seen = new Set();
+
+                // Add BIES profiles first
+                if (biesRes.status === 'fulfilled' && biesRes.value?.profiles) {
+                    for (const p of biesRes.value.profiles) {
+                        if (p.user?.nostrPubkey && !seen.has(p.user.nostrPubkey)) {
+                            seen.add(p.user.nostrPubkey);
+                            results.push({
+                                pubkey: p.user.nostrPubkey,
+                                name: p.name || '',
+                                avatar: p.avatar || '',
+                                source: 'BIES',
+                            });
+                        }
+                    }
+                }
+
+                // Add Nostr profiles (dedup by pubkey)
+                if (nostrResults.status === 'fulfilled') {
+                    for (const p of nostrResults.value) {
+                        if (p.pubkey && !seen.has(p.pubkey)) {
+                            seen.add(p.pubkey);
+                            results.push({
+                                pubkey: p.pubkey,
+                                name: p.display_name || p.name || '',
+                                avatar: p.picture || '',
+                                source: 'Nostr',
+                                nip05: p.nip05 || '',
+                            });
+                        }
+                    }
+                }
+
+                setUserSearchResults(results);
+            } catch (err) {
+                console.error('User search failed:', err);
+            } finally {
+                setSearchingUsers(false);
+            }
+        }, 300);
+    }, []);
+
+    const handleSelectUser = (pubkey) => {
+        setActiveChatPubkey(pubkey);
+        setShowNewChat(false);
+        setNewChatInput('');
+        setUserSearchResults([]);
+    };
+
+    const handleStartNewChat = () => {
+        let input = newChatInput.trim();
+        if (!input) return;
+
+        // Try as npub or hex pubkey
+        let pubkey = input;
         try {
-            if (pubkey.startsWith('npub')) {
-                pubkey = nip19.decode(pubkey).data;
+            if (input.startsWith('npub')) {
+                pubkey = nip19.decode(input).data;
             }
         } catch {
             return;
         }
 
-        setActiveChatPubkey(pubkey);
-        setShowNewChat(false);
-        setNewChatPubkey('');
+        // Validate hex pubkey format (64 hex chars)
+        if (/^[0-9a-f]{64}$/i.test(pubkey)) {
+            handleSelectUser(pubkey);
+        }
     };
 
     const getDisplayName = (pubkey) => {
@@ -163,15 +241,59 @@ const Messages = () => {
                     </div>
 
                     {showNewChat && (
-                        <div className="new-chat-box">
-                            <input
-                                type="text"
-                                placeholder="Enter npub or hex pubkey..."
-                                value={newChatPubkey}
-                                onChange={e => setNewChatPubkey(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && handleStartNewChat()}
-                            />
-                            <button onClick={handleStartNewChat} className="btn-sm btn-primary">Chat</button>
+                        <div className="new-chat-panel">
+                            <div className="new-chat-header">
+                                <Users size={16} />
+                                <span>New conversation</span>
+                                <button className="icon-btn" onClick={() => { setShowNewChat(false); setNewChatInput(''); setUserSearchResults([]); }} style={{ marginLeft: 'auto' }}>
+                                    <X size={16} />
+                                </button>
+                            </div>
+                            <div className="new-chat-box">
+                                <input
+                                    type="text"
+                                    placeholder="Search by name, npub, or pubkey..."
+                                    value={newChatInput}
+                                    onChange={e => handleUserSearch(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleStartNewChat()}
+                                    autoFocus
+                                />
+                            </div>
+                            {searchingUsers && (
+                                <div className="search-status">
+                                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                                    <span>Searching...</span>
+                                </div>
+                            )}
+                            {userSearchResults.length > 0 && (
+                                <div className="user-search-results">
+                                    {userSearchResults.map(user => (
+                                        <div
+                                            key={user.pubkey}
+                                            className="user-result-item"
+                                            onClick={() => handleSelectUser(user.pubkey)}
+                                        >
+                                            <div className="chat-avatar small">
+                                                {user.avatar ? (
+                                                    <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                ) : (
+                                                    (user.name || '??').substring(0, 2).toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className="user-result-info">
+                                                <span className="user-result-name">{user.name || nip19.npubEncode(user.pubkey).substring(0, 16) + '...'}</span>
+                                                {user.nip05 && <span className="user-result-nip05">{user.nip05}</span>}
+                                            </div>
+                                            <span className={`source-badge ${user.source.toLowerCase()}`}>{user.source}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            {!searchingUsers && newChatInput.trim().length >= 2 && userSearchResults.length === 0 && !newChatInput.startsWith('npub') && !/^[0-9a-f]{10,}$/i.test(newChatInput) && (
+                                <div className="search-status" style={{ color: 'var(--color-gray-400)' }}>
+                                    No users found
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -328,8 +450,24 @@ const sharedStyles = `
     .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; }
     .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; }
 
-    .new-chat-box { padding: 0.75rem; border-bottom: 1px solid var(--color-gray-100); display: flex; gap: 0.5rem; }
-    .new-chat-box input { flex: 1; padding: 0.5rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-md); font-size: 0.8rem; }
+    .new-chat-panel { border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); }
+    .new-chat-header { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); }
+    .new-chat-box { padding: 0.5rem 0.75rem; display: flex; gap: 0.5rem; }
+    .new-chat-box input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); font-size: 0.85rem; outline: none; }
+    .new-chat-box input:focus { border-color: var(--color-primary); }
+
+    .search-status { padding: 0.5rem 0.75rem; font-size: 0.8rem; color: var(--color-gray-500); display: flex; align-items: center; gap: 0.5rem; }
+
+    .user-search-results { max-height: 240px; overflow-y: auto; }
+    .user-result-item { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.75rem; cursor: pointer; transition: background 0.15s; }
+    .user-result-item:hover { background: var(--color-gray-100); }
+    .user-result-info { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .user-result-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .user-result-nip05 { font-size: 0.7rem; color: var(--color-gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .source-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; font-weight: 600; flex-shrink: 0; }
+    .source-badge.bies { background: #DBEAFE; color: #1E40AF; }
+    .source-badge.nostr { background: #F3E8FF; color: #7C3AED; }
+
     .btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 600; }
 
     .search-box { margin: 1rem; padding: 0.5rem 1rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; }

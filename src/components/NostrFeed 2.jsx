@@ -1,5 +1,6 @@
 import React from 'react';
-import { MessageCircle, Heart, Repeat, Share, Hash, Zap } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share } from 'lucide-react';
+import NostrIcon from './NostrIcon';
 
 const NostrFeed = ({ npub, notes }) => {
 
@@ -20,7 +21,7 @@ const NostrFeed = ({ npub, notes }) => {
             <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
                 <h3 className="text-xl font-bold font-display text-gray-900">Nostr Feed</h3>
                 <span className="text-xs font-mono bg-purple-50 text-purple-600 px-3 py-1 rounded-md border border-purple-100 flex items-center gap-1" title="Public Nostr Key">
-                    <Hash size={12} /> {npub ? `${npub.substring(0, 12)}...` : "npub1..."}
+                    <NostrIcon size={12} /> {npub ? `${npub.substring(0, 12)}...` : "npub1..."}
                 </span>
             </div>
 
@@ -29,7 +30,7 @@ const NostrFeed = ({ npub, notes }) => {
                     <div key={note.id} className="note-card p-5 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md hover:border-purple-200 transition-all cursor-pointer">
                         <div className="flex gap-3 mb-2">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 shrink-0 flex items-center justify-center text-purple-500 border border-purple-100">
-                                <Zap size={18} />
+                                <NostrIcon size={18} />
                             </div>
                             <div>
                                 <div className="font-semibold text-gray-900 leading-tight">Nostr User</div>

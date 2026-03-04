@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, Zap, Loader2, Pencil } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, Loader2, Pencil } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
+import NostrIcon from '../components/NostrIcon';
 
 const Profile = () => {
     const { user } = useAuth();
@@ -245,7 +246,7 @@ const Profile = () => {
                         {(npub || nostrProfile) && (
                             <div className="profile-card">
                                 <h3 className="h3-title mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Zap size={20} style={{ color: '#8b5cf6' }} />
+                                    <NostrIcon size={20} className="text-purple-500" />
                                     Nostr Identity
                                 </h3>
                                 {nostrProfile ? (

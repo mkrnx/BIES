@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Zap, Loader2, ArrowLeft } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
+import NostrIcon from '../components/NostrIcon';
 
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
@@ -330,7 +331,7 @@ const PublicProfile = ({ type }) => {
                         {(npub || nostrProfile) && (
                             <div className="profile-card">
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Zap size={20} style={{ color: '#8b5cf6' }} />
+                                    <NostrIcon size={20} className="text-purple-500" />
                                     Nostr Identity
                                 </h3>
                                 {nostrProfile ? (

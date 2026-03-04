@@ -45,7 +45,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     }
 
     try {
-        const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+        const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
@@ -89,7 +89,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
             return;
         }
 
-        const decoded = jwt.verify(token, config.jwtSecret) as JwtPayload;
+        const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
 
         const user = await prisma.user.findUnique({
             where: { id: decoded.userId },
@@ -135,6 +135,7 @@ export function requireRole(...roles: string[]) {
  */
 export function generateToken(userId: string, role: string): string {
     return jwt.sign({ userId, role }, config.jwtSecret, {
-        expiresIn: config.jwtExpiresIn as any,
-    });
+        algorithm: 'HS256',
+        expiresIn: config.jwtExpiresIn,
+    } as jwt.SignOptions);
 }

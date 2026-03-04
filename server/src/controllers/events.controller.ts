@@ -144,13 +144,18 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
  */
 export async function createEvent(req: Request, res: Response): Promise<void> {
     try {
-        const data: any = { ...req.body };
+        // Explicitly pick allowed fields — never allow isPublished, isFeatured, hostId, etc.
+        const allowedFields = ['title', 'description', 'category', 'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate', 'thumbnail', 'maxAttendees', 'tags'];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
         if (data.tags) data.tags = JSON.stringify(data.tags);
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
 
         const event = await prisma.event.create({
-            data: { ...data, hostId: req.user!.id },
+            data: { ...data, hostId: req.user!.id, isPublished: false },
             include: {
                 host: {
                     select: {
@@ -186,7 +191,12 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
-        const data: any = { ...req.body };
+        // Explicitly pick allowed fields — never allow isPublished, isFeatured, hostId, etc.
+        const allowedFields = ['title', 'description', 'category', 'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate', 'thumbnail', 'maxAttendees', 'tags'];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
         if (data.tags) data.tags = JSON.stringify(data.tags);
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
@@ -236,13 +246,30 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
         const userId = req.user!.id;
         const { status = 'GOING' } = req.body;
 
+        // Validate RSVP status against allowed values
+        const validStatuses = ['GOING', 'INTERESTED', 'NOT_GOING'];
+        if (!validStatuses.includes(status)) {
+            res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}` }); return;
+        }
+
         const event = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { maxAttendees: true, isPublished: true },
+            select: { maxAttendees: true, isPublished: true, _count: { select: { attendees: true } } },
         });
 
         if (!event || !event.isPublished) {
             res.status(404).json({ error: 'Event not found' }); return;
+        }
+
+        // Enforce max attendee limit for GOING status
+        if (status === 'GOING' && event.maxAttendees && event._count.attendees >= event.maxAttendees) {
+            // Check if user is already an attendee (updating their status is OK)
+            const existing = await prisma.eventAttendee.findUnique({
+                where: { eventId_userId: { eventId: req.params.id, userId } },
+            });
+            if (!existing) {
+                res.status(409).json({ error: 'Event is at full capacity' }); return;
+            }
         }
 
         const attendee = await prisma.eventAttendee.upsert({

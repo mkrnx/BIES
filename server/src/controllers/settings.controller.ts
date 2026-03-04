@@ -48,10 +48,17 @@ export async function getSettings(req: Request, res: Response): Promise<void> {
  */
 export async function updateNotificationSettings(req: Request, res: Response): Promise<void> {
     try {
+        // Explicitly pick allowed fields to prevent mass assignment
+        const allowedFields = ['emailNotifications', 'pushNotifications', 'marketingEmails', 'notifyMessages', 'notifyInvestments', 'notifyFollows', 'notifyProjectUpdates'];
+        const data: any = {};
+        for (const field of allowedFields) {
+            if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
+
         const settings = await prisma.userSettings.upsert({
             where: { userId: req.user!.id },
-            update: req.body,
-            create: { userId: req.user!.id, ...req.body },
+            update: data,
+            create: { userId: req.user!.id, ...data },
         });
 
         res.json({

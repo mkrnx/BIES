@@ -49,7 +49,7 @@ function extractTokenFromRequest(req: IncomingMessage): string | null {
 
 function verifyToken(token: string): { userId: string; role: string } | null {
     try {
-        const decoded = jwt.verify(token, config.jwtSecret) as { userId: string; role: string };
+        const decoded = jwt.verify(token, config.jwtSecret, { algorithms: ['HS256'] }) as { userId: string; role: string };
         return decoded;
     } catch {
         return null;
@@ -65,7 +65,7 @@ let wss: WebSocketServer | null = null;
  * Call this once from index.ts after creating the http.Server.
  */
 export function attachWebSocketServer(httpServer: Server): void {
-    wss = new WebSocketServer({ server: httpServer, path: '/ws' });
+    wss = new WebSocketServer({ server: httpServer, path: '/ws', maxPayload: 64 * 1024 });
 
     wss.on('connection', (ws: AuthenticatedWebSocket, req: IncomingMessage) => {
         const token = extractTokenFromRequest(req);

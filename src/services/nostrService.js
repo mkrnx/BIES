@@ -16,6 +16,10 @@ export const PUBLIC_RELAYS = [
     'wss://nos.lol',
 ];
 
+// Relays used for NIP-17 DMs — only public relays because gift-wraps are
+// signed by throwaway keys that aren't on the BIES relay whitelist.
+export const DM_RELAYS = [...PUBLIC_RELAYS];
+
 // All relays (BIES relay first for priority)
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
@@ -36,6 +40,7 @@ class NostrService {
         this.relays = NOSTR_RELAYS;
         this.biesRelay = BIES_RELAY;
         this.publicRelays = PUBLIC_RELAYS;
+        this.dmRelays = DM_RELAYS;
     }
 
     async connect() {
@@ -152,11 +157,21 @@ class NostrService {
 
         const senderGiftWrap = this._createGiftWrap(sealForSender, senderPubkey, now);
 
-        // Publish both gift-wraps
-        await Promise.allSettled([
-            ...this.pool.publish(this.relays, recipientGiftWrap, { onauth: handleRelayAuth }),
-            ...this.pool.publish(this.relays, senderGiftWrap, { onauth: handleRelayAuth }),
+        // Publish gift-wraps to DM relays only (not BIES relay — throwaway
+        // keys aren't on the whitelist so the private relay would reject them).
+        const results = await Promise.allSettled([
+            ...this.pool.publish(this.dmRelays, recipientGiftWrap),
+            ...this.pool.publish(this.dmRelays, senderGiftWrap),
         ]);
+
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        const failed = results.filter(r => r.status === 'rejected').length;
+        if (failed > 0) {
+            console.warn(`[NIP-17] Published to ${succeeded} relays, ${failed} failed`);
+        }
+        if (succeeded === 0) {
+            throw new Error('Failed to publish DM to any relay');
+        }
 
         return rumor;
     }
@@ -189,8 +204,10 @@ class NostrService {
      * Subscribe to NIP-17 DMs (kind:1059 gift-wraps addressed to myPubkey)
      */
     subscribeToNip17DMs(myPubkey, callback) {
+        // Subscribe on DM relays — gift-wraps live on public relays, not the
+        // BIES relay (throwaway keys aren't whitelisted there).
         const sub = this.pool.subscribeMany(
-            this.relays,
+            this.dmRelays,
             [
                 {
                     kinds: [1059],
@@ -202,7 +219,6 @@ class NostrService {
                 onevent: (event) => {
                     callback(event);
                 },
-                onauth: handleRelayAuth,
             }
         );
         return sub;
@@ -294,6 +310,41 @@ class NostrService {
         };
 
         return this.publishEvent(event);
+    }
+
+    /**
+     * Search Nostr profiles by name using NIP-50 search on relay.nostr.band.
+     * Returns an array of { pubkey, name, display_name, picture, nip05 }.
+     */
+    async searchProfiles(query, limit = 10) {
+        try {
+            const events = await this.pool.querySync(
+                ['wss://relay.nostr.band'],
+                {
+                    kinds: [0],
+                    search: query,
+                    limit,
+                }
+            );
+
+            return events.map(event => {
+                try {
+                    const profile = JSON.parse(event.content);
+                    return {
+                        pubkey: event.pubkey,
+                        name: profile.name || '',
+                        display_name: profile.display_name || '',
+                        picture: profile.picture || '',
+                        nip05: profile.nip05 || '',
+                    };
+                } catch {
+                    return null;
+                }
+            }).filter(Boolean);
+        } catch (error) {
+            console.error('Nostr profile search failed:', error);
+            return [];
+        }
     }
 
     async sendDM(recipientPubkey, content) {
