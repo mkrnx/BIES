@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
+import ZapButton from '../components/ZapButton';
 
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
@@ -148,6 +149,12 @@ const PublicProfile = ({ type }) => {
                             }}>
                                 Connect
                             </Link>
+                            {profile.user?.nostrPubkey && (
+                                <ZapButton
+                                    recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
+                                    size="md"
+                                />
+                            )}
 
                             <div style={{ position: 'relative' }}>
                                 <button onClick={() => setShowMenu(!showMenu)} style={{

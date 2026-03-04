@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Hammer, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { profilesApi } from '../services/api';
+import ZapButton from '../components/ZapButton';
 
 const Builders = () => {
     const [profiles, setProfiles] = useState([]);
@@ -79,6 +80,14 @@ const Builders = () => {
                                             {(builder.skills || builder.tags).map((tag, i) => (
                                                 <span key={i} className="tag">{tag}</span>
                                             ))}
+                                        </div>
+                                    )}
+                                    {builder.user?.nostrPubkey && (
+                                        <div style={{ marginTop: '0.75rem' }}>
+                                            <ZapButton
+                                                recipients={[{ pubkey: builder.user.nostrPubkey, name: builder.name, avatar: builder.avatar }]}
+                                                size="sm"
+                                            />
                                         </div>
                                     )}
                                 </div>
