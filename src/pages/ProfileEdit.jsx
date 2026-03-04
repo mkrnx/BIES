@@ -120,7 +120,7 @@ const ProfileEdit = () => {
                     showNostrFeed: profile.showNostrFeed ?? true,
                     experience: profile.experience || [],
                     biesProjects: profile.biesProjects || [],
-                    nostrNpub: profile.nostrNpub || '',
+                    nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
                 }));
             }
         } catch {

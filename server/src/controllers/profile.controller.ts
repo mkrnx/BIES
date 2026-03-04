@@ -229,7 +229,8 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             'name', 'bio', 'avatar', 'banner', 'location', 'skills', 'website',
             'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
             'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
-            'lookingFor', 'isPublic',
+            'lookingFor', 'isPublic', 'nostrNpub', 'experience', 'biesProjects',
+            'showExperience', 'showNostrFeed',
         ];
         const data: any = {};
         for (const field of allowedFields) {
