@@ -177,7 +177,7 @@ const Login = () => {
                 {/* Login with nsec */}
                 {loginMode === 'nsec' && (
                     <form onSubmit={handleNsecLogin} className="w-full">
-                        <div className="key-input-wrapper mb-3">
+                        <div className="key-input-wrapper mb-5">
                             <Key size={16} className="key-input-icon" />
                             <input
                                 type="password"
@@ -272,7 +272,18 @@ const Login = () => {
                 {/* Create Account */}
                 <div className="mt-6 pt-6 border-t border-gray-100 w-full text-center">
                     <p className="text-gray-500 mb-4">New to Nostr?</p>
-                    <Link to="/signup" className="text-blue-600 font-semibold hover:underline">
+                    <Link to="/signup" style={{
+                        display: 'block',
+                        width: '100%',
+                        padding: '0.875rem 1.5rem',
+                        background: '#1d4ed8',
+                        color: 'white',
+                        fontSize: '1.125rem',
+                        fontWeight: 700,
+                        textDecoration: 'none',
+                        textAlign: 'center',
+                        borderRadius: '9999px',
+                    }}>
                         Create New Account
                     </Link>
                 </div>
