@@ -1,13 +1,14 @@
-import { useState, useEffect, useRef } from 'react';
-import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
-import { resolveLud16, requestInvoice, payWithWebLN, hasWebLN, createZapRequest } from '../services/lightningService';
+import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
+import { useWallet } from '../hooks/useWallet';
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
 
 /**
  * Modal for sending Lightning zaps to one or more recipients.
- * Supports WebLN (Alby etc.) with QR code fallback.
+ * Supports NWC (Nostr Wallet Connect), WebLN (Alby etc.), and QR code fallback.
  * Splits equally among recipients with valid lud16.
  *
  * @param {Array<{pubkey: string, name: string, avatar?: string}>} props.recipients
@@ -15,6 +16,7 @@ const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
  * @param {function} props.onClose
  */
 const ZapModal = ({ recipients = [], eventId, onClose }) => {
+    const { connected: nwcConnected, payInvoice: nwcPayInvoice } = useWallet();
     const [phase, setPhase] = useState('resolving'); // resolving | ready | paying | qr | success | error
     const [resolvedRecipients, setResolvedRecipients] = useState([]);
     const [selectedAmount, setSelectedAmount] = useState(100);
@@ -25,7 +27,6 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const [errorMsg, setErrorMsg] = useState('');
     const [payResults, setPayResults] = useState([]);
     const [copied, setCopied] = useState(false);
-    const qrCanvasRef = useRef(null);
 
     const amount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
 
@@ -104,7 +105,17 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 continue;
             }
 
-            // 4. Try WebLN
+            // 4. Try NWC wallet first (if connected), then WebLN, then QR fallback
+            if (nwcConnected) {
+                try {
+                    await nwcPayInvoice(invoiceData.pr);
+                    results.push({ name: recipient.name, success: true });
+                    continue;
+                } catch {
+                    // NWC failed — fall through to WebLN / QR
+                }
+            }
+
             const weblnResult = await payWithWebLN(invoiceData.pr);
             if (weblnResult.success) {
                 results.push({ name: recipient.name, success: true });
@@ -241,9 +252,13 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                                 onClick={handleZap}
                                 disabled={!amount || amount < 1}
                             >
+                                {nwcConnected && <Wallet size={16} />}
                                 <Zap size={16} />
                                 Zap {amount?.toLocaleString() || 0} sats
                             </button>
+                            {nwcConnected && (
+                                <p className="zap-wallet-hint">Paying with connected wallet</p>
+                            )}
                         </>
                     )}
 
@@ -253,7 +268,9 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                             <p className="zap-status-text">
                                 {progress.total > 1
                                     ? `Paying ${progress.name} (${progress.step}/${progress.total})...`
-                                    : `Requesting invoice...`
+                                    : nwcConnected
+                                        ? `Paying with wallet...`
+                                        : `Requesting invoice...`
                                 }
                             </p>
                         </div>
@@ -576,6 +593,13 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
                 .zap-send-btn:hover { background: #e8841a; }
                 .zap-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                .zap-wallet-hint {
+                    text-align: center;
+                    font-size: 0.78rem;
+                    color: #22c55e;
+                    margin-top: 0.35rem;
+                }
 
                 /* QR / Invoice section */
                 .zap-qr-section {

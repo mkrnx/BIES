@@ -21,7 +21,7 @@ async function getPool() {
 export async function publishEvent(
     userId: string,
     eventTemplate: EventTemplate
-): Promise<boolean> {
+): Promise<string | null> {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
@@ -31,7 +31,7 @@ export async function publishEvent(
         if (!user || !user.encryptedPrivkey) {
             // Nostr-native user — they sign on the client side
             console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side publish`);
-            return false;
+            return null;
         }
 
         // Decrypt the private key
@@ -51,10 +51,10 @@ export async function publishEvent(
         const published = results.filter((r) => r.status === 'fulfilled').length;
         console.log(`[Nostr] Published to ${published}/${config.nostrRelays.length} relays`);
 
-        return published > 0;
+        return published > 0 ? signedEvent.id : null;
     } catch (error) {
         console.error('[Nostr] Publish error:', error);
-        return false;
+        return null;
     }
 }
 
@@ -68,18 +68,24 @@ export async function publishProfileUpdate(
         about?: string;
         picture?: string;
         website?: string;
+        nip05?: string;
+        lud16?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
+    const content: Record<string, string> = {
+        name: profile.name,
+        about: profile.about || '',
+        picture: profile.picture || '',
+        website: profile.website || '',
+    };
+    if (profile.nip05) content.nip05 = profile.nip05;
+    if (profile.lud16) content.lud16 = profile.lud16;
+
     const event: EventTemplate = {
         kind: 0,
         created_at: Math.floor(Date.now() / 1000),
         tags: [],
-        content: JSON.stringify({
-            name: profile.name,
-            about: profile.about || '',
-            picture: profile.picture || '',
-            website: profile.website || '',
-        }),
+        content: JSON.stringify(content),
     };
 
     return publishEvent(userId, event);
@@ -98,7 +104,7 @@ export async function publishProject(
         stage: string;
         thumbnail?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
     const event: EventTemplate = {
         kind: 30023,
         created_at: Math.floor(Date.now() / 1000),

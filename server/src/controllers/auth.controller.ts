@@ -92,6 +92,24 @@ export const nostrLoginSchema = z.object({
 // In-memory challenge store (use Redis in production)
 const challenges = new Map<string, { challenge: string; expiresAt: number }>();
 
+// ─── NIP-05 auto-generation ───
+
+async function generateNip05Name(baseName: string): Promise<string | null> {
+    let name = baseName.toLowerCase().replace(/[^a-z0-9._-]/g, '').substring(0, 30);
+    if (name.length < 3) name = `user${name}`;
+    if (name.length < 3) return null;
+
+    const existing = await prisma.profile.findFirst({ where: { nip05Name: name } });
+    if (!existing) return name;
+
+    for (let i = 1; i <= 99; i++) {
+        const candidate = `${name.substring(0, 27)}${i}`;
+        const taken = await prisma.profile.findFirst({ where: { nip05Name: candidate } });
+        if (!taken) return candidate;
+    }
+    return null;
+}
+
 // ─── Controllers ───
 
 /**
@@ -140,6 +158,15 @@ export async function register(req: Request, res: Response): Promise<void> {
 
         // Add custodial pubkey to relay whitelist so email users can access the private relay
         addToRelayWhitelist(nostrPubkey);
+
+        // Auto-generate NIP-05 name from email prefix
+        const nip05Name = await generateNip05Name(email.split('@')[0]);
+        if (nip05Name && user.profile) {
+            await prisma.profile.update({
+                where: { id: user.profile.id },
+                data: { nip05Name },
+            });
+        }
 
         // Generate JWT
         const token = generateToken(user.id, user.role);
@@ -315,6 +342,15 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 },
                 include: { profile: true },
             });
+
+            // Auto-generate NIP-05 name for new Nostr users
+            const nip05Name = await generateNip05Name(`nostr-${pubkey.substring(0, 8)}`);
+            if (nip05Name && user.profile) {
+                await prisma.profile.update({
+                    where: { id: user.profile.id },
+                    data: { nip05Name },
+                });
+            }
         } else if (isAdminPubkey && user.role !== 'ADMIN') {
             // Promote existing user to admin if their pubkey is in the admin list
             user = await prisma.user.update({

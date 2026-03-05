@@ -30,6 +30,7 @@ import settingsRoutes from './routes/settings.routes';
 import contentRoutes from './routes/content.routes';
 import newsRoutes from './routes/news.routes';
 import matchRoutes from './routes/match.routes';
+import nip05Routes from './routes/nip05.routes';
 
 const app = express();
 
@@ -127,6 +128,9 @@ app.use('/api/', generalLimiter);
 app.use('/api/upload', uploadLimiter);
 app.use('/api/search', searchLimiter);
 app.use('/api/contact', contactLimiter);
+
+// ─── NIP-05 identity (must be before other routes) ───────────────────────────
+app.use('/.well-known', nip05Routes);
 
 // ─── Static files (local upload fallback) ────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
