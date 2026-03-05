@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { generateSecretKey, getPublicKey } from 'nostr-tools/pure';
+// nostr-tools is ESM-only (@noble/curves has no CJS build);
+// use dynamic import() so the compiled CJS output doesn't call require().
 import prisma from '../lib/prisma';
 import { generateToken } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
@@ -111,9 +112,10 @@ export async function register(req: Request, res: Response): Promise<void> {
         // Hash password
         const passwordHash = await bcrypt.hash(password, 12);
 
-        // Generate Nostr keypair for this email user
-        const secretKey = generateSecretKey();
-        const nostrPubkey = getPublicKey(secretKey);
+        // Generate Nostr keypair for this email user (dynamic import — ESM-only package)
+        const nostrPure = await import('nostr-tools/pure');
+        const secretKey = nostrPure.generateSecretKey();
+        const nostrPubkey = nostrPure.getPublicKey(secretKey);
         const privateKeyHex = Buffer.from(secretKey).toString('hex');
         const encryptedPrivkey = encryptPrivateKey(privateKeyHex);
 
@@ -281,7 +283,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        // Verify signature using nostr-tools
+        // Verify signature using nostr-tools (dynamic import — ESM-only package)
         const { verifyEvent } = await import('nostr-tools/pure');
         if (!verifyEvent(signedEvent)) {
             res.status(401).json({ error: 'Invalid signature' });
