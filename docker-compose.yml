@@ -12,6 +12,7 @@ services:
       NOSTR_PRIVATE_RELAY: "ws://bies-relay:7777"
       BASE_PATH: "/biestest"
       CORS_ORIGIN: "https://sovit.xyz/biestest"
+      ADMIN_PUBKEYS: "85ea5f36ad90cb6e9100fb3e445c9a100d945563e07913100c84664dbfef2250,de7ab932ca17278b2144a6628c3531a0628fcc7b58074111d6e5b949ecb0e377"
     volumes:
       - bies-data:/app/data
       - bies-uploads:/app/uploads
