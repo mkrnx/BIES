@@ -1,15 +1,18 @@
 /**
- * passkeyService — encrypts/decrypts Nostr private keys using WebAuthn PRF extension.
+ * passkeyService — encrypts/decrypts Nostr private keys using WebAuthn.
  *
- * Uses the WebAuthn PRF (Pseudo-Random Function) extension to derive
- * an AES-256-GCM encryption key from a passkey (biometric/PIN).
- * The encrypted nsec is stored in localStorage — only decryptable
- * with the same passkey that created it.
+ * When the passkey provider supports PRF (Pseudo-Random Function), derives
+ * an AES-256-GCM encryption key directly from the authenticator.
+ *
+ * When PRF is not available (e.g. Bitwarden, some password managers),
+ * falls back to a device-bound random key stored in localStorage.
+ * The passkey authentication (biometric/PIN) gates access to the key.
  *
  * No server interaction needed — everything happens client-side.
  */
 
 const STORAGE_KEY = 'bies_passkey_credentials';
+const DEVICE_KEY_STORAGE = 'bies_passkey_device_key';
 const PRF_INPUT = new TextEncoder().encode('bies-nostr-key-encryption');
 
 // ─── Binary helpers ──────────────────────────────────────────────────────────
@@ -76,6 +79,20 @@ async function decryptData(ciphertext, iv, key) {
     return new TextDecoder().decode(plaintext);
 }
 
+// ─── Device key helpers (fallback when PRF is unavailable) ──────────────────
+
+async function getOrCreateDeviceKey() {
+    const stored = localStorage.getItem(DEVICE_KEY_STORAGE);
+    if (stored) {
+        const raw = fromBase64(stored);
+        return crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, true, ['encrypt', 'decrypt']);
+    }
+    const key = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
+    const exported = await crypto.subtle.exportKey('raw', key);
+    localStorage.setItem(DEVICE_KEY_STORAGE, toBase64(exported));
+    return key;
+}
+
 // ─── PRF helpers ─────────────────────────────────────────────────────────────
 
 async function getPrfFromCreate(credential) {
@@ -136,6 +153,7 @@ export const passkeyService = {
     /**
      * Create a passkey and encrypt the nsec with it.
      * Shows the native WebAuthn dialog (biometric/PIN prompt).
+     * Uses PRF when available, falls back to device-bound key otherwise.
      * @param {string} nsec - bech32-encoded nsec key
      * @param {string} pubkey - hex-encoded public key
      * @returns {Promise<boolean>} true if saved successfully
@@ -177,17 +195,20 @@ export const passkeyService = {
         }
 
         const prfOutput = await getPrfFromCreate(credential);
-        if (!prfOutput) {
-            throw new Error(
-                'Your passkey provider doesn\'t support key encryption (PRF). ' +
-                'Password managers like Bitwarden don\'t support this yet. ' +
-                'Use your device\'s built-in authenticator (Touch ID, Windows Hello, or a security key) instead.'
-            );
+
+        let aesKey;
+        let encryptionMethod;
+        const salt = crypto.getRandomValues(new Uint8Array(16));
+
+        if (prfOutput) {
+            aesKey = await deriveAesKey(prfOutput, salt);
+            encryptionMethod = 'prf';
+        } else {
+            // PRF not supported — use device-bound key
+            aesKey = await getOrCreateDeviceKey();
+            encryptionMethod = 'device';
         }
 
-        // Encrypt nsec
-        const salt = crypto.getRandomValues(new Uint8Array(16));
-        const aesKey = await deriveAesKey(prfOutput, salt);
         const { ciphertext, iv } = await encryptData(nsec, aesKey);
 
         // Store credential + encrypted data (replace existing for same pubkey)
@@ -198,6 +219,7 @@ export const passkeyService = {
             encryptedNsec: toBase64(ciphertext),
             iv: toBase64(iv),
             salt: toBase64(salt),
+            encryptionMethod,
             createdAt: new Date().toISOString(),
         });
         setStored(creds);
@@ -243,11 +265,6 @@ export const passkeyService = {
             throw err;
         }
 
-        const ext = assertion.getClientExtensionResults();
-        if (!ext.prf?.results?.first) {
-            throw new Error('Could not derive decryption key from passkey.');
-        }
-
         // Find matching stored credential
         const usedId = toBase64(assertion.rawId);
         const stored = creds.find(c => c.credentialId === usedId);
@@ -255,9 +272,25 @@ export const passkeyService = {
             throw new Error('Passkey not recognized. It may have been removed.');
         }
 
-        // Decrypt
-        const prfOutput = new Uint8Array(ext.prf.results.first);
-        const aesKey = await deriveAesKey(prfOutput, fromBase64(stored.salt));
+        let aesKey;
+
+        if (stored.encryptionMethod === 'device') {
+            // Device-bound key — passkey auth already verified the user
+            const deviceKey = localStorage.getItem(DEVICE_KEY_STORAGE);
+            if (!deviceKey) {
+                throw new Error('Device encryption key not found. This passkey can only be used on the device where it was created.');
+            }
+            const raw = fromBase64(deviceKey);
+            aesKey = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['decrypt']);
+        } else {
+            // PRF-based decryption
+            const ext = assertion.getClientExtensionResults();
+            if (!ext.prf?.results?.first) {
+                throw new Error('Could not derive decryption key from passkey.');
+            }
+            const prfOutput = new Uint8Array(ext.prf.results.first);
+            aesKey = await deriveAesKey(prfOutput, fromBase64(stored.salt));
+        }
 
         try {
             return await decryptData(
@@ -278,5 +311,6 @@ export const passkeyService = {
     /** Remove all stored credentials */
     removeAll() {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(DEVICE_KEY_STORAGE);
     },
 };
