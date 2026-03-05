@@ -204,6 +204,18 @@ export const investmentsApi = {
     fundingStats: (projectId) => get(`/investments/stats/${projectId}`),
 };
 
+// ─── Zaps ─────────────────────────────────────────────────────────────────────
+
+export const zapsApi = {
+    projectZaps: (projectId, params = {}) => get(`/zaps/project/${projectId}`, params),
+    // params: { page, limit }
+
+    userZaps: (pubkey, params = {}) => get(`/zaps/user/${pubkey}`, params),
+    // params: { page, limit }
+
+    projectZapStats: (projectId) => get(`/zaps/stats/${projectId}`),
+};
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export const notificationsApi = {
