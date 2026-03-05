@@ -313,36 +313,38 @@ const Login = () => {
                     </div>
                 )}
 
-                {/* Login with Extension — first when detected */}
-                {hasNostrExtension && (
-                    <button
-                        onClick={handleExtensionLogin}
-                        disabled={loading}
-                        className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
-                    >
-                        {loading && !nsecInput.trim() && !showPasskeyPrompt ? (
-                            <Loader2 size={20} className="spin" />
-                        ) : (
-                            <Globe size={20} />
+                {/* Quick login methods */}
+                {(hasNostrExtension || hasPasskey) && (
+                    <div className="quick-login-buttons">
+                        {hasNostrExtension && (
+                            <button
+                                onClick={handleExtensionLogin}
+                                disabled={loading}
+                                className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
+                            >
+                                {loading && !nsecInput.trim() && !showPasskeyPrompt ? (
+                                    <Loader2 size={20} className="spin" />
+                                ) : (
+                                    <Globe size={20} />
+                                )}
+                                <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
+                            </button>
                         )}
-                        <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
-                    </button>
-                )}
-
-                {/* Login with Passkey — shown when saved passkeys exist */}
-                {hasPasskey && (
-                    <button
-                        onClick={handlePasskeyLogin}
-                        disabled={loading}
-                        className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full mb-3"
-                    >
-                        {loading ? (
-                            <Loader2 size={20} className="spin" />
-                        ) : (
-                            <Fingerprint size={20} />
+                        {hasPasskey && (
+                            <button
+                                onClick={handlePasskeyLogin}
+                                disabled={loading}
+                                className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full"
+                            >
+                                {loading ? (
+                                    <Loader2 size={20} className="spin" />
+                                ) : (
+                                    <Fingerprint size={20} />
+                                )}
+                                <span>Login with Passkey</span>
+                            </button>
                         )}
-                        <span>Login with Passkey</span>
-                    </button>
+                    </div>
                 )}
 
                 {/* Divider between quick methods and manual methods */}
@@ -533,6 +535,12 @@ const Login = () => {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
+                }
+                .quick-login-buttons {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                    width: 100%;
                 }
                 .btn-login {
                     background: var(--color-primary);
