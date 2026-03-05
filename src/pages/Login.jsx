@@ -376,8 +376,8 @@ const Login = () => {
 
                 {/* Login with nsec */}
                 {loginMode === 'nsec' && (
-                    <form onSubmit={handleNsecLogin} className="w-full">
-                        <div className="key-input-wrapper mb-5">
+                    <form onSubmit={handleNsecLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="key-input-wrapper">
                             <Key size={16} className="key-input-icon" />
                             <input
                                 type="password"
@@ -391,7 +391,7 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading || !nsecInput.trim()}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
                         >
                             {loading && nsecInput.trim() ? (
                                 <Loader2 size={20} className="spin" />
@@ -405,19 +405,19 @@ const Login = () => {
 
                 {/* Login with seed phrase */}
                 {loginMode === 'seed' && (
-                    <form onSubmit={handleSeedLogin} className="w-full">
+                    <form onSubmit={handleSeedLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <textarea
                             placeholder="Enter your 12 or 24 word seed phrase..."
                             value={seedInput}
                             onChange={(e) => setSeedInput(e.target.value)}
-                            className="seed-input mb-3"
+                            className="seed-input"
                             autoComplete="off"
                             rows={3}
                         />
                         <button
                             type="submit"
                             disabled={loading || !seedInput.trim()}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
                         >
                             {loading && seedInput.trim() ? (
                                 <Loader2 size={20} className="spin" />
