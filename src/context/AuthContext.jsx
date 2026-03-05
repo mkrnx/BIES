@@ -78,6 +78,44 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const loginWithNsec = async (nsec) => {
+        try {
+            const user = await authService.loginWithNsec(nsec);
+            setUser(user);
+            initWebSocket(user);
+            return { success: true, user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const loginWithSeedPhrase = async (mnemonic) => {
+        try {
+            const user = await authService.loginWithSeedPhrase(mnemonic);
+            setUser(user);
+            initWebSocket(user);
+            return { success: true, user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const loginWithSeedPhraseAndCheckNew = async (mnemonic) => {
+        const result = await loginWithSeedPhrase(mnemonic);
+        if (!result.success) return result;
+
+        const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        return { ...result, needsProfileSetup: isNew };
+    };
+
+    const loginWithNsecAndCheckNew = async (nsec) => {
+        const result = await loginWithNsec(nsec);
+        if (!result.success) return result;
+
+        const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        return { ...result, needsProfileSetup: isNew };
+    };
+
     const loginWithEmail = async (email, password) => {
         try {
             const user = await authService.loginWithEmail(email, password);
@@ -159,6 +197,10 @@ export const AuthProvider = ({ children }) => {
             refreshNotifications: fetchInitialNotifications,
             loginWithNostr,
             loginWithNostrAndCheckNew,
+            loginWithNsec,
+            loginWithNsecAndCheckNew,
+            loginWithSeedPhrase,
+            loginWithSeedPhraseAndCheckNew,
             loginWithEmail,
             signup,
             logout,

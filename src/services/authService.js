@@ -11,6 +11,8 @@
  */
 
 import { authApi } from './api.js';
+import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
+import { privateKeyFromSeedWords, validateWords } from 'nostr-tools/nip06';
 
 const TOKEN_KEY = 'bies_token';
 const USER_KEY = 'bies_user';
@@ -91,6 +93,71 @@ export const authService = {
         });
 
         // Step 4: Send signed event to backend for verification
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+
+        authService.setToken(token);
+        authService.setCachedUser(user);
+        return user;
+    },
+
+    // ─── Nsec login ────────────────────────────────────────────────────────
+
+    /**
+     * Login using an nsec key directly.
+     * Decodes the nsec, derives the pubkey, then does the same
+     * challenge-response flow as extension login.
+     * The secret key is never stored — only held in memory during signing.
+     */
+    loginWithNsec: async (nsecString) => {
+        const decoded = nip19.decode(nsecString.trim());
+        if (decoded.type !== 'nsec') {
+            throw new Error('Invalid nsec key.');
+        }
+        const sk = decoded.data;
+        const pubkey = getPublicKey(sk);
+
+        const { challenge } = await authApi.nostrChallenge(pubkey);
+
+        const signedEvent = finalizeEvent({
+            kind: 27235,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: challenge,
+        }, sk);
+
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+
+        authService.setToken(token);
+        authService.setCachedUser(user);
+        return user;
+    },
+
+    // ─── Seed phrase login ─────────────────────────────────────────────────
+
+    /**
+     * Login using a BIP-39 seed phrase (NIP-06).
+     * Derives the Nostr secret key from the mnemonic, then does the same
+     * challenge-response flow as extension/nsec login.
+     */
+    loginWithSeedPhrase: async (mnemonic) => {
+        const words = mnemonic.trim().toLowerCase();
+        if (!validateWords(words)) {
+            throw new Error('Invalid seed phrase.');
+        }
+        const sk = privateKeyFromSeedWords(words);
+        const pubkey = getPublicKey(sk);
+
+        const { challenge } = await authApi.nostrChallenge(pubkey);
+
+        const signedEvent = finalizeEvent({
+            kind: 27235,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: challenge,
+        }, sk);
+
         const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
 
         authService.setToken(token);
