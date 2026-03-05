@@ -182,6 +182,13 @@ const Signup = () => {
                             </p>
                         </div>
 
+                        {error && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '0.75rem', border: '1px solid #FECACA' }}>
+                                <AlertCircle size={16} />
+                                <span>{error}</span>
+                            </div>
+                        )}
+
                         <div className="backup-buttons">
                             <button onClick={downloadKeys} className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2">
                                 <Download size={16} /> Download Key File
@@ -309,7 +316,7 @@ const Signup = () => {
                     background: #e2e8f0;
                     margin: 0 5px;
                 }
-                
+
                 .btn-primary {
                     background: var(--color-primary);
                     color: white;
@@ -317,7 +324,7 @@ const Signup = () => {
                     transition: opacity 0.2s;
                 }
                 .btn-primary:hover { opacity: 0.9; }
-                
+
                 .btn-outline {
                     border: 1px solid #e2e8f0;
                     color: #64748b;
