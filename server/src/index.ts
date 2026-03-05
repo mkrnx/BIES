@@ -66,7 +66,10 @@ app.use(cors({
         // Allow requests with no Origin (same-origin browser requests and server-to-server)
         if (!origin) return callback(null, true);
         if (allowedOrigins.includes(origin)) return callback(null, true);
-        callback(new Error(`CORS: origin ${origin} not allowed`));
+        // Reject with false instead of throwing — avoids triggering the 500
+        // error handler for simple CORS mismatches (returns 403-like with no
+        // Access-Control-Allow-Origin header, so the browser blocks it).
+        callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
