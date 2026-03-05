@@ -378,6 +378,7 @@ const ProfileEdit = () => {
             ...prev,
             bio: nostrProfile.about || prev.bio,
             avatar: nostrProfile.picture || prev.avatar,
+            banner: nostrProfile.banner || prev.banner,
             website: nostrProfile.website || prev.website,
         }));
     };
