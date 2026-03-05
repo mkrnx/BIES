@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText } from 'lucide-react';
+import { AlertCircle, Loader2, Key, Globe, FileText, Upload } from 'lucide-react';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
@@ -12,7 +12,8 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [nsecInput, setNsecInput] = useState('');
     const [seedInput, setSeedInput] = useState('');
-    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec' or 'seed'
+    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', or 'file'
+    const [keyFileName, setKeyFileName] = useState('');
     const [hasNostrExtension, setHasNostrExtension] = useState(
         typeof window !== 'undefined' && !!window.nostr
     );
@@ -92,6 +93,27 @@ const Login = () => {
         }
     };
 
+    const handleFileLogin = async (file) => {
+        setError('');
+        setKeyFileName('');
+        try {
+            const text = await file.text();
+            const nsecMatch = text.match(/nsec1[a-z0-9]+/);
+            if (!nsecMatch) {
+                setError('No nsec key found in file. Make sure this is your BIES key file.');
+                return;
+            }
+            setKeyFileName(file.name);
+            setLoading(true);
+            const result = await loginWithNsecAndCheckNew(nsecMatch[0]);
+            handleResult(result);
+        } catch (err) {
+            setError(err.message || 'Failed to read key file.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="login-container">
             <div className="login-card">
@@ -143,6 +165,12 @@ const Login = () => {
                         onClick={() => { setLoginMode('seed'); setError(''); }}
                     >
                         <FileText size={14} /> Seed Phrase
+                    </button>
+                    <button
+                        className={`mode-tab ${loginMode === 'file' ? 'active' : ''}`}
+                        onClick={() => { setLoginMode('file'); setError(''); setKeyFileName(''); }}
+                    >
+                        <Upload size={14} /> Key File
                     </button>
                 </div>
 
@@ -201,6 +229,46 @@ const Login = () => {
                     </form>
                 )}
 
+                {/* Login with key file */}
+                {loginMode === 'file' && (
+                    <div className="w-full">
+                        <label
+                            className="file-drop-zone"
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                const file = e.dataTransfer.files[0];
+                                if (file) handleFileLogin(file);
+                            }}
+                        >
+                            <input
+                                type="file"
+                                accept=".txt"
+                                className="hidden-file-input"
+                                onChange={(e) => {
+                                    const file = e.target.files[0];
+                                    if (file) handleFileLogin(file);
+                                }}
+                            />
+                            {loading ? (
+                                <Loader2 size={24} className="spin" style={{ color: '#9ca3af' }} />
+                            ) : (
+                                <Upload size={24} style={{ color: '#9ca3af' }} />
+                            )}
+                            {keyFileName ? (
+                                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{keyFileName}</span>
+                            ) : (
+                                <>
+                                    <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
+                                        Drop your <strong>bies-nostr-keys.txt</strong> here
+                                    </span>
+                                    <span className="text-xs" style={{ color: '#9ca3af' }}>or click to browse</span>
+                                </>
+                            )}
+                        </label>
+                    </div>
+                )}
+
                 {/* Create Account */}
                 <div className="mt-6 pt-6 border-t border-gray-100 w-full text-center">
                     <p className="text-gray-500 mb-4">New to Nostr?</p>
@@ -223,6 +291,17 @@ const Login = () => {
                                 Login with Extension
                             </button>
                         </p>
+                        <div className="extension-links">
+                            <p className="text-xs text-gray-400">No extension detected? Install one:</p>
+                            <div className="flex gap-3 mt-1">
+                                <a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgcdlhiodkdc" target="_blank" rel="noopener noreferrer" className="extension-link">
+                                    Chrome (nos2x)
+                                </a>
+                                <a href="https://addons.mozilla.org/en-US/firefox/addon/nos2x-fox/" target="_blank" rel="noopener noreferrer" className="extension-link">
+                                    Firefox (nos2x-fox)
+                                </a>
+                            </div>
+                        </div>
                     </>
                 )}
             </div>
@@ -345,6 +424,40 @@ const Login = () => {
                 }
                 .seed-input:focus {
                     border-color: var(--color-primary);
+                }
+                .file-drop-zone {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    padding: 2rem 1rem;
+                    border: 2px dashed #e5e7eb;
+                    border-radius: var(--radius-md, 8px);
+                    cursor: pointer;
+                    transition: border-color 0.2s, background 0.2s;
+                    margin-bottom: 0.75rem;
+                }
+                .file-drop-zone:hover {
+                    border-color: var(--color-primary);
+                    background: #f9fafb;
+                }
+                .hidden-file-input {
+                    display: none;
+                }
+                .extension-links {
+                    margin-top: 0.75rem;
+                    text-align: center;
+                }
+                .extension-link {
+                    font-size: 0.75rem;
+                    color: #3b82f6;
+                    text-decoration: none;
+                    font-weight: 500;
+                }
+                .extension-link:hover {
+                    text-decoration: underline;
                 }
                 .error-banner {
                     display: flex;
