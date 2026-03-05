@@ -10,6 +10,7 @@ services:
       PORT: "3001"
       DATABASE_URL: "file:../data/bies.db"
       NOSTR_PRIVATE_RELAY: "ws://bies-relay:7777"
+      BASE_PATH: "/biestest"
       CORS_ORIGIN: "https://sovit.xyz/biestest"
     volumes:
       - bies-data:/app/data
