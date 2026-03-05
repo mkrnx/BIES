@@ -1,10 +1,18 @@
-import { SimplePool } from 'nostr-tools/pool';
-import { finalizeEvent, type EventTemplate } from 'nostr-tools/pure';
+// nostr-tools is ESM-only (@noble/curves has no CJS build);
+// use dynamic import() so the compiled CJS output doesn't call require().
+import type { EventTemplate } from 'nostr-tools/pure';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { decryptPrivateKey } from './crypto.service';
 
-const pool = new SimplePool();
+let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
+async function getPool() {
+    if (!_pool) {
+        const { SimplePool } = await import('nostr-tools/pool');
+        _pool = new SimplePool();
+    }
+    return _pool;
+}
 
 /**
  * Publish a Nostr event signed by a user's custodial key.
@@ -31,9 +39,11 @@ export async function publishEvent(
         const privateKeyBytes = hexToBytes(privateKeyHex);
 
         // Finalize (sign) the event
+        const { finalizeEvent } = await import('nostr-tools/pure');
         const signedEvent = finalizeEvent(eventTemplate, privateKeyBytes);
 
         // Publish to relays
+        const pool = await getPool();
         const results = await Promise.allSettled(
             pool.publish(config.nostrRelays, signedEvent)
         );
