@@ -170,10 +170,10 @@ const Signup = () => {
                                     {copied ? 'Copied' : 'Copy'}
                                 </button>
                             </div>
-                            <div className="bg-red-50 p-3 rounded text-sm font-mono border border-red-100 text-red-600 leading-relaxed">
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', background: '#fef2f2', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #fecaca', fontFamily: 'monospace', fontSize: '0.875rem', color: '#dc2626' }}>
                                 {keys.mnemonic.split(' ').map((word, i) => (
-                                    <span key={i} className="inline-block mr-2 mb-1">
-                                        <span className="text-red-300 text-xs">{i + 1}.</span> {word}
+                                    <span key={i} style={{ display: 'flex', gap: '0.25rem' }}>
+                                        <span style={{ color: '#fca5a5', fontSize: '0.75rem', minWidth: '1.25rem' }}>{i + 1}.</span>{word}
                                     </span>
                                 ))}
                             </div>
