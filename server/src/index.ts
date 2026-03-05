@@ -31,6 +31,8 @@ import contentRoutes from './routes/content.routes';
 import newsRoutes from './routes/news.routes';
 import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
+import zapRoutes from './routes/zap.routes';
+import { startZapIndexer } from './services/zap.service';
 
 const app = express();
 
@@ -157,6 +159,7 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/match', matchRoutes);
+app.use('/api/zaps', zapRoutes);
 
 // ─── Health check ─────────────────────────────────────────────────────────────
 app.get('/api/health', (_req, res) => {
@@ -192,9 +195,14 @@ server.listen(config.port, () => {
 ║  Routes: auth | profiles | projects | upload | messages          ║
 ║          watchlist | investments | notifications | events        ║
 ║          analytics | search | admin | contact | stats            ║
-║          settings | content | news | match | websocket           ║
+║          settings | content | news | match | zaps | websocket    ║
 ╚══════════════════════════════════════════════════════════════════╝
   `);
+
+    // Start zap receipt indexer after server is ready
+    startZapIndexer().catch((err) =>
+        console.error('[Zap Indexer] Startup error:', err)
+    );
 });
 
 export default app;
