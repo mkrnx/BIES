@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../lib/prisma';
 import { generateToken } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
+import { publishRelayList } from '../services/nostr.service';
 import { cache } from '../services/redis.service';
 import { config } from '../config';
 import { z } from 'zod';
@@ -158,6 +159,11 @@ export async function register(req: Request, res: Response): Promise<void> {
 
         // Add custodial pubkey to relay whitelist so email users can access the private relay
         addToRelayWhitelist(nostrPubkey);
+
+        // Publish NIP-65 relay list for the new custodial user
+        publishRelayList(user.id).catch((err) =>
+            console.error('[Nostr] Relay list publish failed:', err)
+        );
 
         // Auto-generate NIP-05 name from email prefix
         const nip05Name = await generateNip05Name(email.split('@')[0]);
@@ -342,6 +348,12 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 },
                 include: { profile: true },
             });
+
+            // Publish NIP-65 relay list for the new custodial user
+            // (Nostr-native users will be prompted client-side instead)
+            publishRelayList(user.id).catch((err) =>
+                console.error('[Nostr] Relay list publish failed:', err)
+            );
 
             // Auto-generate NIP-05 name for new Nostr users
             const nip05Name = await generateNip05Name(`nostr-${pubkey.substring(0, 8)}`);
