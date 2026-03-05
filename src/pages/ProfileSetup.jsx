@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { nostrService } from '../services/nostrService';
+import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
@@ -62,6 +63,7 @@ const ProfileSetup = () => {
         try {
             // Save BIES profile
             const updateData = { name: biesName.trim() };
+            if (user?.nostrPubkey) updateData.nostrNpub = nip19.npubEncode(user.nostrPubkey);
             if (nostrForm.picture || nostrProfile?.picture) updateData.avatar = nostrForm.picture || nostrProfile?.picture;
             if (nostrForm.about || nostrProfile?.about) updateData.bio = nostrForm.about || nostrProfile?.about;
             if (nostrForm.website || nostrProfile?.website) updateData.website = nostrForm.website || nostrProfile?.website;

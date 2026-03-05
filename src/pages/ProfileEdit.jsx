@@ -147,7 +147,7 @@ const ProfileEdit = () => {
                     showNostrFeed: profile.showNostrFeed ?? true,
                     experience: profile.experience || [],
                     biesProjects: profile.biesProjects || [],
-                    nostrNpub: profile.nostrNpub || '',
+                    nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
                     nip05Name: profile.nip05Name || '',
                     lightningAddress: profile.lightningAddress || '',
                 }));
