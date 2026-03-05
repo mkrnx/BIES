@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -42,7 +42,13 @@ const ProfileEdit = () => {
         experience: [],
         biesProjects: [],
         nostrNpub: '',
+        nip05Name: '',
+        lightningAddress: '',
     });
+
+    // NIP-05 availability check
+    const [nip05Available, setNip05Available] = useState(null);
+    const [nip05Checking, setNip05Checking] = useState(false);
 
     // Nostr profile form
     const [nostrProfile, setNostrProfile] = useState(null);
@@ -98,6 +104,27 @@ const ProfileEdit = () => {
         return () => clearTimeout(timer);
     }, [projectSearch]);
 
+    // Debounced NIP-05 availability check
+    useEffect(() => {
+        const name = form.nip05Name.trim().toLowerCase();
+        if (!name || name.length < 3) {
+            setNip05Available(null);
+            return;
+        }
+        setNip05Checking(true);
+        const timer = setTimeout(async () => {
+            try {
+                const res = await profilesApi.checkNip05(name);
+                setNip05Available(res.available);
+            } catch {
+                setNip05Available(null);
+            } finally {
+                setNip05Checking(false);
+            }
+        }, 500);
+        return () => { clearTimeout(timer); setNip05Checking(false); };
+    }, [form.nip05Name]);
+
     const loadProfile = async () => {
         try {
             const profile = await profilesApi.me();
@@ -121,6 +148,8 @@ const ProfileEdit = () => {
                     experience: profile.experience || [],
                     biesProjects: profile.biesProjects || [],
                     nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
+                    nip05Name: profile.nip05Name || '',
+                    lightningAddress: profile.lightningAddress || '',
                 }));
             }
         } catch {
@@ -182,6 +211,8 @@ const ProfileEdit = () => {
                 showExperience: form.showExperience,
                 showNostrFeed: form.showNostrFeed,
                 nostrNpub: form.nostrNpub,
+                nip05Name: form.nip05Name || undefined,
+                lightningAddress: form.lightningAddress,
             };
             // Remove undefined values so Zod doesn't see them
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -644,6 +675,66 @@ const ProfileEdit = () => {
                                         <Linkedin size={18} className="icon" />
                                         <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="LinkedIn URL" />
                                     </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* BIES Identity & Lightning */}
+                    <div className="profile-card">
+                        <div className="w-full max-w-2xl">
+                            <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
+                                <AtSign size={20} style={{ color: '#f59e0b' }} />
+                                BIES Identity & Lightning
+                            </h3>
+                            <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+                                Get a verified NIP-05 identity and set your Lightning address for receiving zaps.
+                            </p>
+
+                            <div className="form-row">
+                                <label className="form-label">BIES Identity</label>
+                                <div className="form-content">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <div className="input-with-icon" style={{ flex: 1 }}>
+                                            <AtSign size={18} className="icon" />
+                                            <input
+                                                type="text"
+                                                value={form.nip05Name}
+                                                onChange={handleChange('nip05Name')}
+                                                className="input-field"
+                                                style={{ paddingLeft: '40px' }}
+                                                placeholder="alice"
+                                            />
+                                        </div>
+                                        {nip05Checking && <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
+                                        {!nip05Checking && nip05Available === true && <CheckCircle size={18} style={{ color: '#16a34a' }} />}
+                                        {!nip05Checking && nip05Available === false && <X size={18} style={{ color: '#ef4444' }} />}
+                                    </div>
+                                    {form.nip05Name && (
+                                        <p style={{ fontSize: '0.75rem', color: nip05Available === false ? '#ef4444' : 'var(--color-gray-500)', marginTop: '0.5rem' }}>
+                                            {nip05Available === false ? 'This name is already taken' : `Your NIP-05: ${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div className="form-row">
+                                <label className="form-label">Lightning Address</label>
+                                <div className="form-content">
+                                    <div className="input-with-icon w-full">
+                                        <Zap size={18} className="icon" />
+                                        <input
+                                            type="text"
+                                            value={form.lightningAddress}
+                                            onChange={handleChange('lightningAddress')}
+                                            className="input-field w-full"
+                                            style={{ paddingLeft: '40px' }}
+                                            placeholder="you@getalby.com"
+                                        />
+                                    </div>
+                                    <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>
+                                        Your Lightning address (lud16) for receiving zaps. Works with Alby, WoS, Strike, etc.
+                                    </p>
                                 </div>
                             </div>
                         </div>

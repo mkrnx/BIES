@@ -1,10 +1,18 @@
 import React from 'react';
-import { Moon, Bell, Lock, Globe, Eye } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap } from 'lucide-react';
+import WalletConnect from '../components/WalletConnect';
 
 const Settings = () => {
     return (
         <div className="container py-8 max-w-3xl">
             <h1 className="mb-8">Settings</h1>
+
+            <div className="settings-section">
+                <h2><Zap size={16} /> Lightning Wallet</h2>
+                <div className="setting-item">
+                    <WalletConnect />
+                </div>
+            </div>
 
             <div className="settings-section">
                 <h2>Preferences</h2>

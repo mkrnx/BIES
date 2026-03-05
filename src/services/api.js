@@ -113,6 +113,9 @@ export const profilesApi = {
 
     update: (data) => put('/profiles/me', data),
 
+    // NIP-05 availability check
+    checkNip05: (name) => get('/profiles/check-nip05', { name }),
+
     // Follow system
     follow: (id) => post(`/profiles/${id}/follow`),
     unfollow: (id) => del(`/profiles/${id}/follow`),
@@ -202,6 +205,18 @@ export const investmentsApi = {
     update: (id, data) => put(`/investments/${id}`, data),
 
     fundingStats: (projectId) => get(`/investments/stats/${projectId}`),
+};
+
+// ─── Zaps ─────────────────────────────────────────────────────────────────────
+
+export const zapsApi = {
+    projectZaps: (projectId, params = {}) => get(`/zaps/project/${projectId}`, params),
+    // params: { page, limit }
+
+    userZaps: (pubkey, params = {}) => get(`/zaps/user/${pubkey}`, params),
+    // params: { page, limit }
+
+    projectZapStats: (projectId) => get(`/zaps/stats/${projectId}`),
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────

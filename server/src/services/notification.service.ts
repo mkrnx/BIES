@@ -19,6 +19,7 @@ export type NotificationType =
     | 'DECK_APPROVED'
     | 'DECK_DENIED'
     | 'PROFILE_VIEW'
+    | 'ZAP_RECEIVED'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -218,5 +219,30 @@ export async function notifyInvestmentStatus(params: {
         title: `Investment update for "${params.projectTitle}"`,
         body: `Your investment status changed to: ${params.status}`,
         data: { projectId: params.projectId, status: params.status },
+    });
+}
+
+export async function notifyZapReceived(params: {
+    recipientUserId: string;
+    senderPubkey: string;
+    amountSats: number;
+    comment?: string;
+    projectId?: string;
+    projectTitle?: string;
+}): Promise<void> {
+    const title = params.projectTitle
+        ? `${params.amountSats} sats zapped to "${params.projectTitle}"`
+        : `You received ${params.amountSats} sats`;
+
+    await createNotification({
+        userId: params.recipientUserId,
+        type: 'ZAP_RECEIVED',
+        title,
+        body: params.comment || 'You received a Lightning zap!',
+        data: {
+            senderPubkey: params.senderPubkey,
+            amountSats: params.amountSats,
+            ...(params.projectId ? { projectId: params.projectId } : {}),
+        },
     });
 }

@@ -1,0 +1,725 @@
+import { useState, useEffect } from 'react';
+import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
+import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
+import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
+import { useWallet } from '../hooks/useWallet';
+
+const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
+
+/**
+ * Modal for sending Lightning zaps to one or more recipients.
+ * Supports NWC (Nostr Wallet Connect), WebLN (Alby etc.), and QR code fallback.
+ * Splits equally among recipients with valid lud16.
+ *
+ * @param {Array<{pubkey: string, name: string, avatar?: string}>} props.recipients
+ * @param {string} [props.eventId]
+ * @param {function} props.onClose
+ */
+const ZapModal = ({ recipients = [], eventId, onClose }) => {
+    const { connected: nwcConnected, payInvoice: nwcPayInvoice } = useWallet();
+    const [phase, setPhase] = useState('resolving'); // resolving | ready | paying | qr | success | error
+    const [resolvedRecipients, setResolvedRecipients] = useState([]);
+    const [selectedAmount, setSelectedAmount] = useState(100);
+    const [customAmount, setCustomAmount] = useState('');
+    const [comment, setComment] = useState('');
+    const [bolt11, setBolt11] = useState('');
+    const [progress, setProgress] = useState({ step: 0, total: 0, name: '' });
+    const [errorMsg, setErrorMsg] = useState('');
+    const [payResults, setPayResults] = useState([]);
+    const [copied, setCopied] = useState(false);
+
+    const amount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
+
+    // Resolve lud16 for all recipients on mount
+    useEffect(() => {
+        let cancelled = false;
+        (async () => {
+            const resolved = [];
+            for (const r of recipients) {
+                if (!r.pubkey) continue;
+                try {
+                    const profile = await nostrService.getProfile(r.pubkey);
+                    if (profile?.lud16) {
+                        resolved.push({ ...r, lud16: profile.lud16 });
+                    }
+                } catch { /* skip */ }
+            }
+            if (cancelled) return;
+            setResolvedRecipients(resolved);
+            setPhase(resolved.length > 0 ? 'ready' : 'error');
+            if (resolved.length === 0) {
+                setErrorMsg('No recipients have a Lightning address set.');
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [recipients]);
+
+    const perRecipientAmount = resolvedRecipients.length > 0
+        ? Math.floor(amount / resolvedRecipients.length)
+        : 0;
+
+    const handleZap = async () => {
+        if (!amount || amount < 1) return;
+        setPhase('paying');
+        setPayResults([]);
+        setErrorMsg('');
+
+        const results = [];
+        let hasPendingQR = false;
+
+        for (let i = 0; i < resolvedRecipients.length; i++) {
+            const recipient = resolvedRecipients[i];
+            setProgress({ step: i + 1, total: resolvedRecipients.length, name: recipient.name });
+
+            // 1. Resolve LNURL
+            const lnurlData = await resolveLud16(recipient.lud16);
+            if (!lnurlData) {
+                results.push({ name: recipient.name, success: false, error: 'Could not resolve Lightning address' });
+                continue;
+            }
+
+            const msats = perRecipientAmount * 1000;
+            if (msats < lnurlData.minSendable || msats > lnurlData.maxSendable) {
+                const min = Math.ceil(lnurlData.minSendable / 1000);
+                const max = Math.floor(lnurlData.maxSendable / 1000);
+                results.push({ name: recipient.name, success: false, error: `Amount must be ${min}-${max} sats` });
+                continue;
+            }
+
+            // 2. Create zap request if LNURL supports Nostr
+            let zapReq = null;
+            if (lnurlData.allowsNostr && lnurlData.nostrPubkey) {
+                zapReq = await createZapRequest({
+                    recipientPubkey: recipient.pubkey,
+                    amountMsats: msats,
+                    relays: PUBLIC_RELAYS,
+                    eventId,
+                    content: comment,
+                });
+            }
+
+            // 3. Get invoice
+            const invoiceData = await requestInvoice(lnurlData.callback, msats, zapReq);
+            if (!invoiceData?.pr) {
+                results.push({ name: recipient.name, success: false, error: 'Failed to get invoice' });
+                continue;
+            }
+
+            // 4. Try NWC wallet first (if connected), then WebLN, then QR fallback
+            if (nwcConnected) {
+                try {
+                    await nwcPayInvoice(invoiceData.pr);
+                    results.push({ name: recipient.name, success: true });
+                    continue;
+                } catch {
+                    // NWC failed — fall through to WebLN / QR
+                }
+            }
+
+            const weblnResult = await payWithWebLN(invoiceData.pr);
+            if (weblnResult.success) {
+                results.push({ name: recipient.name, success: true });
+            } else {
+                // First unpaid invoice → show QR
+                if (!hasPendingQR) {
+                    hasPendingQR = true;
+                    setBolt11(invoiceData.pr);
+                    results.push({ name: recipient.name, success: false, bolt11: invoiceData.pr, pending: true });
+                } else {
+                    results.push({ name: recipient.name, success: false, bolt11: invoiceData.pr, error: 'Pay manually' });
+                }
+            }
+        }
+
+        setPayResults(results);
+        const allSuccess = results.every(r => r.success);
+        if (allSuccess) {
+            setPhase('success');
+        } else if (hasPendingQR) {
+            setPhase('qr');
+        } else {
+            setPhase('error');
+            setErrorMsg('Failed to complete zap.');
+        }
+    };
+
+    const copyInvoice = () => {
+        navigator.clipboard.writeText(bolt11);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    // Render QR code as text-based display (simple approach without external QR library)
+    const truncatedInvoice = bolt11 ? `${bolt11.slice(0, 30)}...${bolt11.slice(-10)}` : '';
+
+    return (
+        <div className="zap-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="zap-card">
+                {/* Header */}
+                <div className="zap-header">
+                    <h3 className="zap-title">
+                        <Zap size={18} style={{ color: '#f7931a' }} />
+                        Send Zap
+                    </h3>
+                    <button className="zap-close" onClick={onClose}>
+                        <X size={20} />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="zap-body">
+                    {phase === 'resolving' && (
+                        <div className="zap-center">
+                            <Loader2 size={28} className="zap-spin" />
+                            <p className="zap-status-text">Resolving Lightning addresses...</p>
+                        </div>
+                    )}
+
+                    {phase === 'ready' && (
+                        <>
+                            {/* Recipients */}
+                            {resolvedRecipients.length > 1 && (
+                                <div className="zap-recipients">
+                                    <div className="zap-label">Split between {resolvedRecipients.length} recipients</div>
+                                    <div className="zap-recipient-list">
+                                        {resolvedRecipients.map((r, i) => (
+                                            <div key={i} className="zap-recipient">
+                                                <div className="zap-recipient-avatar">
+                                                    {r.avatar
+                                                        ? <img src={r.avatar} alt={r.name} />
+                                                        : <span>{(r.name || '?')[0]?.toUpperCase()}</span>
+                                                    }
+                                                </div>
+                                                <span className="zap-recipient-name">{r.name}</span>
+                                                <span className="zap-recipient-share">
+                                                    {perRecipientAmount.toLocaleString()} sats
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {resolvedRecipients.length === 1 && (
+                                <div className="zap-single-recipient">
+                                    <div className="zap-recipient-avatar lg">
+                                        {resolvedRecipients[0].avatar
+                                            ? <img src={resolvedRecipients[0].avatar} alt={resolvedRecipients[0].name} />
+                                            : <span>{(resolvedRecipients[0].name || '?')[0]?.toUpperCase()}</span>
+                                        }
+                                    </div>
+                                    <span className="zap-recipient-label">{resolvedRecipients[0].name}</span>
+                                </div>
+                            )}
+
+                            {/* Amount presets */}
+                            <div className="zap-label">Amount (sats)</div>
+                            <div className="zap-amounts">
+                                {AMOUNT_PRESETS.map(a => (
+                                    <button
+                                        key={a}
+                                        className={`zap-amount-chip ${!customAmount && selectedAmount === a ? 'active' : ''}`}
+                                        onClick={() => { setSelectedAmount(a); setCustomAmount(''); }}
+                                    >
+                                        {a >= 1000 ? `${a / 1000}k` : a}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Custom amount */}
+                            <input
+                                type="number"
+                                className="zap-custom-input"
+                                placeholder="Custom amount"
+                                value={customAmount}
+                                onChange={(e) => setCustomAmount(e.target.value)}
+                                min="1"
+                            />
+
+                            {/* Comment */}
+                            <input
+                                type="text"
+                                className="zap-comment-input"
+                                placeholder="Add a comment (optional)"
+                                value={comment}
+                                onChange={(e) => setComment(e.target.value)}
+                                maxLength={140}
+                            />
+
+                            {/* Zap button */}
+                            <button
+                                className="zap-send-btn"
+                                onClick={handleZap}
+                                disabled={!amount || amount < 1}
+                            >
+                                {nwcConnected && <Wallet size={16} />}
+                                <Zap size={16} />
+                                Zap {amount?.toLocaleString() || 0} sats
+                            </button>
+                            {nwcConnected && (
+                                <p className="zap-wallet-hint">Paying with connected wallet</p>
+                            )}
+                        </>
+                    )}
+
+                    {phase === 'paying' && (
+                        <div className="zap-center">
+                            <Loader2 size={28} className="zap-spin" />
+                            <p className="zap-status-text">
+                                {progress.total > 1
+                                    ? `Paying ${progress.name} (${progress.step}/${progress.total})...`
+                                    : nwcConnected
+                                        ? `Paying with wallet...`
+                                        : `Requesting invoice...`
+                                }
+                            </p>
+                        </div>
+                    )}
+
+                    {phase === 'qr' && (
+                        <div className="zap-qr-section">
+                            <p className="zap-status-text">Scan or copy the invoice to pay</p>
+                            <div className="zap-invoice-box">
+                                <code className="zap-invoice-text">{truncatedInvoice}</code>
+                            </div>
+                            <button className="zap-copy-btn" onClick={copyInvoice}>
+                                {copied ? <Check size={14} /> : <Copy size={14} />}
+                                {copied ? 'Copied!' : 'Copy Invoice'}
+                            </button>
+                            <a
+                                href={`lightning:${bolt11}`}
+                                className="zap-open-wallet"
+                            >
+                                Open in Wallet <ChevronRight size={14} />
+                            </a>
+
+                            {/* Show results if split */}
+                            {payResults.length > 1 && (
+                                <div className="zap-results">
+                                    {payResults.map((r, i) => (
+                                        <div key={i} className={`zap-result-item ${r.success ? 'success' : ''}`}>
+                                            {r.success ? <Check size={14} /> : <AlertCircle size={14} />}
+                                            <span>{r.name}</span>
+                                            <span className="zap-result-status">
+                                                {r.success ? 'Paid' : r.pending ? 'Pending' : r.error}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {phase === 'success' && (
+                        <div className="zap-center">
+                            <div className="zap-success-icon">
+                                <Zap size={32} />
+                            </div>
+                            <p className="zap-status-text zap-success-text">
+                                Zapped {amount.toLocaleString()} sats!
+                            </p>
+                            {payResults.length > 1 && (
+                                <div className="zap-results">
+                                    {payResults.map((r, i) => (
+                                        <div key={i} className="zap-result-item success">
+                                            <Check size={14} />
+                                            <span>{r.name}</span>
+                                            <span className="zap-result-status">Paid</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <button className="zap-done-btn" onClick={onClose}>Done</button>
+                        </div>
+                    )}
+
+                    {phase === 'error' && (
+                        <div className="zap-center">
+                            <AlertCircle size={28} style={{ color: '#ef4444' }} />
+                            <p className="zap-status-text" style={{ color: '#ef4444' }}>{errorMsg}</p>
+                            <button className="zap-done-btn" onClick={() => {
+                                if (resolvedRecipients.length > 0) setPhase('ready');
+                                else onClose();
+                            }}>
+                                {resolvedRecipients.length > 0 ? 'Try Again' : 'Close'}
+                            </button>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <style jsx>{`
+                .zap-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 9999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(4px);
+                }
+
+                .zap-card {
+                    background: white;
+                    border-radius: 16px;
+                    width: 90vw;
+                    max-width: 420px;
+                    max-height: 90vh;
+                    overflow-y: auto;
+                    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+                }
+
+                .zap-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1rem 1.25rem;
+                    border-bottom: 1px solid #e5e7eb;
+                }
+
+                .zap-title {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-weight: 700;
+                    font-size: 1.1rem;
+                    font-family: var(--font-display, 'PP Formula Narrow', sans-serif);
+                    margin: 0;
+                }
+
+                .zap-close {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    color: #6b7280;
+                    padding: 4px;
+                    display: flex;
+                }
+
+                .zap-close:hover { color: #111; }
+
+                .zap-body {
+                    padding: 1.25rem;
+                }
+
+                .zap-center {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 2rem 0;
+                }
+
+                .zap-spin {
+                    animation: zap-spin 1s linear infinite;
+                    color: #f7931a;
+                }
+
+                @keyframes zap-spin {
+                    to { transform: rotate(360deg); }
+                }
+
+                .zap-status-text {
+                    color: #475569;
+                    font-size: 0.9rem;
+                    text-align: center;
+                    margin: 0;
+                }
+
+                .zap-label {
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    color: #64748b;
+                    text-transform: uppercase;
+                    letter-spacing: 0.05em;
+                    margin-bottom: 0.5rem;
+                }
+
+                /* Recipients */
+                .zap-recipients {
+                    margin-bottom: 1.25rem;
+                }
+
+                .zap-recipient-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+
+                .zap-recipient {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.4rem 0.6rem;
+                    background: #f8fafc;
+                    border-radius: 8px;
+                }
+
+                .zap-recipient-avatar {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    background: #e2e8f0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    color: #475569;
+                    flex-shrink: 0;
+                }
+
+                .zap-recipient-avatar.lg {
+                    width: 48px;
+                    height: 48px;
+                    font-size: 1rem;
+                }
+
+                .zap-recipient-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+
+                .zap-recipient-name {
+                    flex: 1;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                }
+
+                .zap-recipient-share {
+                    font-size: 0.8rem;
+                    color: #f7931a;
+                    font-weight: 600;
+                }
+
+                .zap-single-recipient {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 1.25rem;
+                }
+
+                .zap-recipient-label {
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    color: #1e293b;
+                }
+
+                /* Amount chips */
+                .zap-amounts {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 0.75rem;
+                    flex-wrap: wrap;
+                }
+
+                .zap-amount-chip {
+                    padding: 0.4rem 0.85rem;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 20px;
+                    background: white;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                    cursor: pointer;
+                    color: #334155;
+                    transition: all 0.15s ease;
+                    font-family: var(--font-sans, 'Inter', sans-serif);
+                }
+
+                .zap-amount-chip:hover {
+                    border-color: #f7931a;
+                    color: #f7931a;
+                }
+
+                .zap-amount-chip.active {
+                    background: #f7931a;
+                    border-color: #f7931a;
+                    color: white;
+                }
+
+                .zap-custom-input,
+                .zap-comment-input {
+                    width: 100%;
+                    padding: 0.6rem 0.75rem;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 8px;
+                    font-size: 0.875rem;
+                    font-family: var(--font-sans, 'Inter', sans-serif);
+                    outline: none;
+                    box-sizing: border-box;
+                    transition: border-color 0.15s;
+                }
+
+                .zap-custom-input:focus,
+                .zap-comment-input:focus {
+                    border-color: #f7931a;
+                }
+
+                .zap-custom-input {
+                    margin-bottom: 0.5rem;
+                }
+
+                .zap-comment-input {
+                    margin-bottom: 1rem;
+                }
+
+                .zap-custom-input::-webkit-inner-spin-button,
+                .zap-custom-input::-webkit-outer-spin-button {
+                    -webkit-appearance: none;
+                    margin: 0;
+                }
+
+                .zap-send-btn {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.4rem;
+                    padding: 0.75rem;
+                    background: #f7931a;
+                    color: white;
+                    border: none;
+                    border-radius: 10px;
+                    font-size: 0.95rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    font-family: var(--font-sans, 'Inter', sans-serif);
+                    transition: background 0.15s;
+                }
+
+                .zap-send-btn:hover { background: #e8841a; }
+                .zap-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+                .zap-wallet-hint {
+                    text-align: center;
+                    font-size: 0.78rem;
+                    color: #22c55e;
+                    margin-top: 0.35rem;
+                }
+
+                /* QR / Invoice section */
+                .zap-qr-section {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 1rem 0;
+                }
+
+                .zap-invoice-box {
+                    background: #f8fafc;
+                    border: 1px solid #e2e8f0;
+                    border-radius: 8px;
+                    padding: 0.75rem;
+                    width: 100%;
+                    box-sizing: border-box;
+                    word-break: break-all;
+                }
+
+                .zap-invoice-text {
+                    font-size: 0.75rem;
+                    color: #475569;
+                }
+
+                .zap-copy-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.5rem 1rem;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 8px;
+                    background: white;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    color: #334155;
+                    font-family: var(--font-sans, 'Inter', sans-serif);
+                    transition: all 0.15s;
+                }
+
+                .zap-copy-btn:hover {
+                    border-color: #f7931a;
+                    color: #f7931a;
+                }
+
+                .zap-open-wallet {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    padding: 0.6rem 1.2rem;
+                    background: #f7931a;
+                    color: white;
+                    border-radius: 8px;
+                    text-decoration: none;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    transition: background 0.15s;
+                }
+
+                .zap-open-wallet:hover { background: #e8841a; }
+
+                /* Results */
+                .zap-results {
+                    width: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.35rem;
+                    margin-top: 0.5rem;
+                }
+
+                .zap-result-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    font-size: 0.8rem;
+                    color: #64748b;
+                    padding: 0.3rem 0;
+                }
+
+                .zap-result-item.success { color: #10b981; }
+
+                .zap-result-status {
+                    margin-left: auto;
+                    font-weight: 500;
+                }
+
+                /* Success */
+                .zap-success-icon {
+                    width: 56px;
+                    height: 56px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #f7931a 0%, #fbbf24 100%);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                }
+
+                .zap-success-text {
+                    font-size: 1.1rem;
+                    font-weight: 700;
+                    color: #1e293b;
+                }
+
+                .zap-done-btn {
+                    padding: 0.5rem 2rem;
+                    border: 1.5px solid #e2e8f0;
+                    border-radius: 8px;
+                    background: white;
+                    font-size: 0.875rem;
+                    cursor: pointer;
+                    color: #334155;
+                    font-family: var(--font-sans, 'Inter', sans-serif);
+                    margin-top: 0.5rem;
+                }
+
+                .zap-done-btn:hover { border-color: #94a3b8; }
+            `}</style>
+        </div>
+    );
+};
+
+export default ZapModal;

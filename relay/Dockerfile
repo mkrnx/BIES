@@ -1,7 +1,7 @@
 FROM dockurr/strfry:latest
 
 # Install jq for the write policy script
-RUN apt-get update && apt-get install -y jq && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache jq
 
 # Copy config and write policy
 COPY strfry.conf /etc/strfry.conf
@@ -10,11 +10,11 @@ RUN chmod +x /app/write-policy.sh
 
 # Create data directories and non-root user
 RUN mkdir -p /app/strfry-db /app/data && \
-    groupadd -g 1001 relay && useradd -u 1001 -g relay -s /bin/sh relay && \
+    addgroup -g 1001 relay && adduser -u 1001 -G relay -s /bin/sh -D relay && \
     chown -R relay:relay /app/strfry-db /app/data
 
 USER relay
 
 EXPOSE 7777
 
-CMD ["strfry", "relay", "--config=/etc/strfry.conf"]
+CMD ["/app/strfry", "relay", "--config=/etc/strfry.conf"]

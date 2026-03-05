@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { notifyProfileView } from '../services/notification.service';
+import { publishProfileUpdate } from '../services/nostr.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -37,6 +38,9 @@ export const updateProfileSchema = z.object({
     showExperience: z.boolean().optional(),
     showNostrFeed: z.boolean().optional(),
     nostrNpub: z.string().optional(),
+    // NIP-05 & Lightning
+    nip05Name: z.string().min(3).max(30).regex(/^[a-z0-9._-]+$/, 'Only lowercase letters, numbers, dots, hyphens, underscores').optional(),
+    lightningAddress: z.string().optional(),
     // Investor-specific
     investmentFocus: z.array(z.string()).optional(),
     investmentStage: z.array(z.string()).optional(),
@@ -230,11 +234,27 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
             'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
             'lookingFor', 'isPublic', 'nostrNpub', 'experience', 'biesProjects',
-            'showExperience', 'showNostrFeed',
+            'showExperience', 'showNostrFeed', 'nip05Name', 'lightningAddress',
         ];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
+        }
+
+        // NIP-05 name uniqueness check
+        if (data.nip05Name !== undefined) {
+            if (data.nip05Name === '') {
+                data.nip05Name = null;
+            } else {
+                data.nip05Name = data.nip05Name.toLowerCase().trim();
+                const existing = await prisma.profile.findFirst({
+                    where: { nip05Name: data.nip05Name, userId: { not: req.user!.id } },
+                });
+                if (existing) {
+                    res.status(409).json({ error: `NIP-05 name "${data.nip05Name}" is already taken` });
+                    return;
+                }
+            }
         }
 
         // Convert arrays/objects to JSON strings for SQLite
@@ -262,10 +282,48 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
         }
 
+        // Sync to Nostr Kind 0 if identity-related fields changed
+        if (req.body.nip05Name !== undefined || req.body.lightningAddress !== undefined || req.body.name !== undefined) {
+            const nip05 = profile.nip05Name ? `${profile.nip05Name}@bies.sovit.xyz` : '';
+            publishProfileUpdate(req.user!.id, {
+                name: profile.name || '',
+                about: profile.bio || '',
+                picture: profile.avatar || '',
+                website: profile.website || '',
+                nip05,
+                lud16: profile.lightningAddress || '',
+            }).catch((err) => console.error('[Nostr] Profile sync failed:', err));
+        }
+
         res.json(parsed);
     } catch (error) {
         console.error('Update profile error:', error);
         res.status(500).json({ error: 'Failed to update profile' });
+    }
+}
+
+/**
+ * GET /profiles/check-nip05?name=alice
+ * Check if a NIP-05 name is available.
+ */
+export async function checkNip05(req: Request, res: Response): Promise<void> {
+    try {
+        const name = (req.query.name as string || '').toLowerCase().trim();
+
+        if (!name || name.length < 3 || name.length > 30 || !/^[a-z0-9._-]+$/.test(name)) {
+            res.json({ available: false, reason: 'Invalid name format' });
+            return;
+        }
+
+        const existing = await prisma.profile.findFirst({
+            where: { nip05Name: name },
+            select: { id: true },
+        });
+
+        res.json({ available: !existing, name });
+    } catch (error) {
+        console.error('Check NIP-05 error:', error);
+        res.status(500).json({ error: 'Failed to check availability' });
     }
 }
 

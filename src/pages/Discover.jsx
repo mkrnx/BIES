@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { projectsApi, watchlistApi } from '../services/api';
+import ZapButton from '../components/ZapButton';
 
 const ProjectCard = ({ project }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
@@ -80,6 +81,12 @@ const ProjectCard = ({ project }) => {
             <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
           <button className="icon-btn btn-secondary-icon" title="Request Pitch Deck"><Download size={18} /></button>
+          {project.owner?.nostrPubkey && (
+            <ZapButton
+              recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '' }]}
+              size="sm"
+            />
+          )}
         </div>
       </div>
       <style jsx>{`

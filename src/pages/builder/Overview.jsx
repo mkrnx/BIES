@@ -1,10 +1,10 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send } from 'lucide-react';
+import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
-import { projectsApi, analyticsApi } from '../../services/api';
+import { projectsApi, analyticsApi, zapsApi } from '../../services/api';
 
 const ActionMenu = ({ project, onDelete, onSubmit }) => {
     const [open, setOpen] = useState(false);
@@ -60,6 +60,7 @@ const BuilderOverview = () => {
     const { user } = useAuth();
     const { data: projects, loading: projectsLoading, refetch } = useApiQuery(projectsApi.list, { ownerId: user?.id });
     const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.builderDashboard);
+    const [totalSatsReceived, setTotalSatsReceived] = useState(0);
 
     const projectList = projects?.data || projects || [];
     const totalRaised = stats?.totalRaised || 0;
@@ -68,10 +69,29 @@ const BuilderOverview = () => {
     const activeEnquiries = stats?.activeEnquiries || 0;
     const progressPct = totalGoal > 0 ? Math.round((totalRaised / totalGoal) * 100) : 0;
 
+    useEffect(() => {
+        if (projectList.length === 0) return;
+        let cancelled = false;
+        Promise.all(
+            projectList.map(p => zapsApi.projectZapStats(p.id).catch(() => null))
+        ).then(results => {
+            if (cancelled) return;
+            const total = results.reduce((sum, r) => sum + (r?.totalSats || 0), 0);
+            setTotalSatsReceived(total);
+        });
+        return () => { cancelled = true; };
+    }, [projectList.length]);
+
     const formatCurrency = (val) => {
         if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
         if (val >= 1000) return `$${(val / 1000).toFixed(0)}k`;
         return `$${val}`;
+    };
+
+    const formatSats = (val) => {
+        if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+        if (val >= 1000) return `${(val / 1000).toFixed(0)}k`;
+        return String(val);
     };
 
     const handleDelete = async (id, name) => {
@@ -138,6 +158,14 @@ const BuilderOverview = () => {
                     <div className="value-row">
                         <MessageSquare size={20} className="text-primary" />
                         <span className="value">{activeEnquiries}</span>
+                    </div>
+                </div>
+                <div className="stat-box">
+                    <span className="label">Sats Received</span>
+                    <div className="value-row">
+                        <Zap size={20} style={{ color: '#f7931a' }} />
+                        <span className="value">{formatSats(totalSatsReceived)}</span>
+                        <span style={{ fontSize: '0.85rem', color: 'var(--color-gray-400)' }}>sats</span>
                     </div>
                 </div>
             </div>
@@ -214,7 +242,7 @@ const BuilderOverview = () => {
         /* Stats */
         .stats-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 1.5rem;
           margin-bottom: 3rem;
         }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { profilesApi } from '../services/api';
+import ZapButton from '../components/ZapButton';
 
 const Investors = () => {
     const [profiles, setProfiles] = useState([]);
@@ -79,6 +80,14 @@ const Investors = () => {
                                             {(investor.tags || investor.interests).map((tag, i) => (
                                                 <span key={i} className="tag">{tag}</span>
                                             ))}
+                                        </div>
+                                    )}
+                                    {investor.user?.nostrPubkey && (
+                                        <div style={{ marginTop: '0.75rem' }}>
+                                            <ZapButton
+                                                recipients={[{ pubkey: investor.user.nostrPubkey, name: investor.name, avatar: investor.avatar }]}
+                                                size="sm"
+                                            />
                                         </div>
                                     )}
                                 </div>
