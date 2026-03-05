@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers } from 'lucide-react';
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
+import ZapButton from '../components/ZapButton';
 
 const ProjectDetails = () => {
     const { id } = useParams();
@@ -220,7 +221,21 @@ const ProjectDetails = () => {
 
                     {/* Core Team */}
                     <div className="pd-card pd-team">
-                        <h3>Core Team</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                            <h3 style={{ margin: 0 }}>Core Team</h3>
+                            <ZapButton
+                                recipients={[
+                                    ...(project.owner?.nostrPubkey ? [{ pubkey: project.owner.nostrPubkey, name: ownerName, avatar: ownerAvatar }] : []),
+                                    ...teamMembers.filter(tm => tm.user?.nostrPubkey).map(tm => ({
+                                        pubkey: tm.user.nostrPubkey,
+                                        name: tm.user?.profile?.name || 'Team Member',
+                                        avatar: tm.user?.profile?.avatar || '',
+                                    })),
+                                ]}
+                                label={teamMembers.filter(tm => tm.user?.nostrPubkey).length > 0 ? 'Zap Team' : 'Zap'}
+                                size="sm"
+                            />
+                        </div>
                         <div className="pd-team-founder">
                             <div className="pd-avatar">
                                 {ownerAvatar ? (

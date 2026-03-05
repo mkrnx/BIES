@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { contentApi } from '../services/api';
+import ZapButton from '../components/ZapButton';
 
 const ArticleDetail = () => {
     const { slug } = useParams();
@@ -82,6 +83,12 @@ const ArticleDetail = () => {
                         <span className="meta-item">
                             <Calendar size={14} /> {formatDate(article.date || article.createdAt)}
                         </span>
+                        {article.author?.nostrPubkey && (
+                            <ZapButton
+                                recipients={[{ pubkey: article.author.nostrPubkey, name: article.author.name || article.author, avatar: '' }]}
+                                size="sm"
+                            />
+                        )}
                     </div>
 
                     <div className="article-body" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(article.content || article.body || '') }} />
