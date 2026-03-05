@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { generateSecretKey, getPublicKey, nip19 } from 'nostr-tools';
+import { getPublicKey, nip19 } from 'nostr-tools';
+import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
@@ -12,18 +13,19 @@ const Signup = () => {
 
     // Steps: 0 = Intro, 1 = Key Gen, 2 = Backup, 3 = Profile
     const [step, setStep] = useState(0);
-    const [keys, setKeys] = useState(null); // { nsec, npub, sk, pk }
+    const [keys, setKeys] = useState(null); // { nsec, npub, sk, pk, mnemonic }
     const [profile, setProfile] = useState({ name: '', role: 'investor' });
     const [copied, setCopied] = useState(false);
 
     const generateKeys = () => {
-        const sk = generateSecretKey(); // Returns Uint8Array
+        const mnemonic = generateSeedWords();
+        const sk = privateKeyFromSeedWords(mnemonic);
         const pk = getPublicKey(sk);
 
         const nsec = nip19.nsecEncode(sk);
         const npub = nip19.npubEncode(pk);
 
-        setKeys({ sk, pk, nsec, npub });
+        setKeys({ sk, pk, nsec, npub, mnemonic });
         setStep(1);
     };
 
@@ -31,6 +33,18 @@ const Signup = () => {
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const downloadKeys = () => {
+        if (!keys) return;
+        const content = `BIES Nostr Keys\n===============\n\nPublic Key (npub) — safe to share:\n${keys.npub}\n\nSecret Key (nsec) — KEEP THIS PRIVATE:\n${keys.nsec}\n\nSeed Phrase (12 words) — KEEP THIS PRIVATE:\n${keys.mnemonic}\n`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'bies-nostr-keys.txt';
+        a.click();
+        URL.revokeObjectURL(url);
     };
 
     const handleBackupConfirm = () => {
@@ -118,7 +132,7 @@ const Signup = () => {
                             </div>
                         </div>
 
-                        <div className="key-box mb-6">
+                        <div className="key-box mb-4">
                             <div className="flex justify-between items-center mb-1">
                                 <span className="text-xs font-bold text-red-400">SECRET KEY (Keep Safe!)</span>
                                 <button onClick={() => copyToClipboard(keys.nsec)} className="text-blue-500 text-xs">
@@ -130,8 +144,27 @@ const Signup = () => {
                             </div>
                         </div>
 
+                        <div className="key-box mb-6">
+                            <div className="flex justify-between items-center mb-1">
+                                <span className="text-xs font-bold text-red-400">SEED PHRASE (Keep Safe!)</span>
+                                <button onClick={() => copyToClipboard(keys.mnemonic)} className="text-blue-500 text-xs">
+                                    {copied ? 'Copied' : 'Copy'}
+                                </button>
+                            </div>
+                            <div className="bg-red-50 p-3 rounded text-sm font-mono border border-red-100 text-red-600 leading-relaxed">
+                                {keys.mnemonic.split(' ').map((word, i) => (
+                                    <span key={i} className="inline-block mr-2 mb-1">
+                                        <span className="text-red-300 text-xs">{i + 1}.</span> {word}
+                                    </span>
+                                ))}
+                            </div>
+                            <p className="text-xs text-gray-400 mt-1">
+                                You can use this seed phrase instead of the nsec to log in.
+                            </p>
+                        </div>
+
                         <div className="flex gap-3">
-                            <button className="flex-1 btn-outline flex items-center justify-center gap-2">
+                            <button onClick={downloadKeys} className="flex-1 btn-outline flex items-center justify-center gap-2">
                                 <Download size={16} /> Save File
                             </button>
                             <button onClick={handleBackupConfirm} className="flex-1 btn-primary">
