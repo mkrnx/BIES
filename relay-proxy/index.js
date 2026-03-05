@@ -7,7 +7,7 @@ const { verifyEvent } = require('nostr-tools/pure');
 const LISTEN_PORT    = parseInt(process.env.PROXY_PORT || '7778', 10);
 const UPSTREAM_URL   = process.env.UPSTREAM_RELAY || 'ws://bies-relay:7777';
 const WHITELIST_PATH = process.env.WHITELIST_PATH || '/app/data/whitelist.txt';
-const RELAY_URL      = process.env.RELAY_URL || 'wss://bies.sovit.xyz/relay';
+const RELAY_URL      = process.env.RELAY_URL || 'wss://sovit.xyz/biestest/relay';
 const AUTH_TIMEOUT   = parseInt(process.env.AUTH_TIMEOUT_MS || '30000', 10);
 
 // ─── Whitelist check ─────────────────────────────────────────────────────────

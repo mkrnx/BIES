@@ -10,7 +10,7 @@ services:
       PORT: "3001"
       DATABASE_URL: "file:../data/bies.db"
       NOSTR_PRIVATE_RELAY: "ws://bies-relay:7777"
-      CORS_ORIGIN: "https://bies.sovit.xyz"
+      CORS_ORIGIN: "https://sovit.xyz/biestest"
     volumes:
       - bies-data:/app/data
       - bies-uploads:/app/uploads
@@ -50,7 +50,7 @@ services:
       PROXY_PORT: "7778"
       UPSTREAM_RELAY: "ws://bies-relay:7777"
       WHITELIST_PATH: "/app/data/whitelist.txt"
-      RELAY_URL: "wss://bies.sovit.xyz/relay"
+      RELAY_URL: "wss://sovit.xyz/biestest/relay"
       AUTH_TIMEOUT_MS: "30000"
     volumes:
       - relay-whitelist:/app/data:ro
