@@ -3,15 +3,24 @@
  * and stores zap receipts in the database, updating project funding totals.
  */
 
-import { SimplePool } from 'nostr-tools/pool';
+// nostr-tools is ESM-only (@noble/curves has no CJS build);
+// use dynamic import() so the compiled CJS output doesn't call require().
 import type { Filter } from 'nostr-tools/filter';
 import type { Event } from 'nostr-tools/pure';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { notifyZapReceived } from './notification.service';
 
-const pool = new SimplePool();
-let activeSub: ReturnType<SimplePool['subscribeMany']> | null = null;
+let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
+async function getPool() {
+    if (!_pool) {
+        const { SimplePool } = await import('nostr-tools/pool');
+        _pool = new SimplePool();
+    }
+    return _pool;
+}
+
+let activeSub: { close: () => void } | null = null;
 let trackedPubkeys: Set<string> = new Set();
 
 /**
@@ -87,7 +96,7 @@ export async function getProjectZapTotal(projectId: string): Promise<{
 
 // ─── Internal ────────────────────────────────────────────────────────────────
 
-function subscribe(): void {
+async function subscribe(): Promise<void> {
     const pubkeys = Array.from(trackedPubkeys);
 
     const filter: Filter = {
@@ -96,6 +105,7 @@ function subscribe(): void {
         since: Math.floor(Date.now() / 1000) - 86400, // last 24h on first connect
     };
 
+    const pool = await getPool();
     activeSub = pool.subscribeMany(config.nostrRelays, filter, {
         onevent: (event: Event) => {
             processZapReceipt(event).catch((err) =>
