@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { publishProject } from '../services/nostr.service';
+import { publishProject, publishProjectListing } from '../services/nostr.service';
 import { getPresignedUrl } from '../services/storage.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { notifyProjectUpdate, notifyDeckRequest, notifyDeckApproved, notifyDeckDenied } from '../services/notification.service';
@@ -230,19 +230,31 @@ export async function createProject(req: Request, res: Response): Promise<void> 
 
         await cache.delPattern('projects:');
 
-        // Publish to Nostr and store the event ID
-        publishProject(req.user!.id, {
+        // Publish to Nostr and store the event IDs
+        const nostrPayload = {
             id: project.id,
             title: project.title,
             description: project.description,
             category: project.category,
             stage: project.stage,
             thumbnail: project.thumbnail,
-        }).then(async (eventId) => {
+        };
+
+        publishProject(req.user!.id, nostrPayload).then(async (eventId) => {
             if (eventId) {
                 await prisma.project.update({ where: { id: project.id }, data: { nostrEventId: eventId } });
             }
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
+
+        // Publish NIP-99 classified listing (kind:30402)
+        publishProjectListing(req.user!.id, {
+            ...nostrPayload,
+            fundingGoal: project.fundingGoal,
+        }).then(async (listingEventId) => {
+            if (listingEventId) {
+                await prisma.project.update({ where: { id: project.id }, data: { nostrListingEventId: listingEventId } });
+            }
+        }).catch((err) => console.error('[Nostr] Project listing sync failed:', err));
 
         res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
     } catch (error) {
@@ -287,19 +299,31 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             cache.delPattern('projects:'),
         ]);
 
-        // Publish to Nostr and store the event ID
-        publishProject(req.user!.id, {
+        // Publish to Nostr and store the event IDs
+        const nostrPayload = {
             id: project.id,
             title: project.title,
             description: project.description,
             category: project.category,
             stage: project.stage,
             thumbnail: project.thumbnail,
-        }).then(async (eventId) => {
+        };
+
+        publishProject(req.user!.id, nostrPayload).then(async (eventId) => {
             if (eventId) {
                 await prisma.project.update({ where: { id: project.id }, data: { nostrEventId: eventId } });
             }
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
+
+        // Publish NIP-99 classified listing (kind:30402)
+        publishProjectListing(req.user!.id, {
+            ...nostrPayload,
+            fundingGoal: project.fundingGoal,
+        }).then(async (listingEventId) => {
+            if (listingEventId) {
+                await prisma.project.update({ where: { id: project.id }, data: { nostrListingEventId: listingEventId } });
+            }
+        }).catch((err) => console.error('[Nostr] Project listing sync failed:', err));
 
         res.json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
     } catch (error) {

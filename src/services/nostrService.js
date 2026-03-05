@@ -361,6 +361,74 @@ class NostrService {
         }
     }
 
+    /**
+     * Publish a NIP-99 classified listing (kind:30402) for a project.
+     * For Nostr-native users — signs via browser extension.
+     */
+    async publishProjectListing(project) {
+        if (!window.nostr) {
+            throw new Error('Nostr extension required to publish listings');
+        }
+
+        const pubkey = await window.nostr.getPublicKey();
+        const tags = [
+            ['d', project.id],
+            ['title', project.title],
+            ['summary', (project.description || '').substring(0, 200)],
+            ['t', (project.category || 'other').toLowerCase()],
+            ['t', (project.stage || 'idea').toLowerCase()],
+            ['t', 'bies'],
+            ['t', 'investment'],
+        ];
+
+        if (project.fundingGoal) {
+            tags.push(['price', String(project.fundingGoal), 'USD']);
+        }
+        if (project.thumbnail) {
+            tags.push(['image', project.thumbnail]);
+        }
+        if (project.location) {
+            tags.push(['location', project.location]);
+        }
+
+        const event = {
+            kind: 30402,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: project.description || '',
+        };
+
+        return this.publishEvent(event);
+    }
+
+    /**
+     * Publish a NIP-65 relay list metadata event (kind:10002).
+     * For Nostr-native users — signs via browser extension.
+     * Tags BIES relay as write, public relays as read.
+     */
+    async publishRelayList() {
+        if (!window.nostr) {
+            throw new Error('Nostr extension required to publish relay list');
+        }
+
+        const pubkey = await window.nostr.getPublicKey();
+        const tags = [
+            ['r', this.biesRelay, 'write'],
+            ...this.publicRelays.map(relay => ['r', relay, 'read']),
+        ];
+
+        const event = {
+            kind: 10002,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: '',
+        };
+
+        return this.publishEvent(event);
+    }
+
     async sendDM(recipientPubkey, content) {
         // Use NIP-17 by default
         return this.sendNip17DM(recipientPubkey, content);

@@ -124,6 +124,84 @@ export async function publishProject(
 }
 
 /**
+ * Publish a project as a NIP-99 classified listing (Kind 30402).
+ * Discoverable in Nostr clients with marketplace/classified support.
+ */
+export async function publishProjectListing(
+    userId: string,
+    project: {
+        id: string;
+        title: string;
+        description: string;
+        category: string;
+        stage: string;
+        fundingGoal?: number | null;
+        thumbnail?: string;
+        location?: string;
+    }
+): Promise<string | null> {
+    const tags: string[][] = [
+        ['d', project.id],
+        ['title', project.title],
+        ['summary', project.description.substring(0, 200)],
+        ['t', project.category.toLowerCase()],
+        ['t', project.stage.toLowerCase()],
+        ['t', 'bies'],
+        ['t', 'investment'],
+    ];
+
+    if (project.fundingGoal) {
+        tags.push(['price', String(project.fundingGoal), 'USD']);
+    }
+    if (project.thumbnail) {
+        tags.push(['image', project.thumbnail]);
+    }
+    if (project.location) {
+        tags.push(['location', project.location]);
+    }
+
+    const event: EventTemplate = {
+        kind: 30402,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: project.description,
+    };
+
+    return publishEvent(userId, event);
+}
+
+/**
+ * Publish a NIP-65 relay list metadata event (Kind 10002).
+ * Tags BIES relay as write, public relays as read.
+ */
+export async function publishRelayList(userId: string): Promise<string | null> {
+    const biesRelay = config.nostrRelays[0] || 'wss://relay.bies.sovit.xyz';
+
+    const tags: string[][] = [
+        ['r', biesRelay, 'write'],
+    ];
+
+    // Add public relays as read
+    const publicRelays = [
+        'wss://relay.damus.io',
+        'wss://relay.primal.net',
+        'wss://nos.lol',
+    ];
+    for (const relay of publicRelays) {
+        tags.push(['r', relay, 'read']);
+    }
+
+    const event: EventTemplate = {
+        kind: 10002,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: '',
+    };
+
+    return publishEvent(userId, event);
+}
+
+/**
  * Convert hex string to Uint8Array
  */
 function hexToBytes(hex: string): Uint8Array {
