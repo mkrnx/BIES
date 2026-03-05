@@ -116,6 +116,26 @@ export const AuthProvider = ({ children }) => {
         return { ...result, needsProfileSetup: isNew };
     };
 
+    const loginWithPasskey = async () => {
+        try {
+            const user = await authService.loginWithPasskey();
+            setUser(user);
+            initWebSocket(user);
+            return { success: true, user };
+        } catch (error) {
+            if (error.cancelled) return { success: false, cancelled: true };
+            return { success: false, error: error.message };
+        }
+    };
+
+    const loginWithPasskeyAndCheckNew = async () => {
+        const result = await loginWithPasskey();
+        if (!result.success) return result;
+
+        const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        return { ...result, needsProfileSetup: isNew };
+    };
+
     const loginWithEmail = async (email, password) => {
         try {
             const user = await authService.loginWithEmail(email, password);
@@ -201,6 +221,8 @@ export const AuthProvider = ({ children }) => {
             loginWithNsecAndCheckNew,
             loginWithSeedPhrase,
             loginWithSeedPhraseAndCheckNew,
+            loginWithPasskey,
+            loginWithPasskeyAndCheckNew,
             loginWithEmail,
             signup,
             logout,

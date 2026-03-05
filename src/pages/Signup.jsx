@@ -3,7 +3,8 @@ import { getPublicKey, nip19 } from 'nostr-tools';
 import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle } from 'lucide-react';
+import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2 } from 'lucide-react';
+import { passkeyService } from '../services/passkeyService';
 
 const Signup = () => {
     const { loginWithNostr, updateRole } = useAuth();
@@ -16,6 +17,8 @@ const Signup = () => {
     const [keys, setKeys] = useState(null); // { nsec, npub, sk, pk, mnemonic }
     const [profile, setProfile] = useState({ name: '', role: 'investor' });
     const [copied, setCopied] = useState(false);
+    const [savingPasskey, setSavingPasskey] = useState(false);
+    const [passkeySaved, setPasskeySaved] = useState(false);
 
     const generateKeys = () => {
         const mnemonic = generateSeedWords();
@@ -49,6 +52,22 @@ const Signup = () => {
 
     const handleBackupConfirm = () => {
         setStep(2);
+    };
+
+    const handleSavePasskey = async () => {
+        if (!keys) return;
+        setSavingPasskey(true);
+        setError('');
+        try {
+            await passkeyService.saveWithPasskey(keys.nsec, keys.pk);
+            setPasskeySaved(true);
+        } catch (err) {
+            if (!err.cancelled) {
+                setError(err.message || 'Failed to save passkey.');
+            }
+        } finally {
+            setSavingPasskey(false);
+        }
     };
 
     const handleProfileSubmit = async (e) => {
@@ -167,10 +186,25 @@ const Signup = () => {
                             <button onClick={downloadKeys} className="flex-1 btn-outline flex items-center justify-center gap-2">
                                 <Download size={16} /> Save File
                             </button>
-                            <button onClick={handleBackupConfirm} className="flex-1 btn-primary">
-                                I've Saved It
-                            </button>
+                            {passkeyService.isSupported() && (
+                                <button
+                                    onClick={handleSavePasskey}
+                                    disabled={savingPasskey || passkeySaved}
+                                    className="flex-1 btn-outline flex items-center justify-center gap-2"
+                                >
+                                    {passkeySaved ? (
+                                        <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Saved</>
+                                    ) : savingPasskey ? (
+                                        <><Loader2 size={16} className="spin" /> Saving...</>
+                                    ) : (
+                                        <><Fingerprint size={16} /> Passkey</>
+                                    )}
+                                </button>
+                            )}
                         </div>
+                        <button onClick={handleBackupConfirm} className="w-full btn-primary mt-3 py-3 rounded-full">
+                            I've Saved My Keys
+                        </button>
                     </div>
                 )}
 
@@ -302,6 +336,13 @@ const Signup = () => {
                 .role-card.active {
                     border-color: var(--color-primary);
                     background: #eff6ff;
+                }
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
         </div>

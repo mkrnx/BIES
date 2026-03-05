@@ -165,6 +165,19 @@ export const authService = {
         return user;
     },
 
+    // ─── Passkey login ──────────────────────────────────────────────────────
+
+    /**
+     * Login using a saved passkey.
+     * Decrypts the stored nsec via WebAuthn PRF, then does the same
+     * challenge-response flow as nsec login.
+     */
+    loginWithPasskey: async () => {
+        const { passkeyService } = await import('./passkeyService.js');
+        const nsec = await passkeyService.loginWithPasskey();
+        return authService.loginWithNsec(nsec);
+    },
+
     // ─── Email/password login ───────────────────────────────────────────────
 
     loginWithEmail: async (email, password) => {

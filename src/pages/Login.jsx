@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText, Upload } from 'lucide-react';
+import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
+import { privateKeyFromSeedWords } from 'nostr-tools/nip06';
+import { passkeyService } from '../services/passkeyService';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
-    const { loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew } = useAuth();
+    const { loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -17,6 +20,14 @@ const Login = () => {
     const [hasNostrExtension, setHasNostrExtension] = useState(
         typeof window !== 'undefined' && !!window.nostr
     );
+
+    // Passkey state
+    const [hasPasskey] = useState(() => passkeyService.isSupported() && passkeyService.hasCredential());
+    const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+    const [pendingNsec, setPendingNsec] = useState(null);
+    const [pendingRedirect, setPendingRedirect] = useState(null);
+    const [savingPasskey, setSavingPasskey] = useState(false);
+    const [passkeyUser, setPasskeyUser] = useState(null);
 
     useEffect(() => {
         if (hasNostrExtension) return;
@@ -36,12 +47,19 @@ const Login = () => {
         };
     }, [hasNostrExtension]);
 
-    const handleResult = (result) => {
+    const handleResult = (result, nsec) => {
         if (result.success) {
-            if (result.needsProfileSetup) {
-                navigate('/profile-setup');
+            const target = result.needsProfileSetup ? '/profile-setup' : '/dashboard';
+
+            // Offer passkey save if: we have the nsec, passkeys are supported,
+            // and user doesn't already have one for this account
+            if (nsec && passkeyService.isSupported() && !passkeyService.hasCredential(result.user?.nostrPubkey)) {
+                setPendingNsec(nsec);
+                setPendingRedirect(target);
+                setPasskeyUser(result.user);
+                setShowPasskeyPrompt(true);
             } else {
-                navigate('/dashboard');
+                navigate(target);
             }
         } else {
             setError(result.error || 'Login failed. Please try again.');
@@ -61,6 +79,20 @@ const Login = () => {
         }
     };
 
+    const handlePasskeyLogin = async () => {
+        setError('');
+        setLoading(true);
+        try {
+            const result = await loginWithPasskeyAndCheckNew();
+            if (result.cancelled) return;
+            handleResult(result);
+        } catch (err) {
+            setError(err.message || 'Passkey login failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleNsecLogin = async (e) => {
         e.preventDefault();
         if (!nsecInput.trim()) return;
@@ -69,7 +101,7 @@ const Login = () => {
         setLoading(true);
         try {
             const result = await loginWithNsecAndCheckNew(nsecInput);
-            handleResult(result);
+            handleResult(result, nsecInput.trim());
         } catch (err) {
             setError(err.message || 'Invalid nsec key or login failed.');
         } finally {
@@ -84,8 +116,12 @@ const Login = () => {
         setError('');
         setLoading(true);
         try {
+            // Derive nsec from seed for potential passkey save
+            const sk = privateKeyFromSeedWords(seedInput.trim().toLowerCase());
+            const nsec = nip19.nsecEncode(sk);
+
             const result = await loginWithSeedPhraseAndCheckNew(seedInput);
-            handleResult(result);
+            handleResult(result, nsec);
         } catch (err) {
             setError(err.message || 'Invalid seed phrase or login failed.');
         } finally {
@@ -105,8 +141,9 @@ const Login = () => {
             }
             setKeyFileName(file.name);
             setLoading(true);
-            const result = await loginWithNsecAndCheckNew(nsecMatch[0]);
-            handleResult(result);
+            const nsec = nsecMatch[0];
+            const result = await loginWithNsecAndCheckNew(nsec);
+            handleResult(result, nsec);
         } catch (err) {
             setError(err.message || 'Failed to read key file.');
         } finally {
@@ -114,6 +151,149 @@ const Login = () => {
         }
     };
 
+    const handleSavePasskey = async () => {
+        setSavingPasskey(true);
+        setError('');
+        try {
+            await passkeyService.saveWithPasskey(pendingNsec, passkeyUser?.nostrPubkey);
+            navigate(pendingRedirect);
+        } catch (err) {
+            if (err.cancelled) return;
+            setError(err.message || 'Failed to save passkey.');
+        } finally {
+            setSavingPasskey(false);
+        }
+    };
+
+    const handleSkipPasskey = () => {
+        navigate(pendingRedirect);
+    };
+
+    // ─── Passkey save prompt (shown after successful nsec/seed/file login) ───
+    if (showPasskeyPrompt) {
+        return (
+            <div className="login-container">
+                <div className="login-card">
+                    <div className="passkey-prompt-icon">
+                        <Fingerprint size={40} />
+                    </div>
+
+                    <h2 className="text-xl font-bold mb-2">Save with Passkey?</h2>
+                    <p className="text-gray-500 mb-6 text-center text-sm">
+                        Use your fingerprint or device PIN to securely save your key for faster login next time.
+                    </p>
+
+                    {error && (
+                        <div className="error-banner">
+                            <AlertCircle size={16} />
+                            <span>{error}</span>
+                        </div>
+                    )}
+
+                    <div className="flex gap-3 w-full">
+                        <button
+                            onClick={handleSavePasskey}
+                            disabled={savingPasskey}
+                            className="flex-1 btn-login flex items-center justify-center gap-2 py-3 rounded-full"
+                        >
+                            {savingPasskey ? (
+                                <Loader2 size={18} className="spin" />
+                            ) : (
+                                <Fingerprint size={18} />
+                            )}
+                            <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
+                        </button>
+                        <button
+                            onClick={handleSkipPasskey}
+                            disabled={savingPasskey}
+                            className="flex-1 btn-skip flex items-center justify-center py-3 rounded-full"
+                        >
+                            Skip
+                        </button>
+                    </div>
+
+                    <p className="text-xs text-gray-400 mt-4 text-center">
+                        Your key is encrypted on this device only.
+                        <br />No data is sent to any server.
+                    </p>
+                </div>
+
+                <style jsx>{`
+                    .login-container {
+                        min-height: 100vh;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: var(--color-gray-50);
+                    }
+                    .login-card {
+                        background: white;
+                        padding: 3rem;
+                        border-radius: var(--radius-xl);
+                        box-shadow: var(--shadow-lg);
+                        width: 100%;
+                        max-width: 450px;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
+                    .passkey-prompt-icon {
+                        width: 72px;
+                        height: 72px;
+                        border-radius: 50%;
+                        background: #eff6ff;
+                        color: var(--color-primary);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        margin-bottom: 1.5rem;
+                    }
+                    .btn-login {
+                        background: var(--color-primary);
+                        color: white;
+                        font-weight: 600;
+                        transition: opacity 0.2s;
+                        border: none;
+                        cursor: pointer;
+                    }
+                    .btn-login:hover { opacity: 0.9; }
+                    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
+                    .btn-skip {
+                        background: transparent;
+                        border: 1px solid #e5e7eb;
+                        color: #6b7280;
+                        font-weight: 500;
+                        cursor: pointer;
+                        transition: all 0.2s;
+                    }
+                    .btn-skip:hover { background: #f9fafb; }
+                    .btn-skip:disabled { opacity: 0.6; cursor: not-allowed; }
+                    .error-banner {
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        background: #FEF2F2;
+                        color: var(--color-error);
+                        padding: 0.75rem 1rem;
+                        border-radius: var(--radius-md);
+                        font-size: 0.875rem;
+                        width: 100%;
+                        margin-bottom: 1rem;
+                        border: 1px solid #FECACA;
+                    }
+                    .spin {
+                        animation: spin 1s linear infinite;
+                    }
+                    @keyframes spin {
+                        from { transform: rotate(0deg); }
+                        to { transform: rotate(360deg); }
+                    }
+                `}</style>
+            </div>
+        );
+    }
+
+    // ─── Main login form ─────────────────────────────────────────────────────
     return (
         <div className="login-container">
             <div className="login-card">
@@ -135,21 +315,39 @@ const Login = () => {
 
                 {/* Login with Extension — first when detected */}
                 {hasNostrExtension && (
-                    <>
-                        <button
-                            onClick={handleExtensionLogin}
-                            disabled={loading}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
-                        >
-                            {loading && !nsecInput.trim() ? (
-                                <Loader2 size={20} className="spin" />
-                            ) : (
-                                <Globe size={20} />
-                            )}
-                            <span>{loading && !nsecInput.trim() ? 'Connecting...' : 'Login with Extension'}</span>
-                        </button>
-                        <div className="divider"><span>or</span></div>
-                    </>
+                    <button
+                        onClick={handleExtensionLogin}
+                        disabled={loading}
+                        className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                    >
+                        {loading && !nsecInput.trim() && !showPasskeyPrompt ? (
+                            <Loader2 size={20} className="spin" />
+                        ) : (
+                            <Globe size={20} />
+                        )}
+                        <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
+                    </button>
+                )}
+
+                {/* Login with Passkey — shown when saved passkeys exist */}
+                {hasPasskey && (
+                    <button
+                        onClick={handlePasskeyLogin}
+                        disabled={loading}
+                        className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                    >
+                        {loading ? (
+                            <Loader2 size={20} className="spin" />
+                        ) : (
+                            <Fingerprint size={20} />
+                        )}
+                        <span>Login with Passkey</span>
+                    </button>
+                )}
+
+                {/* Divider between quick methods and manual methods */}
+                {(hasNostrExtension || hasPasskey) && (
+                    <div className="divider"><span>or</span></div>
                 )}
 
                 {/* Login mode tabs */}
@@ -337,6 +535,21 @@ const Login = () => {
                     opacity: 0.9;
                 }
                 .btn-login:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+                .btn-passkey {
+                    background: #1e1b4b;
+                    color: white;
+                    font-weight: 600;
+                    transition: opacity 0.2s;
+                    border: none;
+                    cursor: pointer;
+                }
+                .btn-passkey:hover {
+                    opacity: 0.9;
+                }
+                .btn-passkey:disabled {
                     opacity: 0.6;
                     cursor: not-allowed;
                 }
