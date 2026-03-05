@@ -313,36 +313,38 @@ const Login = () => {
                     </div>
                 )}
 
-                {/* Login with Extension — first when detected */}
-                {hasNostrExtension && (
-                    <button
-                        onClick={handleExtensionLogin}
-                        disabled={loading}
-                        className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
-                    >
-                        {loading && !nsecInput.trim() && !showPasskeyPrompt ? (
-                            <Loader2 size={20} className="spin" />
-                        ) : (
-                            <Globe size={20} />
+                {/* Quick login methods */}
+                {(hasNostrExtension || hasPasskey) && (
+                    <div className="quick-login-buttons">
+                        {hasNostrExtension && (
+                            <button
+                                onClick={handleExtensionLogin}
+                                disabled={loading}
+                                className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
+                            >
+                                {loading && !nsecInput.trim() && !showPasskeyPrompt ? (
+                                    <Loader2 size={20} className="spin" />
+                                ) : (
+                                    <Globe size={20} />
+                                )}
+                                <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
+                            </button>
                         )}
-                        <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
-                    </button>
-                )}
-
-                {/* Login with Passkey — shown when saved passkeys exist */}
-                {hasPasskey && (
-                    <button
-                        onClick={handlePasskeyLogin}
-                        disabled={loading}
-                        className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full mb-3"
-                    >
-                        {loading ? (
-                            <Loader2 size={20} className="spin" />
-                        ) : (
-                            <Fingerprint size={20} />
+                        {hasPasskey && (
+                            <button
+                                onClick={handlePasskeyLogin}
+                                disabled={loading}
+                                className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full"
+                            >
+                                {loading ? (
+                                    <Loader2 size={20} className="spin" />
+                                ) : (
+                                    <Fingerprint size={20} />
+                                )}
+                                <span>Login with Passkey</span>
+                            </button>
                         )}
-                        <span>Login with Passkey</span>
-                    </button>
+                    </div>
                 )}
 
                 {/* Divider between quick methods and manual methods */}
@@ -374,8 +376,8 @@ const Login = () => {
 
                 {/* Login with nsec */}
                 {loginMode === 'nsec' && (
-                    <form onSubmit={handleNsecLogin} className="w-full">
-                        <div className="key-input-wrapper mb-5">
+                    <form onSubmit={handleNsecLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="key-input-wrapper">
                             <Key size={16} className="key-input-icon" />
                             <input
                                 type="password"
@@ -389,7 +391,7 @@ const Login = () => {
                         <button
                             type="submit"
                             disabled={loading || !nsecInput.trim()}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
                         >
                             {loading && nsecInput.trim() ? (
                                 <Loader2 size={20} className="spin" />
@@ -403,19 +405,19 @@ const Login = () => {
 
                 {/* Login with seed phrase */}
                 {loginMode === 'seed' && (
-                    <form onSubmit={handleSeedLogin} className="w-full">
+                    <form onSubmit={handleSeedLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <textarea
                             placeholder="Enter your 12 or 24 word seed phrase..."
                             value={seedInput}
                             onChange={(e) => setSeedInput(e.target.value)}
-                            className="seed-input mb-3"
+                            className="seed-input"
                             autoComplete="off"
                             rows={3}
                         />
                         <button
                             type="submit"
                             disabled={loading || !seedInput.trim()}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full mb-3"
+                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
                         >
                             {loading && seedInput.trim() ? (
                                 <Loader2 size={20} className="spin" />
@@ -533,6 +535,12 @@ const Login = () => {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
+                }
+                .quick-login-buttons {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                    width: 100%;
                 }
                 .btn-login {
                     background: var(--color-primary);
