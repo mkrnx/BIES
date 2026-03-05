@@ -2,10 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield } from 'lucide-react';
 import { adminApi } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 const ROLE_OPTIONS = ['', 'BUILDER', 'INVESTOR', 'ADMIN'];
 
 const AdminUsers = () => {
+    const { isMasterAdmin } = useAuth();
     const [roleFilter, setRoleFilter] = useState('');
     const [bannedFilter, setBannedFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -154,12 +156,14 @@ const AdminUsers = () => {
                                         <select
                                             value={u.role}
                                             onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                            disabled={actionLoading === u.id}
+                                            disabled={actionLoading === u.id || (u.role === 'ADMIN' && !isMasterAdmin)}
                                             className="role-select"
+                                            title={u.role === 'ADMIN' && !isMasterAdmin ? 'Only master admins can change admin roles' : ''}
                                         >
                                             <option value="BUILDER">BUILDER</option>
                                             <option value="INVESTOR">INVESTOR</option>
-                                            <option value="ADMIN">ADMIN</option>
+                                            {isMasterAdmin && <option value="ADMIN">ADMIN</option>}
+                                            {!isMasterAdmin && u.role === 'ADMIN' && <option value="ADMIN">ADMIN</option>}
                                         </select>
                                     </td>
                                     <td>{u._count?.projects || 0}</td>
@@ -188,8 +192,8 @@ const AdminUsers = () => {
                                             <button
                                                 className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
                                                 onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
-                                                title={u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
-                                                disabled={actionLoading === u.id}
+                                                title={u.role === 'ADMIN' && !isMasterAdmin ? 'Only master admins can ban other admins' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
+                                                disabled={actionLoading === u.id || (u.role === 'ADMIN' && !isMasterAdmin)}
                                             >
                                                 <Ban size={16} />
                                             </button>

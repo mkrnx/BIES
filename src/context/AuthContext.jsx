@@ -210,6 +210,7 @@ export const AuthProvider = ({ children }) => {
             isBuilder: user?.role === 'BUILDER',
             isInvestor: user?.role === 'INVESTOR',
             isAdmin: user?.role === 'ADMIN',
+            isMasterAdmin: !!user?.isMasterAdmin,
         }}>
             {children}
         </AuthContext.Provider>

@@ -8,6 +8,7 @@ import prisma from '../lib/prisma';
 import { cache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
+import { isMasterAdmin } from '../middleware/auth';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -68,6 +69,15 @@ export async function banUser(req: Request, res: Response): Promise<void> {
             res.status(400).json({ error: '"banned" must be a boolean' }); return;
         }
 
+        // Check if target is an admin — only master admins can ban other admins
+        const targetUser = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { role: true },
+        });
+        if (targetUser?.role === 'ADMIN' && !isMasterAdmin(req.user!.nostrPubkey)) {
+            res.status(403).json({ error: 'Only master admins can ban other admins' }); return;
+        }
+
         const user = await prisma.user.update({
             where: { id: req.params.id },
             data: { isBanned: banned },
@@ -107,6 +117,15 @@ export async function setUserRole(req: Request, res: Response): Promise<void> {
         const { role } = req.body;
         if (!['BUILDER', 'INVESTOR', 'ADMIN'].includes(role)) {
             res.status(400).json({ error: 'Invalid role' }); return;
+        }
+
+        // Only master admins can promote to ADMIN or demote from ADMIN
+        const targetUser = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { role: true },
+        });
+        if ((role === 'ADMIN' || targetUser?.role === 'ADMIN') && !isMasterAdmin(req.user!.nostrPubkey)) {
+            res.status(403).json({ error: 'Only master admins can promote or demote admins' }); return;
         }
 
         const user = await prisma.user.update({

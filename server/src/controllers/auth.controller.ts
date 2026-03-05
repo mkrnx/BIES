@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
 // use dynamic import() so the compiled CJS output doesn't call require().
 import prisma from '../lib/prisma';
-import { generateToken } from '../middleware/auth';
+import { generateToken, isMasterAdmin } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
 import { publishRelayList } from '../services/nostr.service';
 import { cache } from '../services/redis.service';
@@ -420,6 +420,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             email: user.email,
             nostrPubkey: user.nostrPubkey,
             role: user.role,
+            isMasterAdmin: user.role === 'ADMIN' && isMasterAdmin(user.nostrPubkey),
             profile: user.profile,
         });
     } catch (error) {
