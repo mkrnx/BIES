@@ -131,6 +131,14 @@ export function requireRole(...roles: string[]) {
 }
 
 /**
+ * Check if a user is a master admin (pubkey listed in ADMIN_PUBKEYS env var).
+ * Master admins can ban/demote other admins; regular admins cannot.
+ */
+export function isMasterAdmin(nostrPubkey: string): boolean {
+    return config.adminPubkeys.includes(nostrPubkey);
+}
+
+/**
  * Generate JWT for a user.
  */
 export function generateToken(userId: string, role: string): string {
