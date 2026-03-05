@@ -86,8 +86,9 @@ async function getPrfFromCreate(credential) {
         return new Uint8Array(ext.prf.results.first);
     }
 
-    // PRF supported but not during create — do a get() to retrieve it
-    if (ext.prf?.enabled) {
+    // PRF didn't return results during create — try get() as fallback.
+    // Some authenticators only support PRF during authentication, not registration.
+    try {
         const assertion = await navigator.credentials.get({
             publicKey: {
                 challenge: crypto.getRandomValues(new Uint8Array(32)),
@@ -101,6 +102,8 @@ async function getPrfFromCreate(credential) {
         if (assertExt.prf?.results?.first) {
             return new Uint8Array(assertExt.prf.results.first);
         }
+    } catch {
+        // get() also failed — PRF not supported
     }
 
     return null;
@@ -176,8 +179,9 @@ export const passkeyService = {
         const prfOutput = await getPrfFromCreate(credential);
         if (!prfOutput) {
             throw new Error(
-                'Your authenticator does not support key encryption (PRF extension). ' +
-                'Try a different passkey provider.'
+                'Your passkey provider doesn\'t support key encryption (PRF). ' +
+                'Password managers like Bitwarden don\'t support this yet. ' +
+                'Use your device\'s built-in authenticator (Touch ID, Windows Hello, or a security key) instead.'
             );
         }
 

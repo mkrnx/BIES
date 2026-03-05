@@ -182,29 +182,29 @@ const Signup = () => {
                             </p>
                         </div>
 
-                        <div className="flex gap-3">
-                            <button onClick={downloadKeys} className="flex-1 btn-outline flex items-center justify-center gap-2">
-                                <Download size={16} /> Save File
+                        <div className="backup-buttons">
+                            <button onClick={downloadKeys} className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2">
+                                <Download size={16} /> Download Key File
                             </button>
                             {passkeyService.isSupported() && (
                                 <button
                                     onClick={handleSavePasskey}
                                     disabled={savingPasskey || passkeySaved}
-                                    className="flex-1 btn-outline flex items-center justify-center gap-2"
+                                    className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2"
                                 >
                                     {passkeySaved ? (
-                                        <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Saved</>
+                                        <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Passkey Saved</>
                                     ) : savingPasskey ? (
                                         <><Loader2 size={16} className="spin" /> Saving...</>
                                     ) : (
-                                        <><Fingerprint size={16} /> Passkey</>
+                                        <><Fingerprint size={16} /> Save to Passkey</>
                                     )}
                                 </button>
                             )}
+                            <button onClick={handleBackupConfirm} className="w-full btn-primary py-3 rounded-full">
+                                Continue — I've Saved My Keys
+                            </button>
                         </div>
-                        <button onClick={handleBackupConfirm} className="w-full btn-primary mt-3 py-3 rounded-full">
-                            I've Saved My Keys
-                        </button>
                     </div>
                 )}
 
@@ -324,6 +324,13 @@ const Signup = () => {
                     border-radius: 99px;
                 }
                 .btn-outline:hover { background: var(--color-gray-50); }
+
+                .backup-buttons {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    width: 100%;
+                }
 
                 .role-card {
                     border: 2px solid #e2e8f0;
