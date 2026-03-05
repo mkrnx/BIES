@@ -237,6 +237,10 @@ export async function createProject(req: Request, res: Response): Promise<void> 
             category: project.category,
             stage: project.stage,
             thumbnail: project.thumbnail,
+        }).then(async (eventId) => {
+            if (eventId) {
+                await prisma.project.update({ where: { id: project.id }, data: { nostrEventId: eventId } });
+            }
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
 
         res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
@@ -289,6 +293,10 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             category: project.category,
             stage: project.stage,
             thumbnail: project.thumbnail,
+        }).then(async (eventId) => {
+            if (eventId) {
+                await prisma.project.update({ where: { id: project.id }, data: { nostrEventId: eventId } });
+            }
         }).catch((err) => console.error('[Nostr] Project sync failed:', err));
 
         res.json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });

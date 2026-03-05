@@ -1,10 +1,18 @@
-import { SimplePool } from 'nostr-tools/pool';
-import { finalizeEvent, type EventTemplate } from 'nostr-tools/pure';
+// nostr-tools is ESM-only (@noble/curves has no CJS build);
+// use dynamic import() so the compiled CJS output doesn't call require().
+import type { EventTemplate } from 'nostr-tools/pure';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { decryptPrivateKey } from './crypto.service';
 
-const pool = new SimplePool();
+let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
+async function getPool() {
+    if (!_pool) {
+        const { SimplePool } = await import('nostr-tools/pool');
+        _pool = new SimplePool();
+    }
+    return _pool;
+}
 
 /**
  * Publish a Nostr event signed by a user's custodial key.
@@ -13,7 +21,7 @@ const pool = new SimplePool();
 export async function publishEvent(
     userId: string,
     eventTemplate: EventTemplate
-): Promise<boolean> {
+): Promise<string | null> {
     try {
         const user = await prisma.user.findUnique({
             where: { id: userId },
@@ -23,7 +31,7 @@ export async function publishEvent(
         if (!user || !user.encryptedPrivkey) {
             // Nostr-native user — they sign on the client side
             console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side publish`);
-            return false;
+            return null;
         }
 
         // Decrypt the private key
@@ -31,9 +39,11 @@ export async function publishEvent(
         const privateKeyBytes = hexToBytes(privateKeyHex);
 
         // Finalize (sign) the event
+        const { finalizeEvent } = await import('nostr-tools/pure');
         const signedEvent = finalizeEvent(eventTemplate, privateKeyBytes);
 
         // Publish to relays
+        const pool = await getPool();
         const results = await Promise.allSettled(
             pool.publish(config.nostrRelays, signedEvent)
         );
@@ -41,10 +51,10 @@ export async function publishEvent(
         const published = results.filter((r) => r.status === 'fulfilled').length;
         console.log(`[Nostr] Published to ${published}/${config.nostrRelays.length} relays`);
 
-        return published > 0;
+        return published > 0 ? signedEvent.id : null;
     } catch (error) {
         console.error('[Nostr] Publish error:', error);
-        return false;
+        return null;
     }
 }
 
@@ -61,7 +71,7 @@ export async function publishProfileUpdate(
         nip05?: string;
         lud16?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
     const content: Record<string, string> = {
         name: profile.name,
         about: profile.about || '',
@@ -94,7 +104,7 @@ export async function publishProject(
         stage: string;
         thumbnail?: string;
     }
-): Promise<boolean> {
+): Promise<string | null> {
     const event: EventTemplate = {
         kind: 30023,
         created_at: Math.floor(Date.now() / 1000),
