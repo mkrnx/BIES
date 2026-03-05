@@ -65,6 +65,7 @@ const ProfileSetup = () => {
             const updateData = { name: biesName.trim() };
             if (user?.nostrPubkey) updateData.nostrNpub = nip19.npubEncode(user.nostrPubkey);
             if (nostrForm.picture || nostrProfile?.picture) updateData.avatar = nostrForm.picture || nostrProfile?.picture;
+            if (nostrProfile?.banner) updateData.banner = nostrProfile.banner;
             if (nostrForm.about || nostrProfile?.about) updateData.bio = nostrForm.about || nostrProfile?.about;
             if (nostrForm.website || nostrProfile?.website) updateData.website = nostrForm.website || nostrProfile?.website;
 
