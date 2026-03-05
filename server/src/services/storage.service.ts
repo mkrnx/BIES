@@ -10,6 +10,8 @@ import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
 
+const BASE_PATH = process.env.BASE_PATH || '';
+
 // ─── S3 Client (only initialized if credentials are provided) ───
 
 let s3Client: S3Client | null = null;
@@ -107,7 +109,7 @@ export async function uploadPublicFile(
     // Local fallback
     const filePath = validatePath(PUBLIC_DIR, filename);
     fs.writeFileSync(filePath, fileBuffer);
-    return `/uploads/public/${filename}`;
+    return `${BASE_PATH}/uploads/public/${filename}`;
 }
 
 /**
@@ -156,7 +158,7 @@ export async function getPresignedUrl(key: string): Promise<string> {
     }
 
     // Local fallback — just return the path (in dev mode, served as static)
-    return `/uploads/${key}`;
+    return `${BASE_PATH}/uploads/${key}`;
 }
 
 /**
