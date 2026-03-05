@@ -284,7 +284,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
 
         // Sync to Nostr Kind 0 if identity-related fields changed
         if (req.body.nip05Name !== undefined || req.body.lightningAddress !== undefined || req.body.name !== undefined) {
-            const nip05 = profile.nip05Name ? `${profile.nip05Name}@bies.sovit.xyz` : '';
+            const nip05 = profile.nip05Name ? `${profile.nip05Name}@sovit.xyz/biestest` : '';
             publishProfileUpdate(req.user!.id, {
                 name: profile.name || '',
                 about: profile.bio || '',
