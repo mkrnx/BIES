@@ -153,6 +153,7 @@ const PublicProfile = ({ type }) => {
                                 <ZapButton
                                     recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
                                     size="md"
+                                    variant="bitcoin"
                                 />
                             )}
 

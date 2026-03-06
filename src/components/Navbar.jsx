@@ -199,6 +199,15 @@ const Navbar = () => {
                       <div className="dot investor"></div>
                       Investor View
                     </button>
+                    {user?.role === 'ADMIN' && (
+                      <button
+                        className={`dropdown-item ${mode === 'admin' ? 'active' : ''}`}
+                        onClick={() => { selectMode('admin'); setIsUserMenuOpen(false); navigate('/admin'); }}
+                      >
+                        <div className="dot admin"></div>
+                        Admin View
+                      </button>
+                    )}
 
                     <div className="dropdown-divider"></div>
 
@@ -430,6 +439,7 @@ const Navbar = () => {
         }
         .dot.builder { background: var(--color-primary); }
         .dot.investor { background: var(--color-secondary); }
+        .dot.admin { background: var(--color-error); }
 
         .dropdown-divider {
           height: 1px;

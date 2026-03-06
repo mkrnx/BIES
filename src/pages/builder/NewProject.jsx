@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2 } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { projectsApi, uploadApi } from '../../services/api';
+import { projectsApi, uploadApi, profilesApi } from '../../services/api';
 
 const NewProject = () => {
     const navigate = useNavigate();
@@ -16,6 +16,8 @@ const NewProject = () => {
     const [deckUploading, setDeckUploading] = useState(false);
     const [existingDeck, setExistingDeck] = useState(false);
     const [teamAvatarUploading, setTeamAvatarUploading] = useState(null); // index of uploading member
+    const [memberSearchResults, setMemberSearchResults] = useState([]);
+    const [memberSearchIndex, setMemberSearchIndex] = useState(null); // which team member index is searching
     const [form, setForm] = useState({
         name: '',
         category: '',
@@ -28,6 +30,7 @@ const NewProject = () => {
         ownerRole: '',
         teamInfo: [],
         customSections: [],
+        useOfFunds: [],
     });
 
     useEffect(() => {
@@ -45,6 +48,7 @@ const NewProject = () => {
                     ownerRole: project.ownerRole || '',
                     teamInfo: project.teamInfo || [],
                     customSections: project.customSections || [],
+                    useOfFunds: project.useOfFunds || [],
                 });
                 if (project.deckKey) setExistingDeck(true);
             }).catch(() => {
@@ -104,6 +108,34 @@ const NewProject = () => {
         }));
     };
 
+    const handleMemberNameChange = (index, value) => {
+        updateTeamMember(index, 'name', value);
+        updateTeamMember(index, 'biesUserId', ''); // clear any prior selection
+        setMemberSearchIndex(index);
+        if (value.trim().length >= 2) {
+            const timer = setTimeout(async () => {
+                try {
+                    const res = await profilesApi.list({ search: value, limit: 5 });
+                    const list = res?.data || res || [];
+                    setMemberSearchResults(list);
+                } catch {
+                    setMemberSearchResults([]);
+                }
+            }, 300);
+            return () => clearTimeout(timer);
+        } else {
+            setMemberSearchResults([]);
+        }
+    };
+
+    const selectBiesMember = (index, profile) => {
+        updateTeamMember(index, 'name', profile.name || '');
+        updateTeamMember(index, 'avatar', profile.avatar || '');
+        updateTeamMember(index, 'biesUserId', profile.userId || profile.user?.id || '');
+        setMemberSearchResults([]);
+        setMemberSearchIndex(null);
+    };
+
     const handleTeamAvatarUpload = async (index, e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -141,6 +173,36 @@ const NewProject = () => {
         }));
     };
 
+    // ─── Use of Funds ──────────────────────────────────────────
+    const addUseOfFunds = () => {
+        setForm(prev => ({
+            ...prev,
+            useOfFunds: [...prev.useOfFunds, { label: '', percentage: '' }],
+        }));
+    };
+
+    const updateUseOfFunds = (index, field, value) => {
+        setForm(prev => {
+            const updated = [...prev.useOfFunds];
+            updated[index] = { ...updated[index], [field]: field === 'percentage' ? value.replace(/[^0-9.]/g, '') : value };
+            return { ...prev, useOfFunds: updated };
+        });
+    };
+
+    const removeUseOfFunds = (index) => {
+        setForm(prev => ({
+            ...prev,
+            useOfFunds: prev.useOfFunds.filter((_, i) => i !== index),
+        }));
+    };
+
+    // Helper to calculate total percentage safely with decimals
+    const getFundsTotal = () => {
+        const total = form.useOfFunds.reduce((sum, u) => sum + (parseFloat(u.percentage) || 0), 0);
+        return parseFloat(total.toFixed(2));
+    };
+    const fundsTotal = getFundsTotal();
+
     // ─── Submit ──────────────────────────────────────────────
     const handleSubmit = async (e) => {
         e?.preventDefault();
@@ -160,6 +222,7 @@ const NewProject = () => {
                 ownerRole: form.ownerRole || undefined,
                 teamInfo: form.teamInfo.filter(m => m.name.trim()),
                 customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
+                useOfFunds: form.useOfFunds.filter(u => u.label.trim() && parseFloat(u.percentage) > 0),
             };
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
@@ -338,10 +401,53 @@ const NewProject = () => {
                                 </div>
                             </div>
 
-                            <div className="form-row" style={{ marginBottom: 0 }}>
+                            <div className="form-row">
                                 <label className="form-label">Website URL</label>
                                 <div className="form-content">
                                     <input type="url" value={form.website} onChange={handleChange('website')} className="input-field" placeholder="https://" />
+                                </div>
+                            </div>
+
+                            {/* Use of Funds */}
+                            <div className="form-row" style={{ marginBottom: 0 }}>
+                                <label className="form-label">Use of Funds</label>
+                                <div className="form-content">
+                                    {form.useOfFunds.length > 0 && (
+                                        <div style={{ marginBottom: '1rem' }}>
+                                            {form.useOfFunds.map((item, idx) => (
+                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                    <input
+                                                        type="text"
+                                                        value={item.label}
+                                                        onChange={(e) => updateUseOfFunds(idx, 'label', e.target.value)}
+                                                        className="input-field"
+                                                        placeholder="e.g. Development, Marketing"
+                                                        style={{ flex: 1 }}
+                                                    />
+                                                    <div style={{ position: 'relative', width: '80px', flexShrink: 0 }}>
+                                                        <input
+                                                            type="text"
+                                                            value={item.percentage}
+                                                            onChange={(e) => updateUseOfFunds(idx, 'percentage', e.target.value)}
+                                                            className="input-field"
+                                                            placeholder="0"
+                                                            style={{ paddingRight: '1.5rem', textAlign: 'right' }}
+                                                        />
+                                                        <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', pointerEvents: 'none' }}>%</span>
+                                                    </div>
+                                                    <button type="button" className="team-remove" onClick={() => removeUseOfFunds(idx)}>
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            ))}
+                                            <p style={{ fontSize: '0.78rem', color: fundsTotal === 100 ? '#16a34a' : fundsTotal > 100 ? '#ef4444' : 'var(--color-gray-400)', marginBottom: '0.5rem' }}>
+                                                Total: {fundsTotal}%{fundsTotal === 100 ? ' ✓' : fundsTotal > 100 ? ' (exceeds 100%)' : ''}
+                                            </p>
+                                        </div>
+                                    )}
+                                    <button type="button" className="add-btn" onClick={addUseOfFunds}>
+                                        <Plus size={16} /> Add Use
+                                    </button>
                                 </div>
                             </div>
                         </div>
@@ -378,25 +484,57 @@ const NewProject = () => {
                             {form.teamInfo.map((member, idx) => (
                                 <div key={idx} className="team-entry">
                                     <div className="team-avatar-upload">
-                                        <label className="team-avatar-label">
-                                            {teamAvatarUploading === idx ? (
-                                                <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
-                                            ) : member.avatar ? (
-                                                <img src={member.avatar} alt="" className="team-avatar-img" />
-                                            ) : (
-                                                <Camera size={18} />
-                                            )}
-                                            <input type="file" accept="image/*" onChange={(e) => handleTeamAvatarUpload(idx, e)} style={{ display: 'none' }} />
-                                        </label>
+                                        {member.biesUserId ? (
+                                            <div className="team-avatar-label" style={{ cursor: 'default', border: member.avatar ? 'none' : undefined }}>
+                                                {member.avatar ? (
+                                                    <img src={member.avatar} alt="" className="team-avatar-img" />
+                                                ) : (
+                                                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-gray-500)' }}>{(member.name || '?')[0]?.toUpperCase()}</span>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <label className="team-avatar-label">
+                                                {teamAvatarUploading === idx ? (
+                                                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                                                ) : member.avatar ? (
+                                                    <img src={member.avatar} alt="" className="team-avatar-img" />
+                                                ) : (
+                                                    <Camera size={18} />
+                                                )}
+                                                <input type="file" accept="image/*" onChange={(e) => handleTeamAvatarUpload(idx, e)} style={{ display: 'none' }} />
+                                            </label>
+                                        )}
                                     </div>
-                                    <div className="team-fields">
+                                    <div className="team-fields" style={{ position: 'relative' }}>
                                         <input
                                             type="text"
                                             value={member.name}
-                                            onChange={(e) => updateTeamMember(idx, 'name', e.target.value)}
+                                            onChange={(e) => handleMemberNameChange(idx, e.target.value)}
+                                            onFocus={() => { if (member.name?.length >= 2) setMemberSearchIndex(idx); }}
+                                            onBlur={() => setTimeout(() => setMemberSearchIndex(null), 200)}
                                             className="input-field"
-                                            placeholder="Name"
+                                            placeholder="Name (type to search BIES members)"
                                         />
+                                        {memberSearchIndex === idx && memberSearchResults.length > 0 && (
+                                            <div className="member-dropdown">
+                                                {memberSearchResults.map((p) => (
+                                                    <button
+                                                        key={p.id}
+                                                        type="button"
+                                                        className="member-dropdown-item"
+                                                        onMouseDown={(e) => { e.preventDefault(); selectBiesMember(idx, p); }}
+                                                    >
+                                                        <div className="member-dropdown-avatar">
+                                                            {p.avatar ? <img src={p.avatar} alt="" /> : <span>{(p.name || '?')[0]?.toUpperCase()}</span>}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{p.name}</div>
+                                                            {p.title && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{p.title}</div>}
+                                                        </div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
                                         <input
                                             type="text"
                                             value={member.position}
@@ -642,6 +780,25 @@ const NewProject = () => {
                     color: var(--color-gray-400); border-radius: 6px; transition: all 0.15s;
                 }
                 .team-remove:hover { color: #ef4444; background: #fef2f2; }
+
+                .member-dropdown {
+                    position: absolute; z-index: 30; top: 100%; left: 0; right: 0;
+                    margin-top: 4px; background: white; border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md, 8px); box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+                    max-height: 200px; overflow-y: auto;
+                }
+                .member-dropdown-item {
+                    width: 100%; padding: 0.6rem 0.75rem; display: flex; align-items: center;
+                    gap: 0.6rem; border: none; background: none; cursor: pointer; text-align: left;
+                }
+                .member-dropdown-item:hover { background: var(--color-gray-50, #f9fafb); }
+                .member-dropdown-avatar {
+                    width: 32px; height: 32px; border-radius: 50%; overflow: hidden;
+                    background: var(--color-gray-200); display: flex; align-items: center;
+                    justify-content: center; flex-shrink: 0;
+                }
+                .member-dropdown-avatar img { width: 100%; height: 100%; object-fit: cover; }
+                .member-dropdown-avatar span { font-size: 0.75rem; font-weight: 600; color: var(--color-gray-500); }
 
                 /* Custom Sections */
                 .custom-section-entry {
