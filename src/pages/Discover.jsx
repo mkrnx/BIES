@@ -40,6 +40,7 @@ const ProjectCard = ({ project }) => {
 
   const builderName = project.owner?.profile?.name || project.owner?.name || project.builder;
   const builderId = project.ownerId || project.owner?.id;
+  const builderAvatar = project.owner?.profile?.avatar || project.owner?.profile?.image || project.owner?.image;
 
   return (
     <div className="project-card">
@@ -74,7 +75,11 @@ const ProjectCard = ({ project }) => {
 
         {builderName && (
           <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link">
-            <div className="avatar">{(builderName || '?')[0]}</div>
+            {builderAvatar ? (
+              <img src={builderAvatar} alt={builderName} className="avatar" />
+            ) : (
+              <div className="avatar">{(builderName || '?')[0]}</div>
+            )}
             <span>{builderName}</span>
           </Link>
         )}
@@ -192,15 +197,24 @@ const ProjectCard = ({ project }) => {
 
         .builder-row {
           display: flex;
+          flex-direction: row;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.75rem;
           margin-bottom: 1.5rem;
-          font-size: 0.85rem;
           color: var(--color-neutral-dark);
-          font-weight: 500;
         }
 
-        .avatar {
+        .builder-row span {
+          display: block;
+          font-weight: 500;
+          font-size: 0.85rem;
+          line-height: 1;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .builder-row .avatar, .builder-row img.avatar {
           width: 24px;
           height: 24px;
           background: var(--color-gray-200);
@@ -210,7 +224,11 @@ const ProjectCard = ({ project }) => {
           justify-content: center;
           font-size: 0.7rem;
           color: var(--color-gray-600);
+          object-fit: cover;
+          flex-shrink: 0;
+          margin: 0;
         }
+
 
         .actions {
           display: flex;
@@ -362,11 +380,13 @@ const Discover = () => {
       </div>
 
       <div className="search-row">
-        {user?.role === 'BUILDER' && (
-          <Link to="/dashboard/builder/projects/new" className="btn btn-primary create-project-btn">
-            <Plus size={18} /> Create Project
-          </Link>
-        )}
+        <div className="search-left-column">
+          {user?.role === 'BUILDER' && (
+            <Link to="/dashboard/builder/projects/new" className="btn btn-primary create-project-btn">
+              <Plus size={18} /> Create Project
+            </Link>
+          )}
+        </div>
         <div className="search-bar">
           <Search size={20} className="search-icon" />
           <input
@@ -472,6 +492,12 @@ const Discover = () => {
           margin-bottom: 2rem;
         }
 
+        .search-left-column {
+          width: 250px;
+          flex-shrink: 0;
+          display: flex;
+        }
+
         .filters-column {
           width: 250px;
           display: flex;
@@ -488,7 +514,7 @@ const Discover = () => {
           border-radius: var(--radius-full);
           padding: 0.6rem 1.5rem;
           white-space: nowrap;
-          width: 250px;
+          width: 100%;
           flex-shrink: 0;
         }
 
@@ -603,6 +629,9 @@ const Discover = () => {
         .pagination span { font-size: 0.9rem; color: var(--color-gray-500); }
 
         @media (max-width: 768px) {
+          .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
+          .search-left-column { width: 100%; }
+          .search-left-column:empty { display: none; }
           .content-layout { flex-direction: column; }
           .filters-column { width: 100%; }
           .filters { width: 100%; }
