@@ -40,7 +40,7 @@ const ProjectCard = ({ project }) => {
 
   const builderName = project.owner?.profile?.name || project.owner?.name || project.builder;
   const builderId = project.ownerId || project.owner?.id;
-  const builderAvatar = project.owner?.profile?.avatar || project.owner?.profile?.image || project.owner?.image;
+  const builderAvatar = project.owner?.profile?.avatar || project.owner?.avatar;
 
   return (
     <div className="project-card">
@@ -76,11 +76,11 @@ const ProjectCard = ({ project }) => {
         {builderName && (
           <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link">
             {builderAvatar ? (
-              <img src={builderAvatar} alt={builderName} className="avatar" />
+              <img src={builderAvatar} alt={builderName} className="avatar-img" />
             ) : (
               <div className="avatar">{(builderName || '?')[0]}</div>
             )}
-            <span>{builderName}</span>
+            <span className="builder-name-text">{builderName}</span>
           </Link>
         )}
 
@@ -198,15 +198,11 @@ const ProjectCard = ({ project }) => {
         .builder-row {
           display: flex;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.5rem;
           margin-bottom: 1.5rem;
           font-size: 0.85rem;
           color: var(--color-neutral-dark);
           font-weight: 500;
-        }
-
-        .builder-row span {
-          line-height: 1;
         }
 
         .avatar {
@@ -219,8 +215,21 @@ const ProjectCard = ({ project }) => {
           justify-content: center;
           font-size: 0.7rem;
           color: var(--color-gray-600);
+          flex-shrink: 0;
+        }
+
+        .avatar-img {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
           object-fit: cover;
           flex-shrink: 0;
+        }
+
+        .builder-name-text {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .actions {
