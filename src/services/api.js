@@ -141,6 +141,15 @@ export const projectsApi = {
 
     submit: (id) => put(`/projects/${id}/submit`, {}),
 
+    expressInterest: (id) => post(`/projects/${id}/interest`, {}),
+
+    requestDeck: (id, data) => post(`/projects/${id}/deck/request`, data),
+
+    getAllDeckRequests: () => get('/projects/builder/deck-requests'),
+
+    reviewDeckRequest: (projectId, requestId, status) =>
+        put(`/projects/${projectId}/deck/requests/${requestId}`, { status }),
+
     postUpdate: (id, title, content) =>
         post(`/projects/${id}/updates`, { title, content }),
 };
@@ -238,7 +247,9 @@ export const notificationsApi = {
 
 export const eventsApi = {
     list: (params = {}) => get('/events', params),
-    // params: { category, upcoming, search, page, limit }
+    // params: { category, upcoming, search, isOfficial, isEndorsed, page, limit }
+
+    listMine: (params = {}) => get('/events/my', params),
 
     get: (id) => get(`/events/${id}`),
 
@@ -247,6 +258,8 @@ export const eventsApi = {
     update: (id, data) => put(`/events/${id}`, data),
 
     delete: (id) => del(`/events/${id}`),
+
+    endorse: (id, endorse = true) => put(`/events/${id}/endorse`, { endorse }),
 
     rsvp: (id, status = 'GOING') => post(`/events/${id}/rsvp`, { status }),
 

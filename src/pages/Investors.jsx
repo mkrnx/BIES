@@ -2,14 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { profilesApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
+import FollowIconButton from '../components/FollowIconButton';
 
 const Investors = () => {
+    const { user } = useAuth();
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState('');
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
+    const [followingIds, setFollowingIds] = useState(new Set());
 
     useEffect(() => {
         const fetchInvestors = async () => {
@@ -17,11 +21,22 @@ const Investors = () => {
             try {
                 const params = { role: 'INVESTOR', page, limit: 12 };
                 if (search) params.search = search;
-                const result = await profilesApi.list(params);
+
+                const [result, followingRes] = await Promise.all([
+                    profilesApi.list(params),
+                    user?.id ? profilesApi.getFollowing(user.id, { limit: 100 }).catch(() => null) : Promise.resolve(null)
+                ]);
+
                 const list = result?.data || result || [];
                 setProfiles(Array.isArray(list) ? list : []);
                 setTotalPages(result?.totalPages || 1);
-            } catch {
+
+                if (followingRes) {
+                    const fList = followingRes?.data || followingRes || [];
+                    setFollowingIds(new Set(fList.map(u => u.id)));
+                }
+            } catch (err) {
+                console.error('Fetch investors error:', err);
                 setProfiles([]);
             } finally {
                 setLoading(false);
@@ -29,7 +44,7 @@ const Investors = () => {
         };
         const debounce = setTimeout(fetchInvestors, 300);
         return () => clearTimeout(debounce);
-    }, [search, page]);
+    }, [search, page, user?.id]);
 
     return (
         <div className="container py-12">
@@ -58,42 +73,58 @@ const Investors = () => {
                 </div>
             ) : (
                 <div className="investors-grid">
-                    {profiles.map((investor) => (
-                        <Link to={`/investor/${investor.id}`} key={investor.id} className="card-link">
-                            <div className="card">
-                                <div className="h-48 bg-gray-100 relative">
-                                    {investor.avatar || investor.image ? (
-                                        <img src={investor.avatar || investor.image} alt={investor.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                            <User size={48} style={{ color: 'var(--color-gray-300)' }} />
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-5">
-                                    <h3 className="font-semibold text-xl mb-1">{investor.name}</h3>
-                                    {investor.company && <p className="text-secondary font-medium text-sm mb-2">{investor.company}</p>}
-                                    <p className="text-sm text-gray-500 line-clamp-2 mb-4">{investor.bio || ''}</p>
+                    {profiles.map((investor) => {
+                        const targetUserId = investor.user?.id || investor.userId;
+                        return (
+                            <Link to={`/investor/${investor.id}`} key={investor.id} className="card-link">
+                                <div className="card">
+                                    <div className="h-48 bg-gray-100 relative">
+                                        {investor.avatar || investor.image ? (
+                                            <img src={investor.avatar || investor.image} alt={investor.name} className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                <User size={48} style={{ color: 'var(--color-gray-300)' }} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-5 flex-1 flex flex-col">
+                                        <h3 className="font-semibold text-xl mb-1">{investor.name}</h3>
+                                        {investor.company && <p className="text-secondary font-medium text-sm mb-2">{investor.company}</p>}
+                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{investor.bio || ''}</p>
 
-                                    {(investor.tags || investor.interests || []).length > 0 && (
-                                        <div className="flex flex-wrap gap-2 mt-auto">
-                                            {(investor.tags || investor.interests).map((tag, i) => (
-                                                <span key={i} className="tag">{tag}</span>
-                                            ))}
+                                        {(investor.tags || investor.interests || []).length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {(investor.tags || investor.interests).map((tag, i) => (
+                                                    <span key={i} className="tag">{tag}</span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="actions mt-auto">
+                                            {user && targetUserId && user.id !== targetUserId && (
+                                                <FollowIconButton
+                                                    targetUserId={targetUserId}
+                                                    isFollowing={followingIds.has(targetUserId)}
+                                                    onToggle={(isFollowing) => {
+                                                        const newSet = new Set(followingIds);
+                                                        if (isFollowing) newSet.add(targetUserId);
+                                                        else newSet.delete(targetUserId);
+                                                        setFollowingIds(newSet);
+                                                    }}
+                                                />
+                                            )}
+                                            {investor.user?.nostrPubkey && (
+                                                <ZapButton
+                                                    recipients={[{ pubkey: investor.user.nostrPubkey, name: investor.name, avatar: investor.avatar }]}
+                                                    size="sm"
+                                                />
+                                            )}
                                         </div>
-                                    )}
-                                    {investor.user?.nostrPubkey && (
-                                        <div style={{ marginTop: '0.75rem' }}>
-                                            <ZapButton
-                                                recipients={[{ pubkey: investor.user.nostrPubkey, name: investor.name, avatar: investor.avatar }]}
-                                                size="sm"
-                                            />
-                                        </div>
-                                    )}
+                                    </div>
                                 </div>
-                            </div>
-                        </Link>
-                    ))}
+                            </Link>
+                        );
+                    })}
                 </div>
             )}
 
@@ -185,6 +216,14 @@ const Investors = () => {
                     -webkit-line-clamp: 2;
                     -webkit-box-orient: vertical;
                     overflow: hidden;
+                }
+
+                .actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.75rem;
+                    align-items: center;
+                    margin-top: auto;
                 }
 
                 .pagination {

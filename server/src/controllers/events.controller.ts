@@ -13,42 +13,69 @@ export const createEventSchema = z.object({
     title: z.string().min(1).max(200),
     description: z.string().min(1),
     category: z.enum(['NETWORKING', 'CONFERENCE', 'WORKSHOP', 'HACKATHON', 'MEETUP', 'DEMO_DAY', 'OTHER']).default('NETWORKING'),
+    visibility: z.enum(['PUBLIC', 'LIMITED_SPACES', 'INVITE_ONLY', 'PRIVATE', 'DRAFT']).default('PUBLIC'),
     location: z.string().optional(),
     isOnline: z.boolean().default(false),
     onlineUrl: z.string().url().optional().or(z.literal('')),
     startDate: z.string().datetime(),
     endDate: z.string().datetime().optional(),
     thumbnail: z.string().url().optional().or(z.literal('')),
+    ticketUrl: z.string().url().optional().or(z.literal('')),
     maxAttendees: z.number().positive().int().optional(),
     tags: z.array(z.string()).optional(),
-    isPublished: z.boolean().optional(),
+    isOfficial: z.boolean().optional(),
+    endorsementRequested: z.boolean().optional(),
+    guestList: z.array(z.object({ name: z.string(), userId: z.string().optional() })).optional(),
 });
 
 export const updateEventSchema = createEventSchema.partial();
+
+// Derive isPublished from visibility
+function visibilityToPublished(visibility: string): boolean {
+    return visibility !== 'DRAFT' && visibility !== 'PRIVATE';
+}
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
 /**
  * GET /events
- * List upcoming events with filters.
+ * List publicly visible events with filters.
  */
 export async function listEvents(req: Request, res: Response): Promise<void> {
     try {
-        const { category, upcoming, search, page = '1', limit = '20' } = req.query;
+        const { category, upcoming, search, isOfficial, isEndorsed, page = '1', limit = '20' } = req.query;
         const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
         const take = Math.min(parseInt(limit as string, 10), 50);
 
-        const cKey = cacheKey.events({ category: category as string || '', upcoming: upcoming as string || '', page: page as string, limit: limit as string });
+        const cKey = cacheKey.events({
+            category: category as string || '',
+            upcoming: upcoming as string || '',
+            isOfficial: isOfficial as string || '',
+            page: page as string,
+            limit: limit as string
+        });
         const cached = await cache.getJson<any>(cKey);
         if (cached) { res.json(cached); return; }
 
-        const where: any = { isPublished: true };
+        // Only show published events that are not PRIVATE or DRAFT
+        const where: any = {
+            isPublished: true,
+            visibility: { notIn: ['PRIVATE', 'DRAFT'] },
+        };
 
         if (category && typeof category === 'string') {
             where.category = category.toUpperCase();
         }
         if (upcoming === 'true') {
             where.startDate = { gte: new Date() };
+        }
+        if (isOfficial === 'true') {
+            where.isOfficial = true;
+        } else if (isOfficial === 'false') {
+            where.isOfficial = false;
+        }
+        if (isEndorsed === 'true') {
+            where.isEndorsed = true;
         }
         if (search && typeof search === 'string') {
             where.OR = [
@@ -80,6 +107,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
         const parsed = events.map((e) => ({
             ...e,
             tags: JSON.parse(e.tags || '[]'),
+            guestList: JSON.parse(e.guestList || '[]'),
             attendeeCount: e._count.attendees,
         }));
 
@@ -93,6 +121,46 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('List events error:', error);
         res.status(500).json({ error: 'Failed to list events' });
+    }
+}
+
+/**
+ * GET /events/my
+ * List all events created by the current user (all visibilities).
+ */
+export async function listMyEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const { page = '1', limit = '50' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const [events, total] = await Promise.all([
+            prisma.event.findMany({
+                where: { hostId: req.user!.id },
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take,
+                include: {
+                    _count: { select: { attendees: true } },
+                },
+            }),
+            prisma.event.count({ where: { hostId: req.user!.id } }),
+        ]);
+
+        const parsed = events.map((e) => ({
+            ...e,
+            tags: JSON.parse(e.tags || '[]'),
+            guestList: JSON.parse(e.guestList || '[]'),
+            attendeeCount: e._count.attendees,
+        }));
+
+        res.json({
+            data: parsed,
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('List my events error:', error);
+        res.status(500).json({ error: 'Failed to list your events' });
     }
 }
 
@@ -122,14 +190,33 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             },
         });
 
-        if (!event || !event.isPublished) {
+        if (!event) {
             res.status(404).json({ error: 'Event not found' });
             return;
+        }
+
+        const currentUserId = req.user?.id;
+
+        // DRAFT: only host can view
+        if (event.visibility === 'DRAFT' && event.hostId !== currentUserId) {
+            res.status(404).json({ error: 'Event not found' });
+            return;
+        }
+
+        // PRIVATE: only host or guests can view
+        if (event.visibility === 'PRIVATE' && event.hostId !== currentUserId) {
+            const guestList: { name: string; userId?: string }[] = JSON.parse(event.guestList || '[]');
+            const isGuest = currentUserId && guestList.some((g) => g.userId === currentUserId);
+            if (!isGuest) {
+                res.status(404).json({ error: 'Event not found' });
+                return;
+            }
         }
 
         res.json({
             ...event,
             tags: JSON.parse(event.tags || '[]'),
+            guestList: JSON.parse(event.guestList || '[]'),
             attendeeCount: event._count.attendees,
         });
     } catch (error) {
@@ -144,18 +231,33 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
  */
 export async function createEvent(req: Request, res: Response): Promise<void> {
     try {
-        // Explicitly pick allowed fields — never allow isPublished, isFeatured, hostId, etc.
-        const allowedFields = ['title', 'description', 'category', 'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate', 'thumbnail', 'maxAttendees', 'tags'];
+        const allowedFields = [
+            'title', 'description', 'category', 'visibility',
+            'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate',
+            'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
+            'endorsementRequested', 'guestList',
+        ];
         const data: any = {};
         for (const field of allowedFields) {
-            if (req.body[field] !== undefined) data[field] = req.body[field];
+            if (req.body[field] !== undefined) {
+                if (field === 'isOfficial' && req.body[field] === true && req.user!.role !== 'ADMIN') {
+                    continue;
+                }
+                data[field] = req.body[field];
+            }
         }
+
+        // Derive isPublished from visibility
+        const visibility = data.visibility || 'PUBLIC';
+        const isPublished = visibilityToPublished(visibility);
+
         if (data.tags) data.tags = JSON.stringify(data.tags);
+        if (data.guestList) data.guestList = JSON.stringify(data.guestList);
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
 
         const event = await prisma.event.create({
-            data: { ...data, hostId: req.user!.id, isPublished: false },
+            data: { ...data, hostId: req.user!.id, isPublished },
             include: {
                 host: {
                     select: {
@@ -168,7 +270,11 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 
         await cache.delPattern('events:');
 
-        res.status(201).json({ ...event, tags: JSON.parse(event.tags || '[]') });
+        res.status(201).json({
+            ...event,
+            tags: JSON.parse(event.tags || '[]'),
+            guestList: JSON.parse(event.guestList || '[]'),
+        });
     } catch (error) {
         console.error('Create event error:', error);
         res.status(500).json({ error: 'Failed to create event' });
@@ -183,7 +289,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
     try {
         const existing = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { hostId: true },
+            select: { hostId: true, visibility: true },
         });
 
         if (!existing) { res.status(404).json({ error: 'Event not found' }); return; }
@@ -191,20 +297,40 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
-        // Explicitly pick allowed fields — never allow isPublished, isFeatured, hostId, etc.
-        const allowedFields = ['title', 'description', 'category', 'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate', 'thumbnail', 'maxAttendees', 'tags'];
+        const allowedFields = [
+            'title', 'description', 'category', 'visibility',
+            'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate',
+            'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
+            'endorsementRequested', 'guestList',
+        ];
         const data: any = {};
         for (const field of allowedFields) {
-            if (req.body[field] !== undefined) data[field] = req.body[field];
+            if (req.body[field] !== undefined) {
+                if (field === 'isOfficial' && req.body[field] === true && req.user!.role !== 'ADMIN') {
+                    continue;
+                }
+                data[field] = req.body[field];
+            }
         }
+
+        // Sync isPublished when visibility changes
+        if (data.visibility !== undefined) {
+            data.isPublished = visibilityToPublished(data.visibility);
+        }
+
         if (data.tags) data.tags = JSON.stringify(data.tags);
+        if (data.guestList) data.guestList = JSON.stringify(data.guestList);
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
 
         const event = await prisma.event.update({ where: { id: req.params.id }, data });
         await cache.delPattern('events:');
 
-        res.json({ ...event, tags: JSON.parse(event.tags || '[]') });
+        res.json({
+            ...event,
+            tags: JSON.parse(event.tags || '[]'),
+            guestList: JSON.parse(event.guestList || '[]'),
+        });
     } catch (error) {
         console.error('Update event error:', error);
         res.status(500).json({ error: 'Failed to update event' });
@@ -238,6 +364,31 @@ export async function deleteEvent(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * PUT /events/:id/endorse
+ * Endorse a community event (admin only).
+ */
+export async function endorseEvent(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Admin only' }); return;
+        }
+
+        const { endorse = true } = req.body;
+
+        const event = await prisma.event.update({
+            where: { id: req.params.id },
+            data: { isEndorsed: Boolean(endorse) },
+        });
+
+        await cache.delPattern('events:');
+        res.json({ ...event, tags: JSON.parse(event.tags || '[]') });
+    } catch (error) {
+        console.error('Endorse event error:', error);
+        res.status(500).json({ error: 'Failed to endorse event' });
+    }
+}
+
+/**
  * POST /events/:id/rsvp
  * RSVP to an event.
  */
@@ -246,7 +397,6 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
         const userId = req.user!.id;
         const { status = 'GOING' } = req.body;
 
-        // Validate RSVP status against allowed values
         const validStatuses = ['GOING', 'INTERESTED', 'NOT_GOING'];
         if (!validStatuses.includes(status)) {
             res.status(400).json({ error: `Status must be one of: ${validStatuses.join(', ')}` }); return;
@@ -254,16 +404,14 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
 
         const event = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { maxAttendees: true, isPublished: true, _count: { select: { attendees: true } } },
+            select: { maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
         });
 
         if (!event || !event.isPublished) {
             res.status(404).json({ error: 'Event not found' }); return;
         }
 
-        // Enforce max attendee limit for GOING status
         if (status === 'GOING' && event.maxAttendees && event._count.attendees >= event.maxAttendees) {
-            // Check if user is already an attendee (updating their status is OK)
             const existing = await prisma.eventAttendee.findUnique({
                 where: { eventId_userId: { eventId: req.params.id, userId } },
             });

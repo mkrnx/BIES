@@ -4,14 +4,21 @@ import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertT
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
+import { useAuth } from '../context/AuthContext';
+import { useUserMode } from '../context/UserModeContext';
 
 const ProjectDetails = () => {
     const { id } = useParams();
+    const { user } = useAuth();
+    const { mode } = useUserMode();
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isWatchlisted, setIsWatchlisted] = useState(false);
     const [shareTooltip, setShareTooltip] = useState(false);
+    const [showInterestModal, setShowInterestModal] = useState(false);
+    const [expressingInterest, setExpressingInterest] = useState(false);
+    const [showSuccessAnimation, setShowSuccessAnimation] = useState(false);
 
     useEffect(() => {
         const fetchProject = async () => {
@@ -20,7 +27,7 @@ const ProjectDetails = () => {
                 setProject(data);
                 analyticsApi.recordView(id).catch(() => { });
                 watchlistApi.check(id).then(res => {
-                    setIsWatchlisted(res?.watched || false);
+                    setIsWatchlisted(res?.watched || res?.isWatchlisted || false);
                 }).catch(() => { });
             } catch (err) {
                 setError('Project not found');
@@ -30,6 +37,32 @@ const ProjectDetails = () => {
         };
         fetchProject();
     }, [id]);
+
+    const handleExpressInterestClick = () => {
+        if ((mode === 'investor' || user?.role === 'INVESTOR') && !isWatchlisted) {
+            setShowInterestModal(true);
+            setShowSuccessAnimation(false);
+        } else {
+            toggleWatchlist();
+        }
+    };
+
+    const confirmExpressInterest = async () => {
+        setExpressingInterest(true);
+        try {
+            await projectsApi.expressInterest(id);
+            setIsWatchlisted(true);
+            setShowSuccessAnimation(true);
+            setTimeout(() => {
+                setShowInterestModal(false);
+                setShowSuccessAnimation(false);
+            }, 2000);
+        } catch (err) {
+            alert('Failed to express interest. Please try again.');
+        } finally {
+            setExpressingInterest(false);
+        }
+    };
 
     const toggleWatchlist = async () => {
         try {
@@ -259,7 +292,7 @@ const ProjectDetails = () => {
                             <DeckRequestButton projectId={id} />
                             <button
                                 className={`pd-btn pd-btn-express ${isWatchlisted ? 'active' : ''}`}
-                                onClick={toggleWatchlist}
+                                onClick={handleExpressInterestClick}
                             >
                                 <Heart size={16} fill={isWatchlisted ? 'currentColor' : 'none'} />
                                 {isWatchlisted ? 'Following' : 'Express Interest'}
@@ -400,6 +433,52 @@ const ProjectDetails = () => {
                     </div>
                 </aside>
             </div>
+
+            {/* Interest Modal */}
+            {showInterestModal && (
+                <div className="modal-backdrop">
+                    <div className="modal-content">
+                        {showSuccessAnimation ? (
+                            <div className="success-animation-container">
+                                <svg className="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                                    <circle className="checkmark-circle" cx="26" cy="26" r="25" fill="none" />
+                                    <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
+                                </svg>
+                                <h3>Interest Sent!</h3>
+                                <p>The builder has been notified.</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="modal-header">
+                                    <h2 className="modal-title">Express Interest</h2>
+                                </div>
+                                <div className="modal-body">
+                                    <p style={{ margin: 0, color: '#4b5563', lineHeight: '1.5' }}>
+                                        Let the Builder know you are interested in their project?
+                                        This will add the project to your Watchlist and send them a notification.
+                                    </p>
+                                </div>
+                                <div className="modal-footer" style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
+                                    <button
+                                        className="btn btn-outline"
+                                        onClick={() => setShowInterestModal(false)}
+                                        disabled={expressingInterest}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        className="btn btn-primary"
+                                        onClick={confirmExpressInterest}
+                                        disabled={expressingInterest}
+                                    >
+                                        {expressingInterest ? <Loader2 size={16} className="spin" /> : 'Yes, Express Interest'}
+                                    </button>
+                                </div>
+                            </>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* ─── Styles ─────────────────────────────── */}
             <style>{`
@@ -629,6 +708,38 @@ const ProjectDetails = () => {
                 .pd-doc-link:hover { background: #eef2ff; border-color: #c7d2fe; }
                 .pd-link-ext { margin-left: auto; opacity: 0.5; }
                 .pd-doc-available { color: #059669; background: #ecfdf5; border-color: #a7f3d0; cursor: default; }
+
+                /* Modal & Animations */
+                .modal-backdrop {
+                    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+                    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+                    display: flex; align-items: center; justify-content: center; z-index: 9999;
+                    animation: fadeIn 0.2s ease-out;
+                }
+                .modal-content {
+                    background: white; border-radius: 16px; padding: 2rem;
+                    width: 90%; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
+                    animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                }
+                .modal-header { margin-bottom: 1rem; }
+                .modal-title { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }
+                .success-animation-container {
+                    display: flex; flex-direction: column; align-items: center; justify-content: center;
+                    text-align: center; padding: 1rem 0;
+                }
+                .success-animation-container h3 { margin: 1rem 0 0.5rem; font-size: 1.25rem; color: #111827; }
+                .success-animation-container p { margin: 0; color: #6b7280; font-size: 0.95rem; }
+
+                /* Checkmark SVG Animation */
+                .checkmark { width: 56px; height: 56px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 0 auto; box-shadow: inset 0px 0px 0px var(--color-success, #22c55e); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
+                .checkmark-circle { stroke-dasharray: 166; stroke-dashoffset: 166; stroke-width: 2; stroke-miterlimit: 10; stroke: var(--color-success, #22c55e); fill: none; animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards; }
+                .checkmark-check { transform-origin: 50% 50%; stroke-dasharray: 48; stroke-dashoffset: 48; animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards; }
+                
+                @keyframes stroke { 100% { stroke-dashoffset: 0; } }
+                @keyframes scale { 0%, 100% { transform: none; } 50% { transform: scale3d(1.1, 1.1, 1); } }
+                @keyframes fill { 100% { box-shadow: inset 0px 0px 0px 30px var(--color-success, #22c55e); } }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes scaleUp { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
 
                 /* Responsive */
                 @media (max-width: 900px) {

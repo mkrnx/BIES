@@ -17,6 +17,8 @@ import News from './pages/News';
 import Events from './pages/Events';
 import EventDetail from './pages/EventDetail';
 import CreateEvent from './pages/CreateEvent';
+import EditEvent from './pages/EditEvent';
+import MyEvents from './pages/MyEvents';
 import Team from './pages/Team';
 import PublicProfile from './pages/PublicProfile';
 import Profile from './pages/Profile';
@@ -35,6 +37,7 @@ import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
 import BuilderFollowing from './pages/builder/Following';
 import InvestorFollowing from './pages/investor/Following';
+import InvestorWatchlist from './pages/investor/Watchlist';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -115,6 +118,12 @@ const AppContent = () => {
 
                     <Route path="/discover" element={<Discover />} />
                     <Route path="/events" element={<Events />} />
+                    <Route path="/events/create" element={
+                        <ProtectedRoute><CreateEvent /></ProtectedRoute>
+                    } />
+                    <Route path="/events/edit/:id" element={
+                        <ProtectedRoute><EditEvent /></ProtectedRoute>
+                    } />
                     <Route path="/events/:id" element={<EventDetail />} />
                     <Route path="/builders" element={<Builders />} />
                     <Route path="/builder/:id" element={<PublicProfile type="builder" />} />
@@ -140,23 +149,23 @@ const AppContent = () => {
                     }>
                         <Route index element={<BuilderOverview />} />
                         <Route path="projects" element={<MyProjects />} />
+                        <Route path="my-events" element={<MyEvents />} />
                         <Route path="messages" element={<Messages />} />
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="following" element={<BuilderFollowing />} />
                         <Route path="settings" element={<Settings />} />
                         <Route path="new-project" element={<NewProject />} />
-                        <Route path="create-event" element={<CreateEvent />} />
                     </Route>
                     <Route path="/dashboard/investor" element={
                         <ProtectedRoute>
                             <InvestorDashboard />
                         </ProtectedRoute>
                     }>
-                        <Route path="watchlist" element={<Discover />} />
+                        <Route path="watchlist" element={<InvestorWatchlist />} />
+                        <Route path="my-events" element={<MyEvents />} />
                         <Route path="following" element={<InvestorFollowing />} />
                         <Route path="messages" element={<Messages />} />
                         <Route path="deal-flow" element={<Discover />} />
-                        <Route path="create-event" element={<CreateEvent />} />
                         <Route path="settings" element={<Settings />} />
                     </Route>
 

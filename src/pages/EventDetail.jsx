@@ -5,6 +5,168 @@ import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
 
+const MOCK_EVENT_DATA = {
+    'mock-off-1': {
+        id: 'mock-off-1',
+        title: 'Bitcoin & Business Summit El Salvador 2026',
+        category: 'CONFERENCE',
+        isOfficial: true,
+        isOnline: false,
+        organizer: 'Build in El Salvador',
+        startDate: '2026-04-15T09:00:00Z',
+        startTime: '9:00 AM – 6:00 PM CST',
+        location: 'Hotel Decameron, Santa Elena, El Salvador',
+        attendees: 400,
+        description: 'The flagship annual gathering for builders, investors, and entrepreneurs building the Bitcoin economy in El Salvador.',
+        fullDescription: `The Bitcoin & Business Summit El Salvador is the premier annual conference for the Bitcoin-native business ecosystem. This full-day event brings together founders, investors, developers, and policy makers to explore the opportunities being created in El Salvador's rapidly evolving economy.
+
+Featured programming includes keynote presentations from leading Bitcoin entrepreneurs, fireside chats with investors deploying capital in the region, and hands-on workshops covering everything from Lightning Network integration to raising a Bitcoin-native round.
+
+Networking opportunities are woven throughout the day, culminating in an evening reception. Whether you're a builder looking for funding, an investor seeking deal flow, or an ecosystem participant curious about what's being built, this is the event to attend.`,
+        tags: ['Bitcoin', 'El Salvador', 'Investing', 'Networking', 'Conference'],
+        coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80',
+        externalUrl: 'https://satlantis.io',
+    },
+    'mock-off-2': {
+        id: 'mock-off-2',
+        title: 'BIES Hackathon: Lightning Applications',
+        category: 'HACKATHON',
+        isOfficial: true,
+        isOnline: false,
+        organizer: 'Build in El Salvador',
+        startDate: '2026-05-03T10:00:00Z',
+        startTime: '10:00 AM – May 4, 6:00 PM CST',
+        location: 'Chivo Lab, San Salvador, El Salvador',
+        attendees: 120,
+        description: 'A 48-hour hackathon focused on building Lightning Network-powered applications.',
+        fullDescription: `Join us for a 48-hour build sprint focused entirely on Lightning Network applications. Teams of 1–4 will compete to build the most useful, creative, or technically impressive app that leverages the Lightning Network.
+
+Prize tracks include: Best Consumer App, Best Developer Tool, Best Business Use Case, and a wildcard Best Bitcoin-Native UX prize. Total prize pool: $15,000 in BTC.
+
+Mentors from the BIES network will be available throughout the event to provide technical guidance on Lightning, Nostr integration, and building for the Salvadoran market. Food, coffee, and a hacker lounge will be provided for the full 48 hours.
+
+To participate, register your team in advance. Solo hackers are welcome — we'll help you find a team at the opening session.`,
+        tags: ['Lightning', 'Hackathon', 'Bitcoin', 'Development', 'Prizes'],
+        coverImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
+        externalUrl: 'https://satlantis.io',
+    },
+    'mock-off-3': {
+        id: 'mock-off-3',
+        title: 'Investor Demo Day — Spring 2026',
+        category: 'DEMO_DAY',
+        isOfficial: true,
+        isOnline: true,
+        organizer: 'Build in El Salvador',
+        startDate: '2026-05-20T14:00:00Z',
+        startTime: '2:00 PM – 6:00 PM CST',
+        location: 'Virtual & In-Person — San Salvador',
+        attendees: 200,
+        description: 'Top BIES-vetted startups pitch live to a curated audience of Bitcoin-native investors.',
+        fullDescription: `The BIES Spring Demo Day showcases the most promising startups from across the BIES portfolio and community. Each company gets 5 minutes to pitch, followed by Q&A from an investor panel.
+
+This event is open to investors and ecosystem partners. Attendance is by application only — apply via the link below to be considered. All attendees are verified accredited investors or strategic partners.
+
+The event will be broadcast live online for verified virtual attendees, with full recordings available to BIES members after the event. In-person attendance includes a cocktail reception and 1:1 meeting matchmaking with founders.
+
+If you're a startup interested in presenting, applications close April 15th.`,
+        tags: ['Demo Day', 'Fundraising', 'Startups', 'Investors', 'Pitching'],
+        coverImage: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1200&q=80',
+        externalUrl: 'https://satlantis.io',
+    },
+    'mock-com-1': {
+        id: 'mock-com-1',
+        title: 'Bitcoin Builders Meetup — San Salvador',
+        category: 'MEETUP',
+        isOfficial: false,
+        isOnline: false,
+        organizer: 'BIES Community',
+        startDate: '2026-03-18T18:30:00Z',
+        startTime: '6:30 PM – 9:00 PM CST',
+        location: 'La Ventana Café, San Salvador',
+        attendees: 35,
+        description: 'Monthly casual meetup for developers and founders building on Bitcoin.',
+        fullDescription: `The Bitcoin Builders Meetup is a monthly informal gathering for developers, founders, and anyone actively building products on Bitcoin in El Salvador.
+
+The format is casual: show up, grab a drink, and share what you've been working on. Each meetup features 2–3 short "show and tell" presentations from community members (5–10 minutes each), followed by open networking.
+
+This is a low-pressure environment — whether you have a finished product or just a prototype, you're welcome to share. We keep presentations short so there's plenty of time to connect with people one-on-one.
+
+RSVPs are helpful but not required. The venue can accommodate up to ~50 people, so first come first served.`,
+        tags: ['Bitcoin', 'Meetup', 'Networking', 'Builders', 'San Salvador'],
+        coverImage: 'https://images.unsplash.com/photo-1528605105345-5344ea20e269?w=1200&q=80',
+        externalUrl: 'https://lu.ma',
+    },
+    'mock-com-2': {
+        id: 'mock-com-2',
+        title: 'Nostr for Builders Workshop',
+        category: 'WORKSHOP',
+        isOfficial: false,
+        isOnline: true,
+        organizer: 'BIES Community',
+        startDate: '2026-03-25T10:00:00Z',
+        startTime: '10:00 AM – 12:00 PM CST',
+        location: 'Online — Zoom',
+        attendees: 80,
+        description: 'Hands-on session covering Nostr protocol basics, key management, and how to integrate Nostr identity into your product.',
+        fullDescription: `This community workshop is designed for developers who want to understand and integrate Nostr into their products. No prior Nostr experience required — just bring a laptop and a working Node.js or Python environment.
+
+We'll cover: the Nostr protocol spec and event model, key management best practices, signing and verifying events, connecting to relays, and practical integration patterns for web and mobile apps.
+
+The second half of the session is hands-on — you'll build a minimal Nostr client that can publish and read events. Code examples will be in JavaScript (nostr-tools) and Python.
+
+Register via Zoom link to receive calendar invite and code repository access.`,
+        tags: ['Nostr', 'Workshop', 'Identity', 'Protocol', 'Development'],
+        coverImage: 'https://images.unsplash.com/photo-1516321165247-4aa89a48be55?w=1200&q=80',
+        externalUrl: 'https://lu.ma',
+    },
+    'mock-com-3': {
+        id: 'mock-com-3',
+        title: 'El Salvador Founders Networking Night',
+        category: 'NETWORKING',
+        isOfficial: false,
+        isOnline: false,
+        organizer: 'BIES Community',
+        startDate: '2026-04-08T19:00:00Z',
+        startTime: '7:00 PM – 10:00 PM CST',
+        location: 'Rooftop Bar La Terraza, Santa Tecla',
+        attendees: 60,
+        description: 'An informal evening for founders building in El Salvador to connect over drinks and explore collaboration opportunities.',
+        fullDescription: `Founders Networking Night is a quarterly social gathering exclusively for founders who are actively building companies in El Salvador. This is a private event — attendance is by invite or RSVP confirmation only.
+
+The format is purely social: no pitches, no panels, no presentations. Just founders connecting with other founders over drinks with a view of the city.
+
+Past attendees have said this is one of the most valuable events in the ecosystem — small enough that you actually meet everyone in the room, and the shared context of building in El Salvador creates instant common ground.
+
+Space is limited to 60 people. RSVP early to secure your spot.`,
+        tags: ['Networking', 'Founders', 'El Salvador', 'Social'],
+        coverImage: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?w=1200&q=80',
+        externalUrl: 'https://lu.ma',
+    },
+    'mock-com-4': {
+        id: 'mock-com-4',
+        title: 'Lightning Payments Deep Dive',
+        category: 'WORKSHOP',
+        isOfficial: false,
+        isOnline: true,
+        organizer: 'BIES Community',
+        startDate: '2026-04-22T17:00:00Z',
+        startTime: '5:00 PM – 7:00 PM CST',
+        location: 'Online — Google Meet',
+        attendees: 55,
+        description: 'Technical walkthrough of Lightning payment flows, BOLT specs, and practical integration patterns for apps targeting the Salvadoran market.',
+        fullDescription: `This deep-dive workshop is for developers who want to get serious about Lightning Network payments. We'll move fast and go deep — this is not a beginner's introduction.
+
+Topics covered: BOLT 11 and BOLT 12 invoice formats, payment routing and pathfinding, handling failures and retries gracefully, managing inbound/outbound liquidity, LSP (Lightning Service Provider) patterns, and using LDK vs LND vs Core Lightning for your use case.
+
+The second hour focuses on practical integration patterns specific to apps targeting El Salvador users: integrating with Chivo, working within the Ley Bitcoin framework, and building for users who may be new to Lightning.
+
+Prerequisite: familiarity with Bitcoin fundamentals and basic programming experience.`,
+        tags: ['Lightning', 'Payments', 'BOLT', 'Technical', 'Workshop'],
+        coverImage: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=1200&q=80',
+        externalUrl: 'https://lu.ma',
+    },
+};
+
 const EventDetail = () => {
     const { id } = useParams();
     const { isAuthenticated } = useAuth();
@@ -18,9 +180,13 @@ const EventDetail = () => {
         const fetchEvent = async () => {
             setLoading(true);
             try {
-                const result = await eventsApi.get(id);
-                setEvent(result);
-                if (result?.rsvpStatus) setRsvpStatus(result.rsvpStatus);
+                if (id in MOCK_EVENT_DATA) {
+                    setEvent(MOCK_EVENT_DATA[id]);
+                } else {
+                    const result = await eventsApi.get(id);
+                    setEvent(result);
+                    if (result?.rsvpStatus) setRsvpStatus(result.rsvpStatus);
+                }
             } catch (err) {
                 setError(err.message || 'Failed to load event');
             } finally {
@@ -83,18 +249,23 @@ const EventDetail = () => {
     return (
         <div className="event-detail-page">
             <div className="container">
-                <Link to="/events" className="back-link">
-                    <ArrowLeft size={16} /> Back to Events
-                </Link>
-
-                {(event.image || event.coverImage) && (
-                    <div className="hero-image">
-                        <img src={event.image || event.coverImage} alt={event.title} />
-                        <span className={`category-badge ${(event.category || '').toLowerCase()}`}>
-                            {event.category}
-                        </span>
-                    </div>
-                )}
+                <div className="hero-image">
+                    {(event.coverImage || event.image) && (
+                        <img src={event.coverImage || event.image} alt={event.title} />
+                    )}
+                    <Link to="/events" style={{
+                        position: 'absolute', top: '24px', left: '24px',
+                        borderRadius: '50%', background: 'white', border: '1px solid var(--color-gray-200)',
+                        width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        textDecoration: 'none', color: 'var(--color-gray-700)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                        zIndex: 10,
+                    }}>
+                        <ArrowLeft size={20} />
+                    </Link>
+                    <span className={`category-badge ${(event.category || '').toLowerCase()}`}>
+                        {event.category?.replace(/_/g, ' ')}
+                    </span>
+                </div>
 
                 <div className="detail-grid">
                     <div className="main-content">
@@ -189,7 +360,7 @@ const EventDetail = () => {
                                     rel="noopener noreferrer"
                                     className="ticket-btn"
                                 >
-                                    Get Tickets <ExternalLink size={14} />
+                                    Reserve Now <ExternalLink size={14} />
                                 </a>
                             )}
                         </div>
@@ -206,7 +377,7 @@ const EventDetail = () => {
                 .container {
                     max-width: 1100px;
                     margin: 0 auto;
-                    padding: 0 1rem;
+                    padding: 2rem 1rem 0;
                 }
 
                 .back-link {
@@ -228,11 +399,14 @@ const EventDetail = () => {
                     overflow: hidden;
                     position: relative;
                     margin-bottom: 2rem;
+                    background: linear-gradient(135deg, #0052cc 0%, #0a192f 100%);
                 }
                 .hero-image img {
                     width: 100%;
                     height: 100%;
                     object-fit: cover;
+                    position: absolute;
+                    inset: 0;
                 }
 
                 .category-badge {

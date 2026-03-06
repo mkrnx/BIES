@@ -31,6 +31,7 @@ const NewProject = () => {
         teamInfo: [],
         customSections: [],
         useOfFunds: [],
+        requiresDeckApproval: true,
     });
 
     useEffect(() => {
@@ -49,6 +50,7 @@ const NewProject = () => {
                     teamInfo: project.teamInfo || [],
                     customSections: project.customSections || [],
                     useOfFunds: project.useOfFunds || [],
+                    requiresDeckApproval: project.requiresDeckApproval !== undefined ? project.requiresDeckApproval : true,
                 });
                 if (project.deckKey) setExistingDeck(true);
             }).catch(() => {
@@ -223,6 +225,7 @@ const NewProject = () => {
                 teamInfo: form.teamInfo.filter(m => m.name.trim()),
                 customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
                 useOfFunds: form.useOfFunds.filter(u => u.label.trim() && parseFloat(u.percentage) > 0),
+                requiresDeckApproval: form.requiresDeckApproval,
             };
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
@@ -628,6 +631,33 @@ const NewProject = () => {
                                             <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
                                         </label>
                                     )}
+
+                                    {/* Quick Toggle for Approval */}
+                                    <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--color-gray-200)' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                                            <div>
+                                                <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-gray-800)' }}>Approve Viewers</div>
+                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '0.15rem' }}>If enabled, investors must request access before downloading.</div>
+                                            </div>
+                                            <div style={{
+                                                position: 'relative', width: '44px', height: '24px',
+                                                background: form.requiresDeckApproval ? 'var(--color-primary)' : 'var(--color-gray-300)',
+                                                borderRadius: '12px', transition: 'background 0.2s', flexShrink: 0
+                                            }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={form.requiresDeckApproval}
+                                                    onChange={(e) => setForm(prev => ({ ...prev, requiresDeckApproval: e.target.checked }))}
+                                                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
+                                                />
+                                                <div style={{
+                                                    position: 'absolute', top: '2px', left: form.requiresDeckApproval ? '22px' : '2px',
+                                                    width: '20px', height: '20px', background: 'white', borderRadius: '50%',
+                                                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                                }} />
+                                            </div>
+                                        </label>
+                                    </div>
                                 </div>
                             </div>
                         </div>
