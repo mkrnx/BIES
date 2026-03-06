@@ -58,6 +58,12 @@ const Signup = () => {
         if (!keys) return;
         setSavingPasskey(true);
         setError('');
+        // Temporarily change URL so password managers associate the passkey with /login
+        const originalPath = window.location.pathname;
+        const loginPath = originalPath.replace(/\/signup\/?$/, '/login');
+        if (loginPath !== originalPath) {
+            window.history.replaceState(null, '', loginPath);
+        }
         try {
             await passkeyService.saveWithPasskey(keys.nsec, keys.pk);
             setPasskeySaved(true);
@@ -66,6 +72,10 @@ const Signup = () => {
                 setError(err.message || 'Failed to save passkey.');
             }
         } finally {
+            // Restore the original URL
+            if (loginPath !== originalPath) {
+                window.history.replaceState(null, '', originalPath);
+            }
             setSavingPasskey(false);
         }
     };

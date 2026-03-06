@@ -21,8 +21,8 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey state
-    const [hasPasskey] = useState(() => passkeyService.isSupported() && passkeyService.hasCredential());
+    // Passkey state — always show button if browser supports WebAuthn
+    const [hasPasskey] = useState(() => passkeyService.isSupported());
     const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
     const [pendingNsec, setPendingNsec] = useState(null);
     const [pendingRedirect, setPendingRedirect] = useState(null);
@@ -213,7 +213,7 @@ const Login = () => {
                     </div>
 
                     <p className="text-xs text-gray-400 mt-4 text-center">
-                        Your key is encrypted on this device only.
+                        Your key is encrypted and protected by your passkey.
                         <br />No data is sent to any server.
                     </p>
                 </div>
