@@ -511,10 +511,11 @@ const Login = () => {
                         </p>
                         <div className="extension-links">
                             <p className="text-xs text-gray-400">No extension detected? Install one:</p>
-                            <div className="flex gap-3 mt-1">
+                            <div className="flex gap-3 mt-1 justify-center">
                                 <a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgcdlhiodkdc" target="_blank" rel="noopener noreferrer" className="extension-link">
                                     Chrome (nos2x)
                                 </a>
+                                <span className="text-xs text-gray-300">|</span>
                                 <a href="https://addons.mozilla.org/en-US/firefox/addon/nos2x-fox/" target="_blank" rel="noopener noreferrer" className="extension-link">
                                     Firefox (nos2x-fox)
                                 </a>
