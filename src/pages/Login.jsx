@@ -9,7 +9,7 @@ import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
-    const { loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew } = useAuth();
+    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -46,6 +46,13 @@ const Login = () => {
             clearTimeout(timeout);
         };
     }, [hasNostrExtension]);
+
+    // Redirect to dashboard if already logged in, but not while passkey prompt is showing
+    useEffect(() => {
+        if (!authLoading && authedUser && !showPasskeyPrompt) {
+            navigate('/dashboard', { replace: true });
+        }
+    }, [authLoading, authedUser, showPasskeyPrompt, navigate]);
 
     const handleResult = (result, nsec) => {
         if (result.success) {
@@ -190,11 +197,11 @@ const Login = () => {
                         </div>
                     )}
 
-                    <div className="flex gap-3 w-full">
+                    <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         <button
                             onClick={handleSavePasskey}
                             disabled={savingPasskey}
-                            className="flex-1 btn-login flex items-center justify-center gap-2 py-3 rounded-full"
+                            className="w-full btn-login flex items-center justify-center gap-2 py-3 rounded-full"
                         >
                             {savingPasskey ? (
                                 <Loader2 size={18} className="spin" />
@@ -206,9 +213,9 @@ const Login = () => {
                         <button
                             onClick={handleSkipPasskey}
                             disabled={savingPasskey}
-                            className="flex-1 btn-skip flex items-center justify-center py-3 rounded-full"
+                            className="w-full btn-skip flex items-center justify-center py-3 rounded-full"
                         >
-                            Skip
+                            Skip — Continue to Dashboard
                         </button>
                     </div>
 
