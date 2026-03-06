@@ -74,7 +74,7 @@ const ProjectCard = ({ project }) => {
         </div>
 
         {builderName && (
-          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem', marginBottom: '0.85rem' }}>
             {builderAvatar ? (
               <img src={builderAvatar} alt={builderName} className="avatar-img" />
             ) : (
@@ -198,7 +198,6 @@ const ProjectCard = ({ project }) => {
         .builder-row {
           display: flex;
           align-items: center;
-          margin-bottom: 1.5rem;
           font-size: 0.85rem;
           color: var(--color-neutral-dark);
           font-weight: 500;

@@ -7,6 +7,7 @@ import { profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
+import ZapButton from '../components/ZapButton';
 
 const Profile = () => {
     const { user } = useAuth();
@@ -32,7 +33,7 @@ const Profile = () => {
     useEffect(() => {
         const pubkey = profile?.nostrPubkey || user?.nostrPubkey;
         if (pubkey) {
-            nostrService.getProfile(pubkey).then(setNostrProfile).catch(() => {});
+            nostrService.getProfile(pubkey).then(setNostrProfile).catch(() => { });
         }
     }, [profile?.nostrPubkey, user?.nostrPubkey]);
 
@@ -66,8 +67,15 @@ const Profile = () => {
                             ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
                             : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
-                        {/* Edit Profile Button */}
-                        <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20 }}>
+                        {/* Action Buttons */}
+                        <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
+                            {user?.nostrPubkey && (
+                                <ZapButton
+                                    recipients={[{ pubkey: user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
+                                    size="md"
+                                    variant="bitcoin"
+                                />
+                            )}
                             <Link
                                 to="/profile/edit"
                                 style={{
