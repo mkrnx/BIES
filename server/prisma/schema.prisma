@@ -130,6 +130,7 @@ model Project {
   tags         String   @default("[]") // JSON array
   customSections String  @default("[]") @map("custom_sections") // JSON array of { title, body }
   teamInfo     String   @default("[]") @map("team_info") // JSON array of { name, position, avatar }
+  useOfFunds   String   @default("[]") @map("use_of_funds") // JSON array of { label, percentage }
   ownerRole    String?  @map("owner_role")
   status       String   @default("draft") // draft | pending-review | active
   isPublished  Boolean  @default(true) @map("is_published")

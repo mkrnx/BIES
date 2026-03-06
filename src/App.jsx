@@ -84,12 +84,13 @@ const DashboardRedirect = () => {
     const { user } = useAuth();
     const { mode } = useUserMode();
 
-    if (user?.role?.toUpperCase() === 'ADMIN') {
-        return <Navigate to="/admin" replace />;
-    }
+    if (mode === 'admin') return <Navigate to="/admin" replace />;
     if (mode === 'builder') return <Navigate to="/dashboard/builder" replace />;
     if (mode === 'investor') return <Navigate to="/dashboard/investor" replace />;
 
+    if (user?.role?.toUpperCase() === 'ADMIN') {
+        return <Navigate to="/admin" replace />;
+    }
     if (user?.role?.toUpperCase() === 'BUILDER') {
         return <Navigate to="/dashboard/builder" replace />;
     }

@@ -219,7 +219,7 @@ const ProjectDetails = () => {
                                         {(() => {
                                             let cumulative = 0;
                                             return useOfFunds.map((item, i) => {
-                                                const pct = Number(item.percentage) || 0;
+                                                const pct = parseFloat(item.percentage) || 0;
                                                 const startAngle = (cumulative / 100) * 360;
                                                 cumulative += pct;
                                                 const endAngle = (cumulative / 100) * 360;
@@ -344,7 +344,7 @@ const ProjectDetails = () => {
                         <div className="pd-team-links">
                             {website && (
                                 <a href={website} target="_blank" rel="noopener noreferrer" className="pd-doc-link">
-                                    <Globe size={16} /> Website
+                                    <Globe size={16} /> {website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
                                     <ExternalLink size={13} className="pd-link-ext" />
                                 </a>
                             )}

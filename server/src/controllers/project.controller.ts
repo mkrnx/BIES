@@ -25,6 +25,7 @@ export const createProjectSchema = z.object({
     tags: z.array(z.string()).optional(),
     customSections: z.array(z.object({ title: z.string(), body: z.string() })).optional(),
     teamInfo: z.array(z.object({ name: z.string(), position: z.string().optional(), avatar: z.string().optional() })).optional(),
+    useOfFunds: z.array(z.object({ label: z.string(), percentage: z.union([z.string(), z.number()]) })).optional(),
     ownerRole: z.string().optional(),
     isPublished: z.boolean().optional(),
 });
@@ -118,6 +119,7 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
             tags: JSON.parse(p.tags || '[]'),
             customSections: JSON.parse(p.customSections || '[]'),
             teamInfo: JSON.parse(p.teamInfo || '[]'),
+            useOfFunds: JSON.parse(p.useOfFunds || '[]'),
         }));
 
         const result = {
@@ -193,7 +195,7 @@ export async function getProject(req: Request, res: Response): Promise<void> {
             }
         }
 
-        const result = { ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') };
+        const result = { ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]'), useOfFunds: JSON.parse(project.useOfFunds || '[]') };
         await cache.setJson(cKey, result, TTL.PROJECT_DETAIL);
         res.json(result);
     } catch (error) {
@@ -208,13 +210,19 @@ export async function getProject(req: Request, res: Response): Promise<void> {
  */
 export async function createProject(req: Request, res: Response): Promise<void> {
     try {
+        require('fs').appendFileSync('/tmp/bies_debug.log', "--- CREATE PROJECT ---\n" + JSON.stringify(req.body, null, 2) + "\n");
+        console.log("--- CREATE PROJECT ---");
+
         // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, etc.
-        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags'];
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds'];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
         }
         if (data.tags) data.tags = JSON.stringify(data.tags);
+        if (data.customSections) data.customSections = JSON.stringify(data.customSections);
+        if (data.teamInfo) data.teamInfo = JSON.stringify(data.teamInfo);
+        if (data.useOfFunds) data.useOfFunds = JSON.stringify(data.useOfFunds);
 
         const project = await prisma.project.create({
             data: { ...data, ownerId: req.user!.id, status: 'draft', isPublished: true },
@@ -256,7 +264,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
             }
         }).catch((err) => console.error('[Nostr] Project listing sync failed:', err));
 
-        res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
+        res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]'), useOfFunds: JSON.parse(project.useOfFunds || '[]') });
     } catch (error) {
         console.error('Create project error:', error);
         res.status(500).json({ error: 'Failed to create project' });
@@ -279,8 +287,11 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             res.status(403).json({ error: 'Not authorized to update this project' }); return;
         }
 
+        require('fs').appendFileSync('/tmp/bies_debug.log', "--- UPDATE PROJECT ---\n" + JSON.stringify(req.body, null, 2) + "\n");
+        console.log("--- UPDATE PROJECT ---");
+
         // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, ownerId, etc.
-        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'raisedAmount', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'ownerRole'];
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'raisedAmount', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds', 'ownerRole'];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
@@ -288,6 +299,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         if (data.tags) data.tags = JSON.stringify(data.tags);
         if (data.customSections) data.customSections = JSON.stringify(data.customSections);
         if (data.teamInfo) data.teamInfo = JSON.stringify(data.teamInfo);
+        if (data.useOfFunds) data.useOfFunds = JSON.stringify(data.useOfFunds);
 
         const project = await prisma.project.update({
             where: { id: req.params.id },
@@ -325,7 +337,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
             }
         }).catch((err) => console.error('[Nostr] Project listing sync failed:', err));
 
-        res.json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]') });
+        res.json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]'), useOfFunds: JSON.parse(project.useOfFunds || '[]') });
     } catch (error) {
         console.error('Update project error:', error);
         res.status(500).json({ error: 'Failed to update project' });

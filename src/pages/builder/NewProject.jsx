@@ -184,7 +184,7 @@ const NewProject = () => {
     const updateUseOfFunds = (index, field, value) => {
         setForm(prev => {
             const updated = [...prev.useOfFunds];
-            updated[index] = { ...updated[index], [field]: field === 'percentage' ? value.replace(/[^0-9]/g, '') : value };
+            updated[index] = { ...updated[index], [field]: field === 'percentage' ? value.replace(/[^0-9.]/g, '') : value };
             return { ...prev, useOfFunds: updated };
         });
     };
@@ -196,7 +196,12 @@ const NewProject = () => {
         }));
     };
 
-    const fundsTotal = form.useOfFunds.reduce((sum, u) => sum + (Number(u.percentage) || 0), 0);
+    // Helper to calculate total percentage safely with decimals
+    const getFundsTotal = () => {
+        const total = form.useOfFunds.reduce((sum, u) => sum + (parseFloat(u.percentage) || 0), 0);
+        return parseFloat(total.toFixed(2));
+    };
+    const fundsTotal = getFundsTotal();
 
     // ─── Submit ──────────────────────────────────────────────
     const handleSubmit = async (e) => {
@@ -217,7 +222,7 @@ const NewProject = () => {
                 ownerRole: form.ownerRole || undefined,
                 teamInfo: form.teamInfo.filter(m => m.name.trim()),
                 customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
-                useOfFunds: form.useOfFunds.filter(u => u.label.trim() && Number(u.percentage) > 0),
+                useOfFunds: form.useOfFunds.filter(u => u.label.trim() && parseFloat(u.percentage) > 0),
             };
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
 
