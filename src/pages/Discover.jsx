@@ -197,24 +197,19 @@ const ProjectCard = ({ project }) => {
 
         .builder-row {
           display: flex;
-          flex-direction: row;
           align-items: center;
-          gap: 0.75rem;
+          gap: 0.5rem;
           margin-bottom: 1.5rem;
+          font-size: 0.85rem;
           color: var(--color-neutral-dark);
+          font-weight: 500;
         }
 
         .builder-row span {
-          display: block;
-          font-weight: 500;
-          font-size: 0.85rem;
           line-height: 1;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
         }
 
-        .builder-row .avatar, .builder-row img.avatar {
+        .avatar {
           width: 24px;
           height: 24px;
           background: var(--color-gray-200);
@@ -226,9 +221,7 @@ const ProjectCard = ({ project }) => {
           color: var(--color-gray-600);
           object-fit: cover;
           flex-shrink: 0;
-          margin: 0;
         }
-
 
         .actions {
           display: flex;
