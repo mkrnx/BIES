@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2 } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { projectsApi, watchlistApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
+import { useAuth } from '../context/AuthContext';
 
 const ProjectCard = ({ project }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
@@ -37,20 +38,27 @@ const ProjectCard = ({ project }) => {
     return c.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
   };
 
+  const builderName = project.owner?.profile?.name || project.owner?.name || project.builder;
+  const builderId = project.ownerId || project.owner?.id;
+
   return (
     <div className="project-card">
-      <div
-        className="card-image"
-        style={{
-          backgroundColor: project.color || '#E0F2FE',
-          backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${project.thumbnail || project.coverImage || project.image})` : 'none'
-        }}
-      >
-        <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
-        <span className="stage-badge">{project.stage || '—'}</span>
-      </div>
+      <Link to={`/project/${project.id}`} className="card-image-link">
+        <div
+          className="card-image"
+          style={{
+            backgroundColor: project.color || '#E0F2FE',
+            backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${project.thumbnail || project.coverImage || project.image})` : 'none'
+          }}
+        >
+          <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
+          <span className="stage-badge">{project.stage || '—'}</span>
+        </div>
+      </Link>
       <div className="card-body">
-        <h3>{project.title || project.name}</h3>
+        <Link to={`/project/${project.id}`} className="card-title-link">
+          <h3>{project.title || project.name}</h3>
+        </Link>
         <p className="description">{project.description || ''}</p>
 
         <div className="meta-row">
@@ -64,11 +72,11 @@ const ProjectCard = ({ project }) => {
           </div>
         </div>
 
-        {(project.owner?.profile?.name || project.owner?.name || project.builder) && (
-          <div className="builder-row">
-            <div className="avatar">{(project.owner?.profile?.name || project.owner?.name || project.builder || '?')[0]}</div>
-            <span>{project.owner?.profile?.name || project.owner?.name || project.builder}</span>
-          </div>
+        {builderName && (
+          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link">
+            <div className="avatar">{(builderName || '?')[0]}</div>
+            <span>{builderName}</span>
+          </Link>
         )}
 
         <div className="actions">
@@ -96,10 +104,17 @@ const ProjectCard = ({ project }) => {
           overflow: hidden;
           border: 1px solid var(--color-gray-200);
           transition: transform 0.2s, box-shadow 0.2s;
+          display: flex;
+          flex-direction: column;
         }
         .project-card:hover {
           transform: translateY(-4px);
           box-shadow: var(--shadow-md);
+        }
+
+        .card-image-link {
+          text-decoration: none;
+          display: block;
         }
 
         .card-image {
@@ -108,6 +123,24 @@ const ProjectCard = ({ project }) => {
           padding: 1rem;
           background-size: cover;
           background-position: center;
+          cursor: pointer;
+        }
+
+        .card-title-link {
+          text-decoration: none;
+          color: inherit;
+        }
+        .card-title-link:hover h3 {
+          color: var(--color-primary);
+        }
+
+        .builder-link {
+          text-decoration: none;
+          color: inherit;
+          cursor: pointer;
+        }
+        .builder-link:hover span {
+          color: var(--color-primary);
         }
         
         .industry-badge {
@@ -133,7 +166,7 @@ const ProjectCard = ({ project }) => {
           font-size: 0.75rem;
         }
 
-        .card-body { padding: 1.5rem; }
+        .card-body { padding: 1.5rem; flex: 1; display: flex; flex-direction: column; overflow: hidden; }
         
         h3 { font-size: 1.1rem; margin-bottom: 0.5rem; }
         
@@ -184,6 +217,7 @@ const ProjectCard = ({ project }) => {
           gap: 0.5rem;
           align-items: center;
           justify-content: space-between;
+          margin-top: auto;
         }
 
         .actions > button.icon-btn:first-of-type {
@@ -229,6 +263,7 @@ const ProjectCard = ({ project }) => {
 
 const Discover = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
@@ -324,6 +359,14 @@ const Discover = () => {
       {/* Header & Search */}
       <div className="discover-header">
         <h1>Discover Projects</h1>
+      </div>
+
+      <div className="search-row">
+        {user?.role === 'BUILDER' && (
+          <Link to="/dashboard/builder/projects/new" className="btn btn-primary create-project-btn">
+            <Plus size={18} /> Create Project
+          </Link>
+        )}
         <div className="search-bar">
           <Search size={20} className="search-icon" />
           <input
@@ -338,53 +381,55 @@ const Discover = () => {
 
       <div className="content-layout">
         {/* Filters Sidebar */}
-        <aside className="filters">
-          <div className="filter-header">
-            <SlidersHorizontal size={18} />
-            <span>Filters</span>
-          </div>
-
-          <div className="filter-group">
-            <label>Industry</label>
-            <div className="checkbox-list">
-              {categories.map(cat => (
-                <label key={cat.id}>
-                  <input
-                    type="checkbox"
-                    checked={selectedIndustries.includes(cat.id)}
-                    onChange={() => handleIndustryChange(cat.id)}
-                  />
-                  {cat.label}
-                </label>
-              ))}
+        <div className="filters-column">
+          <aside className="filters">
+            <div className="filter-header">
+              <SlidersHorizontal size={18} />
+              <span>Filters</span>
             </div>
-          </div>
 
-          <div className="filter-group">
-            <label>Stage</label>
-            <div className="checkbox-list">
-              {['Idea', 'MVP', 'Seed', 'Series A', 'Early Revenue', 'Scaling'].map(stg => (
-                <label key={stg}>
-                  <input
-                    type="checkbox"
-                    checked={selectedStages.includes(stg)}
-                    onChange={() => handleStageChange(stg)}
-                  />
-                  {stg}
-                </label>
-              ))}
+            <div className="filter-group">
+              <label>Industry</label>
+              <div className="checkbox-list">
+                {categories.map(cat => (
+                  <label key={cat.id}>
+                    <input
+                      type="checkbox"
+                      checked={selectedIndustries.includes(cat.id)}
+                      onChange={() => handleIndustryChange(cat.id)}
+                    />
+                    {cat.label}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className="filter-group">
-            <label>Funding Goal</label>
-            <input type="range" className="range-slider" />
-            <div className="range-labels">
-              <span>$10k</span>
-              <span>$5M+</span>
+            <div className="filter-group">
+              <label>Stage</label>
+              <div className="checkbox-list">
+                {['Idea', 'MVP', 'Seed', 'Series A', 'Early Revenue', 'Scaling'].map(stg => (
+                  <label key={stg}>
+                    <input
+                      type="checkbox"
+                      checked={selectedStages.includes(stg)}
+                      onChange={() => handleStageChange(stg)}
+                    />
+                    {stg}
+                  </label>
+                ))}
+              </div>
             </div>
-          </div>
-        </aside>
+
+            <div className="filter-group">
+              <label>Funding Goal</label>
+              <input type="range" className="range-slider" />
+              <div className="range-labels">
+                <span>$10k</span>
+                <span>$5M+</span>
+              </div>
+            </div>
+          </aside>
+        </div>
 
         {/* Project Grid */}
         <div className="project-grid">
@@ -416,15 +461,41 @@ const Discover = () => {
         }
 
         .discover-header {
-          margin-bottom: 2rem;
+          margin-bottom: 1.5rem;
           text-align: center;
+        }
+
+        .search-row {
+          display: flex;
+          align-items: center;
+          gap: 2rem;
+          margin-bottom: 2rem;
+        }
+
+        .filters-column {
+          width: 250px;
+          display: flex;
+          flex-direction: column;
+          flex-shrink: 0;
+        }
+
+        .create-project-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          font-weight: 600;
+          border-radius: var(--radius-full);
+          padding: 0.6rem 1.5rem;
+          white-space: nowrap;
+          width: 250px;
+          flex-shrink: 0;
         }
 
         .search-bar {
           display: flex;
           align-items: center;
-          max-width: 600px;
-          margin: 1.5rem auto 0;
+          flex: 1;
           background: white;
           padding: 0.5rem;
           border-radius: var(--radius-full);
@@ -533,6 +604,7 @@ const Discover = () => {
 
         @media (max-width: 768px) {
           .content-layout { flex-direction: column; }
+          .filters-column { width: 100%; }
           .filters { width: 100%; }
           .project-grid { grid-template-columns: 1fr; }
         }

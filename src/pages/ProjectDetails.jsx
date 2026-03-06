@@ -106,6 +106,10 @@ const ProjectDetails = () => {
     const followerCount = project._count?.watchlisted || 0;
     const viewCount = project._count?.views || project.viewCount || 0;
     const customSections = project.customSections || [];
+    const useOfFunds = project.useOfFunds || [];
+
+    // Pie chart colors
+    const pieColors = ['#F97316', '#0052cc', '#22c55e', '#8b5cf6', '#ef4444', '#06b6d4', '#eab308', '#ec4899', '#14b8a6', '#f59e0b'];
 
     return (
         <div className="pd-container">
@@ -207,6 +211,50 @@ const ProjectDetails = () => {
                                 <p className="pd-progress-pct">{progressPct}% funded</p>
                             </>
                         )}
+                        {useOfFunds.length > 0 && (
+                            <div className="pd-use-of-funds">
+                                <h4 className="pd-uof-title">Use of Funds</h4>
+                                <div className="pd-pie-container">
+                                    <svg viewBox="0 0 100 100" className="pd-pie-chart">
+                                        {(() => {
+                                            let cumulative = 0;
+                                            return useOfFunds.map((item, i) => {
+                                                const pct = Number(item.percentage) || 0;
+                                                const startAngle = (cumulative / 100) * 360;
+                                                cumulative += pct;
+                                                const endAngle = (cumulative / 100) * 360;
+                                                const largeArc = pct > 50 ? 1 : 0;
+                                                const startRad = ((startAngle - 90) * Math.PI) / 180;
+                                                const endRad = ((endAngle - 90) * Math.PI) / 180;
+                                                const x1 = 50 + 40 * Math.cos(startRad);
+                                                const y1 = 50 + 40 * Math.sin(startRad);
+                                                const x2 = 50 + 40 * Math.cos(endRad);
+                                                const y2 = 50 + 40 * Math.sin(endRad);
+                                                if (pct === 0) return null;
+                                                if (pct >= 100) return <circle key={i} cx="50" cy="50" r="40" fill={pieColors[i % pieColors.length]} />;
+                                                return (
+                                                    <path
+                                                        key={i}
+                                                        d={`M 50 50 L ${x1} ${y1} A 40 40 0 ${largeArc} 1 ${x2} ${y2} Z`}
+                                                        fill={pieColors[i % pieColors.length]}
+                                                    />
+                                                );
+                                            });
+                                        })()}
+                                    </svg>
+                                </div>
+                                <div className="pd-uof-legend">
+                                    {useOfFunds.map((item, i) => (
+                                        <div key={i} className="pd-uof-legend-item">
+                                            <span className="pd-uof-dot" style={{ background: pieColors[i % pieColors.length] }} />
+                                            <span className="pd-uof-label">{item.label}</span>
+                                            <span className="pd-uof-pct">{item.percentage}%</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="pd-funding-actions">
                             <DeckRequestButton projectId={id} />
                             <button
@@ -507,6 +555,38 @@ const ProjectDetails = () => {
                 .pd-funding-actions {
                     display: flex; flex-direction: column; gap: 0.6rem;
                     margin-top: 1.5rem;
+                }
+
+                /* Use of Funds */
+                .pd-use-of-funds {
+                    margin-top: 1.25rem; padding-top: 1.25rem;
+                    border-top: 1px solid #f3f4f6;
+                }
+                .pd-uof-title {
+                    font-size: 0.88rem; font-weight: 700; color: #111827;
+                    margin: 0 0 1rem;
+                }
+                .pd-pie-container {
+                    display: flex; justify-content: center; margin-bottom: 1rem;
+                }
+                .pd-pie-chart {
+                    width: 140px; height: 140px;
+                }
+                .pd-uof-legend {
+                    display: flex; flex-direction: column; gap: 0.4rem;
+                }
+                .pd-uof-legend-item {
+                    display: flex; align-items: center; gap: 0.5rem;
+                    font-size: 0.82rem;
+                }
+                .pd-uof-dot {
+                    width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
+                }
+                .pd-uof-label {
+                    flex: 1; color: #4b5563;
+                }
+                .pd-uof-pct {
+                    font-weight: 600; color: #111827;
                 }
 
                 /* Core Team */

@@ -64,6 +64,7 @@ const ProfileEdit = () => {
     const [projectResults, setProjectResults] = useState([]);
     const [showProjectDropdown, setShowProjectDropdown] = useState(false);
     const [newProjectRole, setNewProjectRole] = useState('');
+    const [autoProjects, setAutoProjects] = useState([]); // projects the builder owns or is team member of
 
     // ─── Data Loading ───
 
@@ -95,7 +96,8 @@ const ProfileEdit = () => {
         const timer = setTimeout(async () => {
             try {
                 const res = await projectsApi.list({ search: projectSearch, limit: 5 });
-                setProjectResults(res.data || res || []);
+                const rawList = res?.data || res || [];
+                setProjectResults(rawList.map(p => ({ ...p, name: p.title || p.name, image: p.thumbnail || p.coverImage || p.image })));
                 setShowProjectDropdown(true);
             } catch (err) {
                 console.error('Failed to search projects', err);
@@ -125,6 +127,27 @@ const ProfileEdit = () => {
         return () => { clearTimeout(timer); setNip05Checking(false); };
     }, [form.nip05Name]);
 
+    // Auto-fetch projects the user owns or is a team member of
+    useEffect(() => {
+        if (!user?.id) return;
+        const fetchMyProjects = async () => {
+            try {
+                const res = await projectsApi.list({ ownerId: user.id, limit: 50 });
+                const list = (res?.data || res || []).map(p => ({
+                    id: p.id,
+                    name: p.title || p.name,
+                    role: 'Founder',
+                    status: p.stage || 'Active',
+                    image: p.thumbnail || p.coverImage || '',
+                }));
+                setAutoProjects(list);
+            } catch {
+                // ignore
+            }
+        };
+        fetchMyProjects();
+    }, [user?.id]);
+
     const loadProfile = async () => {
         try {
             const profile = await profilesApi.me();
@@ -145,7 +168,17 @@ const ProfileEdit = () => {
                     tags: profile.tags || [],
                     showExperience: profile.showExperience ?? true,
                     showNostrFeed: profile.showNostrFeed ?? true,
-                    experience: profile.experience || [],
+                    experience: (profile.experience || []).map(exp => {
+                        // Parse fromYear/toYear from existing date string like "2020 - Present"
+                        let fromYear = exp.fromYear || '';
+                        let toYear = exp.toYear || '';
+                        if (!fromYear && exp.date) {
+                            const parts = exp.date.split(/\s*[-–]\s*/);
+                            if (parts[0] && /^\d{4}$/.test(parts[0].trim())) fromYear = parts[0].trim();
+                            if (parts[1] && /^\d{4}$/.test(parts[1].trim())) toYear = parts[1].trim();
+                        }
+                        return { ...exp, fromYear, toYear };
+                    }),
                     biesProjects: profile.biesProjects || [],
                     nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
                     nip05Name: profile.nip05Name || '',
@@ -308,11 +341,16 @@ const ProfileEdit = () => {
         setForm(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
     };
 
+    // Year options for experience date dropdowns
+    const currentYear = new Date().getFullYear();
+    const yearOptions = [];
+    for (let y = currentYear; y >= 1970; y--) yearOptions.push(y);
+
     // Experience
     const handleAddExperience = () => {
         setForm(prev => ({
             ...prev,
-            experience: [...prev.experience, { title: '', company: '', date: '', description: '' }]
+            experience: [...prev.experience, { title: '', company: '', fromYear: '', toYear: '', date: '', description: '' }]
         }));
     };
 
@@ -623,7 +661,35 @@ const ProfileEdit = () => {
                                                 </div>
                                                 <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: '1rem' }}>
                                                     <label className="form-label" style={{ width: 'auto' }}>Date</label>
-                                                    <input type="text" value={exp.date} onChange={handleExperienceChange(idx, 'date')} placeholder="e.g. 2020 - Present" className="input-field" />
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                        <select
+                                                            value={exp.fromYear || ''}
+                                                            onChange={(e) => {
+                                                                const updated = [...form.experience];
+                                                                updated[idx] = { ...updated[idx], fromYear: e.target.value, date: `${e.target.value} - ${updated[idx].toYear || 'Present'}` };
+                                                                setForm(prev => ({ ...prev, experience: updated }));
+                                                            }}
+                                                            className="input-field"
+                                                            style={{ flex: 1, appearance: 'auto', cursor: 'pointer' }}
+                                                        >
+                                                            <option value="">From</option>
+                                                            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                                        </select>
+                                                        <span style={{ color: 'var(--color-gray-400)', fontWeight: 500 }}>to</span>
+                                                        <select
+                                                            value={exp.toYear || ''}
+                                                            onChange={(e) => {
+                                                                const updated = [...form.experience];
+                                                                updated[idx] = { ...updated[idx], toYear: e.target.value, date: `${updated[idx].fromYear || ''} - ${e.target.value || 'Present'}` };
+                                                                setForm(prev => ({ ...prev, experience: updated }));
+                                                            }}
+                                                            className="input-field"
+                                                            style={{ flex: 1, appearance: 'auto', cursor: 'pointer' }}
+                                                        >
+                                                            <option value="">Present</option>
+                                                            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                                        </select>
+                                                    </div>
                                                 </div>
                                                 <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: 0 }}>
                                                     <label className="form-label" style={{ width: 'auto' }}>Details</label>
@@ -747,75 +813,79 @@ const ProfileEdit = () => {
                             <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
                                 <NostrIcon size={20} color="#8b5cf6" />
                                 Nostr Profile
-                            </h3>
+                            </h3 >
                             <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>Edit your Nostr identity. Changes are published to relays.</p>
 
-                            {user?.nostrPubkey && (
-                                <div className="form-row">
-                                    <label className="form-label">Public Key (npub)</label>
-                                    <div className="form-content">
-                                        <input
-                                            type="text"
-                                            readOnly
-                                            value={nip19.npubEncode(user.nostrPubkey)}
-                                            className="input-field"
-                                            style={{ cursor: 'default', background: '#f9fafb', fontFamily: 'monospace', fontSize: '0.875rem' }}
-                                        />
+                            {
+                                user?.nostrPubkey && (
+                                    <div className="form-row">
+                                        <label className="form-label">Public Key (npub)</label>
+                                        <div className="form-content">
+                                            <input
+                                                type="text"
+                                                readOnly
+                                                value={nip19.npubEncode(user.nostrPubkey)}
+                                                className="input-field"
+                                                style={{ cursor: 'default', background: '#f9fafb', fontFamily: 'monospace', fontSize: '0.875rem' }}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                            )}
+                                )
+                            }
 
-                            {loadingNostr ? (
-                                <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-400)', marginTop: '0.5rem' }}>Fetching from relays...</p>
-                                </div>
-                            ) : (
-                                <>
-                                    <div className="form-row">
-                                        <label className="form-label">Nostr Name</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="Name on Nostr" />
-                                        </div>
+                            {
+                                loadingNostr ? (
+                                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                                        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
+                                        <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-400)', marginTop: '0.5rem' }}>Fetching from relays...</p>
                                     </div>
-                                    <div className="form-row">
-                                        <label className="form-label">About</label>
-                                        <div className="form-content">
-                                            <textarea rows="3" className="input-field" style={{ resize: 'vertical' }} value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr" />
+                                ) : (
+                                    <>
+                                        <div className="form-row">
+                                            <label className="form-label">Nostr Name</label>
+                                            <div className="form-content">
+                                                <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="Name on Nostr" />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Picture URL</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="input-field" placeholder="https://..." />
+                                        <div className="form-row">
+                                            <label className="form-label">About</label>
+                                            <div className="form-content">
+                                                <textarea rows="3" className="input-field" style={{ resize: 'vertical' }} value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr" />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Website</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="input-field" placeholder="https://..." />
+                                        <div className="form-row">
+                                            <label className="form-label">Picture URL</label>
+                                            <div className="form-content">
+                                                <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="input-field" placeholder="https://..." />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">NIP-05</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="input-field" placeholder="you@domain.com" />
+                                        <div className="form-row">
+                                            <label className="form-label">Website</label>
+                                            <div className="form-content">
+                                                <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="input-field" placeholder="https://..." />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">LUD-16</label>
-                                        <div className="form-content">
-                                            <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="input-field" placeholder="you@wallet.com" />
+                                        <div className="form-row">
+                                            <label className="form-label">NIP-05</label>
+                                            <div className="form-content">
+                                                <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="input-field" placeholder="you@domain.com" />
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div className="form-row">
-                                        <label className="form-label">Banner URL</label>
-                                        <div className="form-content">
-                                            <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="input-field" placeholder="https://..." />
+                                        <div className="form-row">
+                                            <label className="form-label">LUD-16</label>
+                                            <div className="form-content">
+                                                <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="input-field" placeholder="you@wallet.com" />
+                                            </div>
                                         </div>
-                                    </div>
-                                </>
-                            )}
+                                        <div className="form-row">
+                                            <label className="form-label">Banner URL</label>
+                                            <div className="form-content">
+                                                <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="input-field" placeholder="https://..." />
+                                            </div>
+                                        </div>
+                                    </>
+                                )
+                            }
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '2rem' }}>
                                 <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ flex: 1, minWidth: '160px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem' }}>
@@ -833,15 +903,15 @@ const ProfileEdit = () => {
                                     <Send size={16} /> Push BIES to Nostr
                                 </button>
                             </div>
-                        </div>
-                    </div>
+                        </div >
+                    </div >
 
                     {/* Nostr Identity & Feed Toggle */}
-                    <div className="profile-card">
+                    < div className="profile-card" >
                         <div className="w-full max-w-2xl">
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
                                 <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Hash size={20} style={{ color: '#8b5cf6' }} />
+                                    <Hash size={20} style={{ color: '#F7931A' }} />
                                     Nostr Identity & Feed
                                 </h3>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -875,15 +945,47 @@ const ProfileEdit = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </div >
 
                     {/* Projects */}
-                    <div className="profile-card">
+                    < div className="profile-card" >
                         <div className="w-full max-w-2xl">
                             <h3 className="h3-title" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>{projectsTitle}</h3>
 
+                            {/* Auto-populated projects */}
+                            {autoProjects.length > 0 && (
+                                <div style={{ marginBottom: '1.5rem' }}>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)', marginBottom: '1rem' }}>Your projects (auto-detected):</p>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+                                        {autoProjects.map(project => {
+                                            const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
+                                            return (
+                                                <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: alreadyAdded ? '#f0f7ff' : 'white', border: `1px solid ${alreadyAdded ? '#bfdbfe' : 'var(--color-gray-200)'}`, borderRadius: 'var(--radius-xl)', opacity: alreadyAdded ? 0.7 : 1 }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                                        {project.image ? <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--color-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gray-400)' }}>{project.name.charAt(0)}</div>}
+                                                        <div>
+                                                            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-900)' }}>{project.name}</p>
+                                                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>{project.role}</p>
+                                                        </div>
+                                                    </div>
+                                                    {!alreadyAdded && (
+                                                        <button onClick={() => handleAddProject({ ...project, coverImage: project.image })} style={{ padding: '0.4rem 0.75rem', color: 'var(--color-primary)', background: 'none', border: '1px solid var(--color-primary)', cursor: 'pointer', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 600 }}>
+                                                            + Add
+                                                        </button>
+                                                    )}
+                                                    {alreadyAdded && (
+                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>Added</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Manual search (for other projects) */}
                             <div className="form-row">
-                                <label className="form-label">Add Project</label>
+                                <label className="form-label">Add Other</label>
                                 <div className="form-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                     <input
                                         type="text"
@@ -915,22 +1017,22 @@ const ProfileEdit = () => {
                                         {showProjectDropdown && projectSearch.length > 0 && (
                                             <div style={{ position: 'absolute', zIndex: 20, marginTop: '0.5rem', width: '100%', background: 'white', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto', padding: '0.5rem 0' }}>
                                                 {projectResults.filter(p =>
-                                                    p.name.toLowerCase().includes(projectSearch.toLowerCase()) &&
+                                                    (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
                                                     !form.biesProjects.some(bp => bp.id === p.id)
                                                 ).map(project => (
                                                     <button
                                                         key={project.id}
                                                         style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.75rem', border: 'none', background: 'none', cursor: 'pointer' }}
-                                                        onClick={() => handleAddProject(project)}
+                                                        onClick={() => handleAddProject({ ...project, name: project.name || project.title })}
                                                     >
-                                                        {project.image && <img src={project.image} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />}
+                                                        {(project.image || project.thumbnail) && <img src={project.image || project.thumbnail} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />}
                                                         <div>
-                                                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name}</p>
-                                                            <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{project.status}</p>
+                                                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name || project.title}</p>
+                                                            <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{project.status || project.stage}</p>
                                                         </div>
                                                     </button>
                                                 ))}
-                                                {projectResults.filter(p => p.name.toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
+                                                {projectResults.filter(p => (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
                                                     <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--color-gray-500)', fontSize: '0.875rem', fontStyle: 'italic' }}>
                                                         No projects found matching &ldquo;{projectSearch}&rdquo;
                                                     </div>
@@ -960,10 +1062,10 @@ const ProfileEdit = () => {
                                 </div>
                             )}
                         </div>
-                    </div>
+                    </div >
 
-                </div>
-            </div>
+                </div >
+            </div >
 
             {cropImage && (
                 <ImageCropModal
@@ -1133,7 +1235,7 @@ const ProfileEdit = () => {
                     100% { width: 0%; margin-left: 100%; }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

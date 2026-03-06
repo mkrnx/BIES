@@ -11,7 +11,7 @@ RUN chmod +x /app/write-policy.sh
 # Create data directories and non-root user
 RUN mkdir -p /app/strfry-db /app/data && \
     addgroup -g 1001 relay && adduser -u 1001 -G relay -s /bin/sh -D relay && \
-    chown -R relay:relay /app/strfry-db /app/data
+    chown -R relay:relay /app/strfry-db /app/data /app/write-policy.sh
 
 USER relay
 

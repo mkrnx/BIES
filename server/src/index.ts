@@ -59,6 +59,14 @@ app.use(helmet({
     },
 }));
 
+// ─── Health check (before CORS so Docker healthchecks work) ──────────────────
+app.get('/api/health', (_req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+    });
+});
+
 // ─── CORS ─────────────────────────────────────────────────────────────────────
 const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
 app.use(cors({
@@ -160,14 +168,6 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/match', matchRoutes);
-
-// ─── Health check ─────────────────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => {
-    res.json({
-        status: 'ok',
-        timestamp: new Date().toISOString(),
-    });
-});
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
