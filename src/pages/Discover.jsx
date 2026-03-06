@@ -4,9 +4,14 @@ import { Link, useLocation } from 'react-router-dom';
 import { projectsApi, watchlistApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
 import { useAuth } from '../context/AuthContext';
+import { useUserMode } from '../context/UserModeContext';
 
 const ProjectCard = ({ project }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
+
+  useEffect(() => {
+    setIsLiked(project._watchlisted || false);
+  }, [project._watchlisted]);
 
   const toggleWatchlist = async () => {
     try {
@@ -284,6 +289,7 @@ const ProjectCard = ({ project }) => {
 const Discover = () => {
   const location = useLocation();
   const { user } = useAuth();
+  const { mode } = useUserMode();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
@@ -346,9 +352,21 @@ const Discover = () => {
         if (selectedIndustries.length === 1) params.category = selectedIndustries[0];
         if (selectedStages.length === 1) params.stage = selectedStages[0];
 
-        const result = await projectsApi.list(params);
+        const [result, wlRes] = await Promise.all([
+          projectsApi.list(params),
+          user?.id ? watchlistApi.list().catch(() => null) : Promise.resolve(null)
+        ]);
+
         const list = result?.data || result || [];
-        setProjects(Array.isArray(list) ? list : []);
+        const wl = wlRes?.data || wlRes || [];
+        const wlIds = new Set(wl.map(w => w.projectId || w.project?.id));
+
+        const listWithWatchlist = (Array.isArray(list) ? list : []).map(p => ({
+          ...p,
+          _watchlisted: wlIds.has(p.id)
+        }));
+
+        setProjects(listWithWatchlist);
         setTotalPages(result?.totalPages || 1);
       } catch {
         setProjects([]);
@@ -359,7 +377,7 @@ const Discover = () => {
 
     const debounce = setTimeout(fetchProjects, 300);
     return () => clearTimeout(debounce);
-  }, [searchQuery, selectedIndustries, selectedStages, page]);
+  }, [searchQuery, selectedIndustries, selectedStages, page, user?.id]);
 
   // Client-side multi-filter (API may not support multi-select)
   const filteredProjects = projects.filter(p => {
@@ -383,7 +401,7 @@ const Discover = () => {
 
       <div className="search-row">
         <div className="search-left-column">
-          {user?.role === 'BUILDER' && (
+          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN') && (
             <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn">
               <Plus size={18} /> Create Project
             </Link>
@@ -548,6 +566,7 @@ const Discover = () => {
         .content-layout {
           display: flex;
           gap: 2rem;
+          align-items: flex-start;
         }
 
         .filters {
@@ -614,6 +633,7 @@ const Discover = () => {
           display: grid;
           grid-template-columns: repeat(3, 1fr);
           gap: 1.5rem;
+          align-content: flex-start;
         }
 
         @media (max-width: 1024px) {

@@ -90,14 +90,13 @@ export async function notifyInvestmentInterest(params: {
     investorName: string;
     projectTitle: string;
     projectId: string;
-    investmentId: string;
 }): Promise<void> {
     await createNotification({
         userId: params.builderId,
         type: 'INVESTMENT_INTEREST',
         title: `${params.investorName} is interested in "${params.projectTitle}"`,
         body: 'An investor has expressed interest in your project.',
-        data: { projectId: params.projectId, investmentId: params.investmentId },
+        data: { projectId: params.projectId },
     });
 }
 
@@ -155,12 +154,18 @@ export async function notifyDeckRequest(params: {
     projectTitle: string;
     projectId: string;
     requestId: string;
+    message?: string;
 }): Promise<void> {
+    const defaultBody = `An investor wants to view the pitch deck for "${params.projectTitle}".`;
+    const finalBody = params.message
+        ? `${defaultBody} Message: "${params.message}"`
+        : defaultBody;
+
     await createNotification({
         userId: params.builderId,
         type: 'DECK_REQUEST',
         title: `${params.investorName} requested your pitch deck`,
-        body: `An investor wants to view the pitch deck for "${params.projectTitle}".`,
+        body: finalBody,
         data: { projectId: params.projectId, requestId: params.requestId },
     });
 }

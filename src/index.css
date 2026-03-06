@@ -175,6 +175,14 @@ textarea {
   gap: var(--spacing-lg);
 }
 
+.flex-1 {
+  flex: 1;
+}
+
+.mt-auto {
+  margin-top: auto;
+}
+
 .grid {
   display: grid;
 }

@@ -20,7 +20,7 @@ const ZapButton = ({ recipients = [], eventId, size = 'md', variant = 'default',
     const validRecipients = recipients.filter(r => r.pubkey);
     if (validRecipients.length === 0) return null;
 
-    const iconSize = size === 'sm' ? 14 : 16;
+    const iconSize = size === 'sm' ? 18 : 20;
     const displayLabel = label ?? (size === 'sm' ? null : 'Zap');
 
     return (
@@ -88,8 +88,8 @@ const ZapButton = ({ recipients = [], eventId, size = 'md', variant = 'default',
                 .zap-btn-sm {
                     padding: 0.35rem 0.5rem;
                     font-size: 0.8rem;
-                    height: 32px;
-                    min-width: 32px;
+                    height: 36px;
+                    min-width: 36px;
                     justify-content: center;
                 }
             `}</style>

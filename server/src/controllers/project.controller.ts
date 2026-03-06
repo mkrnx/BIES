@@ -3,7 +3,7 @@ import prisma from '../lib/prisma';
 import { publishProject, publishProjectListing } from '../services/nostr.service';
 import { getPresignedUrl } from '../services/storage.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
-import { notifyProjectUpdate, notifyDeckRequest, notifyDeckApproved, notifyDeckDenied } from '../services/notification.service';
+import { notifyProjectUpdate, notifyDeckRequest, notifyDeckApproved, notifyDeckDenied, notifyInvestmentInterest } from '../services/notification.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -28,6 +28,7 @@ export const createProjectSchema = z.object({
     useOfFunds: z.array(z.object({ label: z.string(), percentage: z.union([z.string(), z.number()]) })).optional(),
     ownerRole: z.string().optional(),
     isPublished: z.boolean().optional(),
+    requiresDeckApproval: z.boolean().optional(),
 });
 
 export const updateProjectSchema = createProjectSchema.partial();
@@ -214,7 +215,7 @@ export async function createProject(req: Request, res: Response): Promise<void> 
         console.log("--- CREATE PROJECT ---");
 
         // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, etc.
-        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds'];
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds', 'requiresDeckApproval'];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
@@ -291,7 +292,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         console.log("--- UPDATE PROJECT ---");
 
         // Explicitly pick allowed fields — never allow isPublished, status, isFeatured, ownerId, etc.
-        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'raisedAmount', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds', 'ownerRole'];
+        const allowedFields = ['title', 'description', 'category', 'stage', 'fundingGoal', 'raisedAmount', 'thumbnail', 'demoUrl', 'websiteUrl', 'tags', 'customSections', 'teamInfo', 'useOfFunds', 'ownerRole', 'requiresDeckApproval'];
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) data[field] = req.body[field];
@@ -432,7 +433,7 @@ export async function getProjectDeck(req: Request, res: Response): Promise<void>
     try {
         const project = await prisma.project.findUnique({
             where: { id: req.params.id },
-            select: { deckKey: true, ownerId: true },
+            select: { deckKey: true, ownerId: true, requiresDeckApproval: true },
         });
 
         if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
@@ -443,7 +444,8 @@ export async function getProjectDeck(req: Request, res: Response): Promise<void>
         const isInvestor = req.user!.role === 'INVESTOR';
 
         // Owner and admin always have access
-        if (isOwner || isAdmin) {
+        // If approval isn't required, any investor can access it instantly
+        if (isOwner || isAdmin || (!project.requiresDeckApproval && isInvestor)) {
             const url = await getPresignedUrl(project.deckKey);
             res.json({ url, expiresIn: 900 });
             return;
@@ -498,6 +500,20 @@ export async function requestDeckAccess(req: Request, res: Response): Promise<vo
         if (!project.deckKey) { res.status(404).json({ error: 'No pitch deck available for this project' }); return; }
         if (project.ownerId === investorId) { res.status(400).json({ error: 'You own this project' }); return; }
 
+        const existingRequest = await prisma.deckRequest.findUnique({
+            where: {
+                projectId_investorId: {
+                    projectId,
+                    investorId,
+                },
+            },
+        });
+
+        if (existingRequest) {
+            res.status(400).json({ error: 'Deck request already exists' });
+            return;
+        }
+
         const deckRequest = await prisma.deckRequest.create({
             data: {
                 projectId,
@@ -517,6 +533,7 @@ export async function requestDeckAccess(req: Request, res: Response): Promise<vo
             projectTitle: project.title,
             projectId,
             requestId: deckRequest.id,
+            message: req.body.message || '',
         });
 
         res.status(201).json(deckRequest);
@@ -564,6 +581,41 @@ export async function listDeckRequests(req: Request, res: Response): Promise<voi
     } catch (error) {
         console.error('List deck requests error:', error);
         res.status(500).json({ error: 'Failed to list deck requests' });
+    }
+}
+
+/**
+ * GET /projects/builder/deck-requests
+ * Builder sees all pending and past deck requests across all their projects.
+ */
+export async function listAllDeckRequests(req: Request, res: Response): Promise<void> {
+    try {
+        const ownerId = req.user!.id;
+
+        const requests = await prisma.deckRequest.findMany({
+            where: {
+                project: {
+                    ownerId: ownerId
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            include: {
+                project: {
+                    select: { id: true, title: true }
+                },
+                investor: {
+                    select: {
+                        id: true, nostrPubkey: true,
+                        profile: { select: { name: true, avatar: true, company: true, title: true } },
+                    },
+                },
+            },
+        });
+
+        res.json({ data: requests });
+    } catch (error) {
+        console.error('List all deck requests error:', error);
+        res.status(500).json({ error: 'Failed to list all deck requests' });
     }
 }
 
@@ -668,5 +720,59 @@ export async function submitProject(req: Request, res: Response): Promise<void> 
     } catch (error) {
         console.error('Submit project error:', error);
         res.status(500).json({ error: 'Failed to submit project' });
+    }
+}
+
+/**
+ * POST /projects/:id/interest
+ * Investor expresses interest in a project. Automatically adds to watchlist and notifies Builder.
+ */
+export async function expressInterest(req: Request, res: Response): Promise<void> {
+    try {
+        const projectId = req.params.id;
+        const investorId = req.user!.id;
+
+        if (req.user!.role !== 'INVESTOR') {
+            res.status(403).json({ error: 'Only investors can express interest' });
+            return;
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { ownerId: true, title: true, id: true },
+        });
+
+        if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
+        if (project.ownerId === investorId) { res.status(400).json({ error: 'You own this project' }); return; }
+
+        // Always ensure project is watchlisted if they express interest
+        await prisma.watchlistItem.upsert({
+            where: {
+                userId_projectId: {
+                    userId: investorId,
+                    projectId: projectId,
+                }
+            },
+            create: { userId: investorId, projectId: projectId, note: 'Expressed Interest' },
+            update: {}, // Do nothing if it already exists
+        });
+
+        // Notify builder
+        const investor = await prisma.user.findUnique({
+            where: { id: investorId },
+            include: { profile: { select: { name: true } } },
+        });
+
+        await notifyInvestmentInterest({
+            builderId: project.ownerId,
+            investorName: investor?.profile?.name || 'An investor',
+            projectTitle: project.title,
+            projectId: project.id,
+        });
+
+        res.status(200).json({ message: 'Interest expressed successfully' });
+    } catch (error) {
+        console.error('Express interest error:', error);
+        res.status(500).json({ error: 'Failed to express interest' });
     }
 }

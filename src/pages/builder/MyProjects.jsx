@@ -65,15 +65,18 @@ const ActionMenu = ({ project, onDelete, onSubmit }) => {
 const MyProjects = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
+    const [view, setView] = useState('projects'); // 'projects' | 'requests'
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
-    const [copiedId, setCopiedId] = useState(null); // Added for copyLink functionality, though copyLink is not used in this component
+    const [copiedId, setCopiedId] = useState(null);
 
-    const { data: projects, loading, refetch } = useApiQuery(projectsApi.list, { ownerId: user?.id });
+    const { data: projects, loading: projectsLoading, refetch: refetchProjects } = useApiQuery(projectsApi.list, { ownerId: user?.id });
+    const { data: requestsData, loading: requestsLoading, refetch: refetchRequests } = useApiQuery(projectsApi.getAllDeckRequests);
 
     const projectList = projects?.data || projects || [];
+    const requestList = requestsData?.data || requestsData || [];
 
-    const filtered = projectList.filter(p => {
+    const filteredProjects = projectList.filter(p => {
         if (filter !== 'all' && (p.status || 'draft').toLowerCase() !== filter) return false;
         const projectName = (p.title || p.name || '').toLowerCase();
         if (search && !projectName.includes(search.toLowerCase())) return false;
@@ -84,7 +87,7 @@ const MyProjects = () => {
         if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
         try {
             await projectsApi.delete(id);
-            refetch();
+            refetchProjects();
         } catch (err) {
             alert(err?.message || 'Failed to delete project.');
         }
@@ -94,7 +97,7 @@ const MyProjects = () => {
         if (!window.confirm(`Submit "${name}" for admin review? It will be highlighted as a verified project on the Discover page.`)) return;
         try {
             await projectsApi.submit(id);
-            refetch();
+            refetchProjects();
         } catch (err) {
             alert(err?.message || 'Failed to submit project');
         }
@@ -120,7 +123,16 @@ const MyProjects = () => {
         return c.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
     };
 
-    if (loading) {
+    const handleReviewRequest = async (projectId, requestId, status) => {
+        try {
+            await projectsApi.reviewDeckRequest(projectId, requestId, status);
+            refetchRequests();
+        } catch (err) {
+            alert(err?.message || `Failed to ${status.toLowerCase()} request.`);
+        }
+    };
+
+    if (projectsLoading || requestsLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
                 <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
@@ -143,69 +155,185 @@ const MyProjects = () => {
             <div className="card-container">
                 <div className="toolbar">
                     <div className="tabs">
-                        <button className={`tab ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>All Projects</button>
-                        <button className={`tab ${filter === 'active' ? 'active' : ''}`} onClick={() => setFilter('active')}>Active</button>
-                        <button className={`tab ${filter === 'pending-review' ? 'active' : ''}`} onClick={() => setFilter('pending-review')}>Pending Review</button>
-                        <button className={`tab ${filter === 'draft' ? 'active' : ''}`} onClick={() => setFilter('draft')}>Drafts</button>
+                        <button
+                            className={`tab ${view === 'projects' && filter === 'all' ? 'active' : ''}`}
+                            onClick={() => { setView('projects'); setFilter('all'); }}
+                        >
+                            All Projects
+                        </button>
+                        <button
+                            className={`tab ${view === 'projects' && filter === 'active' ? 'active' : ''}`}
+                            onClick={() => { setView('projects'); setFilter('active'); }}
+                        >
+                            Active
+                        </button>
+                        <button
+                            className={`tab ${view === 'projects' && filter === 'pending-review' ? 'active' : ''}`}
+                            onClick={() => { setView('projects'); setFilter('pending-review'); }}
+                        >
+                            Pending Review
+                        </button>
+                        <button
+                            className={`tab ${view === 'projects' && filter === 'draft' ? 'active' : ''}`}
+                            onClick={() => { setView('projects'); setFilter('draft'); }}
+                        >
+                            Drafts
+                        </button>
+                        <button
+                            className={`tab ${view === 'requests' ? 'active' : ''}`}
+                            onClick={() => setView('requests')}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                            Deck Requests
+                            {requestList.filter(r => r.status === 'PENDING').length > 0 && (
+                                <span className="badge">{requestList.filter(r => r.status === 'PENDING').length}</span>
+                            )}
+                        </button>
                     </div>
-                    <div className="search-wrapper">
-                        <input type="text" placeholder="Search projects..." className="search-input" value={search} onChange={e => setSearch(e.target.value)} />
-                    </div>
+                    {view === 'projects' && (
+                        <div className="search-wrapper">
+                            <input type="text" placeholder="Search projects..." className="search-input" value={search} onChange={e => setSearch(e.target.value)} />
+                        </div>
+                    )}
                 </div>
 
-                {filtered.length === 0 ? (
-                    <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-gray-500)' }}>
-                        {projectList.length === 0 ? 'No projects yet. Create your first one!' : 'No projects match your filter.'}
-                    </div>
+                {view === 'projects' ? (
+                    filteredProjects.length === 0 ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-gray-500)' }}>
+                            {projectList.length === 0 ? 'No projects yet. Create your first one!' : 'No projects match your filter.'}
+                        </div>
+                    ) : (
+                        <div className="table-wrapper">
+                            <table className="projects-table">
+                                <thead>
+                                    <tr>
+                                        <th>Project Name</th>
+                                        <th>Stage</th>
+                                        <th>Category</th>
+                                        <th>Status</th>
+                                        <th>Date Created</th>
+                                        <th>Fundraising</th>
+                                        <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {filteredProjects.map(project => {
+                                        const raised = project.raised || 0;
+                                        const goal = project.fundingGoal || 0;
+                                        const pct = goal > 0 ? Math.round((raised / goal) * 100) : 0;
+                                        return (
+                                            <tr key={project.id}>
+                                                <td>
+                                                    <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                                        {project.title || project.name}
+                                                    </Link>
+                                                </td>
+                                                <td>{project.stage || '—'}</td>
+                                                <td>{categoryLabel(project.category)}</td>
+                                                <td><span className={`status-badge ${(project.status || 'draft').toLowerCase().replace(' ', '-')}`}>{project.status || 'Draft'}</span></td>
+                                                <td className="text-gray-500">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : '—'}</td>
+                                                <td>
+                                                    <div className="text-sm font-semibold">{formatCurrency(raised)} / {formatCurrency(goal)}</div>
+                                                    <div className="progress-bar-sm">
+                                                        <div className="fill" style={{ width: `${Math.min(pct, 100)}%` }}></div>
+                                                    </div>
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <ActionMenu
+                                                        project={project}
+                                                        onDelete={handleDelete}
+                                                        onSubmit={handleSubmit}
+                                                    />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
                 ) : (
-                    <div className="table-wrapper">
-                        <table className="projects-table">
-                            <thead>
-                                <tr>
-                                    <th>Project Name</th>
-                                    <th>Stage</th>
-                                    <th>Category</th>
-                                    <th>Status</th>
-                                    <th>Date Created</th>
-                                    <th>Fundraising</th>
-                                    <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filtered.map(project => {
-                                    const raised = project.raised || 0;
-                                    const goal = project.fundingGoal || 0;
-                                    const pct = goal > 0 ? Math.round((raised / goal) * 100) : 0;
-                                    return (
-                                        <tr key={project.id}>
-                                            <td>
-                                                <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
-                                                    {project.title || project.name}
-                                                </Link>
-                                            </td>
-                                            <td>{project.stage || '—'}</td>
-                                            <td>{categoryLabel(project.category)}</td>
-                                            <td><span className={`status-badge ${(project.status || 'draft').toLowerCase().replace(' ', '-')}`}>{project.status || 'Draft'}</span></td>
-                                            <td className="text-gray-500">{project.createdAt ? new Date(project.createdAt).toLocaleDateString() : '—'}</td>
-                                            <td>
-                                                <div className="text-sm font-semibold">{formatCurrency(raised)} / {formatCurrency(goal)}</div>
-                                                <div className="progress-bar-sm">
-                                                    <div className="fill" style={{ width: `${Math.min(pct, 100)}%` }}></div>
-                                                </div>
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>
-                                                <ActionMenu
-                                                    project={project}
-                                                    onDelete={handleDelete}
-                                                    onSubmit={handleSubmit}
-                                                />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
+                    requestList.length === 0 ? (
+                        <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-gray-500)' }}>
+                            No deck requests yet. Requests from investors will appear here.
+                        </div>
+                    ) : (
+                        <div className="table-wrapper">
+                            <table className="projects-table">
+                                <thead>
+                                    <tr>
+                                        <th>Investor</th>
+                                        <th>Project</th>
+                                        <th>Message</th>
+                                        <th>Date</th>
+                                        <th style={{ textAlign: 'center' }}>Status</th>
+                                        <th style={{ textAlign: 'center' }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {requestList.map(req => {
+                                        const name = req.investor?.profile?.name || 'Investor';
+                                        const company = req.investor?.profile?.company || '';
+                                        return (
+                                            <tr key={req.id}>
+                                                <td>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                                        <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: 'var(--color-gray-500)', fontSize: '0.8rem', overflow: 'hidden' }}>
+                                                            {req.investor?.profile?.avatar ? (
+                                                                <img src={req.investor?.profile?.avatar} alt={name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            ) : (
+                                                                name.charAt(0).toUpperCase()
+                                                            )}
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontWeight: 600 }}>{name}</div>
+                                                            {company && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{company}</div>}
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td><span style={{ fontWeight: 500, color: 'var(--color-primary)' }}>{req.project?.title || 'Unknown Project'}</span></td>
+                                                <td style={{ maxWidth: '250px' }}>
+                                                    {req.message ? (
+                                                        <span style={{ fontSize: '0.85rem', color: 'var(--color-gray-600)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', fontStyle: 'italic' }}>
+                                                            "{req.message}"
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-gray-400 font-italic text-sm">No message provided</span>
+                                                    )}
+                                                </td>
+                                                <td className="text-gray-500">{new Date(req.createdAt).toLocaleDateString()}</td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    <span className={`status-badge ${req.status.toLowerCase()}`}>{req.status}</span>
+                                                </td>
+                                                <td style={{ textAlign: 'center' }}>
+                                                    {req.status === 'PENDING' ? (
+                                                        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+                                                            <button
+                                                                className="btn"
+                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#DCFCE7', color: '#166534', border: '1px solid #bbf7d0' }}
+                                                                onClick={() => handleReviewRequest(req.projectId, req.id, 'APPROVED')}
+                                                            >
+                                                                Approve
+                                                            </button>
+                                                            <button
+                                                                className="btn"
+                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#FEE2E2', color: '#991B1B', border: '1px solid #fecaca' }}
+                                                                onClick={() => handleReviewRequest(req.projectId, req.id, 'DENIED')}
+                                                            >
+                                                                Deny
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-gray-400 text-sm">—</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )
                 )}
             </div>
 
@@ -218,6 +346,16 @@ const MyProjects = () => {
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
+                    overflow: hidden;
+                }
+
+                .badge {
+                    background: var(--color-primary);
+                    color: white;
+                    font-size: 0.7rem;
+                    padding: 2px 6px;
+                    border-radius: 99px;
+                    font-weight: 700;
                 }
 
                 .toolbar {
@@ -269,6 +407,9 @@ const MyProjects = () => {
                 .status-badge.active { background: #DCFCE7; color: #166534; }
                 .status-badge.draft { background: #F3F4F6; color: #4B5563; }
                 .status-badge.pending-review { background: #FEF9C3; color: #854D0E; }
+                .status-badge.pending { background: #FEF9C3; color: #854D0E; }
+                .status-badge.approved { background: #DCFCE7; color: #166534; }
+                .status-badge.denied { background: #FEE2E2; color: #991B1B; }
 
                 .progress-bar-sm { width: 100px; height: 4px; background: #E5E7EB; border-radius: 99px; margin-top: 4px; overflow: hidden; }
                 .progress-bar-sm .fill { height: 100%; background: var(--color-success); border-radius: 99px; }
@@ -342,7 +483,7 @@ const MyProjects = () => {
                     margin: 3px 0;
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

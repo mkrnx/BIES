@@ -125,6 +125,7 @@ model Project {
   raisedAmount Float    @default(0) @map("raised_amount")
   thumbnail    String   @default("")
   deckKey      String?  @map("deck_key")
+  requiresDeckApproval Boolean  @default(true) @map("requires_deck_approval")
   demoUrl      String   @default("") @map("demo_url")
   websiteUrl   String   @default("") @map("website_url")
   tags         String   @default("[]") // JSON array
@@ -293,15 +294,21 @@ model Event {
   description String
   category    String   @default("NETWORKING")
   // NETWORKING | CONFERENCE | WORKSHOP | HACKATHON | MEETUP | DEMO_DAY | OTHER
+  visibility  String   @default("PUBLIC") // PUBLIC | LIMITED_SPACES | INVITE_ONLY | PRIVATE | DRAFT
   location    String   @default("")
   isOnline    Boolean  @default(false) @map("is_online")
   onlineUrl   String   @default("") @map("online_url")
   startDate   DateTime @map("start_date")
   endDate     DateTime? @map("end_date")
   thumbnail   String   @default("")
+  ticketUrl   String   @default("") @map("ticket_url")
   maxAttendees Int?    @map("max_attendees")
   isPublished Boolean  @default(true) @map("is_published")
   isFeatured  Boolean  @default(false) @map("is_featured")
+  isOfficial  Boolean  @default(false) @map("is_official")
+  isEndorsed  Boolean  @default(false) @map("is_endorsed")
+  endorsementRequested Boolean @default(false) @map("endorsement_requested")
+  guestList   String   @default("[]") @map("guest_list") // JSON array of {name, userId?}
   tags        String   @default("[]") // JSON array
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
