@@ -1,4 +1,4 @@
-import { finalizeEvent } from 'nostr-tools';
+import { nostrSigner } from './nostrSigner.js';
 
 /**
  * Resolve a LUD-16 Lightning address to LNURL-pay metadata.
@@ -71,7 +71,7 @@ export function hasWebLN() {
 
 /**
  * Build a NIP-57 zap request event (Kind 9734).
- * Signs via window.nostr (browser extension) if available.
+ * Signs via the nostrSigner (in-memory key or browser extension).
  * @param {Object} params
  * @param {string} params.recipientPubkey - Hex pubkey of the zap recipient
  * @param {number} params.amountMsats - Amount in millisatoshis
@@ -81,8 +81,6 @@ export function hasWebLN() {
  * @returns {Promise<string|null>} - JSON-serialized signed event, or null if no extension
  */
 export async function createZapRequest({ recipientPubkey, amountMsats, relays, eventId, content }) {
-    if (!window.nostr) return null;
-
     const tags = [
         ['relays', ...relays],
         ['amount', String(amountMsats)],
@@ -100,7 +98,7 @@ export async function createZapRequest({ recipientPubkey, amountMsats, relays, e
     };
 
     try {
-        const signed = await window.nostr.signEvent(event);
+        const signed = await nostrSigner.signEvent(event);
         return JSON.stringify(signed);
     } catch {
         return null;

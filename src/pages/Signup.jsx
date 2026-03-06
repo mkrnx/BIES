@@ -7,7 +7,7 @@ import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fing
 import { passkeyService } from '../services/passkeyService';
 
 const Signup = () => {
-    const { loginWithNostr, updateRole } = useAuth();
+    const { loginWithNsec, updateRole } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -78,10 +78,8 @@ const Signup = () => {
         setSubmitting(true);
 
         try {
-            // The user generated keys in step 1 and should have imported them
-            // into their Nostr extension. We now use loginWithNostr which does
-            // challenge-response auth. The backend auto-creates the user.
-            const result = await loginWithNostr();
+            // Log in with the nsec we generated — no extension needed.
+            const result = await loginWithNsec(keys.nsec);
 
             if (result.success) {
                 // Update role to match their selection
@@ -94,7 +92,7 @@ const Signup = () => {
 
                 navigate('/dashboard');
             } else {
-                setError(result.error || 'Failed to register. Make sure your keys are imported into your Nostr extension.');
+                setError(result.error || 'Failed to register. Please try again.');
             }
         } catch (err) {
             setError(err.message || 'Registration failed.');
@@ -220,7 +218,7 @@ const Signup = () => {
                         <h2 className="text-2xl font-bold mb-6 text-center">Complete Profile</h2>
 
                         <p className="text-sm text-gray-500 mb-4 text-center">
-                            Import your secret key into a Nostr extension (like Alby) before continuing.
+                            Set up your display name and role to get started.
                         </p>
 
                         {error && (

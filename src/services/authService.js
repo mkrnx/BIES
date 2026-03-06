@@ -13,6 +13,7 @@
 import { authApi } from './api.js';
 import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { privateKeyFromSeedWords, validateWords } from 'nostr-tools/nip06';
+import { nostrSigner } from './nostrSigner.js';
 
 const TOKEN_KEY = 'bies_token';
 const USER_KEY = 'bies_user';
@@ -97,6 +98,7 @@ export const authService = {
 
         authService.setToken(token);
         authService.setCachedUser(user);
+        nostrSigner.setExtensionMode();
         return user;
     },
 
@@ -130,6 +132,7 @@ export const authService = {
 
         authService.setToken(token);
         authService.setCachedUser(user);
+        nostrSigner.setNsec(nsecString);
         return user;
     },
 
@@ -162,6 +165,7 @@ export const authService = {
 
         authService.setToken(token);
         authService.setCachedUser(user);
+        nostrSigner.setNsec(sk);
         return user;
     },
 
@@ -200,6 +204,7 @@ export const authService = {
 
     logout: () => {
         authService.clearToken();
+        nostrSigner.clear();
     },
 
     // ─── Role management ────────────────────────────────────────────────────
