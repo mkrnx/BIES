@@ -24,10 +24,12 @@ const router = Router();
 
 // Public routes
 router.get('/', optionalAuth, listProjects);
-router.get('/:id', optionalAuth, getProject);
 
-// Protected routes
+// Protected static routes (must come before /:id to avoid shadowing)
 router.get('/builder/deck-requests', authenticate, listAllDeckRequests);
+
+// Public single project
+router.get('/:id', optionalAuth, getProject);
 router.post('/', authenticate, validate(createProjectSchema), createProject);
 router.put('/:id/submit', authenticate, submitProject);
 router.put('/:id', authenticate, validate(updateProjectSchema), updateProject);
