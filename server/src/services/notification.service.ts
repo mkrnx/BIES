@@ -90,7 +90,7 @@ export async function notifyInvestmentInterest(params: {
     investorName: string;
     projectTitle: string;
     projectId: string;
-    investmentId: string;
+    investmentId?: string;
 }): Promise<void> {
     await createNotification({
         userId: params.builderId,
