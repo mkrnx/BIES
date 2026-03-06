@@ -74,13 +74,13 @@ const ProjectCard = ({ project }) => {
         </div>
 
         {builderName && (
-          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link">
+          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center' }}>
             {builderAvatar ? (
               <img src={builderAvatar} alt={builderName} className="avatar-img" />
             ) : (
               <div className="avatar">{(builderName || '?')[0]}</div>
             )}
-            <span className="builder-name-text">{builderName}</span>
+            <span className="builder-name-text" style={{ marginTop: '-6px' }}>{builderName}</span>
           </Link>
         )}
 
@@ -198,7 +198,6 @@ const ProjectCard = ({ project }) => {
         .builder-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
           margin-bottom: 1.5rem;
           font-size: 0.85rem;
           color: var(--color-neutral-dark);
@@ -216,6 +215,7 @@ const ProjectCard = ({ project }) => {
           font-size: 0.7rem;
           color: var(--color-gray-600);
           flex-shrink: 0;
+          margin-right: 12px;
         }
 
         .avatar-img {
@@ -224,6 +224,7 @@ const ProjectCard = ({ project }) => {
           border-radius: 50%;
           object-fit: cover;
           flex-shrink: 0;
+          margin-right: 12px;
         }
 
         .builder-name-text {
