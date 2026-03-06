@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { nostrService } from '../services/nostrService';
+import { nostrSigner } from '../services/nostrSigner';
 import { nip19 } from 'nostr-tools';
 
 export const useNostrFeed = (npubs) => {
@@ -73,15 +74,11 @@ export const useNostrDMs = () => {
         setError(null);
 
         try {
-            if (!window.nostr) {
-                throw new Error('Nostr extension not found. Please install Alby or nos2x.');
+            if (!nostrSigner.hasNip44) {
+                throw new Error('NIP-44 not available. Please log in again.');
             }
 
-            if (!window.nostr.nip44) {
-                throw new Error('Your Nostr extension does not support NIP-44. Please update to the latest version.');
-            }
-
-            const pubkey = await window.nostr.getPublicKey();
+            const pubkey = await nostrSigner.getPublicKey();
             setPublicKey(pubkey);
 
             // Subscribe to NIP-17 gift-wraps (kind:1059)

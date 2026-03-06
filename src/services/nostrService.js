@@ -1,5 +1,6 @@
 import { SimplePool, nip19, finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
+import { nostrSigner } from './nostrSigner.js';
 
 // Private BIES relay (set via env or falls back to relative WebSocket URL)
 export const BIES_RELAY = import.meta.env.VITE_NOSTR_RELAY || (
@@ -24,14 +25,12 @@ export const DM_RELAYS = [...PUBLIC_RELAYS];
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
 /**
- * NIP-42 auth handler — signs the AUTH challenge event using the browser
- * Nostr extension so the BIES private relay allows read/write access.
+ * NIP-42 auth handler — signs the AUTH challenge event so the BIES
+ * private relay allows read/write access.  Uses the unified signer
+ * (in-memory key or browser extension, depending on login method).
  */
 async function handleRelayAuth(evt) {
-    if (!window.nostr) {
-        throw new Error('Nostr extension required for relay authentication');
-    }
-    return window.nostr.signEvent(evt);
+    return nostrSigner.signEvent(evt);
 }
 
 class NostrService {
@@ -116,11 +115,7 @@ class NostrService {
      * 4. Publish gift-wraps to both sender's and recipient's relays
      */
     async sendNip17DM(recipientPubkey, content) {
-        if (!window.nostr) {
-            throw new Error('Nostr extension not found');
-        }
-
-        const senderPubkey = await window.nostr.getPublicKey();
+        const senderPubkey = await nostrSigner.getPublicKey();
         const now = Math.floor(Date.now() / 1000);
         // Randomize timestamp within +/- 2 days for metadata privacy
         const randomOffset = Math.floor(Math.random() * 172800) - 86400;
@@ -135,18 +130,15 @@ class NostrService {
         };
 
         // Step 2: Create kind:13 seal — encrypt rumor for recipient
-        // We need the sender to sign the seal, so we use window.nostr
         const rumorJson = JSON.stringify(rumor);
 
-        // Encrypt rumor with NIP-44 for recipient
-        let encryptedForRecipient;
-        if (window.nostr.nip44) {
-            encryptedForRecipient = await window.nostr.nip44.encrypt(recipientPubkey, rumorJson);
-        } else {
-            throw new Error('Your Nostr extension does not support NIP-44 encryption. Please update your extension.');
+        if (!nostrSigner.hasNip44) {
+            throw new Error('NIP-44 encryption not available. Please log in again.');
         }
 
-        const sealForRecipient = await window.nostr.signEvent({
+        const encryptedForRecipient = await nostrSigner.nip44.encrypt(recipientPubkey, rumorJson);
+
+        const sealForRecipient = await nostrSigner.signEvent({
             kind: 13,
             created_at: now + randomOffset,
             tags: [],
@@ -157,12 +149,9 @@ class NostrService {
         const recipientGiftWrap = this._createGiftWrap(sealForRecipient, recipientPubkey, now);
 
         // Step 4: Create seal + gift-wrap for sender (so they can see sent messages)
-        let encryptedForSender;
-        if (window.nostr.nip44) {
-            encryptedForSender = await window.nostr.nip44.encrypt(senderPubkey, rumorJson);
-        }
+        const encryptedForSender = await nostrSigner.nip44.encrypt(senderPubkey, rumorJson);
 
-        const sealForSender = await window.nostr.signEvent({
+        const sealForSender = await nostrSigner.signEvent({
             kind: 13,
             created_at: now + randomOffset,
             tags: [],
@@ -245,12 +234,12 @@ class NostrService {
      * 2. NIP-44 decrypt seal content with my key + seal author pubkey → kind:14 rumor
      */
     async unwrapGiftWrap(giftWrapEvent) {
-        if (!window.nostr?.nip44) {
-            throw new Error('NIP-44 not supported by extension');
+        if (!nostrSigner.hasNip44) {
+            throw new Error('NIP-44 decryption not available. Please log in again.');
         }
 
         // Step 1: Decrypt the gift-wrap to get the seal
-        const sealJson = await window.nostr.nip44.decrypt(giftWrapEvent.pubkey, giftWrapEvent.content);
+        const sealJson = await nostrSigner.nip44.decrypt(giftWrapEvent.pubkey, giftWrapEvent.content);
         const seal = JSON.parse(sealJson);
 
         if (seal.kind !== 13) {
@@ -258,7 +247,7 @@ class NostrService {
         }
 
         // Step 2: Decrypt the seal to get the rumor
-        const rumorJson = await window.nostr.nip44.decrypt(seal.pubkey, seal.content);
+        const rumorJson = await nostrSigner.nip44.decrypt(seal.pubkey, seal.content);
         const rumor = JSON.parse(rumorJson);
 
         if (rumor.kind !== 14) {
@@ -286,10 +275,7 @@ class NostrService {
     }
 
     async publishEvent(event) {
-        if (!window.nostr) {
-            throw new Error('Nostr extension not found');
-        }
-        const signedEvent = await window.nostr.signEvent(event);
+        const signedEvent = await nostrSigner.signEvent(event);
         return Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
     }
 
@@ -300,11 +286,7 @@ class NostrService {
      * @returns {Promise} resolves when published to at least one relay
      */
     async updateProfile(profileData) {
-        if (!window.nostr) {
-            throw new Error('Nostr extension required to update Nostr profile');
-        }
-
-        const pubkey = await window.nostr.getPublicKey();
+        const pubkey = await nostrSigner.getPublicKey();
 
         // Fetch existing kind:0 to preserve fields we're not editing
         const existing = await this.getProfile(pubkey);
@@ -366,11 +348,7 @@ class NostrService {
      * For Nostr-native users — signs via browser extension.
      */
     async publishProjectListing(project) {
-        if (!window.nostr) {
-            throw new Error('Nostr extension required to publish listings');
-        }
-
-        const pubkey = await window.nostr.getPublicKey();
+        const pubkey = await nostrSigner.getPublicKey();
         const tags = [
             ['d', project.id],
             ['title', project.title],
@@ -408,11 +386,7 @@ class NostrService {
      * Tags BIES relay as write, public relays as read.
      */
     async publishRelayList() {
-        if (!window.nostr) {
-            throw new Error('Nostr extension required to publish relay list');
-        }
-
-        const pubkey = await window.nostr.getPublicKey();
+        const pubkey = await nostrSigner.getPublicKey();
         const tags = [
             ['r', this.biesRelay, 'write'],
             ...this.publicRelays.map(relay => ['r', relay, 'read']),
