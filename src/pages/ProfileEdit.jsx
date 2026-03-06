@@ -376,6 +376,7 @@ const ProfileEdit = () => {
         if (!nostrProfile) return;
         setForm(prev => ({
             ...prev,
+            name: nostrProfile.display_name || nostrProfile.name || prev.name,
             bio: nostrProfile.about || prev.bio,
             avatar: nostrProfile.picture || prev.avatar,
             banner: nostrProfile.banner || prev.banner,

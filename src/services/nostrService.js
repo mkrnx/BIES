@@ -15,6 +15,7 @@ export const PUBLIC_RELAYS = [
     'wss://relay.primal.net',
     'wss://relay.nostr.band',
     'wss://nos.lol',
+    'wss://purplepag.es',
 ];
 
 // Relays used for NIP-17 DMs — only public relays because gift-wraps are
@@ -87,16 +88,40 @@ class NostrService {
         return sub;
     }
 
-    // Fetch user profile (Kind 0)
+    // Fetch user profile (Kind 0 — NIP-01 + NIP-24 extra metadata fields)
+    // Queries all public relays and picks the most recent Kind 0 event,
+    // then merges any missing fields from older events so we get the
+    // most complete profile (banner, picture, etc.).
     async getProfile(pubkey) {
         try {
-            // Fetch from public relays — profiles (kind:0) are public data
-            // and don't require BIES relay auth
-            const event = await this.pool.get(this.publicRelays, {
-                kinds: [0],
-                authors: [pubkey],
-            });
-            return event ? JSON.parse(event.content) : null;
+            const filter = { kinds: [0], authors: [pubkey] };
+            const events = await this.pool.querySync(this.publicRelays, filter);
+
+            if (!events || events.length === 0) return null;
+
+            // Sort newest-first so the primary profile is the latest event
+            events.sort((a, b) => b.created_at - a.created_at);
+
+            // Start with the newest event, then merge any missing fields
+            // from older events (some relays may have stale Kind 0 that
+            // still contains fields like banner that were dropped in a
+            // later publish by a client that didn't preserve all fields).
+            let merged = {};
+            for (const evt of events) {
+                try {
+                    const data = JSON.parse(evt.content);
+                    // Only fill in fields that are missing/empty in merged
+                    for (const [key, value] of Object.entries(data)) {
+                        if (value && !merged[key]) {
+                            merged[key] = value;
+                        }
+                    }
+                } catch {
+                    // skip malformed content
+                }
+            }
+
+            return merged;
         } catch (error) {
             console.error('Error fetching profile:', error);
             return null;

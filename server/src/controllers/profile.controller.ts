@@ -289,6 +289,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
                 name: profile.name || '',
                 about: profile.bio || '',
                 picture: profile.avatar || '',
+                banner: profile.banner || '',
                 website: profile.website || '',
                 nip05,
                 lud16: profile.lightningAddress || '',
