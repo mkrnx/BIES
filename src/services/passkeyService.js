@@ -93,37 +93,74 @@ async function getOrCreateDeviceKey() {
     return key;
 }
 
-// ─── PRF helpers ─────────────────────────────────────────────────────────────
+// ─── largeBlob envelope helpers ──────────────────────────────────────────────
+// Binary format for storing encrypted nsec on the authenticator:
+//   [0]     version    = 0x01
+//   [1]     method     = 0x01 (prf) | 0x02 (device)
+//   [2-17]  salt       = 16 bytes (zeroed if method=device)
+//   [18-29] iv         = 12 bytes
+//   [30+]   ciphertext = variable length
 
-async function getPrfFromCreate(credential) {
-    const ext = credential.getClientExtensionResults();
+const BLOB_VERSION = 0x01;
+const BLOB_METHOD_PRF = 0x01;
+const BLOB_METHOD_DEVICE = 0x02;
 
-    // PRF worked during create()
-    if (ext.prf?.results?.first) {
-        return new Uint8Array(ext.prf.results.first);
-    }
+function encodeBlobEnvelope({ method, salt, iv, ciphertext }) {
+    const methodByte = method === 'prf' ? BLOB_METHOD_PRF : BLOB_METHOD_DEVICE;
+    const saltBytes = method === 'prf' ? new Uint8Array(salt) : new Uint8Array(16);
+    const ivArr = new Uint8Array(iv);
+    const ctArr = new Uint8Array(ciphertext);
 
-    // PRF didn't return results during create — try get() as fallback.
-    // Some authenticators only support PRF during authentication, not registration.
-    try {
-        const assertion = await navigator.credentials.get({
-            publicKey: {
-                challenge: crypto.getRandomValues(new Uint8Array(32)),
-                rpId: window.location.hostname,
-                allowCredentials: [{ type: 'public-key', id: credential.rawId }],
-                userVerification: 'required',
-                extensions: { prf: { eval: { first: PRF_INPUT } } }
-            }
-        });
-        const assertExt = assertion.getClientExtensionResults();
-        if (assertExt.prf?.results?.first) {
-            return new Uint8Array(assertExt.prf.results.first);
+    const blob = new Uint8Array(1 + 1 + 16 + 12 + ctArr.length);
+    let off = 0;
+    blob[off++] = BLOB_VERSION;
+    blob[off++] = methodByte;
+    blob.set(saltBytes, off); off += 16;
+    blob.set(ivArr, off); off += 12;
+    blob.set(ctArr, off);
+    return blob;
+}
+
+function decodeBlobEnvelope(blob) {
+    const arr = new Uint8Array(blob);
+    if (arr.length < 30) throw new Error('Invalid largeBlob envelope: too short');
+    if (arr[0] !== BLOB_VERSION) throw new Error('Unsupported largeBlob version');
+
+    return {
+        method: arr[1] === BLOB_METHOD_PRF ? 'prf' : 'device',
+        salt: arr.slice(2, 18),
+        iv: arr.slice(18, 30),
+        ciphertext: arr.slice(30),
+    };
+}
+
+// ─── WebAuthn assertion helper ──────────────────────────────────────────────
+
+/**
+ * Perform a get() assertion, optionally requesting PRF and/or writing a largeBlob.
+ * Combines multiple extension requests into a single biometric prompt.
+ */
+async function getAssertionWithExtensions({ credentialId, requestPrf = true, blobToWrite = null }) {
+    const extensions = {};
+    if (requestPrf) extensions.prf = { eval: { first: PRF_INPUT } };
+    if (blobToWrite) extensions.largeBlob = { write: blobToWrite };
+
+    const assertion = await navigator.credentials.get({
+        publicKey: {
+            challenge: crypto.getRandomValues(new Uint8Array(32)),
+            rpId: window.location.hostname,
+            allowCredentials: [{ type: 'public-key', id: credentialId }],
+            userVerification: 'required',
+            extensions,
         }
-    } catch {
-        // get() also failed — PRF not supported
-    }
+    });
 
-    return null;
+    const ext = assertion.getClientExtensionResults();
+    return {
+        assertion,
+        prfOutput: ext.prf?.results?.first ? new Uint8Array(ext.prf.results.first) : null,
+        blobWritten: blobToWrite ? (ext.largeBlob?.written === true) : false,
+    };
 }
 
 // ─── Public API ──────────────────────────────────────────────────────────────
@@ -154,15 +191,18 @@ export const passkeyService = {
      * Create a passkey and encrypt the nsec with it.
      * Shows the native WebAuthn dialog (biometric/PIN prompt).
      * Uses PRF when available, falls back to device-bound key otherwise.
+     * When the authenticator supports largeBlob, stores the encrypted nsec
+     * on the authenticator itself for cross-device portability.
      * @param {string} nsec - bech32-encoded nsec key
      * @param {string} pubkey - hex-encoded public key
-     * @returns {Promise<boolean>} true if saved successfully
+     * @returns {Promise<{largeBlobStored: boolean}>}
      */
     async saveWithPasskey(nsec, pubkey) {
         if (!this.isSupported()) {
             throw new Error('Passkeys are not supported on this device.');
         }
 
+        // ── Prompt 1: create credential ─────────────────────────────────
         let credential;
         try {
             credential = await navigator.credentials.create({
@@ -179,11 +219,12 @@ export const passkeyService = {
                         { type: 'public-key', alg: -257 },  // RS256
                     ],
                     authenticatorSelection: {
-                        residentKey: 'preferred',
+                        residentKey: 'required',
                         userVerification: 'required',
                     },
                     extensions: {
-                        prf: { eval: { first: PRF_INPUT } }
+                        prf: { eval: { first: PRF_INPUT } },
+                        largeBlob: { support: 'preferred' },
                     }
                 }
             });
@@ -194,24 +235,96 @@ export const passkeyService = {
             throw err;
         }
 
-        const prfOutput = await getPrfFromCreate(credential);
+        const createExt = credential.getClientExtensionResults();
+        const largeBlobCapable = createExt.largeBlob?.supported === true;
+        const prfFromCreate = createExt.prf?.results?.first
+            ? new Uint8Array(createExt.prf.results.first)
+            : null;
 
-        let aesKey;
-        let encryptionMethod;
+        // ── Determine encryption key + write largeBlob ──────────────────
+        let aesKey, encryptionMethod;
         const salt = crypto.getRandomValues(new Uint8Array(16));
+        let largeBlobStored = false;
 
-        if (prfOutput) {
-            aesKey = await deriveAesKey(prfOutput, salt);
+        if (prfFromCreate) {
+            // PRF available from create — encrypt now
+            aesKey = await deriveAesKey(prfFromCreate, salt);
             encryptionMethod = 'prf';
+
+            if (largeBlobCapable) {
+                // Prompt 2: write encrypted blob to authenticator
+                const { ciphertext, iv } = await encryptData(nsec, aesKey);
+                const blob = encodeBlobEnvelope({ method: 'prf', salt, iv, ciphertext });
+                try {
+                    const result = await getAssertionWithExtensions({
+                        credentialId: credential.rawId,
+                        requestPrf: false,
+                        blobToWrite: blob,
+                    });
+                    largeBlobStored = result.blobWritten;
+                } catch {
+                    // largeBlob write failed — localStorage fallback still works
+                }
+            }
         } else {
-            // PRF not supported — use device-bound key
-            aesKey = await getOrCreateDeviceKey();
-            encryptionMethod = 'device';
+            // PRF not available from create — need get() for PRF retry
+            // If largeBlob is also supported, we can't combine PRF retry + blob write
+            // because we need the PRF output to encrypt before writing the blob.
+            try {
+                const result = await getAssertionWithExtensions({
+                    credentialId: credential.rawId,
+                    requestPrf: true,
+                    blobToWrite: null,
+                });
+
+                if (result.prfOutput) {
+                    aesKey = await deriveAesKey(result.prfOutput, salt);
+                    encryptionMethod = 'prf';
+
+                    if (largeBlobCapable) {
+                        // Prompt 3 (rare): write blob now that we have the key
+                        const { ciphertext, iv } = await encryptData(nsec, aesKey);
+                        const blob = encodeBlobEnvelope({ method: 'prf', salt, iv, ciphertext });
+                        try {
+                            const writeResult = await getAssertionWithExtensions({
+                                credentialId: credential.rawId,
+                                requestPrf: false,
+                                blobToWrite: blob,
+                            });
+                            largeBlobStored = writeResult.blobWritten;
+                        } catch {
+                            // blob write failed, localStorage fallback
+                        }
+                    }
+                }
+            } catch {
+                // PRF retry failed — fall through to device key
+            }
+
+            if (!aesKey) {
+                // No PRF at all — use device-bound key
+                aesKey = await getOrCreateDeviceKey();
+                encryptionMethod = 'device';
+
+                if (largeBlobCapable) {
+                    const { ciphertext, iv } = await encryptData(nsec, aesKey);
+                    const blob = encodeBlobEnvelope({ method: 'device', salt, iv, ciphertext });
+                    try {
+                        const writeResult = await getAssertionWithExtensions({
+                            credentialId: credential.rawId,
+                            requestPrf: false,
+                            blobToWrite: blob,
+                        });
+                        largeBlobStored = writeResult.blobWritten;
+                    } catch {
+                        // blob write failed, localStorage fallback
+                    }
+                }
+            }
         }
 
+        // ── Always store in localStorage as fallback ────────────────────
         const { ciphertext, iv } = await encryptData(nsec, aesKey);
-
-        // Store credential + encrypted data (replace existing for same pubkey)
         const creds = getStored().filter(c => c.pubkey !== pubkey);
         creds.push({
             credentialId: toBase64(credential.rawId),
@@ -220,16 +333,19 @@ export const passkeyService = {
             iv: toBase64(iv),
             salt: toBase64(salt),
             encryptionMethod,
+            largeBlobSupported: largeBlobCapable,
             createdAt: new Date().toISOString(),
         });
         setStored(creds);
 
-        return true;
+        return { largeBlobStored };
     },
 
     /**
      * Authenticate with a saved passkey and decrypt the nsec.
      * Shows the native WebAuthn dialog (biometric/PIN prompt).
+     * Tries to read encrypted nsec from the authenticator's largeBlob first,
+     * falls back to localStorage if unavailable.
      * @returns {Promise<string>} decrypted nsec (bech32)
      */
     async loginWithPasskey() {
@@ -237,15 +353,19 @@ export const passkeyService = {
             throw new Error('Passkeys are not supported on this device.');
         }
 
-        const creds = getStored();
-        if (creds.length === 0) {
-            throw new Error('No saved passkeys found. Log in with your key first and save a passkey.');
-        }
+        const storedCreds = getStored();
+        const hasLocal = storedCreds.length > 0;
 
-        const allowCredentials = creds.map(c => ({
-            type: 'public-key',
-            id: fromBase64(c.credentialId),
-        }));
+        // Build allowCredentials — omit for discoverable flow when no localStorage
+        const allowCredentials = hasLocal
+            ? storedCreds.map(c => ({ type: 'public-key', id: fromBase64(c.credentialId) }))
+            : [];
+
+        // Request largeBlob read if any credential supports it, or if no localStorage
+        const tryLargeBlob = !hasLocal || storedCreds.some(c => c.largeBlobSupported);
+
+        const extensions = { prf: { eval: { first: PRF_INPUT } } };
+        if (tryLargeBlob) extensions.largeBlob = { read: true };
 
         let assertion;
         try {
@@ -253,9 +373,9 @@ export const passkeyService = {
                 publicKey: {
                     challenge: crypto.getRandomValues(new Uint8Array(32)),
                     rpId: window.location.hostname,
-                    allowCredentials,
+                    ...(allowCredentials.length > 0 && { allowCredentials }),
                     userVerification: 'required',
-                    extensions: { prf: { eval: { first: PRF_INPUT } } }
+                    extensions,
                 }
             });
         } catch (err) {
@@ -265,31 +385,58 @@ export const passkeyService = {
             throw err;
         }
 
-        // Find matching stored credential
+        const ext = assertion.getClientExtensionResults();
+
+        // ── Path 1: decrypt from largeBlob on authenticator ─────────────
+        if (ext.largeBlob?.blob) {
+            try {
+                const { method, salt, iv, ciphertext } = decodeBlobEnvelope(ext.largeBlob.blob);
+                let aesKey;
+
+                if (method === 'prf') {
+                    if (!ext.prf?.results?.first) {
+                        throw new Error('PRF output required but not returned.');
+                    }
+                    aesKey = await deriveAesKey(new Uint8Array(ext.prf.results.first), salt);
+                } else {
+                    const deviceKeyRaw = localStorage.getItem(DEVICE_KEY_STORAGE);
+                    if (!deviceKeyRaw) {
+                        throw new Error('Device encryption key not found.');
+                    }
+                    aesKey = await crypto.subtle.importKey(
+                        'raw', fromBase64(deviceKeyRaw), { name: 'AES-GCM' }, false, ['decrypt']
+                    );
+                }
+
+                return await decryptData(ciphertext, iv, aesKey);
+            } catch (blobErr) {
+                // Blob decryption failed — fall through to localStorage
+                console.warn('[passkeyService] largeBlob decryption failed, trying localStorage:', blobErr.message);
+            }
+        }
+
+        // ── Path 2: decrypt from localStorage ──────────────────────────
         const usedId = toBase64(assertion.rawId);
-        const stored = creds.find(c => c.credentialId === usedId);
+        const stored = storedCreds.find(c => c.credentialId === usedId);
         if (!stored) {
-            throw new Error('Passkey not recognized. It may have been removed.');
+            throw new Error('No passkey data found. Log in with your nsec key first and save a passkey.');
         }
 
         let aesKey;
 
         if (stored.encryptionMethod === 'device') {
-            // Device-bound key — passkey auth already verified the user
             const deviceKey = localStorage.getItem(DEVICE_KEY_STORAGE);
             if (!deviceKey) {
                 throw new Error('Device encryption key not found. This passkey can only be used on the device where it was created.');
             }
-            const raw = fromBase64(deviceKey);
-            aesKey = await crypto.subtle.importKey('raw', raw, { name: 'AES-GCM' }, false, ['decrypt']);
+            aesKey = await crypto.subtle.importKey(
+                'raw', fromBase64(deviceKey), { name: 'AES-GCM' }, false, ['decrypt']
+            );
         } else {
-            // PRF-based decryption
-            const ext = assertion.getClientExtensionResults();
             if (!ext.prf?.results?.first) {
                 throw new Error('Could not derive decryption key from passkey.');
             }
-            const prfOutput = new Uint8Array(ext.prf.results.first);
-            aesKey = await deriveAesKey(prfOutput, fromBase64(stored.salt));
+            aesKey = await deriveAesKey(new Uint8Array(ext.prf.results.first), fromBase64(stored.salt));
         }
 
         try {
