@@ -198,7 +198,7 @@ const ProjectCard = ({ project }) => {
         .builder-row {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.75rem;
           margin-bottom: 1.5rem;
           font-size: 0.85rem;
           color: var(--color-neutral-dark);
