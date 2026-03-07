@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft } from 'lucide-react';
+import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -347,6 +348,60 @@ const PublicProfile = ({ type }) => {
                                 ) : (
                                     <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>No projects listed.</p>
                                 )
+                            )}
+                        </div>
+
+                        {/* Events Attending Panel */}
+                        <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>Events Attending</h3>
+                            {profile.user?.eventRSVPs && profile.user.eventRSVPs.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {profile.user.eventRSVPs.map((rsvp, idx) => (
+                                        <Link
+                                            to={`/events/${rsvp.event.id}`}
+                                            key={idx}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                padding: '0.75rem 1rem',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--color-gray-200)',
+                                                background: 'var(--color-gray-50)',
+                                                textDecoration: 'none',
+                                                transition: 'border-color 0.2s, box-shadow 0.2s',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-gray-200)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        >
+                                            {rsvp.event.thumbnail ? (
+                                                <div style={{ width: '56px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={getAssetUrl(rsvp.event.thumbnail)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            ) : (
+                                                <div style={{ width: '56px', height: '42px', borderRadius: '6px', background: 'var(--color-gray-200)', flexShrink: 0 }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '0.95rem', fontFamily: 'var(--font-display)' }}>{rsvp.event.title}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                                    <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{new Date(rsvp.event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                    <span style={{
+                                                        padding: '0.15rem 0.5rem',
+                                                        borderRadius: '999px',
+                                                        fontSize: '0.75rem',
+                                                        fontWeight: 600,
+                                                        background: rsvp.status === 'GOING' ? '#dcfce7' : '#fef9c3',
+                                                        color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e',
+                                                    }}>
+                                                        {rsvp.status === 'GOING' ? 'Attending' : 'Interested'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>No upcoming events.</p>
                             )}
                         </div>
 

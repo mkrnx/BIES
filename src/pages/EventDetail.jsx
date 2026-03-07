@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Calendar, MapPin, Users, ExternalLink, ArrowLeft, Clock, Tag, Loader2, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Share2, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle } from 'lucide-react';
+import { getAssetUrl } from '../utils/assets';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
@@ -18,11 +19,11 @@ const MOCK_EVENT_DATA = {
         location: 'Hotel Decameron, Santa Elena, El Salvador',
         attendees: 400,
         description: 'The flagship annual gathering for builders, investors, and entrepreneurs building the Bitcoin economy in El Salvador.',
-        fullDescription: `The Bitcoin & Business Summit El Salvador is the premier annual conference for the Bitcoin-native business ecosystem. This full-day event brings together founders, investors, developers, and policy makers to explore the opportunities being created in El Salvador's rapidly evolving economy.
+        fullDescription: `The Bitcoin & Business Summit El Salvador is the premier annual conference for the Bitcoin - native business ecosystem.This full - day event brings together founders, investors, developers, and policy makers to explore the opportunities being created in El Salvador's rapidly evolving economy.
 
-Featured programming includes keynote presentations from leading Bitcoin entrepreneurs, fireside chats with investors deploying capital in the region, and hands-on workshops covering everything from Lightning Network integration to raising a Bitcoin-native round.
+Featured programming includes keynote presentations from leading Bitcoin entrepreneurs, fireside chats with investors deploying capital in the region, and hands - on workshops covering everything from Lightning Network integration to raising a Bitcoin - native round.
 
-Networking opportunities are woven throughout the day, culminating in an evening reception. Whether you're a builder looking for funding, an investor seeking deal flow, or an ecosystem participant curious about what's being built, this is the event to attend.`,
+Networking opportunities are woven throughout the day, culminating in an evening reception.Whether you're a builder looking for funding, an investor seeking deal flow, or an ecosystem participant curious about what's being built, this is the event to attend.`,
         tags: ['Bitcoin', 'El Salvador', 'Investing', 'Networking', 'Conference'],
         coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&q=80',
         externalUrl: 'https://satlantis.io',
@@ -39,13 +40,13 @@ Networking opportunities are woven throughout the day, culminating in an evening
         location: 'Chivo Lab, San Salvador, El Salvador',
         attendees: 120,
         description: 'A 48-hour hackathon focused on building Lightning Network-powered applications.',
-        fullDescription: `Join us for a 48-hour build sprint focused entirely on Lightning Network applications. Teams of 1–4 will compete to build the most useful, creative, or technically impressive app that leverages the Lightning Network.
+        fullDescription: `Join us for a 48 - hour build sprint focused entirely on Lightning Network applications.Teams of 1–4 will compete to build the most useful, creative, or technically impressive app that leverages the Lightning Network.
 
-Prize tracks include: Best Consumer App, Best Developer Tool, Best Business Use Case, and a wildcard Best Bitcoin-Native UX prize. Total prize pool: $15,000 in BTC.
+Prize tracks include: Best Consumer App, Best Developer Tool, Best Business Use Case, and a wildcard Best Bitcoin - Native UX prize.Total prize pool: $15,000 in BTC.
 
-Mentors from the BIES network will be available throughout the event to provide technical guidance on Lightning, Nostr integration, and building for the Salvadoran market. Food, coffee, and a hacker lounge will be provided for the full 48 hours.
+Mentors from the BIES network will be available throughout the event to provide technical guidance on Lightning, Nostr integration, and building for the Salvadoran market.Food, coffee, and a hacker lounge will be provided for the full 48 hours.
 
-To participate, register your team in advance. Solo hackers are welcome — we'll help you find a team at the opening session.`,
+To participate, register your team in advance.Solo hackers are welcome — we'll help you find a team at the opening session.`,
         tags: ['Lightning', 'Hackathon', 'Bitcoin', 'Development', 'Prizes'],
         coverImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80',
         externalUrl: 'https://satlantis.io',
@@ -173,42 +174,75 @@ const EventDetail = () => {
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [rsvpStatus, setRsvpStatus] = useState(null); // null | 'GOING' | 'MAYBE'
+    const [rsvpStatus, setRsvpStatus] = useState(null); // null | 'GOING' | 'INTERESTED' | 'NOT_GOING'
     const [rsvpLoading, setRsvpLoading] = useState(false);
+    const [showRsvpDropdown, setShowRsvpDropdown] = useState(false);
+
+    const parseEvent = (data) => {
+        if (!data) return data;
+        const parsed = { ...data };
+        try {
+            if (typeof parsed.tags === 'string') parsed.tags = JSON.parse(parsed.tags || '[]');
+            if (typeof parsed.customSections === 'string') parsed.customSections = JSON.parse(parsed.customSections || '[]');
+            if (typeof parsed.guestList === 'string') parsed.guestList = JSON.parse(parsed.guestList || '[]');
+        } catch (e) {
+            console.error('Error parsing event JSON fields:', e);
+        }
+        return parsed;
+    };
+
+    const fetchEvent = async () => {
+        setLoading(true);
+        try {
+            if (id in MOCK_EVENT_DATA) {
+                setEvent(MOCK_EVENT_DATA[id]);
+            } else {
+                const result = await eventsApi.get(id);
+                const parsed = parseEvent(result);
+                setEvent(parsed);
+                if (parsed?.rsvpStatus) setRsvpStatus(parsed.rsvpStatus);
+            }
+        } catch (err) {
+            console.error('Error fetching event:', err);
+            setError(err.message || 'Failed to load event');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchEvent = async () => {
-            setLoading(true);
-            try {
-                if (id in MOCK_EVENT_DATA) {
-                    setEvent(MOCK_EVENT_DATA[id]);
-                } else {
-                    const result = await eventsApi.get(id);
-                    setEvent(result);
-                    if (result?.rsvpStatus) setRsvpStatus(result.rsvpStatus);
-                }
-            } catch (err) {
-                setError(err.message || 'Failed to load event');
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchEvent();
     }, [id]);
 
-    const handleRsvp = async () => {
+    const handleRsvp = async (status) => {
         if (!isAuthenticated) return;
         setRsvpLoading(true);
         try {
-            if (rsvpStatus) {
+            if (status === 'NOT_GOING' || status === null) {
                 await eventsApi.cancelRsvp(id);
                 setRsvpStatus(null);
             } else {
-                await eventsApi.rsvp(id, 'GOING');
-                setRsvpStatus('GOING');
+                await eventsApi.rsvp(id, status);
+                setRsvpStatus(status);
             }
-        } catch { /* ignore */ }
-        finally { setRsvpLoading(false); }
+            // Refresh event data to update attendee list
+            const result = await eventsApi.get(id);
+            setEvent(parseEvent(result));
+        } catch (err) {
+            console.error('RSVP error:', err);
+        } finally {
+            setRsvpLoading(false);
+            setShowRsvpDropdown(false);
+        }
+    };
+
+    const getRsvpLabel = (status) => {
+        switch (status) {
+            case 'GOING': return 'Attending';
+            case 'INTERESTED': return 'Thinking About It';
+            case 'NOT_GOING': return 'Not Attending';
+            default: return 'RSVP';
+        }
     };
 
     const formatDate = (dateStr) => {
@@ -250,8 +284,8 @@ const EventDetail = () => {
         <div className="event-detail-page">
             <div className="container">
                 <div className="hero-image">
-                    {(event.coverImage || event.image) && (
-                        <img src={event.coverImage || event.image} alt={event.title} />
+                    {(event.coverImage || event.thumbnail || event.image) && (
+                        <img src={getAssetUrl(event.coverImage || event.thumbnail || event.image)} alt={event.title} />
                     )}
                     <Link to="/events" style={{
                         position: 'absolute', top: '24px', left: '24px',
@@ -270,12 +304,12 @@ const EventDetail = () => {
                 <div className="detail-grid">
                     <div className="main-content">
                         <h1>{event.title}</h1>
-                        {event.organizer && (
+                        {(event.organizer || event.host?.profile?.name || event.host?.profile?.company) && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <p className="organizer" style={{ margin: 0 }}>Hosted by {event.organizer}</p>
+                                <p className="organizer" style={{ margin: 0 }}>Hosted by {event.organizer || event.host?.profile?.name || event.host?.profile?.company || 'BIES Community'}</p>
                                 {event.host?.nostrPubkey && (
                                     <ZapButton
-                                        recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: event.host?.profile?.avatar || '' }]}
+                                        recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: getAssetUrl(event.host?.profile?.avatar) || '' }]}
                                         size="sm"
                                     />
                                 )}
@@ -288,7 +322,7 @@ const EventDetail = () => {
                             ))}
                         </div>
 
-                        {(event.tags || []).length > 0 && (
+                        {Array.isArray(event.tags) && event.tags.length > 0 && (
                             <div className="tags">
                                 {event.tags.map(tag => (
                                     <span key={tag} className="tag">
@@ -297,6 +331,18 @@ const EventDetail = () => {
                                 ))}
                             </div>
                         )}
+
+                        {Array.isArray(event.customSections) && event.customSections.map((section, idx) => (
+                            <div key={idx} className="custom-section" style={{ marginTop: '2.5rem' }}>
+                                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-gray-900)' }}>{section.title}</h2>
+                                <div className="description">
+                                    {(section.content || section.body || '').split('\n\n').map((paragraph, i) => (
+                                        <p key={i}>{paragraph}</p>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+
                     </div>
 
                     <div className="detail-sidebar">
@@ -311,12 +357,14 @@ const EventDetail = () => {
                                 </div>
                             </div>
 
-                            {(event.time || event.startTime) && (
+                            {(event.time || event.startDate) && (
                                 <div className="info-row">
                                     <Clock size={18} />
                                     <div>
                                         <span className="info-label">Time</span>
-                                        <span className="info-value">{event.time || event.startTime}</span>
+                                        <span className="info-value">
+                                            {event.time || new Date(event.startDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                        </span>
                                     </div>
                                 </div>
                             )}
@@ -329,41 +377,125 @@ const EventDetail = () => {
                                 </div>
                             </div>
 
-                            {event.attendees > 0 && (
+                            {(event.attendeeCount > 0 || event._count?.attendees > 0 || (typeof event.attendees === 'number' && event.attendees > 0)) && (
                                 <div className="info-row">
                                     <Users size={18} />
                                     <div>
                                         <span className="info-label">Attendees</span>
-                                        <span className="info-value">{event.attendees}+ expected</span>
+                                        <span className="info-value">
+                                            {event.attendeeCount || event._count?.attendees || (typeof event.attendees === 'number' ? event.attendees : 0)}
+                                            + expected
+                                        </span>
                                     </div>
                                 </div>
                             )}
 
                             {isAuthenticated && (
-                                <button
-                                    className={`rsvp-btn ${rsvpStatus ? 'going' : ''}`}
-                                    onClick={handleRsvp}
-                                    disabled={rsvpLoading}
-                                >
-                                    {rsvpStatus ? (
-                                        <><CheckCircle size={16} /> Going</>
-                                    ) : (
-                                        'RSVP'
+                                <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                                    <button
+                                        className={`rsvp-btn ${rsvpStatus ? 'going' : ''}`}
+                                        onClick={() => setShowRsvpDropdown(!showRsvpDropdown)}
+                                        disabled={rsvpLoading}
+                                    >
+                                        {rsvpStatus === 'GOING' ? <CheckCircle size={16} /> : null}
+                                        {getRsvpLabel(rsvpStatus)}
+                                    </button>
+
+                                    {showRsvpDropdown && (
+                                        <div style={{
+                                            position: 'absolute',
+                                            top: '100%',
+                                            left: 0,
+                                            right: 0,
+                                            background: 'white',
+                                            borderRadius: '10px',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                            border: '1px solid var(--color-gray-200)',
+                                            zIndex: 20,
+                                            marginTop: '4px',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <button
+                                                className="dropdown-item"
+                                                onClick={() => handleRsvp('GOING')}
+                                                style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, borderBottom: '1px solid var(--color-gray-50)' }}
+                                            >
+                                                Attending
+                                            </button>
+                                            <button
+                                                className="dropdown-item"
+                                                onClick={() => handleRsvp('INTERESTED')}
+                                                style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, borderBottom: '1px solid var(--color-gray-50)' }}
+                                            >
+                                                Thinking About It
+                                            </button>
+                                            <button
+                                                className="dropdown-item"
+                                                onClick={() => handleRsvp(null)}
+                                                style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, color: '#ef4444' }}
+                                            >
+                                                Not Attending
+                                            </button>
+                                        </div>
                                     )}
-                                </button>
+                                </div>
                             )}
 
-                            {event.externalUrl && (
+                            {(event.externalUrl || event.ticketUrl) && (
                                 <a
-                                    href={event.externalUrl}
+                                    href={event.externalUrl || event.ticketUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="ticket-btn"
                                 >
-                                    Reserve Now <ExternalLink size={14} />
+                                    Get Tickets <ExternalLink size={14} />
                                 </a>
                             )}
                         </div>
+
+                        {/* Attendees Card — below Event Details */}
+                        {event.attendees && Array.isArray(event.attendees) && event.attendees.filter(a => a.status === 'GOING').length > 0 && (
+                            <div className="info-card" style={{ marginTop: '1.25rem' }}>
+                                <h3 style={{ marginBottom: '1rem' }}>
+                                    Attending
+                                    <span style={{ marginLeft: '0.5rem', fontSize: '0.8rem', fontWeight: 500, color: 'var(--color-gray-400)' }}>
+                                        ({event.attendees.filter(a => a.status === 'GOING').length})
+                                    </span>
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                                    {event.attendees.filter(a => a.status === 'GOING').slice(0, 8).map((attendee) => (
+                                        <Link
+                                            key={attendee.id}
+                                            to={`/builder/${attendee.user?.id}`}
+                                            className="attendee-row"
+                                        >
+                                            <div className="attendee-avatar">
+                                                {attendee.user?.profile?.avatar ? (
+                                                    <img src={getAssetUrl(attendee.user.profile.avatar)} alt="" />
+                                                ) : (
+                                                    <span>{attendee.user?.profile?.name?.charAt(0) || '?'}</span>
+                                                )}
+                                            </div>
+                                            <div style={{ minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--color-gray-900)' }}>
+                                                    {attendee.user?.profile?.name || 'Community Member'}
+                                                </div>
+                                                {attendee.user?.profile?.company && (
+                                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                        {attendee.user.profile.company}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </Link>
+                                    ))}
+                                    {event.attendees.filter(a => a.status === 'GOING').length > 8 && (
+                                        <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-400)', marginTop: '0.25rem', textAlign: 'center' }}>
+                                            +{event.attendees.filter(a => a.status === 'GOING').length - 8} more attending
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
@@ -556,6 +688,43 @@ const EventDetail = () => {
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
                 }
+
+                .dropdown-item:hover {
+                    background-color: var(--color-gray-50);
+                }
+
+                .attendee-card:hover {
+                    border-color: var(--color-primary) !important;
+                    transform: translateY(-2px);
+                    box-shadow: var(--shadow-sm);
+                }
+
+                .attendee-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.65rem;
+                    text-decoration: none;
+                    color: inherit;
+                    padding: 0.4rem 0.5rem;
+                    border-radius: 8px;
+                    transition: background 0.15s;
+                }
+                .attendee-row:hover { background: var(--color-gray-50); }
+                .attendee-avatar {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    background: var(--color-gray-100);
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500);
+                }
+                .attendee-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
                 @media (max-width: 768px) {
                     .hero-image { height: 250px; }

@@ -20,7 +20,9 @@ const upload = multer({
         if (allAllowed.includes(file.mimetype)) {
             cb(null, true);
         } else {
-            cb(new Error(`File type ${file.mimetype} not allowed`));
+            const err: any = new Error(`File type ${file.mimetype || 'unknown'} not allowed. Please use JPG, PNG, or WEBP.`);
+            err.statusCode = 400;
+            cb(err);
         }
     },
 });

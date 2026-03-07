@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Calendar as CalendarIcon, MapPin, Users, Search, Loader2, ChevronRight, ChevronLeft, ShieldCheck, Globe, Plus, Award } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
+import { getAssetUrl } from '../utils/assets';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -121,7 +122,7 @@ const EventCard = ({ event, isOfficial }) => {
                     className="card-image"
                     style={{
                         backgroundColor: hasImage ? undefined : bgColor,
-                        backgroundImage: hasImage ? `url(${event.coverImage || event.image || event.thumbnail})` : 'none',
+                        backgroundImage: hasImage ? `url(${getAssetUrl(event.coverImage || event.image || event.thumbnail)})` : 'none',
                     }}
                 >
                     <span className="cat-badge">{categoryLabel}</span>
@@ -149,7 +150,7 @@ const EventCard = ({ event, isOfficial }) => {
                     {(event.ticketUrl || event.externalUrl) ? (
                         <a href={event.ticketUrl || event.externalUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-xs reserve-btn">Get Tickets</a>
                     ) : (
-                        <Link to={`/events/${event.id}`} className="btn btn-outline btn-xs reserve-btn">View Event</Link>
+                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn">Get Tickets</Link>
                     )}
                 </div>
             </div>
@@ -392,12 +393,12 @@ const Events = () => {
 
         return (
             <div className="calendar-widget">
-                <div className="calendar-header">
-                    <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
+                <div style={{ display: 'flex', alignItems: 'center', width: '100%', marginBottom: '1rem' }}>
+                    <button style={{ padding: '0.25rem', borderRadius: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', display: 'flex', alignItems: 'center' }} onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}>
                         <ChevronLeft size={16} />
                     </button>
-                    <span>{monthYear}</span>
-                    <button onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
+                    <span style={{ flex: 1, textAlign: 'center', fontWeight: 600, fontSize: '0.9rem' }}>{monthYear}</span>
+                    <button style={{ padding: '0.25rem', borderRadius: '4px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', display: 'flex', alignItems: 'center' }} onClick={() => setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}>
                         <ChevronRight size={16} />
                     </button>
                 </div>
@@ -700,8 +701,9 @@ const Events = () => {
                     justify-content: space-between;
                     align-items: center;
                     margin-bottom: 1rem;
+                    width: 100%;
                 }
-                .calendar-header span { font-weight: 600; font-size: 0.9rem; }
+                .calendar-header span { font-weight: 600; font-size: 0.9rem; flex: 1; text-align: center; }
                 .calendar-header button {
                     padding: 0.25rem;
                     border-radius: 4px;

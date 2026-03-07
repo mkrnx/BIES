@@ -42,6 +42,7 @@ model User {
   projectViews     ProjectView[]
   teamMemberships  ProjectTeamMember[]
   deckRequests     DeckRequest[]
+  eventRSVPs      EventAttendee[]
   settings         UserSettings?
 
   @@map("users")
@@ -308,8 +309,12 @@ model Event {
   isOfficial  Boolean  @default(false) @map("is_official")
   isEndorsed  Boolean  @default(false) @map("is_endorsed")
   endorsementRequested Boolean @default(false) @map("endorsement_requested")
-  guestList   String   @default("[]") @map("guest_list") // JSON array of {name, userId?}
-  tags        String   @default("[]") // JSON array
+  guestList       String   @default("[]") @map("guest_list") // JSON array of {name, userId?}
+  tags            String   @default("[]") // JSON array
+  locationName    String   @default("") @map("location_name")
+  locationAddress String   @default("") @map("location_address")
+  locationMapUrl  String   @default("") @map("location_map_url")
+  customSections  String   @default("[]") @map("custom_sections") // JSON array of {title, content}
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
@@ -327,6 +332,7 @@ model EventAttendee {
   joinedAt DateTime @default(now()) @map("joined_at")
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
   @@map("event_attendees")

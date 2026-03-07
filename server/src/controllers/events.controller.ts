@@ -16,16 +16,20 @@ export const createEventSchema = z.object({
     visibility: z.enum(['PUBLIC', 'LIMITED_SPACES', 'INVITE_ONLY', 'PRIVATE', 'DRAFT']).default('PUBLIC'),
     location: z.string().optional(),
     isOnline: z.boolean().default(false),
-    onlineUrl: z.string().url().optional().or(z.literal('')),
-    startDate: z.string().datetime(),
-    endDate: z.string().datetime().optional(),
-    thumbnail: z.string().url().optional().or(z.literal('')),
-    ticketUrl: z.string().url().optional().or(z.literal('')),
-    maxAttendees: z.number().positive().int().optional(),
+    onlineUrl: z.string().optional().or(z.literal('')),
+    startDate: z.string(), // More lenient, parse in controller
+    endDate: z.string().optional(),
+    thumbnail: z.string().optional().or(z.literal('')),
+    ticketUrl: z.string().optional().or(z.literal('')),
+    maxAttendees: z.number().int().optional().nullable(),
     tags: z.array(z.string()).optional(),
     isOfficial: z.boolean().optional(),
     endorsementRequested: z.boolean().optional(),
     guestList: z.array(z.object({ name: z.string(), userId: z.string().optional() })).optional(),
+    locationName: z.string().optional(),
+    locationAddress: z.string().optional(),
+    locationMapUrl: z.string().optional().or(z.literal('')),
+    customSections: z.array(z.object({ title: z.string(), content: z.string() })).optional(),
 });
 
 export const updateEventSchema = createEventSchema.partial();
@@ -108,6 +112,7 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
             ...e,
             tags: JSON.parse(e.tags || '[]'),
             guestList: JSON.parse(e.guestList || '[]'),
+            customSections: JSON.parse((e as any).customSections || '[]'),
             attendeeCount: e._count.attendees,
         }));
 
@@ -151,6 +156,7 @@ export async function listMyEvents(req: Request, res: Response): Promise<void> {
             ...e,
             tags: JSON.parse(e.tags || '[]'),
             guestList: JSON.parse(e.guestList || '[]'),
+            customSections: JSON.parse((e as any).customSections || '[]'),
             attendeeCount: e._count.attendees,
         }));
 
@@ -183,7 +189,20 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
                     take: 20,
                     orderBy: { joinedAt: 'asc' },
                     include: {
-                        // Using a raw join isn't straightforward; we'll include via event model
+                        user: {
+                            select: {
+                                id: true,
+                                nostrPubkey: true,
+                                profile: {
+                                    select: {
+                                        id: true,
+                                        name: true,
+                                        avatar: true,
+                                        company: true,
+                                    },
+                                },
+                            },
+                        },
                     },
                 },
                 _count: { select: { attendees: true } },
@@ -217,6 +236,7 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             ...event,
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
+            customSections: JSON.parse((event as any).customSections || '[]'),
             attendeeCount: event._count.attendees,
         });
     } catch (error) {
@@ -233,9 +253,10 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
     try {
         const allowedFields = [
             'title', 'description', 'category', 'visibility',
-            'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate',
+            'location', 'locationName', 'locationAddress', 'locationMapUrl',
+            'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
-            'endorsementRequested', 'guestList',
+            'endorsementRequested', 'guestList', 'customSections',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -253,6 +274,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 
         if (data.tags) data.tags = JSON.stringify(data.tags);
         if (data.guestList) data.guestList = JSON.stringify(data.guestList);
+        if (data.customSections) data.customSections = JSON.stringify(data.customSections);
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
 
@@ -274,10 +296,15 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             ...event,
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
+            customSections: JSON.parse((event as any).customSections || '[]'),
         });
     } catch (error) {
         console.error('Create event error:', error);
-        res.status(500).json({ error: 'Failed to create event' });
+        if (error instanceof z.ZodError) {
+            res.status(400).json({ error: 'Validation failed', details: error.errors });
+            return;
+        }
+        res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to create event' });
     }
 }
 
@@ -299,9 +326,10 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
 
         const allowedFields = [
             'title', 'description', 'category', 'visibility',
-            'location', 'isOnline', 'onlineUrl', 'startDate', 'endDate',
+            'location', 'locationName', 'locationAddress', 'locationMapUrl',
+            'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
-            'endorsementRequested', 'guestList',
+            'endorsementRequested', 'guestList', 'customSections',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -318,8 +346,11 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             data.isPublished = visibilityToPublished(data.visibility);
         }
 
-        if (data.tags) data.tags = JSON.stringify(data.tags);
-        if (data.guestList) data.guestList = JSON.stringify(data.guestList);
+        // Format arrays into JSON strings for SQLite
+        if (data.tags !== undefined) data.tags = JSON.stringify(data.tags);
+        if (data.guestList !== undefined) data.guestList = JSON.stringify(data.guestList);
+        if (data.customSections !== undefined) data.customSections = JSON.stringify(data.customSections);
+
         if (data.startDate) data.startDate = new Date(data.startDate);
         if (data.endDate) data.endDate = new Date(data.endDate);
 
@@ -330,6 +361,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             ...event,
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
+            customSections: JSON.parse((event as any).customSections || '[]'),
         });
     } catch (error) {
         console.error('Update event error:', error);

@@ -5,6 +5,7 @@ import { projectsApi, watchlistApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
+import { getAssetUrl } from '../utils/assets';
 
 const ProjectCard = ({ project }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
@@ -54,7 +55,7 @@ const ProjectCard = ({ project }) => {
           className="card-image"
           style={{
             backgroundColor: project.color || '#E0F2FE',
-            backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${project.thumbnail || project.coverImage || project.image})` : 'none'
+            backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${getAssetUrl(project.thumbnail || project.coverImage || project.image)})` : 'none'
           }}
         >
           <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
@@ -81,7 +82,7 @@ const ProjectCard = ({ project }) => {
         {builderName && (
           <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem', marginBottom: '0.85rem' }}>
             {builderAvatar ? (
-              <img src={builderAvatar} alt={builderName} className="avatar-img" />
+              <img src={getAssetUrl(builderAvatar)} alt={builderName} className="avatar-img" />
             ) : (
               <div className="avatar">{(builderName || '?')[0]}</div>
             )}
