@@ -4,13 +4,14 @@ import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check,
 import { Link, useNavigate } from 'react-router-dom';
 import { eventsApi } from '../services/api';
 import { useApiQuery } from '../hooks/useApi';
+import { getAssetUrl } from '../utils/assets';
 
 const VISIBILITY_CFG = {
-    PUBLIC:         { label: 'Public',          color: '#16a34a', bg: '#dcfce7', icon: <Globe size={12} /> },
-    LIMITED_SPACES: { label: 'Limited Spaces',  color: '#d97706', bg: '#fef3c7', icon: <Users size={12} /> },
-    INVITE_ONLY:    { label: 'Invite Only',      color: '#7c3aed', bg: '#ede9fe', icon: <UserCheck size={12} /> },
-    PRIVATE:        { label: 'Private',          color: '#dc2626', bg: '#fee2e2', icon: <Lock size={12} /> },
-    DRAFT:          { label: 'Draft',            color: '#6b7280', bg: '#f3f4f6', icon: <EyeOff size={12} /> },
+    PUBLIC: { label: 'Public', color: '#16a34a', bg: '#dcfce7', icon: <Globe size={12} /> },
+    LIMITED_SPACES: { label: 'Limited Spaces', color: '#d97706', bg: '#fef3c7', icon: <Users size={12} /> },
+    INVITE_ONLY: { label: 'Invite Only', color: '#7c3aed', bg: '#ede9fe', icon: <UserCheck size={12} /> },
+    PRIVATE: { label: 'Private', color: '#dc2626', bg: '#fee2e2', icon: <Lock size={12} /> },
+    DRAFT: { label: 'Draft', color: '#6b7280', bg: '#f3f4f6', icon: <EyeOff size={12} /> },
 };
 
 const VISIBILITY_OPTIONS = ['PUBLIC', 'LIMITED_SPACES', 'INVITE_ONLY', 'PRIVATE', 'DRAFT'];
@@ -240,7 +241,7 @@ const MyEvents = () => {
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                 {event.thumbnail && (
                                                     <img
-                                                        src={event.thumbnail}
+                                                        src={getAssetUrl(event.thumbnail)}
                                                         alt=""
                                                         style={{ width: 36, height: 30, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
                                                     />

@@ -168,6 +168,20 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
                             },
                             orderBy: { createdAt: 'desc' },
                         },
+                        eventRSVPs: {
+                            where: { status: { in: ['GOING', 'INTERESTED'] } },
+                            include: {
+                                event: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                        startDate: true,
+                                        thumbnail: true,
+                                        locationName: true,
+                                    },
+                                },
+                            },
+                        },
                         _count: { select: { followers: true, following: true } },
                     },
                 },
@@ -183,7 +197,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
         prisma.profile.update({
             where: { id: profile.id },
             data: { viewCount: { increment: 1 } },
-        }).catch(() => {});
+        }).catch(() => { });
 
         // Notify profile owner of view (dedup: once per viewer per hour)
         if (req.user && req.user.id !== profile.userId) {
@@ -198,8 +212,8 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
                     profileOwnerId: profile.userId,
                     viewerName: viewerProfile?.name || 'Someone',
                     viewerId: req.user.id,
-                }).catch(() => {});
-                cache.set(viewDedupKey, '1', 3600).catch(() => {}); // 1 hour dedup
+                }).catch(() => { });
+                cache.set(viewDedupKey, '1', 3600).catch(() => { }); // 1 hour dedup
             }
         }
 
@@ -346,6 +360,20 @@ export async function getMyProfile(req: Request, res: Response): Promise<void> {
                                 id: true, title: true, stage: true, category: true,
                                 isPublished: true, viewCount: true, raisedAmount: true,
                                 fundingGoal: true, createdAt: true,
+                            },
+                        },
+                        eventRSVPs: {
+                            where: { status: { in: ['GOING', 'INTERESTED'] } },
+                            include: {
+                                event: {
+                                    select: {
+                                        id: true,
+                                        title: true,
+                                        startDate: true,
+                                        thumbnail: true,
+                                        locationName: true,
+                                    },
+                                },
                             },
                         },
                     },

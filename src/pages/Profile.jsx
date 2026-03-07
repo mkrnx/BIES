@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, Loader2, Pencil } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil } from 'lucide-react';
+import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi } from '../services/api';
@@ -64,7 +65,7 @@ const Profile = () => {
                         position: 'relative',
                         height: '240px',
                         background: (profile.banner || nostrProfile?.banner)
-                            ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
+                            ? `url(${profile.banner || nostrProfile?.banner}) center / cover no - repeat`
                             : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
                         {/* Action Buttons */}
@@ -196,7 +197,7 @@ const Profile = () => {
                                 <div>
                                     {profile.biesProjects.map((proj, idx) => (
                                         <Link
-                                            to={`/project/${proj.id}`}
+                                            to={`/ project / ${proj.id} `}
                                             key={idx}
                                             className="project-link flex items-stretch justify-between gap-4 p-4 bg-white border border-gray-200 rounded-xl transition-all hover:border-primary"
                                             style={{ marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0' }}
@@ -226,6 +227,53 @@ const Profile = () => {
                             )}
                         </div>
 
+                        {/* Events Attending Panel */}
+                        <div className="profile-card">
+                            <h3 className="h3-title mb-4">Events Attending</h3>
+                            {profile.user?.eventRSVPs && profile.user.eventRSVPs.length > 0 ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                    {profile.user.eventRSVPs.map((rsvp, idx) => (
+                                        <Link
+                                            to={`/events/${rsvp.event.id}`}
+                                            key={idx}
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '1rem',
+                                                padding: '0.75rem 1rem',
+                                                borderRadius: '10px',
+                                                border: '1px solid var(--color-gray-200)',
+                                                background: 'var(--color-gray-50)',
+                                                textDecoration: 'none',
+                                                transition: 'border-color 0.2s, box-shadow 0.2s',
+                                            }}
+                                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-gray-200)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                        >
+                                            {rsvp.event.thumbnail ? (
+                                                <div style={{ width: '56px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                                                    <img src={getAssetUrl(rsvp.event.thumbnail)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                </div>
+                                            ) : (
+                                                <div style={{ width: '56px', height: '42px', borderRadius: '6px', background: 'var(--color-gray-200)', flexShrink: 0 }} />
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '0.95rem', fontFamily: 'var(--font-display)' }}>{rsvp.event.title}</div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                                    <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{new Date(rsvp.event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, background: rsvp.status === 'GOING' ? '#dcfce7' : '#fef9c3', color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e' }}>
+                                                        {rsvp.status === 'GOING' ? 'Attending' : 'Interested'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            ) : (
+                                <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>Not RSVP'd to any upcoming events.</p>
+                            )}
+                        </div>
+
                         {/* Links Panel */}
                         {(profile.website || profile.twitter || profile.linkedin) && (
                             <div className="profile-card">
@@ -239,53 +287,57 @@ const Profile = () => {
                                     {profile.twitter && (
                                         <a href={`https://x.com/${profile.twitter.replace('@', '')}`} target="_blank" rel="noopener noreferrer" className="social-link">
                                             <Twitter size={18} /> @{profile.twitter.replace('@', '')}
-                                        </a>
+                                        </a >
                                     )}
-                                    {profile.linkedin && (
-                                        <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="social-link">
-                                            <Linkedin size={18} /> LinkedIn Profile
-                                        </a>
-                                    )}
-                                </div>
-                            </div>
+                                    {
+                                        profile.linkedin && (
+                                            <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="social-link">
+                                                <Linkedin size={18} /> LinkedIn Profile
+                                            </a>
+                                        )
+                                    }
+                                </div >
+                            </div >
                         )}
 
                         {/* Nostr Identity Card */}
-                        {(npub || nostrProfile) && (
-                            <div className="profile-card">
-                                <h3 className="h3-title mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <NostrIcon size={20} className="text-purple-500" />
-                                    Nostr Identity
-                                </h3>
-                                {nostrProfile ? (
-                                    <div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                                            {nostrProfile.picture && (
-                                                <img src={nostrProfile.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                        {
+                            (npub || nostrProfile) && (
+                                <div className="profile-card">
+                                    <h3 className="h3-title mb-4" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <NostrIcon size={20} className="text-purple-500" />
+                                        Nostr Identity
+                                    </h3>
+                                    {nostrProfile ? (
+                                        <div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                                {nostrProfile.picture && (
+                                                    <img src={nostrProfile.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
+                                                )}
+                                                <span className="font-medium text-gray-900">{nostrProfile.name || 'Unnamed'}</span>
+                                            </div>
+                                            {nostrProfile.about && (
+                                                <p className="text-sm text-gray-600 leading-relaxed" style={{ marginBottom: '0.75rem' }}>
+                                                    {nostrProfile.about.length > 140
+                                                        ? nostrProfile.about.substring(0, 140) + '...'
+                                                        : nostrProfile.about}
+                                                </p>
                                             )}
-                                            <span className="font-medium text-gray-900">{nostrProfile.name || 'Unnamed'}</span>
                                         </div>
-                                        {nostrProfile.about && (
-                                            <p className="text-sm text-gray-600 leading-relaxed" style={{ marginBottom: '0.75rem' }}>
-                                                {nostrProfile.about.length > 140
-                                                    ? nostrProfile.about.substring(0, 140) + '...'
-                                                    : nostrProfile.about}
-                                            </p>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <p className="text-sm text-gray-400">Loading Nostr profile...</p>
-                                )}
-                                {npub && (
-                                    <p className="text-xs text-gray-400" style={{ fontFamily: 'monospace', marginTop: '0.5rem' }}>
-                                        {npub.substring(0, 24)}...
-                                    </p>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
+                                    ) : (
+                                        <p className="text-sm text-gray-400">Loading Nostr profile...</p>
+                                    )}
+                                    {npub && (
+                                        <p className="text-xs text-gray-400" style={{ fontFamily: 'monospace', marginTop: '0.5rem' }}>
+                                            {npub.substring(0, 24)}...
+                                        </p>
+                                    )}
+                                </div>
+                            )
+                        }
+                    </div >
+                </div >
+            </div >
 
             <style jsx>{`
                 .profile-page {
@@ -395,7 +447,7 @@ const Profile = () => {
                     to { transform: rotate(360deg); }
                 }
             `}</style>
-        </div>
+        </div >
     );
 };
 

@@ -52,6 +52,7 @@ app.use(helmet({
         },
     },
     crossOriginEmbedderPolicy: false, // Allow media loading from S3
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
     hsts: {
         maxAge: 31536000,
         includeSubDomains: true,

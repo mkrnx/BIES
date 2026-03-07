@@ -121,6 +121,9 @@ const AppContent = () => {
                     <Route path="/events/create" element={
                         <ProtectedRoute><CreateEvent /></ProtectedRoute>
                     } />
+                    <Route path="/events/my" element={
+                        <ProtectedRoute><MyEvents /></ProtectedRoute>
+                    } />
                     <Route path="/events/edit/:id" element={
                         <ProtectedRoute><EditEvent /></ProtectedRoute>
                     } />
