@@ -11,6 +11,9 @@ export const getAssetUrl = (path) => {
     const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/api\/?$/, '');
     if (!baseUrl) return path;
 
+    // If path already starts with the base path, don't double-prefix
+    if (path.startsWith(baseUrl)) return path;
+
     // Ensure path starts with /
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${baseUrl}${normalizedPath}`;

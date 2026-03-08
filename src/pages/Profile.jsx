@@ -65,7 +65,7 @@ const Profile = () => {
                         position: 'relative',
                         height: '240px',
                         background: (profile.banner || nostrProfile?.banner)
-                            ? `url(${profile.banner || nostrProfile?.banner}) center / cover no - repeat`
+                            ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
                             : 'linear-gradient(to right, #0052cc, #0a192f)'
                     }}>
                         {/* Action Buttons */}
