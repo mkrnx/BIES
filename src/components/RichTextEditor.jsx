@@ -1,8 +1,30 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 
 const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) => {
     const editorRef = useRef(null);
+    const [formats, setFormats] = useState({
+        bold: false,
+        italic: false,
+        underline: false,
+        justifyLeft: false,
+        justifyCenter: false,
+        justifyRight: false,
+        justifyFull: false
+    });
+
+    const checkFormats = () => {
+        if (!editorRef.current) return;
+        setFormats({
+            bold: document.queryCommandState('bold'),
+            italic: document.queryCommandState('italic'),
+            underline: document.queryCommandState('underline'),
+            justifyLeft: document.queryCommandState('justifyLeft'),
+            justifyCenter: document.queryCommandState('justifyCenter'),
+            justifyRight: document.queryCommandState('justifyRight'),
+            justifyFull: document.queryCommandState('justifyFull')
+        });
+    };
 
     useEffect(() => {
         if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -13,6 +35,7 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
     const handleInput = () => {
         if (editorRef.current) {
             onChange(editorRef.current.innerHTML);
+            checkFormats();
         }
     };
 
@@ -27,31 +50,32 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
         document.execCommand(cmd, false, arg);
         editorRef.current.focus();
         handleInput();
+        checkFormats();
     };
 
     return (
         <div className="rich-text-editor">
             <div className="rte-toolbar">
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} title="Bold">
+                <button type="button" className={formats.bold ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('bold'); }} title="Bold">
                     <Bold size={16} />
                 </button>
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('italic'); }} title="Italic">
+                <button type="button" className={formats.italic ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('italic'); }} title="Italic">
                     <Italic size={16} />
                 </button>
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }} title="Underline">
+                <button type="button" className={formats.underline ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }} title="Underline">
                     <Underline size={16} />
                 </button>
                 <div className="rte-divider" />
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('justifyLeft'); }} title="Align Left">
+                <button type="button" className={formats.justifyLeft ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('justifyLeft'); }} title="Align Left">
                     <AlignLeft size={16} />
                 </button>
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('justifyCenter'); }} title="Align Center">
+                <button type="button" className={formats.justifyCenter ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('justifyCenter'); }} title="Align Center">
                     <AlignCenter size={16} />
                 </button>
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('justifyRight'); }} title="Align Right">
+                <button type="button" className={formats.justifyRight ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('justifyRight'); }} title="Align Right">
                     <AlignRight size={16} />
                 </button>
-                <button type="button" onMouseDown={(e) => { e.preventDefault(); execCmd('justifyFull'); }} title="Justify">
+                <button type="button" className={formats.justifyFull ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('justifyFull'); }} title="Justify">
                     <AlignJustify size={16} />
                 </button>
             </div>
@@ -61,7 +85,9 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                 className="rte-content input-field"
                 contentEditable
                 onInput={handleInput}
-                onBlur={handleInput}
+                onBlur={() => { handleInput(); checkFormats(); }}
+                onKeyUp={checkFormats}
+                onMouseUp={checkFormats}
                 onPaste={handlePaste}
                 style={{
                     minHeight,
@@ -108,10 +134,14 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                     align-items: center;
                     justify-content: center;
                     color: var(--color-gray-700);
-                    transition: background 0.1s;
+                    transition: all 0.1s;
                 }
                 .rte-toolbar button:hover {
                     background: var(--color-gray-200);
+                }
+                .rte-toolbar button.active {
+                    background: #e0e7ff; /* light indigo/blue */
+                    color: var(--color-primary);
                 }
                 .rte-divider {
                     width: 1px;
