@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2 } from 'lucide-react';
+import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon, GripVertical } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectsApi, uploadApi, profilesApi } from '../../services/api';
+import RichTextEditor from '../../components/RichTextEditor';
 
 const NewProject = () => {
     const navigate = useNavigate();
@@ -153,10 +154,17 @@ const NewProject = () => {
     };
 
     // ─── Custom Sections ─────────────────────────────────────
-    const addSection = () => {
+    const addSection = (type = 'TEXT') => {
+        const base = { title: '', type };
+        let additional = {};
+        if (type === 'TEXT') additional = { body: '' };
+        if (type === 'PHOTO') additional = { imageUrl: '' };
+        if (type === 'CAROUSEL') additional = { images: [] };
+        if (type === 'GRAPH') additional = { graphType: 'BAR', xAxisLabel: '', yAxisLabel: '', dataPoints: [{ label: 'Data 1', value: '100' }] };
+
         setForm(prev => ({
             ...prev,
-            customSections: [...prev.customSections, { title: '', body: '' }],
+            customSections: [...prev.customSections, { ...base, ...additional }],
         }));
     };
 
@@ -173,6 +181,80 @@ const NewProject = () => {
             ...prev,
             customSections: prev.customSections.filter((_, i) => i !== index),
         }));
+    };
+
+    const handleSectionImageUpload = async (index, file) => {
+        if (!file) return;
+        setLoading(true);
+        try {
+            const result = await uploadApi.media(file);
+            updateSection(index, 'imageUrl', result.url);
+        } catch {
+            setError('Failed to upload image.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCarouselImageUpload = async (index, file) => {
+        if (!file) return;
+        setLoading(true);
+        try {
+            const result = await uploadApi.media(file);
+            setForm(prev => {
+                const updated = [...prev.customSections];
+                const section = { ...updated[index] };
+                section.images = [...(section.images || []), result.url];
+                updated[index] = section;
+                return { ...prev, customSections: updated };
+            });
+        } catch {
+            setError('Failed to upload carousel image.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const removeCarouselImage = (sectionIndex, imageIndex) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            section.images = section.images.filter((_, i) => i !== imageIndex);
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const addGraphDataPoint = (index) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[index] };
+            section.dataPoints = [...(section.dataPoints || []), { label: '', value: '' }];
+            updated[index] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const updateGraphDataPoint = (sectionIndex, pointIndex, field, value) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            const newPoints = [...section.dataPoints];
+            newPoints[pointIndex] = { ...newPoints[pointIndex], [field]: value };
+            section.dataPoints = newPoints;
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const removeGraphDataPoint = (sectionIndex, pointIndex) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            section.dataPoints = section.dataPoints.filter((_, i) => i !== pointIndex);
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
     };
 
     // ─── Use of Funds ──────────────────────────────────────────
@@ -223,7 +305,7 @@ const NewProject = () => {
                 thumbnail: form.coverImage || undefined,
                 ownerRole: form.ownerRole || undefined,
                 teamInfo: form.teamInfo.filter(m => m.name.trim()),
-                customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
+                customSections: form.customSections.filter(s => s.title.trim() || (s.type === 'TEXT' && s.body?.trim()) || s.type !== 'TEXT'),
                 useOfFunds: form.useOfFunds.filter(u => u.label.trim() && parseFloat(u.percentage) > 0),
                 requiresDeckApproval: form.requiresDeckApproval,
             };
@@ -364,14 +446,10 @@ const NewProject = () => {
                             <div className="form-row">
                                 <label className="form-label">Description</label>
                                 <div className="form-content">
-                                    <textarea
-                                        rows="5"
+                                    <RichTextEditor
                                         value={form.description}
-                                        onChange={handleChange('description')}
-                                        className="input-field"
-                                        style={{ resize: 'vertical', minHeight: '120px' }}
+                                        onChange={(val) => setForm(prev => ({ ...prev, description: val }))}
                                         placeholder="Describe your project, goals, and team..."
-                                        required
                                     />
                                 </div>
                             </div>
@@ -562,38 +640,169 @@ const NewProject = () => {
                     <div className="profile-card">
                         <div className="section-inner">
                             <h3 className="h3-title section-heading">Additional Sections</h3>
-                            <p className="empty-hint" style={{ marginBottom: '1rem' }}>Add extra info about your project — property details, roadmap, traction, anything relevant.</p>
+                            <p className="empty-hint" style={{ marginBottom: '1rem' }}>Add extra info about your project — text formatting, photos, carousels, and graphs.</p>
 
-                            {form.customSections.map((section, idx) => (
-                                <div key={idx} className="custom-section-entry">
-                                    <div className="custom-section-header">
-                                        <span className="custom-section-num">Section {idx + 1}</span>
-                                        <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
-                                            <Trash2 size={16} />
-                                        </button>
+                            {form.customSections.map((section, idx) => {
+                                const stype = section.type || 'TEXT';
+                                return (
+                                    <div key={idx} className="custom-section-entry">
+                                        <div className="custom-section-header">
+                                            <span className="custom-section-num">
+                                                {stype === 'TEXT' && <AlignLeftIcon size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />}
+                                                {stype === 'PHOTO' && <ImageIcon size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />}
+                                                {stype === 'CAROUSEL' && <LayoutIcon size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />}
+                                                {stype === 'GRAPH' && <LineChartIcon size={14} style={{ display: 'inline', marginRight: 4, verticalAlign: 'middle' }} />}
+                                                {stype} SECTION {idx + 1}
+                                            </span>
+                                            <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                        <input
+                                            type="text"
+                                            value={section.title}
+                                            onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                                            className="input-field"
+                                            placeholder="Section Title"
+                                            style={{ marginBottom: '0.75rem' }}
+                                        />
+
+                                        {stype === 'TEXT' && (
+                                            <RichTextEditor
+                                                value={section.body}
+                                                onChange={(val) => updateSection(idx, 'body', val)}
+                                                placeholder="Section content..."
+                                                minHeight="100px"
+                                            />
+                                        )}
+
+                                        {stype === 'PHOTO' && (
+                                            <div className="photo-upload-container">
+                                                {section.imageUrl ? (
+                                                    <div className="photo-preview-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+                                                        <img src={section.imageUrl} alt="Section" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} />
+                                                        <button type="button" className="banner-btn danger" style={{ position: 'absolute', top: 8, right: 8 }} onClick={() => updateSection(idx, 'imageUrl', '')}>
+                                                            <X size={14} /> Remove
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <label className="deck-upload-area" style={{ padding: '2rem 1rem' }}>
+                                                        <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
+                                                        <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)' }}>Upload Image</p>
+                                                        <input type="file" accept="image/*" onChange={(e) => handleSectionImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                                                    </label>
+                                                )}
+                                            </div>
+                                        )}
+
+                                        {stype === 'CAROUSEL' && (
+                                            <div className="carousel-upload-container">
+                                                <div className="carousel-grid" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                                    {(section.images || []).map((img, iIndex) => (
+                                                        <div key={iIndex} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
+                                                            <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                            <button type="button" onClick={() => removeCarouselImage(idx, iIndex)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', padding: '2px', cursor: 'pointer' }}>
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <label className="deck-upload-area" style={{ width: '100px', height: '100px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <Plus size={24} style={{ color: 'var(--color-gray-400)' }} />
+                                                        <input type="file" accept="image/*" onChange={(e) => handleCarouselImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                                                    </label>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {stype === 'GRAPH' && (
+                                            <div className="graph-builder-container">
+                                                <div className="form-row" style={{ marginBottom: '1rem' }}>
+                                                    <label className="form-label" style={{ textAlign: 'left', width: 'auto', marginRight: '1rem' }}>Graph Type</label>
+                                                    <div className="form-content">
+                                                        <select
+                                                            value={section.graphType || 'BAR'}
+                                                            onChange={(e) => updateSection(idx, 'graphType', e.target.value)}
+                                                            className="input-field"
+                                                            style={{ width: '200px' }}
+                                                        >
+                                                            <option value="BAR">Bar Chart</option>
+                                                            <option value="LINE">Line Chart</option>
+                                                            <option value="PIE">Pie Chart</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+
+                                                {section.graphType !== 'PIE' && (
+                                                    <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                                        <input
+                                                            type="text"
+                                                            value={section.xAxisLabel || ''}
+                                                            onChange={(e) => updateSection(idx, 'xAxisLabel', e.target.value)}
+                                                            className="input-field"
+                                                            placeholder="X-Axis Title (Optional)"
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                        <input
+                                                            type="text"
+                                                            value={section.yAxisLabel || ''}
+                                                            onChange={(e) => updateSection(idx, 'yAxisLabel', e.target.value)}
+                                                            className="input-field"
+                                                            placeholder="Y-Axis Title (Optional)"
+                                                            style={{ flex: 1 }}
+                                                        />
+                                                    </div>
+                                                )}
+
+                                                <div className="graph-data-points">
+                                                    <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-gray-700)', marginBottom: '0.5rem' }}>Data Points</p>
+                                                    {(section.dataPoints || []).map((point, pIndex) => (
+                                                        <div key={pIndex} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                                            <GripVertical size={16} style={{ color: 'var(--color-gray-400)' }} />
+                                                            <input
+                                                                type="text"
+                                                                value={point.label}
+                                                                onChange={(e) => updateGraphDataPoint(idx, pIndex, 'label', e.target.value)}
+                                                                className="input-field"
+                                                                placeholder="Label (e.g. 2024)"
+                                                                style={{ flex: 1 }}
+                                                            />
+                                                            <input
+                                                                type="number"
+                                                                value={point.value}
+                                                                onChange={(e) => updateGraphDataPoint(idx, pIndex, 'value', e.target.value)}
+                                                                className="input-field"
+                                                                placeholder="Value"
+                                                                style={{ width: '120px' }}
+                                                            />
+                                                            <button type="button" className="team-remove" onClick={() => removeGraphDataPoint(idx, pIndex)}>
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                    <button type="button" className="add-btn" onClick={() => addGraphDataPoint(idx)} style={{ marginTop: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                                                        <Plus size={14} /> Add Data Point
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                    <input
-                                        type="text"
-                                        value={section.title}
-                                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
-                                        className="input-field"
-                                        placeholder="Section Title"
-                                        style={{ marginBottom: '0.75rem' }}
-                                    />
-                                    <textarea
-                                        rows="4"
-                                        value={section.body}
-                                        onChange={(e) => updateSection(idx, 'body', e.target.value)}
-                                        className="input-field"
-                                        style={{ resize: 'vertical', minHeight: '100px' }}
-                                        placeholder="Section content..."
-                                    />
-                                </div>
-                            ))}
+                                )
+                            })}
 
-                            <button type="button" className="add-btn" onClick={addSection}>
-                                <Plus size={16} /> Add Section
-                            </button>
+                            <div className="add-section-buttons" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+                                <button type="button" className="add-btn" onClick={() => addSection('TEXT')}>
+                                    <AlignLeftIcon size={16} /> Add Text
+                                </button>
+                                <button type="button" className="add-btn" onClick={() => addSection('PHOTO')}>
+                                    <ImageIcon size={16} /> Add Photo
+                                </button>
+                                <button type="button" className="add-btn" onClick={() => addSection('CAROUSEL')}>
+                                    <LayoutIcon size={16} /> Add Carousel
+                                </button>
+                                <button type="button" className="add-btn" onClick={() => addSection('GRAPH')}>
+                                    <LineChartIcon size={16} /> Add Graph
+                                </button>
+                            </div>
                         </div>
                     </div>
 

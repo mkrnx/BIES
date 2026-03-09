@@ -4,6 +4,8 @@ import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertT
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
+import DOMPurify from 'dompurify';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 
@@ -189,26 +191,84 @@ const ProjectDetails = () => {
                     {/* About */}
                     <section className="pd-card pd-about">
                         <h2>About the Project</h2>
-                        <div className="pd-description">
-                            {description.split('\n').map((line, i) => (
-                                <p key={i}>{line}</p>
-                            ))}
-                        </div>
+                        <div
+                            className="pd-description pd-rich-text"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description) }}
+                        />
                     </section>
 
                     {/* Custom Sections */}
-                    {customSections.length > 0 && customSections.map((section, i) => (
-                        <section key={i} className="pd-card pd-about">
-                            <h2>{section.title}</h2>
-                            <div className="pd-description">
-                                {section.body.split('\n').map((line, j) => (
-                                    <p key={j}>{line}</p>
-                                ))}
-                            </div>
-                        </section>
-                    ))}
+                    {customSections.length > 0 && customSections.map((section, i) => {
+                        const stype = section.type || 'TEXT';
+                        return (
+                            <section key={i} className="pd-card pd-about">
+                                {section.title && <h2>{section.title}</h2>}
 
+                                {stype === 'TEXT' && (
+                                    <div
+                                        className="pd-description pd-rich-text"
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body) }}
+                                    />
+                                )}
 
+                                {stype === 'PHOTO' && section.imageUrl && (
+                                    <div className="pd-photo-section">
+                                        <img src={section.imageUrl} alt={section.title || 'Project Image'} style={{ width: '100%', borderRadius: '12px', objectFit: 'cover' }} />
+                                    </div>
+                                )}
+
+                                {stype === 'CAROUSEL' && section.images?.length > 0 && (
+                                    <div className="pd-carousel-section" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
+                                        {section.images.map((img, idx) => (
+                                            <img key={idx} src={img} alt={`Slide ${idx + 1}`} style={{ height: '300px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
+                                        ))}
+                                    </div>
+                                )}
+
+                                {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
+                                    <div className="pd-graph-section" style={{ width: '100%', height: '350px', marginTop: '1rem' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            {section.graphType === 'BAR' ? (
+                                                <BarChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                                    <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                                        {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                                    </XAxis>
+                                                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                                        {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                                    </YAxis>
+                                                    <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                                    <Bar dataKey="value" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                                                </BarChart>
+                                            ) : section.graphType === 'LINE' ? (
+                                                <LineChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                                    <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                                        {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                                    </XAxis>
+                                                    <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                                        {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                                    </YAxis>
+                                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                                    <Line type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={3} dot={{ fill: 'var(--color-primary)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                                                </LineChart>
+                                            ) : (
+                                                <PieChart>
+                                                    <Pie data={section.dataPoints} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={120} label>
+                                                        {section.dataPoints.map((entry, index) => (
+                                                            <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                                                        ))}
+                                                    </Pie>
+                                                    <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                                    <Legend />
+                                                </PieChart>
+                                            )}
+                                        </ResponsiveContainer>
+                                    </div>
+                                )}
+                            </section>
+                        );
+                    })}
 
                     {/* Tags */}
                     {tags.length > 0 && (
@@ -589,6 +649,13 @@ const ProjectDetails = () => {
                     margin: 0 0 1rem; font-size: 0.95rem;
                 }
                 .pd-description p:last-child { margin-bottom: 0; }
+                
+                /* Rich Text Overrides */
+                .pd-rich-text p { margin-bottom: 1rem; }
+                .pd-rich-text p:last-child { margin-bottom: 0; }
+                .pd-rich-text b, .pd-rich-text strong { font-weight: 700; color: #111827; }
+                .pd-rich-text i, .pd-rich-text em { font-style: italic; }
+                .pd-rich-text u { text-decoration: underline; }
 
                 /* Sidebar Info Cards */
                 .pd-info-sidebar { margin-top: 1.75rem; }
