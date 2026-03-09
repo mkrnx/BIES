@@ -25,12 +25,15 @@ function stripTags(str: string): string {
     return result;
 }
 
-function sanitizeValue(value: unknown): unknown {
+function sanitizeValue(value: unknown, key?: string): unknown {
     if (typeof value === 'string') {
+        if (key && RICH_HTML_FIELDS.has(key)) {
+            return sanitizeRichHtml(value);
+        }
         return stripTags(value.trim());
     }
     if (Array.isArray(value)) {
-        return value.map(sanitizeValue);
+        return value.map(item => sanitizeValue(item, key));
     }
     if (value !== null && typeof value === 'object') {
         return sanitizeObject(value as Record<string, unknown>);
@@ -39,9 +42,26 @@ function sanitizeValue(value: unknown): unknown {
 }
 
 // Fields that must never be sanitized (encrypted data and passwords)
-// 'content' is intentionally NOT exempted — only 'encryptedPrivkey' and 'password' are,
-// because content fields (articles, messages, updates) SHOULD be sanitized.
 const EXEMPT_FIELDS = new Set(['encryptedPrivkey', 'password']);
+
+// Fields that contain rich HTML (user-authored formatted text).
+// These get a lighter sanitization: dangerous tags/attributes are removed,
+// but safe formatting tags (<b>, <i>, <u>, <span>, <p>, <div>, etc.) are preserved.
+const RICH_HTML_FIELDS = new Set(['description', 'body', 'content', 'bio']);
+
+// Strip only dangerous content from rich HTML, preserving safe formatting tags.
+function sanitizeRichHtml(str: string): string {
+    return str
+        .replace(/<script[\s\S]*?<\/script>/gi, '')
+        .replace(/<style[\s\S]*?<\/style>/gi, '')
+        .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
+        .replace(/<object[\s\S]*?>/gi, '')
+        .replace(/<embed[\s\S]*?>/gi, '')
+        .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '')  // remove event handlers
+        .replace(/\son\w+\s*=\s*[^\s>]*/gi, '')
+        .replace(/javascript\s*:/gi, '')
+        .trim();
+}
 
 function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
     const sanitized: Record<string, unknown> = {};
@@ -49,7 +69,7 @@ function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {
         if (EXEMPT_FIELDS.has(key)) {
             sanitized[key] = val;
         } else {
-            sanitized[key] = sanitizeValue(val);
+            sanitized[key] = sanitizeValue(val, key);
         }
     }
     return sanitized;

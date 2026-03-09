@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Share2, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Share2, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
+import DOMPurify from 'dompurify';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 
 const MOCK_EVENT_DATA = {
     'mock-off-1': {
@@ -306,7 +308,16 @@ const EventDetail = () => {
                         <h1>{event.title}</h1>
                         {(event.organizer || event.host?.profile?.name || event.host?.profile?.company) && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <p className="organizer" style={{ margin: 0 }}>Hosted by {event.organizer || event.host?.profile?.name || event.host?.profile?.company || 'BIES Community'}</p>
+                                <p className="organizer" style={{ margin: 0 }}>
+                                    Hosted by{' '}
+                                    {event.host?.id ? (
+                                        <Link to={`/builder/${event.host.id}`} style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}>
+                                            {event.organizer || event.host?.profile?.name || event.host?.profile?.company || 'BIES Community'}
+                                        </Link>
+                                    ) : (
+                                        <span style={{ fontWeight: 600 }}>{event.organizer || 'BIES Community'}</span>
+                                    )}
+                                </p>
                                 {event.host?.nostrPubkey && (
                                     <ZapButton
                                         recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: getAssetUrl(event.host?.profile?.avatar) || '' }]}
@@ -316,10 +327,13 @@ const EventDetail = () => {
                             </div>
                         )}
 
-                        <div className="description">
-                            {description.split('\n\n').map((paragraph, i) => (
-                                <p key={i}>{paragraph}</p>
-                            ))}
+                        <div className="pd-card" style={{ marginTop: '1.5rem', padding: '1.75rem', background: 'white', borderRadius: '16px', border: '1px solid var(--color-gray-200)', boxShadow: 'var(--shadow-md)' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-gray-900)' }}>About Event</h2>
+                            <div
+                                className="description rich-text-content"
+                                style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.75 }}
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['style'] }) }}
+                            />
                         </div>
 
                         {Array.isArray(event.tags) && event.tags.length > 0 && (
@@ -332,16 +346,12 @@ const EventDetail = () => {
                             </div>
                         )}
 
-                        {Array.isArray(event.customSections) && event.customSections.map((section, idx) => (
-                            <div key={idx} className="custom-section" style={{ marginTop: '2.5rem' }}>
-                                <h2 style={{ fontSize: '1.4rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-gray-900)' }}>{section.title}</h2>
-                                <div className="description">
-                                    {(section.content || section.body || '').split('\n\n').map((paragraph, i) => (
-                                        <p key={i}>{paragraph}</p>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
+                        {Array.isArray(event.customSections) && event.customSections
+                            .filter(s => s.placement === 'LEFT' || !s.placement)
+                            .map((section, idx) => (
+                                <EventSection key={idx} section={section} />
+                            ))
+                        }
 
                     </div>
 
@@ -496,6 +506,13 @@ const EventDetail = () => {
                                 </div>
                             </div>
                         )}
+                        {/* Right-placement custom sections */}
+                        {Array.isArray(event.customSections) && event.customSections
+                            .filter(s => s.placement === 'RIGHT')
+                            .map((section, idx) => (
+                                <EventSection key={`right-${idx}`} section={section} isSidebar />
+                            ))
+                        }
                     </div>
                 </div>
             </div>
@@ -610,8 +627,6 @@ const EventDetail = () => {
                     padding: 1.75rem;
                     box-shadow: var(--shadow-md);
                     border: 1px solid var(--color-gray-200);
-                    position: sticky;
-                    top: 100px;
                 }
 
                 .info-card h3 {
@@ -740,3 +755,93 @@ const EventDetail = () => {
 };
 
 export default EventDetail;
+
+// ─── Rich Section Renderer ───────────────────────────────────────────────────
+
+const PIE_COLORS = ['#F97316', '#0052cc', '#22c55e', '#8b5cf6', '#ef4444', '#06b6d4', '#eab308', '#ec4899'];
+
+const EventSection = ({ section, isSidebar }) => {
+    const stype = section.type || 'TEXT';
+    return (
+        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginTop: '1.5rem' }}>
+            {section.title && (
+                <h2 style={{ fontSize: isSidebar ? '1rem' : '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem', letterSpacing: '-0.01em' }}>{section.title}</h2>
+            )}
+            {stype === 'TEXT' && (
+                <div
+                    className="rich-text-content"
+                    style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.75 }}
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body || section.content || '', { ADD_ATTR: ['style'] }) }}
+                />
+            )}
+            {stype === 'PHOTO' && section.imageUrl && (
+                <img src={section.imageUrl} alt={section.title || ''} style={{ width: '100%', borderRadius: '10px', objectFit: 'cover' }} />
+            )}
+            {stype === 'CAROUSEL' && section.images?.length > 0 && (
+                <EventCarousel images={section.images} />
+            )}
+            {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
+                <div style={{ width: '100%', height: isSidebar ? '240px' : '340px', marginTop: section.title ? '0.5rem' : '0' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        {section.graphType === 'BAR' ? (
+                            <BarChart data={section.dataPoints} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={12} fontWeight={600} />}
+                                </XAxis>
+                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Bar dataKey="value" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        ) : section.graphType === 'LINE' ? (
+                            <LineChart data={section.dataPoints} margin={{ top: 10, right: 20, left: 10, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false} />
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Line type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={3} dot={{ fill: 'var(--color-primary)', r: 4 }} />
+                            </LineChart>
+                        ) : (
+                            <PieChart>
+                                <Pie data={section.dataPoints} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={isSidebar ? 70 : 110} label>
+                                    {section.dataPoints.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                                </Pie>
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Legend />
+                            </PieChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            )}
+        </div>
+    );
+};
+
+const EventCarousel = ({ images }) => {
+    const [idx, setIdx] = useState(0);
+    if (!images?.length) return null;
+    return (
+        <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: '#f3f4f6' }}>
+            <div style={{ display: 'flex', transition: 'transform 0.4s ease', transform: `translateX(-${idx * 100}%)`, height: '320px' }}>
+                {images.map((img, i) => (
+                    <img key={i} src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', flexShrink: 0 }} />
+                ))}
+            </div>
+            {images.length > 1 && (
+                <>
+                    <button onClick={() => setIdx(p => p === 0 ? images.length - 1 : p - 1)} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <ChevronLeft size={20} color="#374151" />
+                    </button>
+                    <button onClick={() => setIdx(p => p === images.length - 1 ? 0 : p + 1)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: 36, height: 36, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                        <ChevronRight size={20} color="#374151" />
+                    </button>
+                    <div style={{ position: 'absolute', bottom: 10, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 6 }}>
+                        {images.map((_, i) => (
+                            <div key={i} onClick={() => setIdx(i)} style={{ width: 8, height: 8, borderRadius: '50%', background: i === idx ? 'var(--color-primary)' : 'rgba(255,255,255,0.6)', cursor: 'pointer' }} />
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};

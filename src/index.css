@@ -430,3 +430,75 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+/* Rich Text Content */
+.rich-text-content {
+  color: var(--color-gray-700);
+  line-height: 1.75;
+}
+
+.rich-text-content p,
+.rich-text-content div {
+  margin-bottom: 0.75rem;
+}
+
+.rich-text-content p:last-child,
+.rich-text-content div:last-child {
+  margin-bottom: 0;
+}
+
+.rich-text-content b,
+.rich-text-content strong,
+.rich-text-content [style*="font-weight: bold"],
+.rich-text-content [style*="font-weight: 700"] {
+  font-weight: 700 !important;
+  color: var(--color-gray-900);
+}
+
+.rich-text-content i,
+.rich-text-content em,
+.rich-text-content [style*="font-style: italic"] {
+  font-style: italic !important;
+}
+
+.rich-text-content u,
+.rich-text-content [style*="text-decoration: underline"] {
+  text-decoration: underline !important;
+}
+
+.rich-text-content ul {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.rich-text-content ol {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Alignment Support (especially for document.execCommand results) */
+.rich-text-content [style*="text-align: center"],
+.rich-text-content div[align="center"] {
+  text-align: center !important;
+  display: block;
+}
+
+.rich-text-content [style*="text-align: right"],
+.rich-text-content div[align="right"] {
+  text-align: right !important;
+  display: block;
+}
+
+.rich-text-content [style*="text-align: justify"],
+.rich-text-content div[align="justify"] {
+  text-align: justify !important;
+  display: block;
+}
+
+.rich-text-content [style*="text-align: left"],
+.rich-text-content div[align="left"] {
+  text-align: left !important;
+  display: block;
+}

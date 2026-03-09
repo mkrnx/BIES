@@ -29,7 +29,19 @@ export const createEventSchema = z.object({
     locationName: z.string().optional(),
     locationAddress: z.string().optional(),
     locationMapUrl: z.string().optional().or(z.literal('')),
-    customSections: z.array(z.object({ title: z.string(), content: z.string() })).optional(),
+    customSections: z.array(z.object({
+        title: z.string().default(''),
+        type: z.enum(['TEXT', 'PHOTO', 'CAROUSEL', 'GRAPH']).default('TEXT'),
+        placement: z.enum(['LEFT', 'RIGHT']).default('LEFT'),
+        body: z.string().optional(),
+        content: z.string().optional(),
+        imageUrl: z.string().optional(),
+        images: z.array(z.string()).optional(),
+        graphType: z.string().optional(),
+        xAxisLabel: z.string().optional(),
+        yAxisLabel: z.string().optional(),
+        dataPoints: z.array(z.object({ label: z.string(), value: z.union([z.string(), z.number()]) })).optional(),
+    })).optional(),
 });
 
 export const updateEventSchema = createEventSchema.partial();
