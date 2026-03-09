@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers } from 'lucide-react';
+import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
@@ -218,11 +218,7 @@ const ProjectDetails = () => {
                                 )}
 
                                 {stype === 'CAROUSEL' && section.images?.length > 0 && (
-                                    <div className="pd-carousel-section" style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
-                                        {section.images.map((img, idx) => (
-                                            <img key={idx} src={img} alt={`Slide ${idx + 1}`} style={{ height: '300px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
-                                        ))}
-                                    </div>
+                                    <CarouselViewer images={section.images} />
                                 )}
 
                                 {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
@@ -822,3 +818,69 @@ const ProjectDetails = () => {
 };
 
 export default ProjectDetails;
+
+// ─── Subcomponents ──────────────────────────────────────────────────────────
+
+const CarouselViewer = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    if (!images || images.length === 0) return null;
+
+    const nextSlide = () => {
+        setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    };
+
+    const prevSlide = () => {
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    };
+
+    return (
+        <div className="pd-carousel-wrapper" style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
+            <div
+                className="pd-carousel-track"
+                style={{
+                    display: 'flex',
+                    transition: 'transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    transform: `translateX(-${currentIndex * 100}%)`,
+                    width: '100%',
+                    height: '400px'
+                }}
+            >
+                {images.map((img, idx) => (
+                    <img
+                        key={idx}
+                        src={img}
+                        alt={`Slide ${idx + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', flexShrink: 0, display: 'block' }}
+                    />
+                ))}
+            </div>
+
+            {images.length > 1 && (
+                <>
+                    <button
+                        onClick={prevSlide}
+                        style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                    >
+                        <ChevronLeft size={24} color="#374151" />
+                    </button>
+                    <button
+                        onClick={nextSlide}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                    >
+                        <ChevronRight size={24} color="#374151" />
+                    </button>
+                    <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
+                        {images.map((_, idx) => (
+                            <div
+                                key={idx}
+                                style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: idx === currentIndex ? 'var(--color-primary)' : 'rgba(255,255,255,0.6)', cursor: 'pointer' }}
+                                onClick={() => setCurrentIndex(idx)}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};
