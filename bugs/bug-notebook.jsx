@@ -1,0 +1,588 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+
+const STATUSES = ["open", "confirmed", "fixed", "wontfix"];
+const SEVERITY = ["critical", "major", "minor", "cosmetic"];
+const STATUS_COLORS = {
+  open: { bg: "bg-amber-100", text: "text-amber-800", dot: "bg-amber-500" },
+  confirmed: { bg: "bg-red-100", text: "text-red-800", dot: "bg-red-500" },
+  fixed: { bg: "bg-emerald-100", text: "text-emerald-800", dot: "bg-emerald-500" },
+  wontfix: { bg: "bg-zinc-200", text: "text-zinc-600", dot: "bg-zinc-400" },
+};
+const SEV_COLORS = {
+  critical: "text-red-600",
+  major: "text-orange-600",
+  minor: "text-yellow-700",
+  cosmetic: "text-zinc-500",
+};
+
+const MAX_IMG_DIM = 1200;
+const IMG_QUALITY = 0.7;
+const MAX_IMAGES = 4;
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60) return "just now";
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width, h = img.height;
+        if (w > MAX_IMG_DIM || h > MAX_IMG_DIM) {
+          if (w > h) { h = Math.round(h * MAX_IMG_DIM / w); w = MAX_IMG_DIM; }
+          else { w = Math.round(w * MAX_IMG_DIM / h); h = MAX_IMG_DIM; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", IMG_QUALITY));
+      };
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function ImagePreview({ src, onRemove }) {
+  const [zoomed, setZoomed] = useState(false);
+  return (
+    <>
+      <div className="relative group inline-block">
+        <img
+          src={src}
+          alt="screenshot"
+          className="h-20 rounded border border-zinc-700 cursor-pointer hover:border-zinc-500 transition-colors object-cover"
+          onClick={(e) => { e.stopPropagation(); setZoomed(true); }}
+        />
+        {onRemove && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onRemove(); }}
+            className="absolute -top-2 -right-2 w-5 h-5 bg-red-600 hover:bg-red-500 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            ×
+          </button>
+        )}
+      </div>
+      {zoomed && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 cursor-pointer p-4"
+          onClick={() => setZoomed(false)}
+        >
+          <img src={src} alt="screenshot zoomed" className="max-w-full max-h-full rounded-lg shadow-2xl" />
+        </div>
+      )}
+    </>
+  );
+}
+
+export default function BugNotebook() {
+  const [bugs, setBugs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [myName, setMyName] = useState("");
+  const [nameSet, setNameSet] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [filter, setFilter] = useState("all");
+  const [expanded, setExpanded] = useState(null);
+  const [commentText, setCommentText] = useState("");
+  const [form, setForm] = useState({ title: "", description: "", severity: "major", steps: "", images: [] });
+  const [saving, setSaving] = useState(false);
+  const [commentImages, setCommentImages] = useState([]);
+  const fileInputRef = useRef(null);
+  const commentFileRef = useRef(null);
+
+  const loadBugs = useCallback(async () => {
+    try {
+      const res = await window.storage.list("bug:", true);
+      if (res?.keys?.length) {
+        const loaded = [];
+        for (const key of res.keys) {
+          try {
+            const item = await window.storage.get(key, true);
+            if (item?.value) loaded.push(JSON.parse(item.value));
+          } catch (e) {}
+        }
+        loaded.sort((a, b) => b.created - a.created);
+        setBugs(loaded);
+      }
+    } catch (e) {
+      console.error("Load error:", e);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadBugs(); }, [loadBugs]);
+
+  const saveBug = async (bug) => {
+    await window.storage.set(`bug:${bug.id}`, JSON.stringify(bug), true);
+  };
+
+  const handleFormPaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        if (form.images.length >= MAX_IMAGES) return;
+        const blob = item.getAsFile();
+        if (blob) {
+          try {
+            const compressed = await compressImage(blob);
+            setForm((prev) => ({ ...prev, images: [...prev.images, compressed] }));
+          } catch (err) {
+            console.error("Paste compress error:", err);
+          }
+        }
+        return;
+      }
+    }
+  };
+
+  const handleCommentPaste = async (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        if (commentImages.length >= MAX_IMAGES) return;
+        const blob = item.getAsFile();
+        if (blob) {
+          try {
+            const compressed = await compressImage(blob);
+            setCommentImages((prev) => [...prev, compressed]);
+          } catch (err) {
+            console.error("Paste compress error:", err);
+          }
+        }
+        return;
+      }
+    }
+  };
+
+  const handleFileUpload = async (files, target) => {
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      try {
+        const compressed = await compressImage(file);
+        if (target === "form") {
+          setForm((prev) => {
+            if (prev.images.length >= MAX_IMAGES) return prev;
+            return { ...prev, images: [...prev.images, compressed] };
+          });
+        } else {
+          setCommentImages((prev) => {
+            if (prev.length >= MAX_IMAGES) return prev;
+            return [...prev, compressed];
+          });
+        }
+      } catch (err) {
+        console.error("Upload compress error:", err);
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) return;
+    setSaving(true);
+    const bug = {
+      id: genId(),
+      title: form.title.trim(),
+      description: form.description.trim(),
+      severity: form.severity,
+      steps: form.steps.trim(),
+      images: form.images || [],
+      status: "open",
+      reporter: myName,
+      created: Date.now(),
+      comments: [],
+    };
+    try {
+      await saveBug(bug);
+      setBugs((prev) => [bug, ...prev]);
+      setForm({ title: "", description: "", severity: "major", steps: "", images: [] });
+      setShowForm(false);
+    } catch (e) {
+      alert("Failed to save — try again. If images are too large, try fewer or smaller screenshots.");
+    }
+    setSaving(false);
+  };
+
+  const updateStatus = async (id, newStatus) => {
+    const updated = bugs.map((b) => b.id === id ? { ...b, status: newStatus } : b);
+    setBugs(updated);
+    const bug = updated.find((b) => b.id === id);
+    if (bug) await saveBug(bug);
+  };
+
+  const addComment = async (id) => {
+    if (!commentText.trim() && commentImages.length === 0) return;
+    const comment = { author: myName, text: commentText.trim(), images: commentImages, ts: Date.now() };
+    const updated = bugs.map((b) =>
+      b.id === id ? { ...b, comments: [...(b.comments || []), comment] } : b
+    );
+    setBugs(updated);
+    setCommentText("");
+    setCommentImages([]);
+    const bug = updated.find((b) => b.id === id);
+    if (bug) {
+      try { await saveBug(bug); }
+      catch (e) { alert("Failed to save comment — screenshots may be too large."); }
+    }
+  };
+
+  const filtered = filter === "all" ? bugs : bugs.filter((b) => b.status === filter);
+  const counts = bugs.reduce((acc, b) => { acc[b.status] = (acc[b.status] || 0) + 1; return acc; }, {});
+
+  if (!nameSet) {
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-4" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace" }}>
+        <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <div className="w-full max-w-sm">
+          <div className="border border-zinc-700 bg-zinc-900 rounded-lg p-8">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center gap-2 text-emerald-400 text-xs tracking-widest uppercase mb-3">
+                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                bug tracker
+              </div>
+              <h1 className="text-2xl font-bold text-zinc-100">Who are you?</h1>
+              <p className="text-zinc-500 text-sm mt-2">No account needed — just your name so the team knows who reported what.</p>
+            </div>
+            <input
+              className="w-full bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 placeholder-zinc-600"
+              placeholder="e.g. Cameron"
+              value={myName}
+              onChange={(e) => setMyName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && myName.trim() && setNameSet(true)}
+              autoFocus
+            />
+            <button
+              onClick={() => myName.trim() && setNameSet(true)}
+              disabled={!myName.trim()}
+              className="w-full mt-4 bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-semibold py-3 rounded text-sm transition-colors"
+            >
+              Enter →
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-4 md:p-8" style={{ fontFamily: "'JetBrains Mono', 'Fira Code', 'Source Code Pro', monospace" }}>
+      <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+      <div className="max-w-3xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <div className="flex items-center gap-2 text-emerald-400 text-xs tracking-widest uppercase mb-1">
+              <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              shared bug notebook
+            </div>
+            <p className="text-zinc-500 text-xs">Logged in as <span className="text-zinc-300">{myName}</span> · <button className="underline hover:text-zinc-300" onClick={() => setNameSet(false)}>switch</button></p>
+          </div>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            className="bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold px-4 py-2 rounded transition-colors"
+          >
+            {showForm ? "Cancel" : "+ Report Bug"}
+          </button>
+        </div>
+
+        {/* New Bug Form */}
+        {showForm && (
+          <div className="border border-zinc-700 bg-zinc-900 rounded-lg p-6 mb-6" onPaste={handleFormPaste}>
+            <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">New Bug Report</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Title *</label>
+                <input
+                  className="w-full bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 placeholder-zinc-600"
+                  placeholder="Short description of the bug"
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Severity</label>
+                <div className="flex gap-2">
+                  {SEVERITY.map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setForm({ ...form, severity: s })}
+                      className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                        form.severity === s
+                          ? "border-emerald-500 bg-emerald-900/40 text-emerald-300"
+                          : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-500"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Steps to Reproduce</label>
+                <textarea
+                  className="w-full bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 placeholder-zinc-600 resize-none"
+                  rows={3}
+                  placeholder="1. Go to...&#10;2. Click on...&#10;3. See error..."
+                  value={form.steps}
+                  onChange={(e) => setForm({ ...form, steps: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Details</label>
+                <textarea
+                  className="w-full bg-zinc-800 border border-zinc-600 text-zinc-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 placeholder-zinc-600 resize-none"
+                  rows={3}
+                  placeholder="Expected vs actual behavior. Paste screenshots here (Ctrl+V / Cmd+V)"
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
+
+              {/* Screenshots */}
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <label className="block text-xs text-zinc-500">Screenshots ({form.images.length}/{MAX_IMAGES})</label>
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={form.images.length >= MAX_IMAGES}
+                    className="text-xs text-emerald-400 hover:text-emerald-300 disabled:text-zinc-600 transition-colors"
+                  >
+                    + upload file
+                  </button>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => { handleFileUpload(e.target.files, "form"); e.target.value = ""; }}
+                  />
+                </div>
+                {form.images.length === 0 ? (
+                  <div className="text-xs text-zinc-600 bg-zinc-800/50 border border-dashed border-zinc-700 rounded p-3 text-center">
+                    Paste (Ctrl+V) or upload screenshots — max {MAX_IMAGES}
+                  </div>
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    {form.images.map((img, i) => (
+                      <ImagePreview
+                        key={i}
+                        src={img}
+                        onRemove={() => setForm((prev) => ({ ...prev, images: prev.images.filter((_, j) => j !== i) }))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={handleSubmit}
+                disabled={!form.title.trim() || saving}
+                className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white font-semibold px-6 py-2 rounded text-sm transition-colors"
+              >
+                {saving ? "Saving..." : "Submit Bug Report"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Filter bar */}
+        <div className="flex gap-2 mb-4 flex-wrap">
+          {["all", ...STATUSES].map((s) => {
+            const count = s === "all" ? bugs.length : (counts[s] || 0);
+            return (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-3 py-1.5 rounded text-xs font-medium border transition-colors ${
+                  filter === s
+                    ? "border-emerald-500 bg-emerald-900/30 text-emerald-300"
+                    : "border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500"
+                }`}
+              >
+                {s} ({count})
+              </button>
+            );
+          })}
+          <button
+            onClick={loadBugs}
+            className="ml-auto px-3 py-1.5 rounded text-xs font-medium border border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500 transition-colors"
+            title="Refresh to see other testers' reports"
+          >
+            ↻ refresh
+          </button>
+        </div>
+
+        {/* Bug list */}
+        {loading ? (
+          <div className="text-center text-zinc-500 py-16 text-sm">Loading bugs...</div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="text-zinc-600 text-sm">
+              {bugs.length === 0 ? "No bugs reported yet. Be the first!" : "No bugs match this filter."}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {filtered.map((bug) => {
+              const sc = STATUS_COLORS[bug.status] || STATUS_COLORS.open;
+              const isExpanded = expanded === bug.id;
+              const hasImages = bug.images?.length > 0;
+              return (
+                <div key={bug.id} className="border border-zinc-800 bg-zinc-900 rounded-lg overflow-hidden hover:border-zinc-700 transition-colors">
+                  <div
+                    className="px-4 py-3 cursor-pointer flex items-start gap-3"
+                    onClick={() => { setExpanded(isExpanded ? null : bug.id); setCommentText(""); setCommentImages([]); }}
+                  >
+                    <span className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${sc.dot}`} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-zinc-100 truncate">{bug.title}</span>
+                        <span className={`text-xs font-medium ${SEV_COLORS[bug.severity]}`}>{bug.severity}</span>
+                        {hasImages && <span className="text-xs text-zinc-500">📎{bug.images.length}</span>}
+                      </div>
+                      <div className="text-xs text-zinc-500 mt-1">
+                        {bug.reporter} · {timeAgo(bug.created)}
+                        {bug.comments?.length > 0 && (
+                          <span className="ml-2 text-zinc-600">· {bug.comments.length} comment{bug.comments.length !== 1 ? "s" : ""}</span>
+                        )}
+                      </div>
+                    </div>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${sc.bg} ${sc.text}`}>{bug.status}</span>
+                  </div>
+
+                  {isExpanded && (
+                    <div className="border-t border-zinc-800 px-4 py-4">
+                      {bug.steps && (
+                        <div className="mb-3">
+                          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Steps to Reproduce</div>
+                          <pre className="text-sm text-zinc-300 whitespace-pre-wrap bg-zinc-800/50 rounded p-3">{bug.steps}</pre>
+                        </div>
+                      )}
+                      {bug.description && (
+                        <div className="mb-3">
+                          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Details</div>
+                          <p className="text-sm text-zinc-300">{bug.description}</p>
+                        </div>
+                      )}
+                      {bug.images?.length > 0 && (
+                        <div className="mb-3">
+                          <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Screenshots</div>
+                          <div className="flex gap-2 flex-wrap">
+                            {bug.images.map((img, i) => <ImagePreview key={i} src={img} />)}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="mb-4">
+                        <div className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Status</div>
+                        <div className="flex gap-2 flex-wrap">
+                          {STATUSES.map((s) => (
+                            <button
+                              key={s}
+                              onClick={(e) => { e.stopPropagation(); updateStatus(bug.id, s); }}
+                              className={`px-3 py-1 rounded text-xs font-medium border transition-colors ${
+                                bug.status === s
+                                  ? `${STATUS_COLORS[s].bg} ${STATUS_COLORS[s].text} border-transparent`
+                                  : "border-zinc-700 bg-zinc-800 text-zinc-400 hover:border-zinc-500"
+                              }`}
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {bug.comments?.length > 0 && (
+                        <div className="mb-3 space-y-2">
+                          <div className="text-xs text-zinc-500 uppercase tracking-wider">Comments</div>
+                          {bug.comments.map((c, i) => (
+                            <div key={i} className="bg-zinc-800/50 rounded p-3">
+                              <div className="text-xs text-zinc-500 mb-1">
+                                <span className="text-zinc-300">{c.author}</span> · {timeAgo(c.ts)}
+                              </div>
+                              {c.text && <p className="text-sm text-zinc-300">{c.text}</p>}
+                              {c.images?.length > 0 && (
+                                <div className="flex gap-2 flex-wrap mt-2">
+                                  {c.images.map((img, j) => <ImagePreview key={j} src={img} />)}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add comment with screenshot support */}
+                      <div onPaste={handleCommentPaste}>
+                        <div className="flex gap-2">
+                          <input
+                            className="flex-1 bg-zinc-800 border border-zinc-700 text-zinc-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-emerald-500 placeholder-zinc-600"
+                            placeholder="Comment or paste screenshot (Ctrl+V)..."
+                            value={commentText}
+                            onChange={(e) => setCommentText(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && addComment(bug.id)}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); commentFileRef.current?.click(); }}
+                            disabled={commentImages.length >= MAX_IMAGES}
+                            className="bg-zinc-700 hover:bg-zinc-600 disabled:bg-zinc-800 text-zinc-400 px-2 py-2 rounded text-sm transition-colors"
+                            title="Upload screenshot"
+                          >
+                            📎
+                          </button>
+                          <input
+                            ref={commentFileRef}
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => { handleFileUpload(e.target.files, "comment"); e.target.value = ""; }}
+                          />
+                          <button
+                            onClick={(e) => { e.stopPropagation(); addComment(bug.id); }}
+                            className="bg-zinc-700 hover:bg-zinc-600 text-zinc-300 px-3 py-2 rounded text-sm transition-colors"
+                          >
+                            Send
+                          </button>
+                        </div>
+                        {commentImages.length > 0 && (
+                          <div className="flex gap-2 flex-wrap mt-2">
+                            {commentImages.map((img, i) => (
+                              <ImagePreview
+                                key={i}
+                                src={img}
+                                onRemove={() => setCommentImages((prev) => prev.filter((_, j) => j !== i))}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
