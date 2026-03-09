@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2 } from 'lucide-react';
+import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus, Trash2, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon, GripVertical } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectsApi, uploadApi, profilesApi } from '../../services/api';
+import RichTextEditor from '../../components/RichTextEditor';
 
 const NewProject = () => {
     const navigate = useNavigate();
@@ -153,10 +154,17 @@ const NewProject = () => {
     };
 
     // ─── Custom Sections ─────────────────────────────────────
-    const addSection = () => {
+    const addSection = (type = 'TEXT', placement = 'LEFT') => {
+        const base = { title: '', type, placement };
+        let additional = {};
+        if (type === 'TEXT') additional = { body: '' };
+        if (type === 'PHOTO') additional = { imageUrl: '' };
+        if (type === 'CAROUSEL') additional = { images: [] };
+        if (type === 'GRAPH') additional = { graphType: 'BAR', xAxisLabel: '', yAxisLabel: '', dataPoints: [{ label: 'Data 1', value: '100' }] };
+
         setForm(prev => ({
             ...prev,
-            customSections: [...prev.customSections, { title: '', body: '' }],
+            customSections: [...prev.customSections, { ...base, ...additional }],
         }));
     };
 
@@ -173,6 +181,80 @@ const NewProject = () => {
             ...prev,
             customSections: prev.customSections.filter((_, i) => i !== index),
         }));
+    };
+
+    const handleSectionImageUpload = async (index, file) => {
+        if (!file) return;
+        setLoading(true);
+        try {
+            const result = await uploadApi.media(file);
+            updateSection(index, 'imageUrl', result.url);
+        } catch {
+            setError('Failed to upload image.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCarouselImageUpload = async (index, file) => {
+        if (!file) return;
+        setLoading(true);
+        try {
+            const result = await uploadApi.media(file);
+            setForm(prev => {
+                const updated = [...prev.customSections];
+                const section = { ...updated[index] };
+                section.images = [...(section.images || []), result.url];
+                updated[index] = section;
+                return { ...prev, customSections: updated };
+            });
+        } catch {
+            setError('Failed to upload carousel image.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const removeCarouselImage = (sectionIndex, imageIndex) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            section.images = section.images.filter((_, i) => i !== imageIndex);
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const addGraphDataPoint = (index) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[index] };
+            section.dataPoints = [...(section.dataPoints || []), { label: '', value: '' }];
+            updated[index] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const updateGraphDataPoint = (sectionIndex, pointIndex, field, value) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            const newPoints = [...section.dataPoints];
+            newPoints[pointIndex] = { ...newPoints[pointIndex], [field]: value };
+            section.dataPoints = newPoints;
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
+    };
+
+    const removeGraphDataPoint = (sectionIndex, pointIndex) => {
+        setForm(prev => {
+            const updated = [...prev.customSections];
+            const section = { ...updated[sectionIndex] };
+            section.dataPoints = section.dataPoints.filter((_, i) => i !== pointIndex);
+            updated[sectionIndex] = section;
+            return { ...prev, customSections: updated };
+        });
     };
 
     // ─── Use of Funds ──────────────────────────────────────────
@@ -223,7 +305,7 @@ const NewProject = () => {
                 thumbnail: form.coverImage || undefined,
                 ownerRole: form.ownerRole || undefined,
                 teamInfo: form.teamInfo.filter(m => m.name.trim()),
-                customSections: form.customSections.filter(s => s.title.trim() || s.body.trim()),
+                customSections: form.customSections.filter(s => s.title.trim() || (s.type === 'TEXT' && s.body?.trim()) || s.type !== 'TEXT'),
                 useOfFunds: form.useOfFunds.filter(u => u.label.trim() && parseFloat(u.percentage) > 0),
                 requiresDeckApproval: form.requiresDeckApproval,
             };
@@ -259,6 +341,224 @@ const NewProject = () => {
     }
 
     const isBusy = loading || imageUploading || deckUploading;
+
+    const renderSection = (section, idx) => {
+        const stype = section.type || 'TEXT';
+        const typeConfig = {
+            TEXT: { icon: <AlignLeftIcon size={12} />, label: 'Text', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+            PHOTO: { icon: <ImageIcon size={12} />, label: 'Photo', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            CAROUSEL: { icon: <LayoutIcon size={12} />, label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+            GRAPH: { icon: <LineChartIcon size={12} />, label: 'Graph', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
+        }[stype] || { icon: null, label: stype, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+
+        return (
+            <div key={idx} style={{
+                marginBottom: '1rem', background: 'white',
+                border: `1px solid ${typeConfig.border}`,
+                borderRadius: '12px', overflow: 'hidden',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+            }}>
+                {/* Section Header */}
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '0.55rem 0.875rem',
+                    background: typeConfig.bg,
+                    borderBottom: `1px solid ${typeConfig.border}`,
+                }}>
+                    <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                        fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
+                        letterSpacing: '0.07em', color: typeConfig.color,
+                    }}>
+                        {typeConfig.icon}
+                        {typeConfig.label} Section
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{
+                            display: 'flex', background: '#fff', padding: '2px',
+                            borderRadius: '6px', border: `1px solid ${typeConfig.border}`,
+                            boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
+                        }}>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '2px 8px', fontSize: '0.65rem', fontWeight: 700,
+                                    borderRadius: '4px', border: 'none', cursor: 'pointer',
+                                    background: (section.placement === 'LEFT' || !section.placement) ? typeConfig.color : 'transparent',
+                                    color: (section.placement === 'LEFT' || !section.placement) ? '#fff' : '#6b7280',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => updateSection(idx, 'placement', 'LEFT')}
+                            >
+                                Left
+                            </button>
+                            <button
+                                type="button"
+                                style={{
+                                    padding: '2px 8px', fontSize: '0.65rem', fontWeight: 700,
+                                    borderRadius: '4px', border: 'none', cursor: 'pointer',
+                                    background: section.placement === 'RIGHT' ? typeConfig.color : 'transparent',
+                                    color: section.placement === 'RIGHT' ? '#fff' : '#6b7280',
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => updateSection(idx, 'placement', 'RIGHT')}
+                            >
+                                Right
+                            </button>
+                        </div>
+                        <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
+                            <Trash2 size={15} />
+                        </button>
+                    </div>
+                </div>
+                {/* Section Body */}
+                <div style={{ padding: '1rem 1.125rem 1.25rem' }}>
+                    <input
+                        type="text"
+                        value={section.title}
+                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                        style={{
+                            width: '100%', padding: '0.4rem 0',
+                            border: 'none', borderBottom: `2px solid ${typeConfig.border}`,
+                            background: 'transparent', outline: 'none',
+                            fontSize: '0.95rem', fontWeight: 700, color: '#111827',
+                            fontFamily: 'var(--font-display)', marginBottom: '0.875rem',
+                            transition: 'border-color 0.2s',
+                        }}
+                        onFocus={e => e.target.style.borderBottomColor = typeConfig.color}
+                        onBlur={e => e.target.style.borderBottomColor = typeConfig.border}
+                        placeholder="Section Title"
+                    />
+
+                    {stype === 'TEXT' && (
+                        <RichTextEditor
+                            value={section.body}
+                            onChange={(val) => updateSection(idx, 'body', val)}
+                            placeholder="Section content..."
+                            minHeight="100px"
+                        />
+                    )}
+
+                    {stype === 'PHOTO' && (
+                        <div className="photo-upload-container">
+                            {section.imageUrl ? (
+                                <div className="photo-preview-wrapper" style={{ position: 'relative', display: 'inline-block' }}>
+                                    <img src={section.imageUrl} alt="Section" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} />
+                                    <button type="button" className="banner-btn danger" style={{ position: 'absolute', top: 8, right: 8 }} onClick={() => updateSection(idx, 'imageUrl', '')}>
+                                        <X size={14} /> Remove
+                                    </button>
+                                </div>
+                            ) : (
+                                <label className="deck-upload-area" style={{ padding: '2rem 1rem' }}>
+                                    <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
+                                    <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)' }}>Upload Image</p>
+                                    <input type="file" accept="image/*" onChange={(e) => handleSectionImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                                </label>
+                            )}
+                        </div>
+                    )}
+
+                    {stype === 'CAROUSEL' && (
+                        <div className="carousel-upload-container">
+                            <div className="carousel-grid" style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                                {(section.images || []).map((img, iIndex) => (
+                                    <div key={iIndex} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
+                                        <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                        <button type="button" onClick={() => removeCarouselImage(idx, iIndex)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', padding: '2px', cursor: 'pointer' }}>
+                                            <X size={12} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <label className="deck-upload-area" style={{ width: '100px', height: '100px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Plus size={24} style={{ color: 'var(--color-gray-400)' }} />
+                                    <input type="file" accept="image/*" onChange={(e) => handleCarouselImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                                </label>
+                            </div>
+                        </div>
+                    )}
+
+                    {stype === 'GRAPH' && (
+                        <div className="graph-builder-container">
+                            <div className="form-row" style={{ marginBottom: '1rem' }}>
+                                <label className="form-label" style={{ textAlign: 'left', width: 'auto', marginRight: '1rem' }}>Graph Type</label>
+                                <div className="form-content">
+                                    <select
+                                        value={section.graphType || 'BAR'}
+                                        onChange={(e) => updateSection(idx, 'graphType', e.target.value)}
+                                        className="input-field"
+                                        style={{ width: '200px' }}
+                                    >
+                                        <option value="BAR">Bar Chart</option>
+                                        <option value="LINE">Line Chart</option>
+                                        <option value="PIE">Pie Chart</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {section.graphType !== 'PIE' && (
+                                <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+                                    <input
+                                        type="text"
+                                        value={section.xAxisLabel || ''}
+                                        onChange={(e) => updateSection(idx, 'xAxisLabel', e.target.value)}
+                                        className="input-field"
+                                        placeholder="X-Axis Title (Optional)"
+                                        style={{ flex: 1 }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={section.yAxisLabel || ''}
+                                        onChange={(e) => updateSection(idx, 'yAxisLabel', e.target.value)}
+                                        className="input-field"
+                                        placeholder="Y-Axis Title (Optional)"
+                                        style={{ flex: 1 }}
+                                    />
+                                </div>
+                            )}
+
+                            <div className="graph-data-points">
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-gray-700)', marginBottom: '0.5rem' }}>Data Points</p>
+                                {(section.dataPoints || []).map((point, pIndex) => (
+                                    <div key={pIndex} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                                        <GripVertical size={16} style={{ color: 'var(--color-gray-400)' }} />
+                                        <input
+                                            type="text"
+                                            value={point.label}
+                                            onChange={(e) => updateGraphDataPoint(idx, pIndex, 'label', e.target.value)}
+                                            className="input-field"
+                                            placeholder="Label (e.g. 2024)"
+                                            style={{ flex: 1 }}
+                                        />
+                                        <input
+                                            type="number"
+                                            value={point.value}
+                                            onChange={(e) => updateGraphDataPoint(idx, pIndex, 'value', e.target.value)}
+                                            className="input-field"
+                                            placeholder="Value"
+                                            style={{ width: '120px' }}
+                                        />
+                                        <button type="button" className="team-remove" onClick={() => removeGraphDataPoint(idx, pIndex)}>
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                ))}
+                                <button type="button" className="add-btn" onClick={() => addGraphDataPoint(idx)} style={{ marginTop: '0.25rem', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                                    <Plus size={14} /> Add Data Point
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const renderCustomSections = (placement) => {
+        return form.customSections
+            .map((s, idx) => ({ ...s, originalIdx: idx }))
+            .filter(s => (placement === 'LEFT' ? (s.placement === 'LEFT' || !s.placement) : s.placement === 'RIGHT'))
+            .map(s => renderSection(s, s.originalIdx));
+    };
 
     return (
         <div className="project-edit-page">
@@ -309,26 +609,245 @@ const NewProject = () => {
                     </div>
                 </div>
 
-                {/* Form Sections */}
-                <div className="sections">
+                {/* ─── Main Form Layout ────────────────────────── */}
+                <div className="pd-layout" style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
 
-                    {/* Project Details */}
-                    <div className="profile-card">
-                        <div className="section-inner">
-                            <h3 className="h3-title section-heading">Project Details</h3>
+                    {/* ─── Left Column (Main) ─────────────────── */}
+                    <div className="pd-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', minWidth: 0 }}>
+                        {/* About Project */}
+                        <div className="profile-card">
+                            <div className="section-inner">
+                                <h3 className="h3-title section-heading">About Project</h3>
 
-                            <div className="form-row">
-                                <label className="form-label">Project Name</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="e.g. Volcano Mining" required />
+                                <div className="form-row">
+                                    <label className="form-label">Summary</label>
+                                    <div className="form-content">
+                                        <RichTextEditor
+                                            value={form.description}
+                                            onChange={(val) => setForm(prev => ({ ...prev, description: val }))}
+                                            placeholder="Describe your project, goals, and team..."
+                                        />
+                                    </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="form-row">
-                                <label className="form-label">Category</label>
-                                <div className="form-content">
-                                    <select value={form.category} onChange={handleChange('category')} className="input-field" required>
-                                        <option value="">Select a category</option>
+                        {/* Left Custom Sections */}
+                        {renderCustomSections('LEFT')}
+
+                        <div className="add-section-buttons-container">
+                            <p className="section-label-hint">Add Section to Left Column</p>
+                            <div className="add-section-buttons">
+                                <button type="button" className="add-btn sm" onClick={() => addSection('TEXT', 'LEFT')}>
+                                    <AlignLeftIcon size={14} /> + Text
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('PHOTO', 'LEFT')}>
+                                    <ImageIcon size={14} /> + Photo
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('CAROUSEL', 'LEFT')}>
+                                    <LayoutIcon size={14} /> + Carousel
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('GRAPH', 'LEFT')}>
+                                    <LineChartIcon size={14} /> + Graph
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ─── Right Column (Sidebar) ─────────────────── */}
+                    <div className="pd-sidebar" style={{ width: '380px', display: 'flex', flexDirection: 'column', gap: '2rem', flexShrink: 0 }}>
+
+                        {/* Funding */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Funding Status</h3>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Goal (USD)</label>
+                                    <div className="input-with-prefix">
+                                        <span className="prefix">$</span>
+                                        <input type="number" value={form.fundingGoal} onChange={handleChange('fundingGoal')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="500000" />
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Raised (USD)</label>
+                                    <div className="input-with-prefix">
+                                        <span className="prefix">$</span>
+                                        <input type="number" value={form.raisedAmount} onChange={handleChange('raisedAmount')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="0" />
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Website</label>
+                                    <input type="url" value={form.website} onChange={handleChange('website')} className="input-field" placeholder="https://" />
+                                </div>
+
+                                <div className="sidebar-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="sidebar-label">Use of Funds</label>
+                                    {form.useOfFunds.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                            <input
+                                                type="text"
+                                                value={item.label}
+                                                onChange={(e) => updateUseOfFunds(idx, 'label', e.target.value)}
+                                                className="input-field sm"
+                                                placeholder="Label"
+                                                style={{ flex: 1 }}
+                                            />
+                                            <input
+                                                type="text"
+                                                value={item.percentage}
+                                                onChange={(e) => updateUseOfFunds(idx, 'percentage', e.target.value)}
+                                                className="input-field sm"
+                                                placeholder="%"
+                                                style={{ width: '50px' }}
+                                            />
+                                            <button type="button" className="team-remove" onClick={() => removeUseOfFunds(idx)}>
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                    <button type="button" className="add-btn sm" onClick={addUseOfFunds} style={{ width: '100%', justifyContent: 'center' }}>
+                                        <Plus size={14} /> Add Item
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Pitch Deck */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Pitch Deck</h3>
+                                {deckFile ? (
+                                    <div className="deck-file-display sm">
+                                        <FileText size={16} style={{ color: 'var(--color-primary)' }} />
+                                        <span className="deck-name sm">{deckFile.name}</span>
+                                        <button type="button" className="deck-remove" onClick={() => setDeckFile(null)}>
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                ) : existingDeck ? (
+                                    <div className="deck-file-display sm">
+                                        <FileText size={16} style={{ color: 'var(--color-primary)' }} />
+                                        <span className="deck-name sm">Deck uploaded</span>
+                                        <label className="deck-replace-btn">
+                                            Replace <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
+                                        </label>
+                                    </div>
+                                ) : (
+                                    <label className="deck-upload-area sm" style={{ padding: '1rem' }}>
+                                        <Upload size={20} style={{ color: 'var(--color-gray-400)', marginBottom: '0.25rem' }} />
+                                        <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>Upload PDF</p>
+                                        <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
+                                    </label>
+                                )}
+
+                                <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-gray-100)' }}>
+                                    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-gray-700)' }}>Requires Approval</div>
+                                        <div
+                                            onClick={() => setForm(prev => ({ ...prev, requiresDeckApproval: !prev.requiresDeckApproval }))}
+                                            style={{
+                                                width: '36px', height: '20px',
+                                                background: form.requiresDeckApproval ? 'var(--color-primary)' : 'var(--color-gray-300)',
+                                                borderRadius: '10px', transition: 'background 0.2s', position: 'relative'
+                                            }}
+                                        >
+                                            <div style={{
+                                                position: 'absolute', top: '2px', left: form.requiresDeckApproval ? '18px' : '2px',
+                                                width: '16px', height: '16px', background: 'white', borderRadius: '50%',
+                                                transition: 'left 0.2s'
+                                            }} />
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Core Team */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Core Team</h3>
+
+                                <div className="team-entry sm" style={{ background: '#f0f7ff', borderColor: '#bfdbfe', padding: '0.75rem' }}>
+                                    <div className="team-fields">
+                                        <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Main Builder (You)</span>
+                                        <input
+                                            type="text"
+                                            value={form.ownerRole}
+                                            onChange={handleChange('ownerRole')}
+                                            className="input-field sm"
+                                            placeholder="Your Role"
+                                        />
+                                    </div>
+                                </div>
+
+                                {form.teamInfo.map((member, idx) => (
+                                    <div key={idx} className="team-entry sm" style={{ padding: '0.75rem' }}>
+                                        <div className="team-fields" style={{ position: 'relative' }}>
+                                            <input
+                                                type="text"
+                                                value={member.name}
+                                                onChange={(e) => handleMemberNameChange(idx, e.target.value)}
+                                                onFocus={() => { if (member.name?.length >= 2) setMemberSearchIndex(idx); }}
+                                                onBlur={() => setTimeout(() => setMemberSearchIndex(null), 200)}
+                                                className="input-field sm"
+                                                placeholder="Name"
+                                            />
+                                            {memberSearchIndex === idx && memberSearchResults.length > 0 && (
+                                                <div className="member-dropdown">
+                                                    {memberSearchResults.map((p) => (
+                                                        <button key={p.id} type="button" className="member-dropdown-item sm" onMouseDown={(e) => { e.preventDefault(); selectBiesMember(idx, p); }}>
+                                                            <div className="member-dropdown-avatar sm">
+                                                                {p.avatar ? <img src={p.avatar} alt="" /> : <span>{p.name[0]}</span>}
+                                                            </div>
+                                                            <span>{p.name}</span>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <input
+                                                type="text"
+                                                value={member.position}
+                                                onChange={(e) => updateTeamMember(idx, 'position', e.target.value)}
+                                                className="input-field sm"
+                                                placeholder="Role"
+                                            />
+                                        </div>
+                                        <button type="button" className="team-remove" onClick={() => removeTeamMember(idx)}>
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
+                                ))}
+
+                                <button type="button" className="add-btn sm" onClick={addTeamMember} style={{ width: '100%', justifyContent: 'center' }}>
+                                    <UserPlus size={14} /> Add Member
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Project Info */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Project Info</h3>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Project Name</label>
+                                    <input
+                                        type="text"
+                                        value={form.name}
+                                        onChange={handleChange('name')}
+                                        className="input-field sm"
+                                        placeholder="Project Name"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Category</label>
+                                    <select value={form.category} onChange={handleChange('category')} className="input-field sm" required>
+                                        <option value="">Select Category</option>
                                         <option value="INFRASTRUCTURE">Infrastructure</option>
                                         <option value="FINTECH">Finance / DeFi</option>
                                         <option value="EDUCATION">Education</option>
@@ -347,12 +866,10 @@ const NewProject = () => {
                                         <option value="OTHER">Other</option>
                                     </select>
                                 </div>
-                            </div>
 
-                            <div className="form-row">
-                                <label className="form-label">Stage</label>
-                                <div className="form-content">
-                                    <select value={form.stage} onChange={handleChange('stage')} className="input-field">
+                                <div className="sidebar-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="sidebar-label">Stage</label>
+                                    <select value={form.stage} onChange={handleChange('stage')} className="input-field sm">
                                         <option value="IDEA">Idea</option>
                                         <option value="MVP">MVP</option>
                                         <option value="GROWTH">Growth</option>
@@ -360,318 +877,39 @@ const NewProject = () => {
                                     </select>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="form-row">
-                                <label className="form-label">Description</label>
-                                <div className="form-content">
-                                    <textarea
-                                        rows="5"
-                                        value={form.description}
-                                        onChange={handleChange('description')}
-                                        className="input-field"
-                                        style={{ resize: 'vertical', minHeight: '120px' }}
-                                        placeholder="Describe your project, goals, and team..."
-                                        required
-                                    />
-                                </div>
+                        {/* Right Custom Sections */}
+                        {renderCustomSections('RIGHT')}
+
+                        <div className="add-section-buttons-container">
+                            <p className="section-label-hint">Add Section to Right Column</p>
+                            <div className="add-section-buttons">
+                                <button type="button" className="add-btn sm" onClick={() => addSection('TEXT', 'RIGHT')}>
+                                    <AlignLeftIcon size={14} /> + Text
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('PHOTO', 'RIGHT')}>
+                                    <ImageIcon size={14} /> + Photo
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('CAROUSEL', 'RIGHT')}>
+                                    <LayoutIcon size={14} /> + Carousel
+                                </button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('GRAPH', 'RIGHT')}>
+                                    <LineChartIcon size={14} /> + Graph
+                                </button>
                             </div>
                         </div>
+
                     </div>
-
-                    {/* Funding */}
-                    <div className="profile-card">
-                        <div className="section-inner">
-                            <h3 className="h3-title section-heading">Funding</h3>
-
-                            <div className="form-row">
-                                <label className="form-label">Funding Goal (USD)</label>
-                                <div className="form-content">
-                                    <div className="input-with-prefix">
-                                        <span className="prefix">$</span>
-                                        <input type="number" value={form.fundingGoal} onChange={handleChange('fundingGoal')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="500000" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Amount Raised (USD)</label>
-                                <div className="form-content">
-                                    <div className="input-with-prefix">
-                                        <span className="prefix">$</span>
-                                        <input type="number" value={form.raisedAmount} onChange={handleChange('raisedAmount')} className="input-field" style={{ paddingLeft: '2rem' }} placeholder="0" />
-                                    </div>
-                                    <p className="form-hint">Update this as you raise funds. This is displayed on your project page.</p>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Website URL</label>
-                                <div className="form-content">
-                                    <input type="url" value={form.website} onChange={handleChange('website')} className="input-field" placeholder="https://" />
-                                </div>
-                            </div>
-
-                            {/* Use of Funds */}
-                            <div className="form-row" style={{ marginBottom: 0 }}>
-                                <label className="form-label">Use of Funds</label>
-                                <div className="form-content">
-                                    {form.useOfFunds.length > 0 && (
-                                        <div style={{ marginBottom: '1rem' }}>
-                                            {form.useOfFunds.map((item, idx) => (
-                                                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={item.label}
-                                                        onChange={(e) => updateUseOfFunds(idx, 'label', e.target.value)}
-                                                        className="input-field"
-                                                        placeholder="e.g. Development, Marketing"
-                                                        style={{ flex: 1 }}
-                                                    />
-                                                    <div style={{ position: 'relative', width: '80px', flexShrink: 0 }}>
-                                                        <input
-                                                            type="text"
-                                                            value={item.percentage}
-                                                            onChange={(e) => updateUseOfFunds(idx, 'percentage', e.target.value)}
-                                                            className="input-field"
-                                                            placeholder="0"
-                                                            style={{ paddingRight: '1.5rem', textAlign: 'right' }}
-                                                        />
-                                                        <span style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', pointerEvents: 'none' }}>%</span>
-                                                    </div>
-                                                    <button type="button" className="team-remove" onClick={() => removeUseOfFunds(idx)}>
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                            <p style={{ fontSize: '0.78rem', color: fundsTotal === 100 ? '#16a34a' : fundsTotal > 100 ? '#ef4444' : 'var(--color-gray-400)', marginBottom: '0.5rem' }}>
-                                                Total: {fundsTotal}%{fundsTotal === 100 ? ' ✓' : fundsTotal > 100 ? ' (exceeds 100%)' : ''}
-                                            </p>
-                                        </div>
-                                    )}
-                                    <button type="button" className="add-btn" onClick={addUseOfFunds}>
-                                        <Plus size={16} /> Add Use
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Team Members */}
-                    <div className="profile-card">
-                        <div className="section-inner">
-                            <h3 className="h3-title section-heading">Core Team</h3>
-
-                            {form.teamInfo.length === 0 && (
-                                <p className="empty-hint">Add team members to showcase who's building this project.</p>
-                            )}
-
-                            {/* Main Builder (Owner) Role Input */}
-                            <div className="team-entry" style={{ background: '#f0f7ff', borderColor: '#bfdbfe' }}>
-                                <div className="team-avatar-upload">
-                                    <div className="team-avatar-label" style={{ cursor: 'default', background: 'var(--color-primary)', color: 'white', border: 'none' }}>
-                                        <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>You</span>
-                                    </div>
-                                </div>
-                                <div className="team-fields" style={{ justifyContent: 'center' }}>
-                                    <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Main Builder</span>
-                                    <input
-                                        type="text"
-                                        value={form.ownerRole}
-                                        onChange={handleChange('ownerRole')}
-                                        className="input-field"
-                                        placeholder="Your Role in the Project (e.g. Founder, CEO)"
-                                    />
-                                </div>
-                            </div>
-
-                            {form.teamInfo.map((member, idx) => (
-                                <div key={idx} className="team-entry">
-                                    <div className="team-avatar-upload">
-                                        {member.biesUserId ? (
-                                            <div className="team-avatar-label" style={{ cursor: 'default', border: member.avatar ? 'none' : undefined }}>
-                                                {member.avatar ? (
-                                                    <img src={member.avatar} alt="" className="team-avatar-img" />
-                                                ) : (
-                                                    <span style={{ fontSize: '1.1rem', fontWeight: 'bold', color: 'var(--color-gray-500)' }}>{(member.name || '?')[0]?.toUpperCase()}</span>
-                                                )}
-                                            </div>
-                                        ) : (
-                                            <label className="team-avatar-label">
-                                                {teamAvatarUploading === idx ? (
-                                                    <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
-                                                ) : member.avatar ? (
-                                                    <img src={member.avatar} alt="" className="team-avatar-img" />
-                                                ) : (
-                                                    <Camera size={18} />
-                                                )}
-                                                <input type="file" accept="image/*" onChange={(e) => handleTeamAvatarUpload(idx, e)} style={{ display: 'none' }} />
-                                            </label>
-                                        )}
-                                    </div>
-                                    <div className="team-fields" style={{ position: 'relative' }}>
-                                        <input
-                                            type="text"
-                                            value={member.name}
-                                            onChange={(e) => handleMemberNameChange(idx, e.target.value)}
-                                            onFocus={() => { if (member.name?.length >= 2) setMemberSearchIndex(idx); }}
-                                            onBlur={() => setTimeout(() => setMemberSearchIndex(null), 200)}
-                                            className="input-field"
-                                            placeholder="Name (type to search BIES members)"
-                                        />
-                                        {memberSearchIndex === idx && memberSearchResults.length > 0 && (
-                                            <div className="member-dropdown">
-                                                {memberSearchResults.map((p) => (
-                                                    <button
-                                                        key={p.id}
-                                                        type="button"
-                                                        className="member-dropdown-item"
-                                                        onMouseDown={(e) => { e.preventDefault(); selectBiesMember(idx, p); }}
-                                                    >
-                                                        <div className="member-dropdown-avatar">
-                                                            {p.avatar ? <img src={p.avatar} alt="" /> : <span>{(p.name || '?')[0]?.toUpperCase()}</span>}
-                                                        </div>
-                                                        <div>
-                                                            <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{p.name}</div>
-                                                            {p.title && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{p.title}</div>}
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                        <input
-                                            type="text"
-                                            value={member.position}
-                                            onChange={(e) => updateTeamMember(idx, 'position', e.target.value)}
-                                            className="input-field"
-                                            placeholder="Position / Role"
-                                        />
-                                    </div>
-                                    <button type="button" className="team-remove" onClick={() => removeTeamMember(idx)}>
-                                        <Trash2 size={16} />
-                                    </button>
-                                </div>
-                            ))}
-
-                            <button type="button" className="add-btn" onClick={addTeamMember}>
-                                <UserPlus size={16} /> Add Team Member
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Custom Content Sections */}
-                    <div className="profile-card">
-                        <div className="section-inner">
-                            <h3 className="h3-title section-heading">Additional Sections</h3>
-                            <p className="empty-hint" style={{ marginBottom: '1rem' }}>Add extra info about your project — property details, roadmap, traction, anything relevant.</p>
-
-                            {form.customSections.map((section, idx) => (
-                                <div key={idx} className="custom-section-entry">
-                                    <div className="custom-section-header">
-                                        <span className="custom-section-num">Section {idx + 1}</span>
-                                        <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
-                                    <input
-                                        type="text"
-                                        value={section.title}
-                                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
-                                        className="input-field"
-                                        placeholder="Section Title"
-                                        style={{ marginBottom: '0.75rem' }}
-                                    />
-                                    <textarea
-                                        rows="4"
-                                        value={section.body}
-                                        onChange={(e) => updateSection(idx, 'body', e.target.value)}
-                                        className="input-field"
-                                        style={{ resize: 'vertical', minHeight: '100px' }}
-                                        placeholder="Section content..."
-                                    />
-                                </div>
-                            ))}
-
-                            <button type="button" className="add-btn" onClick={addSection}>
-                                <Plus size={16} /> Add Section
-                            </button>
-                        </div>
-                    </div>
-
-                    {/* Pitch Deck */}
-                    <div className="profile-card">
-                        <div className="section-inner">
-                            <h3 className="h3-title section-heading">Pitch Deck</h3>
-
-                            <div className="form-row" style={{ marginBottom: 0 }}>
-                                <label className="form-label">Upload PDF</label>
-                                <div className="form-content">
-                                    {deckFile ? (
-                                        <div className="deck-file-display">
-                                            <FileText size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                                            <span className="deck-name">{deckFile.name}</span>
-                                            <span className="deck-size">({(deckFile.size / 1024 / 1024).toFixed(1)} MB)</span>
-                                            <button type="button" className="deck-remove" onClick={() => setDeckFile(null)}>
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ) : existingDeck ? (
-                                        <div className="deck-file-display">
-                                            <FileText size={20} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
-                                            <span className="deck-name" style={{ color: 'var(--color-gray-600)' }}>Pitch deck uploaded</span>
-                                            <label className="deck-replace-btn">
-                                                Replace
-                                                <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
-                                            </label>
-                                        </div>
-                                    ) : (
-                                        <label className="deck-upload-area">
-                                            <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
-                                            <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-primary)' }}>Upload Pitch Deck</p>
-                                            <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-400)', marginTop: '0.25rem' }}>PDF only, max 20MB</p>
-                                            <input type="file" accept=".pdf,application/pdf" onChange={handleDeckUpload} style={{ display: 'none' }} />
-                                        </label>
-                                    )}
-
-                                    {/* Quick Toggle for Approval */}
-                                    <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid var(--color-gray-200)' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
-                                            <div>
-                                                <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--color-gray-800)' }}>Approve Viewers</div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginTop: '0.15rem' }}>If enabled, investors must request access before downloading.</div>
-                                            </div>
-                                            <div style={{
-                                                position: 'relative', width: '44px', height: '24px',
-                                                background: form.requiresDeckApproval ? 'var(--color-primary)' : 'var(--color-gray-300)',
-                                                borderRadius: '12px', transition: 'background 0.2s', flexShrink: 0
-                                            }}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={form.requiresDeckApproval}
-                                                    onChange={(e) => setForm(prev => ({ ...prev, requiresDeckApproval: e.target.checked }))}
-                                                    style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }}
-                                                />
-                                                <div style={{
-                                                    position: 'absolute', top: '2px', left: form.requiresDeckApproval ? '22px' : '2px',
-                                                    width: '20px', height: '20px', background: 'white', borderRadius: '50%',
-                                                    transition: 'left 0.2s', boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                                }} />
-                                            </div>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Bottom Save */}
-                    <div className="bottom-actions">
-                        <button type="button" onClick={() => navigate(-1)} className="btn btn-outline">Cancel</button>
-                        <button type="button" onClick={handleSubmit} className="btn btn-primary" disabled={isBusy}>
-                            {loading ? (editId ? 'Saving...' : 'Creating...') : deckUploading ? 'Uploading deck...' : (editId ? 'Save Changes' : 'Create Project')}
-                        </button>
-                    </div>
-
                 </div>
+
+                <div className="bottom-actions" style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '2rem' }}>
+                    <button type="button" onClick={() => navigate(-1)} className="btn btn-outline">Cancel</button>
+                    <button type="button" onClick={handleSubmit} className="btn btn-primary" disabled={isBusy}>
+                        {loading ? (editId ? 'Saving...' : 'Creating...') : deckUploading ? 'Uploading deck...' : (editId ? 'Save Changes' : 'Create Project')}
+                    </button>
+                </div>
+
             </div>
 
             <style jsx>{`
@@ -832,19 +1070,40 @@ const NewProject = () => {
 
                 /* Custom Sections */
                 .custom-section-entry {
-                    padding: 1.25rem; margin-bottom: 1rem;
-                    background: var(--color-gray-50, #f9fafb);
+                    margin-bottom: 1rem;
+                    background: white;
                     border: 1px solid var(--color-gray-200);
-                    border-radius: 10px;
+                    border-radius: 12px;
+                    overflow: hidden;
+                    box-shadow: 0 1px 4px rgba(0,0,0,0.05);
                 }
                 .custom-section-header {
                     display: flex; justify-content: space-between; align-items: center;
-                    margin-bottom: 0.75rem;
+                    padding: 0.6rem 1rem;
+                    background: var(--color-gray-50);
+                    border-bottom: 1px solid var(--color-gray-200);
                 }
-                .custom-section-num {
-                    font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
-                    letter-spacing: 0.05em; color: var(--color-gray-400);
+                .custom-section-type-badge {
+                    display: inline-flex; align-items: center; gap: 0.35rem;
+                    font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
+                    letter-spacing: 0.06em; color: var(--color-primary);
+                    background: #e8f0fe; padding: 0.25rem 0.6rem;
+                    border-radius: 99px;
                 }
+                .custom-section-body {
+                    padding: 1rem 1.25rem 1.25rem;
+                }
+                .custom-section-title-input {
+                    width: 100%; padding: 0.5rem 0;
+                    border: none; border-bottom: 2px solid var(--color-gray-200);
+                    background: transparent; outline: none;
+                    font-size: 1rem; font-weight: 700; color: #111827;
+                    font-family: var(--font-display);
+                    margin-bottom: 1rem;
+                    transition: border-color 0.2s;
+                }
+                .custom-section-title-input:focus { border-bottom-color: var(--color-primary); }
+                .custom-section-title-input::placeholder { color: var(--color-gray-300); font-weight: 400; }
 
                 /* Add buttons */
                 .add-btn {
@@ -889,6 +1148,26 @@ const NewProject = () => {
                     display: flex; justify-content: flex-end; gap: 1rem; margin-top: 0.5rem;
                 }
 
+                .sidebar-form-group { margin-bottom: 1.25rem; }
+                .sidebar-label { 
+                    display: block; font-size: 0.85rem; font-weight: 600; 
+                    color: var(--color-gray-700); margin-bottom: 0.5rem; 
+                }
+                .input-field.sm { padding: 0.5rem 0.75rem; font-size: 0.85rem; border-radius: 6px; }
+                .add-btn.sm { padding: 0.4rem 0.75rem; font-size: 0.8rem; border-radius: 6px; }
+                .team-entry.sm { padding: 0.75rem; border-radius: 8px; }
+                .deck-file-display.sm { padding: 0.5rem 0.75rem; }
+                .deck-name.sm { font-size: 0.8rem; }
+                .deck-upload-area.sm { padding: 1rem; border-radius: 8px; }
+                .add-section-buttons-container { padding: 1.5rem; background: #f8fafc; border: 1px dashed var(--color-gray-300); border-radius: 12px; }
+                .section-label-hint { font-size: 0.75rem; font-weight: 600; color: var(--color-gray-500); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
+                .add-section-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+                
+                @media (max-width: 1024px) {
+                    .pd-layout { flex-direction: column; }
+                    .pd-sidebar { width: 100% !important; }
+                }
+
                 @media (max-width: 768px) {
                     .form-row { grid-template-columns: 1fr; gap: 0.5rem; }
                     .form-label { text-align: left; padding-top: 0; }
@@ -897,6 +1176,28 @@ const NewProject = () => {
                     .team-entry { flex-direction: column; align-items: center; }
                 }
 
+                .placement-toggle {
+                    display: flex;
+                    background: var(--color-gray-100);
+                    padding: 2px;
+                    border-radius: 6px;
+                }
+                .placement-toggle button {
+                    padding: 2px 8px;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    border-radius: 4px;
+                    border: none;
+                    background: transparent;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    transition: all 0.1s;
+                }
+                .placement-toggle button.active {
+                    background: white;
+                    color: var(--color-primary);
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+                }
                 @keyframes spin { to { transform: rotate(360deg); } }
             `}</style>
         </div>

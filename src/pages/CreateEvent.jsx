@@ -1,20 +1,24 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowLeft, Upload, Calendar, MapPin, Clock, Users, Globe, Tag, ShieldCheck,
-    Eye, Lock, EyeOff, Ticket, Award, UserCheck, AlertCircle, Loader2, Plus, Trash2, Camera, Save, X, Link as LinkIcon, ChevronDown, ChevronUp
+    ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Tag, ShieldCheck,
+    Eye, Lock, EyeOff, Ticket, Award, UserCheck, AlertCircle, Loader2,
+    Plus, Trash2, Camera, Save, X, Link as LinkIcon,
+    Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon,
+    AlignLeft as AlignLeftIcon, GripVertical, Upload, FileText,
 } from 'lucide-react';
 import { eventsApi, uploadApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import MemberSearchSelect from '../components/MemberSearchSelect';
 import TagInput from '../components/TagInput';
+import RichTextEditor from '../components/RichTextEditor';
 import { getAssetUrl } from '../utils/assets';
 
 const VISIBILITY_OPTIONS = [
     { value: 'PUBLIC', label: 'Public', icon: <Globe size={15} />, desc: 'Visible to everyone on BIES' },
     { value: 'LIMITED_SPACES', label: 'Limited Spaces', icon: <Users size={15} />, desc: 'Public listing — capacity is limited' },
-    { value: 'INVITE_ONLY', label: 'Invite Only', icon: <UserCheck size={15} />, desc: 'Listed publicly but RSVPs require an invite' },
-    { value: 'PRIVATE', label: 'Private', icon: <Lock size={15} />, desc: 'Hidden from public — share via messages or guestlist' },
+    { value: 'INVITE_ONLY', label: 'Invite Only', icon: <UserCheck size={15} />, desc: 'Listed but RSVPs require an invite' },
+    { value: 'PRIVATE', label: 'Private', icon: <Lock size={15} />, desc: 'Hidden from public — share via messages' },
     { value: 'DRAFT', label: 'Draft', icon: <EyeOff size={15} />, desc: 'Saved as draft — only you can see it' },
 ];
 
@@ -25,7 +29,6 @@ const CreateEvent = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [uploadLoading, setUploadLoading] = useState(false);
-    const [localPreview, setLocalPreview] = useState(null);
     const [submitError, setSubmitError] = useState('');
 
     const [form, setForm] = useState({
@@ -53,10 +56,6 @@ const CreateEvent = () => {
     const [tags, setTags] = useState([]);
     const [customSections, setCustomSections] = useState([]);
 
-    useEffect(() => {
-        return () => { if (localPreview) URL.revokeObjectURL(localPreview); };
-    }, [localPreview]);
-
     const isBusy = loading || uploadLoading;
 
     const handleChange = (e) => {
@@ -67,39 +66,177 @@ const CreateEvent = () => {
     const handleImageUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-
         setUploadLoading(true);
         setSubmitError('');
-
         try {
             const result = await uploadApi.media(file);
             setForm(prev => ({ ...prev, thumbnail: result.url }));
         } catch (err) {
-            console.error('Upload error:', err);
-            setSubmitError(err.message || 'Failed to upload image. Please try again.');
+            setSubmitError(err.message || 'Failed to upload image.');
         } finally {
             setUploadLoading(false);
             if (e.target) e.target.value = '';
         }
     };
 
-    const clearImage = () => {
-        if (localPreview) { URL.revokeObjectURL(localPreview); setLocalPreview(null); }
-        setForm(prev => ({ ...prev, thumbnail: null }));
+    // ─── Custom Sections ──────────────────────────────────────────────────────
+
+    const addSection = (type = 'TEXT', placement = 'LEFT') => {
+        const base = { title: '', type, placement };
+        const extra = {
+            TEXT: { body: '' },
+            PHOTO: { imageUrl: '' },
+            CAROUSEL: { images: [] },
+            GRAPH: { graphType: 'BAR', xAxisLabel: '', yAxisLabel: '', dataPoints: [{ label: 'Data 1', value: '100' }] },
+        }[type] || { body: '' };
+        setCustomSections(prev => [...prev, { ...base, ...extra }]);
     };
 
-    const addSection = () => setCustomSections(prev => [...prev, { title: '', body: '' }]);
-    const updateSection = (i, field, value) =>
-        setCustomSections(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
-    const removeSection = (i) => setCustomSections(prev => prev.filter((_, idx) => idx !== i));
+    const updateSection = (index, field, value) =>
+        setCustomSections(prev => prev.map((s, i) => i === index ? { ...s, [field]: value } : s));
+
+    const removeSection = (index) =>
+        setCustomSections(prev => prev.filter((_, i) => i !== index));
+
+    const handleSectionImageUpload = async (index, file) => {
+        if (!file) return;
+        try {
+            const result = await uploadApi.media(file);
+            updateSection(index, 'imageUrl', result.url);
+        } catch { setSubmitError('Failed to upload image.'); }
+    };
+
+    const handleCarouselImageUpload = async (index, file) => {
+        if (!file) return;
+        try {
+            const result = await uploadApi.media(file);
+            setCustomSections(prev => {
+                const updated = [...prev];
+                updated[index] = { ...updated[index], images: [...(updated[index].images || []), result.url] };
+                return updated;
+            });
+        } catch { setSubmitError('Failed to upload carousel image.'); }
+    };
+
+    const removeCarouselImage = (sIdx, iIdx) =>
+        setCustomSections(prev => prev.map((s, i) => i === sIdx ? { ...s, images: s.images.filter((_, j) => j !== iIdx) } : s));
+
+    const addGraphDataPoint = (index) =>
+        setCustomSections(prev => prev.map((s, i) => i === index ? { ...s, dataPoints: [...(s.dataPoints || []), { label: '', value: '' }] } : s));
+
+    const updateGraphDataPoint = (sIdx, pIdx, field, value) =>
+        setCustomSections(prev => prev.map((s, i) => {
+            if (i !== sIdx) return s;
+            const pts = [...s.dataPoints];
+            pts[pIdx] = { ...pts[pIdx], [field]: value };
+            return { ...s, dataPoints: pts };
+        }));
+
+    const removeGraphDataPoint = (sIdx, pIdx) =>
+        setCustomSections(prev => prev.map((s, i) => i === sIdx ? { ...s, dataPoints: s.dataPoints.filter((_, j) => j !== pIdx) } : s));
+
+    const renderSection = (section, idx) => {
+        const stype = section.type || 'TEXT';
+        const typeConfig = {
+            TEXT:     { icon: <AlignLeftIcon size={12} />,  label: 'Text',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+            PHOTO:    { icon: <ImageIcon size={12} />,       label: 'Photo',    color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            CAROUSEL: { icon: <LayoutIcon size={12} />,      label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+            GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
+        }[stype] || { icon: null, label: stype, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+
+        return (
+            <div key={idx} style={{ marginBottom: '1rem', background: 'white', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.55rem 0.875rem', background: typeConfig.bg, borderBottom: `1px solid ${typeConfig.border}` }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: typeConfig.color }}>
+                        {typeConfig.icon} {typeConfig.label} Section
+                    </span>
+                    <button type="button" className="team-remove" onClick={() => removeSection(idx)}><Trash2 size={15} /></button>
+                </div>
+                <div style={{ padding: '1rem 1.125rem 1.25rem' }}>
+                    <input
+                        type="text" value={section.title}
+                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                        style={{ width: '100%', padding: '0.4rem 0', border: 'none', borderBottom: `2px solid ${typeConfig.border}`, background: 'transparent', outline: 'none', fontSize: '0.95rem', fontWeight: 700, color: '#111827', fontFamily: 'var(--font-display)', marginBottom: '0.875rem', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                        onFocus={e => e.target.style.borderBottomColor = typeConfig.color}
+                        onBlur={e => e.target.style.borderBottomColor = typeConfig.border}
+                        placeholder="Section Title"
+                    />
+                    {stype === 'TEXT' && (
+                        <RichTextEditor value={section.body} onChange={val => updateSection(idx, 'body', val)} placeholder="Section content..." minHeight="100px" />
+                    )}
+                    {stype === 'PHOTO' && (
+                        section.imageUrl
+                            ? <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <img src={section.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} />
+                                <button type="button" onClick={() => updateSection(idx, 'imageUrl', '')} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}><X size={12} /> Remove</button>
+                              </div>
+                            : <label className="deck-upload-area" style={{ padding: '2.5rem 1rem' }}>
+                                <Upload size={28} style={{ color: 'var(--color-gray-400)', marginBottom: '0.5rem' }} />
+                                <p style={{ fontSize: '0.9rem', fontWeight: 600, color: '#16a34a', margin: '0 0 0.25rem' }}>Upload Photo</p>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', margin: 0 }}>JPG, PNG, WebP</p>
+                                <input type="file" accept="image/*" onChange={e => handleSectionImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                              </label>
+                    )}
+                    {stype === 'CAROUSEL' && (
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {(section.images || []).map((img, iIdx) => (
+                                <div key={iIdx} style={{ position: 'relative', width: '100px', height: '100px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
+                                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button type="button" onClick={() => removeCarouselImage(idx, iIdx)} style={{ position: 'absolute', top: 4, right: 4, background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', padding: '2px', cursor: 'pointer' }}><X size={12} /></button>
+                                </div>
+                            ))}
+                            <label className="deck-upload-area" style={{ width: '100px', height: '100px', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '4px' }}>
+                                <Plus size={24} style={{ color: 'var(--color-gray-400)' }} />
+                                <span style={{ fontSize: '0.65rem', color: 'var(--color-gray-400)' }}>Add Photo</span>
+                                <input type="file" accept="image/*" onChange={e => handleCarouselImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    )}
+                    {stype === 'GRAPH' && (
+                        <div>
+                            <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.75rem', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-gray-700)', whiteSpace: 'nowrap' }}>Chart Type</label>
+                                <select value={section.graphType || 'BAR'} onChange={e => updateSection(idx, 'graphType', e.target.value)} className="input-field" style={{ width: '140px' }}>
+                                    <option value="BAR">Bar Chart</option>
+                                    <option value="LINE">Line Chart</option>
+                                    <option value="PIE">Pie Chart</option>
+                                </select>
+                            </div>
+                            {section.graphType !== 'PIE' && (
+                                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.75rem' }}>
+                                    <input type="text" value={section.xAxisLabel || ''} onChange={e => updateSection(idx, 'xAxisLabel', e.target.value)} className="input-field" placeholder="X-Axis Label" style={{ flex: 1 }} />
+                                    <input type="text" value={section.yAxisLabel || ''} onChange={e => updateSection(idx, 'yAxisLabel', e.target.value)} className="input-field" placeholder="Y-Axis Label" style={{ flex: 1 }} />
+                                </div>
+                            )}
+                            <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-gray-700)', marginBottom: '0.4rem' }}>Data Points</p>
+                            {(section.dataPoints || []).map((pt, pIdx) => (
+                                <div key={pIdx} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.4rem', alignItems: 'center' }}>
+                                    <GripVertical size={14} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
+                                    <input type="text" value={pt.label} onChange={e => updateGraphDataPoint(idx, pIdx, 'label', e.target.value)} className="input-field" placeholder="Label" style={{ flex: 1 }} />
+                                    <input type="number" value={pt.value} onChange={e => updateGraphDataPoint(idx, pIdx, 'value', e.target.value)} className="input-field" placeholder="Value" style={{ width: '100px' }} />
+                                    <button type="button" className="team-remove" onClick={() => removeGraphDataPoint(idx, pIdx)}><Trash2 size={14} /></button>
+                                </div>
+                            ))}
+                            <button type="button" className="add-btn-sm" onClick={() => addGraphDataPoint(idx)}><Plus size={13} /> Add Point</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const renderCustomSections = (placement) =>
+        customSections
+            .map((s, idx) => ({ ...s, _idx: idx }))
+            .filter(s => placement === 'LEFT' ? (s.placement === 'LEFT' || !s.placement) : s.placement === 'RIGHT')
+            .map(s => renderSection(s, s._idx));
+
+    // ─── Submit ───────────────────────────────────────────────────────────────
 
     const buildPayload = () => {
         if (!form.startDate) throw new Error('Start date is required');
         const startDate = new Date(`${form.startDate}T${form.startTime || '00:00'}:00`).toISOString();
-        const endDate = form.endDate
-            ? new Date(`${form.endDate}T${form.endTime || '23:59'}:00`).toISOString()
-            : undefined;
-
+        const endDate = form.endDate ? new Date(`${form.endDate}T${form.endTime || '23:59'}:00`).toISOString() : undefined;
         return {
             title: form.title,
             category: form.category,
@@ -110,8 +247,7 @@ const CreateEvent = () => {
             locationMapUrl: form.locationMapUrl || undefined,
             isOnline: form.isOnline,
             onlineUrl: form.onlineUrl || undefined,
-            startDate,
-            endDate,
+            startDate, endDate,
             maxAttendees: form.maxAttendees ? parseInt(form.maxAttendees) : undefined,
             thumbnail: form.thumbnail || undefined,
             ticketUrl: form.ticketUrl || undefined,
@@ -120,22 +256,19 @@ const CreateEvent = () => {
             isOfficial: form.isOfficial,
             endorsementRequested: form.endorsementRequested,
             guestList: form.guestList,
-            customSections: (customSections || []).map(s => ({ title: s.title, content: s.body })),
+            customSections,
         };
     };
 
-    const handleSubmit = async (e) => {
-        if (e) e.preventDefault();
+    const handleSubmit = async () => {
         setLoading(true);
         setSubmitError('');
         try {
             await eventsApi.create(buildPayload());
             navigate('/events/my');
         } catch (err) {
-            console.error('Submission error:', err);
-            if (err.data?.details && Array.isArray(err.data.details)) {
-                const details = err.data.details.map(d => `${d.field}: ${d.message}`).join(', ');
-                setSubmitError(`${err.message}: ${details}`);
+            if (err.data?.details) {
+                setSubmitError(`${err.message}: ${err.data.details.map(d => `${d.field}: ${d.message}`).join(', ')}`);
             } else {
                 setSubmitError(err.message || 'Failed to create event');
             }
@@ -145,359 +278,329 @@ const CreateEvent = () => {
     };
 
     const needsGuestList = form.visibility === 'PRIVATE' || form.visibility === 'INVITE_ONLY';
-    const isNonOfficialCommunity = !form.isOfficial;
 
     return (
-        <div className="create-event-page">
-            <div className="container">
-                <button onClick={() => navigate(-1)} className="back-link">
-                    <ArrowLeft size={16} /> Back
-                </button>
-                <h1 className="h1-title">Create New Event</h1>
-                <p className="subtitle">Host a Bitcoin-native event and grow your community.</p>
+        <div className="event-edit-page">
+            <div className="container py-8 max-w-6xl">
+
+                <div className="page-header">
+                    <div>
+                        <button onClick={() => navigate(-1)} className="back-link">
+                            <ArrowLeft size={18} /> Back
+                        </button>
+                        <h1 className="h1-title">Create New Event</h1>
+                        <p className="text-gray-500">Host a Bitcoin-native event and grow your community.</p>
+                    </div>
+                </div>
 
                 {submitError && (
-                    <div className="error-banner">
-                        <AlertCircle size={16} /> {submitError}
-                    </div>
+                    <div className="error-banner"><AlertCircle size={16} /> {submitError}</div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div className="form-container">
-                        {/* Cover Image Banner Card */}
-                        <div className="profile-card banner-card" style={{ padding: 0, overflow: 'hidden', marginBottom: '2rem' }}>
-                            <div className="cover-banner" style={{
-                                backgroundImage: form.thumbnail ? `url(${getAssetUrl(form.thumbnail)})` : 'none',
-                            }}>
-                                {uploadLoading && (
-                                    <div className="upload-overlay">
-                                        <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
-                                        <span style={{ color: 'white', fontWeight: 600, marginTop: '0.5rem' }}>Uploading...</span>
+                {/* Cover Image Banner */}
+                <div className="profile-card mb-8" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="cover-banner" style={{ backgroundImage: form.thumbnail ? `url(${getAssetUrl(form.thumbnail)})` : 'none' }}>
+                        {uploadLoading && (
+                            <div className="upload-overlay">
+                                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
+                                <span style={{ color: 'white', fontWeight: 600, marginTop: '0.5rem' }}>Uploading...</span>
+                            </div>
+                        )}
+                        <div className="banner-actions-left">
+                            <label className="banner-btn" style={{ cursor: uploadLoading ? 'not-allowed' : 'pointer' }}>
+                                {uploadLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
+                                {form.thumbnail ? 'Change Cover' : 'Add Cover Image'}
+                                <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadLoading} />
+                            </label>
+                            {form.thumbnail && !uploadLoading && (
+                                <button type="button" className="banner-btn danger" onClick={() => setForm(p => ({ ...p, thumbnail: null }))}>
+                                    <X size={16} /> Remove
+                                </button>
+                            )}
+                        </div>
+                        <div className="banner-actions-right">
+                            <button type="button" onClick={handleSubmit} disabled={isBusy} className="save-btn">
+                                {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
+                                {loading ? 'Creating...' : 'Create Event'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Two-column layout */}
+                <div style={{ display: 'flex', gap: '2rem', alignItems: 'flex-start' }}>
+
+                    {/* ─── Left Column ─────────────────────────────────── */}
+                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2rem', minWidth: 0 }}>
+
+                        {/* About */}
+                        <div className="profile-card">
+                            <div className="section-inner">
+                                <h3 className="h3-title section-heading">About the Event</h3>
+
+                                <div className="form-row-label">
+                                    <label className="form-label">Event Title</label>
+                                    <div className="form-content">
+                                        <input type="text" name="title" value={form.title} onChange={handleChange} className="input-field" placeholder="e.g. Lightning Network Workshop" required />
                                     </div>
-                                )}
-                                <div className="banner-actions-left">
-                                    <label className="banner-btn" style={{ cursor: uploadLoading ? 'not-allowed' : 'pointer' }}>
-                                        {uploadLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={16} />}
-                                        {form.thumbnail ? 'Change Cover' : 'Add Cover Image'}
-                                        <input type="file" accept="image/*" onChange={handleImageUpload} style={{ display: 'none' }} disabled={uploadLoading} />
-                                    </label>
-                                    {form.thumbnail && !uploadLoading && (
-                                        <button type="button" className="banner-btn danger" onClick={clearImage}>
-                                            <X size={16} /> Remove
-                                        </button>
-                                    )}
                                 </div>
-                                <div className="banner-actions-right">
-                                    <button type="submit" disabled={isBusy} className="save-btn">
-                                        {loading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
-                                        {loading ? 'Creating...' : 'Create Event'}
-                                    </button>
+
+                                <div className="form-row-label">
+                                    <label className="form-label">Category</label>
+                                    <div className="form-content">
+                                        <select name="category" value={form.category} onChange={handleChange} className="input-field" required>
+                                            <option value="">Select a category</option>
+                                            {CATEGORIES.map(cat => (
+                                                <option key={cat} value={cat}>
+                                                    {cat.replace(/_/g, ' ').charAt(0) + cat.replace(/_/g, ' ').slice(1).toLowerCase()}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="form-row-label" style={{ marginBottom: 0 }}>
+                                    <label className="form-label">Description</label>
+                                    <div className="form-content">
+                                        <RichTextEditor
+                                            value={form.description}
+                                            onChange={val => setForm(p => ({ ...p, description: val }))}
+                                            placeholder="Describe your event, what attendees can expect, and any requirements…"
+                                        />
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div className="profile-card main-form-card">
-                            <div className="section-inner">
-                                {/* Title */}
-                                <div className="form-group">
-                                    <label htmlFor="title"><Calendar size={16} /> Event Title</label>
-                                    <input type="text" id="title" name="title" value={form.title} onChange={handleChange}
-                                        placeholder="e.g. Lightning Network Workshop" required />
-                                </div>
+                        {/* Left custom sections */}
+                        {renderCustomSections('LEFT')}
 
-                                {/* Category */}
-                                <div className="form-group">
-                                    <label htmlFor="category"><Tag size={16} /> Category</label>
-                                    <select id="category" name="category" value={form.category} onChange={handleChange} required>
-                                        <option value="">Select a category</option>
-                                        {CATEGORIES.map(cat => (
-                                            <option key={cat} value={cat}>
-                                                {cat.replace(/_/g, ' ').charAt(0) + cat.replace(/_/g, ' ').slice(1).toLowerCase()}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                {/* Description */}
-                                <div className="form-group">
-                                    <label htmlFor="description">Description</label>
-                                    <textarea id="description" name="description" value={form.description} onChange={handleChange}
-                                        placeholder="Describe your event, what attendees can expect, and any requirements…"
-                                        rows={5} required />
-                                </div>
-
-                                {/* Additional Sections */}
-                                <div className="additional-sections-area" style={{ marginBottom: '2rem' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                                        <label style={{ fontSize: '1.1rem', fontWeight: 700, margin: 0 }}>Additional Sections</label>
-                                    </div>
-                                    <p className="help-text" style={{ marginBottom: '1rem', marginTop: '-0.5rem' }}>Add extra info about your event — schedule, speakers, FAQ, or anything relevant.</p>
-
-                                    {(customSections || []).map((section, idx) => (
-                                        <div key={idx} className="custom-section-entry">
-                                            <div className="custom-section-header">
-                                                <span className="custom-section-num">Section {idx + 1}</span>
-                                                <button type="button" className="team-remove" onClick={() => removeSection(idx)}>
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={section.title}
-                                                onChange={(e) => updateSection(idx, 'title', e.target.value)}
-                                                className="input-field"
-                                                placeholder="Section Title"
-                                                style={{ marginBottom: '0.75rem' }}
-                                            />
-                                            <textarea
-                                                rows="4"
-                                                value={section.body}
-                                                onChange={(e) => updateSection(idx, 'body', e.target.value)}
-                                                className="input-field"
-                                                style={{ resize: 'vertical', minHeight: '100px' }}
-                                                placeholder="Section content..."
-                                            />
-                                        </div>
-                                    ))}
-
-                                    <button type="button" className="add-btn" onClick={addSection}>
-                                        <Plus size={16} /> Add Section
-                                    </button>
-                                </div>
-
-                                {/* Dates */}
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label htmlFor="startDate"><Calendar size={16} /> Start Date</label>
-                                        <input type="date" id="startDate" name="startDate" value={form.startDate} onChange={handleChange} required />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="startTime"><Clock size={16} /> Start Time</label>
-                                        <input type="time" id="startTime" name="startTime" value={form.startTime} onChange={handleChange} required />
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label htmlFor="endDate">End Date (optional)</label>
-                                        <input type="date" id="endDate" name="endDate" value={form.endDate} onChange={handleChange} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label htmlFor="endTime">End Time (optional)</label>
-                                        <input type="time" id="endTime" name="endTime" value={form.endTime} onChange={handleChange} />
-                                    </div>
-                                </div>
-
-                                {/* Location */}
-                                <div className="form-group">
-                                    <label><MapPin size={16} /> Location Name</label>
-                                    <input type="text" name="locationName" value={form.locationName} onChange={handleChange}
-                                        placeholder="e.g. Bitcoin Embassy" required={!form.isOnline} />
-                                </div>
-                                <div className="form-group">
-                                    <label><MapPin size={16} style={{ opacity: 0 }} /> Location Address</label>
-                                    <input type="text" name="locationAddress" value={form.locationAddress} onChange={handleChange}
-                                        placeholder="e.g. Paseo General Escalón, San Salvador, El Salvador" />
-                                </div>
-                                <div className="form-group">
-                                    <label htmlFor="locationMapUrl"><LinkIcon size={16} /> Google Maps Link (optional)</label>
-                                    <input type="url" id="locationMapUrl" name="locationMapUrl" value={form.locationMapUrl} onChange={handleChange}
-                                        placeholder="https://maps.google.com/…" />
-                                </div>
-
-                                {/* Online Toggle */}
-                                <div className="form-group checkbox-group">
-                                    <label className="checkbox-label">
-                                        <input type="checkbox" name="isOnline" checked={form.isOnline} onChange={handleChange} />
-                                        <Globe size={16} /> This event is online or has a virtual option
-                                    </label>
-                                </div>
-                                {form.isOnline && (
-                                    <div className="form-group">
-                                        <label htmlFor="onlineUrl">Online URL</label>
-                                        <input type="url" id="onlineUrl" name="onlineUrl" value={form.onlineUrl} onChange={handleChange}
-                                            placeholder="https://meet.google.com/…" />
-                                    </div>
-                                )}
-
-                                {/* Ticket URL */}
-                                <div className="form-group">
-                                    <label htmlFor="ticketUrl"><Ticket size={16} /> Ticket / Registration Link (optional)</label>
-                                    <input type="url" id="ticketUrl" name="ticketUrl" value={form.ticketUrl} onChange={handleChange}
-                                        placeholder="https://lu.ma/your-event or https://satlantis.io/…" />
-                                </div>
-
-                                {/* Max Attendees */}
-                                <div className="form-group">
-                                    <label htmlFor="maxAttendees"><Users size={16} /> Max Attendees (optional)</label>
-                                    <input type="number" id="maxAttendees" name="maxAttendees" value={form.maxAttendees} onChange={handleChange}
-                                        placeholder="Leave blank for unlimited" min="1" />
-                                </div>
-
-                                {/* Tags */}
-                                <div className="form-group">
-                                    <label><Tag size={16} /> Tags</label>
-                                    <TagInput tags={tags} onChange={setTags} />
-                                    <p className="help-text">Press Enter or comma to add a tag.</p>
-                                </div>
-
-                                {/* Visibility */}
-                                <div className="form-group">
-                                    <label><Eye size={16} /> Visibility</label>
-                                    <div className="visibility-options">
-                                        {VISIBILITY_OPTIONS.map(opt => (
-                                            <label key={opt.value} className={`visibility-option ${form.visibility === opt.value ? 'selected' : ''}`}>
-                                                <input type="radio" name="visibility" value={opt.value} checked={form.visibility === opt.value} onChange={handleChange} />
-                                                <span className="vis-icon">{opt.icon}</span>
-                                                <span className="vis-content">
-                                                    <span className="vis-label">{opt.label}</span>
-                                                    <span className="vis-desc">{opt.desc}</span>
-                                                </span>
-                                            </label>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Guest List */}
-                                {needsGuestList && (
-                                    <div className="form-group">
-                                        <label><UserCheck size={16} /> Guest List</label>
-                                        <MemberSearchSelect
-                                            value={form.guestList}
-                                            onChange={(list) => setForm(prev => ({ ...prev, guestList: list }))}
-                                        />
-                                        <p className="help-text" style={{ marginTop: '0.5rem' }}>
-                                            Search and add BIES members. You can also share the event link privately via Messages.
-                                        </p>
-                                    </div>
-                                )}
-
-                                {/* Official (Admin Only) */}
-                                {user?.role === 'ADMIN' && (
-                                    <div className="form-group checkbox-group official-toggle">
-                                        <label className="checkbox-label">
-                                            <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} />
-                                            <ShieldCheck size={16} className="text-secondary" />
-                                            <span style={{ fontWeight: 700, color: 'var(--color-gray-900)' }}>Official Build in El Salvador Event</span>
-                                        </label>
-                                        <p className="help-text">Official events appear prominently at the top of the events page.</p>
-                                    </div>
-                                )}
-
-                                {/* Endorsement Request */}
-                                {isNonOfficialCommunity && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
-                                    <div className="form-group checkbox-group endorsement-toggle">
-                                        <label className="checkbox-label">
-                                            <input type="checkbox" name="endorsementRequested" checked={form.endorsementRequested} onChange={handleChange} />
-                                            <Award size={22} style={{ color: '#d97706' }} />
-                                            <span style={{ fontWeight: 600, color: 'var(--color-gray-900)' }}>Request BIES Endorsement</span>
-                                        </label>
-                                        <p className="help-text">Ask Build in El Salvador to review and endorse your community event. Endorsed events receive a badge and increased visibility.</p>
-                                    </div>
-                                )}
+                        <div className="add-section-buttons-container">
+                            <p className="section-label-hint">Add Section to Main Column</p>
+                            <div className="add-section-buttons">
+                                <button type="button" className="add-btn sm" onClick={() => addSection('TEXT', 'LEFT')}><AlignLeftIcon size={14} /> + Text</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('PHOTO', 'LEFT')}><ImageIcon size={14} /> + Photo</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('CAROUSEL', 'LEFT')}><LayoutIcon size={14} /> + Carousel</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('GRAPH', 'LEFT')}><LineChartIcon size={14} /> + Graph</button>
                             </div>
                         </div>
                     </div>
-                </form>
+
+                    {/* ─── Right Sidebar ───────────────────────────────── */}
+                    <div style={{ width: '360px', display: 'flex', flexDirection: 'column', gap: '1.5rem', flexShrink: 0 }}>
+
+                        {/* Event Details */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Event Details</h3>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label"><Calendar size={13} style={{ display: 'inline', marginRight: 4 }} />Start Date & Time</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input type="date" name="startDate" value={form.startDate} onChange={handleChange} className="input-field sm" style={{ flex: 1 }} required />
+                                        <input type="time" name="startTime" value={form.startTime} onChange={handleChange} className="input-field sm" style={{ width: '110px' }} required />
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label"><Clock size={13} style={{ display: 'inline', marginRight: 4 }} />End Date & Time <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        <input type="date" name="endDate" value={form.endDate} onChange={handleChange} className="input-field sm" style={{ flex: 1 }} />
+                                        <input type="time" name="endTime" value={form.endTime} onChange={handleChange} className="input-field sm" style={{ width: '110px' }} />
+                                    </div>
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label"><MapPin size={13} style={{ display: 'inline', marginRight: 4 }} />Venue Name</label>
+                                    <input type="text" name="locationName" value={form.locationName} onChange={handleChange} className="input-field sm" placeholder="e.g. Bitcoin Embassy" />
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label">Address</label>
+                                    <input type="text" name="locationAddress" value={form.locationAddress} onChange={handleChange} className="input-field sm" placeholder="Street, City, Country" />
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label"><LinkIcon size={13} style={{ display: 'inline', marginRight: 4 }} />Maps Link <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
+                                    <input type="url" name="locationMapUrl" value={form.locationMapUrl} onChange={handleChange} className="input-field sm" placeholder="https://maps.google.com/…" />
+                                </div>
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label checkbox-label-inline">
+                                        <input type="checkbox" name="isOnline" checked={form.isOnline} onChange={handleChange} style={{ width: 16, height: 16, accentColor: 'var(--color-primary)' }} />
+                                        <Globe size={13} style={{ color: 'var(--color-primary)' }} /> Online / Virtual Option
+                                    </label>
+                                </div>
+
+                                {form.isOnline && (
+                                    <div className="sidebar-form-group">
+                                        <label className="sidebar-label">Online URL</label>
+                                        <input type="url" name="onlineUrl" value={form.onlineUrl} onChange={handleChange} className="input-field sm" placeholder="https://meet.google.com/…" />
+                                    </div>
+                                )}
+
+                                <div className="sidebar-form-group">
+                                    <label className="sidebar-label"><Ticket size={13} style={{ display: 'inline', marginRight: 4 }} />Ticket / Registration Link <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
+                                    <input type="url" name="ticketUrl" value={form.ticketUrl} onChange={handleChange} className="input-field sm" placeholder="https://lu.ma/your-event" />
+                                </div>
+
+                                <div className="sidebar-form-group" style={{ marginBottom: 0 }}>
+                                    <label className="sidebar-label"><Users size={13} style={{ display: 'inline', marginRight: 4 }} />Max Attendees <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
+                                    <input type="number" name="maxAttendees" value={form.maxAttendees} onChange={handleChange} className="input-field sm" placeholder="Unlimited" min="1" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Visibility */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Visibility</h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    {VISIBILITY_OPTIONS.map(opt => (
+                                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${form.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.visibility === opt.value ? '#eff6ff' : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
+                                            <input type="radio" name="visibility" value={opt.value} checked={form.visibility === opt.value} onChange={handleChange} style={{ display: 'none' }} />
+                                            <span style={{ color: form.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-gray-500)', flexShrink: 0 }}>{opt.icon}</span>
+                                            <span>
+                                                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#111827' }}>{opt.label}</span>
+                                                <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--color-gray-500)' }}>{opt.desc}</span>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Guest List */}
+                        {needsGuestList && (
+                            <div className="profile-card">
+                                <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                    <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Guest List</h3>
+                                    <MemberSearchSelect value={form.guestList} onChange={list => setForm(p => ({ ...p, guestList: list }))} />
+                                    <p style={{ fontSize: '0.73rem', color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>Search and add BIES members to your guest list.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Tags */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Tags</h3>
+                                <TagInput tags={tags} onChange={setTags} />
+                                <p style={{ fontSize: '0.73rem', color: 'var(--color-gray-500)', marginTop: '0.4rem' }}>Press Enter or comma to add a tag.</p>
+                            </div>
+                        </div>
+
+                        {/* Right custom sections */}
+                        {renderCustomSections('RIGHT')}
+
+                        <div className="add-section-buttons-container">
+                            <p className="section-label-hint">Add Section to Sidebar</p>
+                            <div className="add-section-buttons">
+                                <button type="button" className="add-btn sm" onClick={() => addSection('TEXT', 'RIGHT')}><AlignLeftIcon size={14} /> + Text</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('PHOTO', 'RIGHT')}><ImageIcon size={14} /> + Photo</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('CAROUSEL', 'RIGHT')}><LayoutIcon size={14} /> + Carousel</button>
+                                <button type="button" className="add-btn sm" onClick={() => addSection('GRAPH', 'RIGHT')}><LineChartIcon size={14} /> + Graph</button>
+                            </div>
+                        </div>
+
+                        {/* Settings */}
+                        {(user?.role === 'ADMIN' || (!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE')) && (
+                            <div className="profile-card">
+                                <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                    <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Settings</h3>
+
+                                    {user?.role === 'ADMIN' && (
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
+                                            <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--color-secondary)' }} />
+                                            <div>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><ShieldCheck size={14} /> Official BIES Event</span>
+                                                <p style={{ fontSize: '0.73rem', color: '#b45309', margin: '0.2rem 0 0' }}>Official events appear prominently at the top of the events page.</p>
+                                            </div>
+                                        </label>
+                                    )}
+
+                                    {!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', cursor: 'pointer' }}>
+                                            <input type="checkbox" name="endorsementRequested" checked={form.endorsementRequested} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: '#d97706' }} />
+                                            <div>
+                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><Award size={14} style={{ color: '#d97706' }} /> Request BIES Endorsement</span>
+                                                <p style={{ fontSize: '0.73rem', color: '#78350f', margin: '0.2rem 0 0' }}>Endorsed events receive a badge and increased visibility.</p>
+                                            </div>
+                                        </label>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+
+                <div style={{ marginTop: '2.5rem', display: 'flex', justifyContent: 'flex-end', gap: '1rem', paddingBottom: '2rem' }}>
+                    <button type="button" onClick={() => navigate(-1)} className="btn btn-outline">Cancel</button>
+                    <button type="button" onClick={handleSubmit} disabled={isBusy} className="btn btn-primary">
+                        {loading ? 'Creating...' : 'Create Event'}
+                    </button>
+                </div>
+
             </div>
 
             <style jsx>{`
-                .create-event-page { background: var(--color-gray-50); min-height: 100vh; padding-bottom: 4rem; }
-                .container { max-width: 720px; margin: 0 auto; padding: 0 1rem; }
-                .back-link {
-                    display: inline-flex; align-items: center; gap: 0.5rem;
-                    color: var(--color-gray-500); font-size: 0.9rem; font-weight: 500;
-                    margin: 1.5rem 0; background: none; border: none; cursor: pointer; padding: 0;
-                    transition: color 0.2s;
-                }
-                .back-link:hover { color: var(--color-gray-900); }
-                .h1-title { font-size: 2rem; font-weight: 800; margin-bottom: 0.25rem; color: var(--color-gray-900); }
-                .subtitle { color: var(--color-gray-500); margin-bottom: 2rem; }
-                .error-banner {
-                    display: flex; align-items: center; gap: 0.5rem;
-                    padding: 0.75rem 1rem; background: #FEF2F2; color: #B91C1C;
-                    border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem;
-                }
-                .profile-card {
-                    background: white; border-radius: var(--radius-xl, 16px);
-                    box-shadow: var(--shadow-sm); border: 1px solid var(--color-gray-200);
-                }
+                .event-edit-page { background: #f8fafc; min-height: 100vh; padding-bottom: 4rem; }
+                .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+                .mb-8 { margin-bottom: 2rem; }
+                .max-w-6xl { max-width: 1200px; margin: 0 auto; }
+                .page-header { margin-bottom: 2rem; }
+                .back-link { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--color-gray-500); font-weight: 500; font-size: 0.9rem; background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 0.75rem; }
+                .back-link:hover { color: var(--color-primary); }
+                .h1-title { font-size: 2rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
+                .h3-title { font-size: 1.2rem; font-weight: 700; font-family: var(--font-display); }
+                .text-gray-500 { color: var(--color-gray-500); margin: 0; }
+                .error-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: #FEF2F2; color: #B91C1C; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; }
+                .profile-card { background: white; border-radius: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--color-gray-200); }
                 .section-inner { padding: 2rem; }
-                .cover-banner {
-                    position: relative; height: 220px;
-                    background-color: #0a192f; background-size: cover; background-position: center;
-                    display: flex; align-items: flex-end; justify-content: space-between;
-                    padding: 1.25rem;
-                }
-                .cover-banner::before {
-                    content: ''; position: absolute; inset: 0;
-                    background: linear-gradient(transparent 40%, rgba(0,0,0,0.45));
-                    pointer-events: none;
-                }
-                .upload-overlay {
-                    position: absolute; inset: 0; background: rgba(0,0,0,0.5);
-                    display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 15;
-                }
+                .section-heading { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-gray-200); }
+                .cover-banner { position: relative; height: 220px; background-color: #0a192f; background-size: cover; background-position: center; display: flex; align-items: flex-end; justify-content: space-between; padding: 1.25rem; }
+                .cover-banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0,0,0,0.45)); pointer-events: none; }
+                .upload-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 15; }
                 .banner-actions-left, .banner-actions-right { position: relative; z-index: 20; display: flex; gap: 0.5rem; }
-                .banner-btn {
-                    display: flex; align-items: center; gap: 0.4rem;
-                    background: white; color: #1f2937;
-                    border-radius: 8px; height: 38px; padding: 0 16px;
-                    font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap;
-                }
+                .banner-btn { display: flex; align-items: center; gap: 0.4rem; background: white; color: #1f2937; border-radius: 8px; height: 38px; padding: 0 16px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap; }
                 .banner-btn:hover { opacity: 0.9; }
                 .banner-btn.danger { color: #EF4444; }
-                .save-btn {
-                    display: inline-flex; align-items: center; gap: 0.5rem;
-                    background: var(--color-primary, #0052cc); color: white; border: none;
-                    border-radius: 8px; height: 44px; padding: 0 24px;
-                    font-weight: 700; font-size: 1rem; cursor: pointer; white-space: nowrap;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-                }
+                .save-btn { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--color-primary); color: white; border: none; border-radius: 8px; height: 44px; padding: 0 24px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25); white-space: nowrap; }
                 .save-btn:disabled { opacity: 0.7; cursor: not-allowed; }
-                .form-group { margin-bottom: 2rem; }
-                .form-group label {
-                    display: flex; align-items: center; gap: 0.5rem;
-                    margin-bottom: 0.75rem; color: var(--color-gray-700);
-                    font-weight: 700; font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.025em;
+                .form-row-label { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; align-items: start; margin-bottom: 1.75rem; }
+                .form-label { text-align: right; color: var(--color-gray-700); font-weight: 600; font-size: 0.875rem; padding-top: 0.6rem; }
+                .form-content { min-width: 0; }
+                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: white; border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
+                .input-field:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }
+                select.input-field { appearance: auto; cursor: pointer; }
+                .sidebar-form-group { margin-bottom: 1rem; }
+                .sidebar-label { display: flex; align-items: center; font-size: 0.82rem; font-weight: 600; color: var(--color-gray-700); margin-bottom: 0.4rem; }
+                .checkbox-label-inline { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--color-gray-700); }
+                .input-field.sm { padding: 0.5rem 0.75rem; font-size: 0.85rem; border-radius: 6px; }
+                .team-remove { background: none; border: none; cursor: pointer; padding: 0.35rem; color: var(--color-gray-400); border-radius: 6px; transition: all 0.15s; display: flex; align-items: center; }
+                .team-remove:hover { color: #ef4444; background: #fef2f2; }
+                .add-section-buttons-container { padding: 1.25rem; background: #f8fafc; border: 1px dashed var(--color-gray-300); border-radius: 12px; }
+                .section-label-hint { font-size: 0.73rem; font-weight: 600; color: var(--color-gray-500); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
+                .add-section-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+                .add-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.25rem; border-radius: 8px; border: 2px dashed var(--color-gray-300); background: none; color: var(--color-primary); font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: all 0.15s; }
+                .add-btn:hover { border-color: var(--color-primary); background: #f0f7ff; }
+                .add-btn.sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; border-radius: 6px; }
+                .add-btn-sm { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px dashed var(--color-gray-300); background: none; color: var(--color-primary); font-weight: 600; font-size: 0.78rem; cursor: pointer; margin-top: 0.25rem; }
+                .add-btn-sm:hover { border-color: var(--color-primary); background: #f0f7ff; }
+                .deck-upload-area { border: 2px dashed var(--color-gray-300); border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--color-gray-50); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; }
+                .deck-upload-area:hover { border-color: var(--color-primary); background: #f0fdf4; }
+                .placement-toggle { display: flex; background: var(--color-gray-100); padding: 2px; border-radius: 6px; }
+                .placement-toggle button { padding: 2px 8px; font-size: 0.72rem; font-weight: 600; border-radius: 4px; border: none; background: transparent; color: var(--color-gray-500); cursor: pointer; transition: all 0.1s; }
+                .placement-toggle button.active { background: white; color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+                @keyframes spin { to { transform: rotate(360deg); } }
+                @media (max-width: 1024px) {
+                    .event-edit-page > .container > div[style] { flex-direction: column !important; }
+                    .event-edit-page > .container > div[style] > div:last-child { width: 100% !important; }
                 }
-                .form-group input, .form-group select, .form-group textarea, .input-field {
-                    width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-200);
-                    border-radius: 8px; font-size: 0.95rem; color: var(--color-gray-900);
-                    background: var(--color-gray-50); transition: all 0.2s; box-sizing: border-box;
-                }
-                .form-group input:focus, .form-group select:focus, .form-group textarea:focus, .input-field:focus {
-                    outline: none; border-color: var(--color-secondary); box-shadow: 0 0 0 3px rgba(255,91,0,0.1); background: white;
-                }
-                .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-                .help-text { font-size: 0.75rem; color: var(--color-gray-500); margin-top: 0.35rem; }
-                .custom-section-entry { background: #f8fafc; border: 1px solid var(--color-gray-200); border-radius: 8px; padding: 1.25rem; margin-bottom: 1rem; }
-                .custom-section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-                .custom-section-num { font-size: 0.8rem; font-weight: 600; color: var(--color-gray-500); text-transform: uppercase; }
-                .team-remove { background: none; border: none; color: var(--color-gray-400); cursor: pointer; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; transition: all 0.2s; }
-                .team-remove:hover { color: #ef4444; background: #fee2e2; }
-                .add-btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.75rem; background: white; border: 2px dashed var(--color-gray-200); border-radius: 8px; color: var(--color-secondary); font-weight: 600; cursor: pointer; transition: all 0.2s; }
-                .add-btn:hover { border-color: var(--color-secondary); background: #fff7ed; }
-                .visibility-options { display: flex; flex-direction: column; gap: 0.5rem; }
-                .visibility-option { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-200); border-radius: 8px; cursor: pointer; transition: all 0.15s; background: var(--color-gray-50); }
-                .visibility-option:hover { border-color: var(--color-secondary); background: #fff7ed; }
-                .visibility-option.selected { border-color: var(--color-secondary); background: #fff7ed; }
-                .visibility-option input[type="radio"] { display: none; }
-                .vis-icon { color: var(--color-gray-500); flex-shrink: 0; }
-                .visibility-option.selected .vis-icon { color: var(--color-secondary); }
-                .vis-content { display: flex; flex-direction: column; }
-                .vis-label { font-size: 0.9rem; font-weight: 600; color: var(--color-gray-900); }
-                .vis-desc { font-size: 0.78rem; color: var(--color-gray-500); }
-                .checkbox-group { display: flex; align-items: center; gap: 0.5rem; }
-                .checkbox-label { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; font-weight: 500; color: var(--color-gray-600); }
-                .checkbox-label input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--color-secondary); }
-                .official-toggle { background: #fff7ed; padding: 1rem; border-radius: 8px; border: 1px solid #fed7aa; }
-                .endorsement-toggle { background: #fffbeb; padding: 1rem; border-radius: 8px; border: 1px solid #fde68a; }
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                @media (max-width: 640px) {
-                    .form-row { grid-template-columns: 1fr; }
-                    .h1-title { font-size: 1.5rem; }
-                    .cover-banner { height: 160px; }
+                @media (max-width: 768px) {
+                    .form-row-label { grid-template-columns: 1fr; gap: 0.5rem; }
+                    .form-label { text-align: left; padding-top: 0; }
                 }
             `}</style>
         </div>

@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers } from 'lucide-react';
+import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
+import DOMPurify from 'dompurify';
+import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 
@@ -189,26 +191,19 @@ const ProjectDetails = () => {
                     {/* About */}
                     <section className="pd-card pd-about">
                         <h2>About the Project</h2>
-                        <div className="pd-description">
-                            {description.split('\n').map((line, i) => (
-                                <p key={i}>{line}</p>
-                            ))}
-                        </div>
+                        <div
+                            className="pd-description pd-rich-text rich-text-content"
+                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['style'] }) }}
+                        />
                     </section>
 
-                    {/* Custom Sections */}
-                    {customSections.length > 0 && customSections.map((section, i) => (
-                        <section key={i} className="pd-card pd-about">
-                            <h2>{section.title}</h2>
-                            <div className="pd-description">
-                                {section.body.split('\n').map((line, j) => (
-                                    <p key={j}>{line}</p>
-                                ))}
-                            </div>
-                        </section>
-                    ))}
-
-
+                    {/* Custom Sections (Left) */}
+                    {customSections
+                        .filter(s => s.placement === 'LEFT' || !s.placement)
+                        .map((section, i) => (
+                            <ProjectSection key={`left-${i}`} section={section} pieColors={pieColors} />
+                        ))
+                    }
 
                     {/* Tags */}
                     {tags.length > 0 && (
@@ -394,6 +389,14 @@ const ProjectDetails = () => {
                             )}
                         </div>
                     </div>
+
+                    {/* Custom Sections (Right) */}
+                    {customSections
+                        .filter(s => s.placement === 'RIGHT')
+                        .map((section, i) => (
+                            <ProjectSection key={`right-${i}`} section={section} pieColors={pieColors} isSidebar={true} />
+                        ))
+                    }
 
                     {/* Quick Info (Moved from main area) */}
                     <div className="pd-card pd-info-sidebar">
@@ -589,6 +592,16 @@ const ProjectDetails = () => {
                     margin: 0 0 1rem; font-size: 0.95rem;
                 }
                 .pd-description p:last-child { margin-bottom: 0; }
+                
+                /* Rich Text Overrides */
+                .pd-rich-text { color: #4b5563; font-size: 0.95rem; line-height: 1.75; }
+                .pd-rich-text p, .pd-rich-text div { margin-bottom: 0.5rem; }
+                .pd-rich-text p:last-child, .pd-rich-text div:last-child { margin-bottom: 0; }
+                .pd-rich-text b, .pd-rich-text strong { font-weight: 700 !important; color: #111827; }
+                .pd-rich-text i, .pd-rich-text em { font-style: italic !important; }
+                .pd-rich-text u { text-decoration: underline !important; }
+                .pd-rich-text ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.5rem; }
+                .pd-rich-text ol { list-style: decimal; padding-left: 1.5rem; margin-bottom: 0.5rem; }
 
                 /* Sidebar Info Cards */
                 .pd-info-sidebar { margin-top: 1.75rem; }
@@ -748,6 +761,10 @@ const ProjectDetails = () => {
                     .pd-header-actions { width: 100%; }
                     .pd-cover img { height: 240px; }
                     .pd-title { font-size: 1.75rem; }
+                    .pd-sidebar-section { padding: 1.5rem !important; margin-bottom: 1rem; border-radius: 12px; }
+                    .pd-sidebar-section h3 { font-size: 1.1rem; margin-bottom: 1rem; font-weight: 700; color: #111827; }
+                    .pd-sidebar-section .pd-description { font-size: 0.9rem; }
+                    .pd-sidebar-section .pd-graph-section { height: 260px !important; }
                 }
             `}</style>
         </div>
@@ -755,3 +772,140 @@ const ProjectDetails = () => {
 };
 
 export default ProjectDetails;
+
+// ─── Subcomponents ──────────────────────────────────────────────────────────
+
+const ProjectSection = ({ section, pieColors, isSidebar }) => {
+    const stype = section.type || 'TEXT';
+    return (
+        <section className={`pd-card ${isSidebar ? 'pd-sidebar-section' : 'pd-about'}`}>
+            {section.title && (isSidebar ? <h3>{section.title}</h3> : <h2>{section.title}</h2>)}
+
+            {stype === 'TEXT' && (
+                <div
+                    className="pd-description pd-rich-text rich-text-content"
+                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body, { ADD_ATTR: ['style'] }) }}
+                />
+            )}
+
+            {stype === 'PHOTO' && section.imageUrl && (
+                <div className="pd-photo-section">
+                    <img src={section.imageUrl} alt={section.title || 'Project Image'} style={{ width: '100%', borderRadius: '12px', objectFit: 'cover' }} />
+                </div>
+            )}
+
+            {stype === 'CAROUSEL' && section.images?.length > 0 && (
+                <CarouselViewer images={section.images} />
+            )}
+
+            {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
+                <div className="pd-graph-section" style={{ width: '100%', height: isSidebar ? '250px' : '350px', marginTop: '1rem' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        {section.graphType === 'BAR' ? (
+                            <BarChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                </XAxis>
+                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                </YAxis>
+                                <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Bar dataKey="value" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        ) : section.graphType === 'LINE' ? (
+                            <LineChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                </XAxis>
+                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                </YAxis>
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Line type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={3} dot={{ fill: 'var(--color-primary)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
+                            </LineChart>
+                        ) : (
+                            <PieChart>
+                                <Pie data={section.dataPoints} dataKey="value" nameKey="label" cx="50%" cy="50%" outerRadius={isSidebar ? 80 : 120} label>
+                                    {section.dataPoints.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Legend />
+                            </PieChart>
+                        )}
+                    </ResponsiveContainer>
+                </div>
+            )}
+        </section>
+    );
+};
+
+
+// ─── Subcomponents ──────────────────────────────────────────────────────────
+
+const CarouselViewer = ({ images }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    if (!images || images.length === 0) return null;
+
+    const nextSlide = () => {
+        setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+    };
+
+    const prevSlide = () => {
+        setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+    };
+
+    return (
+        <div className="pd-carousel-wrapper" style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
+            <div
+                className="pd-carousel-track"
+                style={{
+                    display: 'flex',
+                    transition: 'transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                    transform: `translateX(-${currentIndex * 100}%)`,
+                    width: '100%',
+                    height: '400px'
+                }}
+            >
+                {images.map((img, idx) => (
+                    <img
+                        key={idx}
+                        src={img}
+                        alt={`Slide ${idx + 1}`}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', flexShrink: 0, display: 'block' }}
+                    />
+                ))}
+            </div>
+
+            {images.length > 1 && (
+                <>
+                    <button
+                        onClick={prevSlide}
+                        style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                    >
+                        <ChevronLeft size={24} color="#374151" />
+                    </button>
+                    <button
+                        onClick={nextSlide}
+                        style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
+                    >
+                        <ChevronRight size={24} color="#374151" />
+                    </button>
+                    <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
+                        {images.map((_, idx) => (
+                            <div
+                                key={idx}
+                                style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: idx === currentIndex ? 'var(--color-primary)' : 'rgba(255,255,255,0.6)', cursor: 'pointer' }}
+                                onClick={() => setCurrentIndex(idx)}
+                            />
+                        ))}
+                    </div>
+                </>
+            )}
+        </div>
+    );
+};

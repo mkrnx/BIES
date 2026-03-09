@@ -23,7 +23,7 @@ export const createProjectSchema = z.object({
     demoUrl: z.string().url().optional().or(z.literal('')),
     websiteUrl: z.string().url().optional().or(z.literal('')),
     tags: z.array(z.string()).optional(),
-    customSections: z.array(z.object({ title: z.string(), body: z.string() })).optional(),
+    customSections: z.array(z.any()).optional(),
     teamInfo: z.array(z.object({ name: z.string(), position: z.string().optional(), avatar: z.string().optional() })).optional(),
     useOfFunds: z.array(z.object({ label: z.string(), percentage: z.union([z.string(), z.number()]) })).optional(),
     ownerRole: z.string().optional(),
