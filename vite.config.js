@@ -4,7 +4,7 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 // https://vitejs.dev/config/
 export default defineConfig({
-    base: '/biestest/',
+    base: '/',
     plugins: [
         react({
             babel: {
@@ -18,17 +18,15 @@ export default defineConfig({
     server: {
         host: true,
         proxy: {
-            '/biestest/api': {
+            '/api': {
                 target: 'http://localhost:3001',
                 changeOrigin: true,
-                rewrite: (path) => path.replace(/^\/biestest\/api/, '/api'),
             },
-            '/biestest/ws': {
+            '/ws': {
                 target: 'ws://localhost:3001',
                 ws: true,
-                rewrite: (path) => path.replace(/^\/biestest/, ''),
             },
-            '/biestest/relay': {
+            '/relay': {
                 target: 'ws://localhost:7777',
                 ws: true,
                 rewrite: () => '/',

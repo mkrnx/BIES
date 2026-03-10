@@ -238,7 +238,7 @@ function App() {
     return (
         <AuthProvider>
             <UserModeProvider>
-                <Router basename="/biestest">
+                <Router basename="/">
                     <AppContent />
                 </Router>
             </UserModeProvider>

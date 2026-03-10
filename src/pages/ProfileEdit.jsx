@@ -792,7 +792,7 @@ const ProfileEdit = () => {
                                     </div>
                                     {form.nip05Name && (
                                         <p style={{ fontSize: '0.75rem', color: nip05Available === false ? '#ef4444' : 'var(--color-gray-500)', marginTop: '0.5rem' }}>
-                                            {nip05Available === false ? 'This name is already taken' : `Your NIP-05: ${form.nip05Name.toLowerCase()}@sovit.xyz/biestest`}
+                                            {nip05Available === false ? 'This name is already taken' : `Your NIP-05: ${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
                                         </p>
                                     )}
                                 </div>

@@ -10,9 +10,9 @@ services:
       PORT: "3001"
       DATABASE_URL: "file:../data/bies.db"
       NOSTR_PRIVATE_RELAY: "ws://bies-relay:7777"
-      NOSTR_PUBLIC_RELAY: "wss://sovit.xyz/biestest/relay"
-      BASE_PATH: "/biestest"
-      CORS_ORIGIN: "https://sovit.xyz/biestest"
+      NOSTR_PUBLIC_RELAY: "wss://bies.sovit.xyz/relay"
+      BASE_PATH: ""
+      CORS_ORIGIN: "https://bies.sovit.xyz"
       ADMIN_PUBKEYS: "85ea5f36ad90cb6e9100fb3e445c9a100d945563e07913100c84664dbfef2250,de7ab932ca17278b2144a6628c3531a0628fcc7b58074111d6e5b949ecb0e377"
     volumes:
       - bies-data:/app/data
@@ -53,7 +53,7 @@ services:
       PROXY_PORT: "7778"
       UPSTREAM_RELAY: "ws://bies-relay:7777"
       WHITELIST_PATH: "/app/data/whitelist.txt"
-      RELAY_URL: "wss://sovit.xyz/biestest/relay"
+      RELAY_URL: "wss://bies.sovit.xyz/relay"
       AUTH_TIMEOUT_MS: "30000"
     volumes:
       - relay-whitelist:/app/data:ro

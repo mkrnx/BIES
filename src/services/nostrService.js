@@ -4,7 +4,7 @@ import { nostrSigner } from './nostrSigner.js';
 
 // Private BIES relay (set via env or falls back to relative WebSocket URL)
 // Use import.meta.env.BASE_URL (from vite.config base) so the path works
-// both in dev (/biestest/relay) and production.
+// both in dev (/relay) and production.
 export const BIES_RELAY = import.meta.env.VITE_NOSTR_RELAY || (
     typeof window !== 'undefined'
         ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${import.meta.env.BASE_URL || '/'}relay`

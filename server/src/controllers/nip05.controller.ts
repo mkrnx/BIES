@@ -37,7 +37,7 @@ export async function nostrJson(req: Request, res: Response): Promise<void> {
 
         res.json({
             names: { [normalizedName]: pubkey },
-            relays: { [pubkey]: ['wss://sovit.xyz/biestest/relay'] },
+            relays: { [pubkey]: ['wss://bies.sovit.xyz/relay'] },
         });
     } catch (error) {
         console.error('NIP-05 lookup error:', error);

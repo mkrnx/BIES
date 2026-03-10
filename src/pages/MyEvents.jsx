@@ -152,7 +152,7 @@ const MyEvents = () => {
     }, [refetch]);
 
     const handleCopyLink = (id) => {
-        const base = window.location.origin + (window.location.pathname.includes('/biestest') ? '/biestest' : '');
+        const base = window.location.origin;
         navigator.clipboard.writeText(`${base}/events/${id}`);
         setCopiedId(id);
         setTimeout(() => setCopiedId(null), 2000);

@@ -5,7 +5,7 @@ export default defineConfig({
     timeout: 60_000,
     retries: 0,
     use: {
-        baseURL: 'http://localhost:5173/biestest',
+        baseURL: 'http://localhost:5173',
         browserName: 'chromium',
         headless: false,
         screenshot: 'only-on-failure',

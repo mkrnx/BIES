@@ -1,7 +1,7 @@
 const CACHE_NAME = 'bies-v1';
 const STATIC_ASSETS = [
-  '/biestest/',
-  '/biestest/manifest.json',
+  '/',
+  '/manifest.json',
 ];
 
 self.addEventListener('install', (event) => {
@@ -32,12 +32,12 @@ self.addEventListener('fetch', (event) => {
     fetch(request)
       .then((response) => {
         // Cache successful responses for static assets
-        if (response.ok && (request.url.match(/\.(js|css|png|jpg|svg|woff2?)$/) || request.url.endsWith('/biestest/'))) {
+        if (response.ok && (request.url.match(/\.(js|css|png|jpg|svg|woff2?)$/) || request.url.endsWith('/'))) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
       })
-      .catch(() => caches.match(request).then((cached) => cached || caches.match('/biestest/')))
+      .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
   );
 });

@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test';
 
 const API = 'http://localhost:3001/api';
-const BASE = '/biestest';
+const BASE = '';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 

@@ -190,12 +190,12 @@ test.describe('Notifications UI', () => {
 
     async function loginAndGo(page, token, user, path) {
         // First navigate to the base so localStorage is on the right origin
-        await page.goto('/biestest/');
+        await page.goto('/');
         await page.evaluate(({ token, user }) => {
             localStorage.setItem('bies_token', token);
             localStorage.setItem('bies_user', JSON.stringify(user));
         }, { token, user });
-        await page.goto(`/biestest${path}`);
+        await page.goto(path);
     }
 
     test('Notifications page shows notifications with title and body', async ({ page }) => {
