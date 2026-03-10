@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -39,6 +39,7 @@ const ProfileEdit = () => {
         tags: [],
         showExperience: true,
         showNostrFeed: true,
+        nostrFeedSource: 'private',
         experience: [],
         biesProjects: [],
         nostrNpub: '',
@@ -56,8 +57,11 @@ const ProfileEdit = () => {
     const [savingNostr, setSavingNostr] = useState(false);
     const [nostrSaved, setNostrSaved] = useState(false);
     const [nostrForm, setNostrForm] = useState({
-        name: '', about: '', picture: '', website: '', nip05: '', lud16: '', banner: ''
+        display_name: '', name: '', about: '', picture: '', website: '', nip05: '', lud16: '', banner: ''
     });
+    const [publishMode, setPublishMode] = useState('bies'); // 'bies' or 'all'
+    const [showPublishHelp, setShowPublishHelp] = useState(false);
+    const [showFeedHelp, setShowFeedHelp] = useState(false);
 
     // Project search
     const [projectSearch, setProjectSearch] = useState('');
@@ -168,6 +172,7 @@ const ProfileEdit = () => {
                     tags: profile.tags || [],
                     showExperience: profile.showExperience ?? true,
                     showNostrFeed: profile.showNostrFeed ?? true,
+                    nostrFeedSource: profile.nostrFeedSource || 'private',
                     experience: (profile.experience || []).map(exp => {
                         // Parse fromYear/toYear from existing date string like "2020 - Present"
                         let fromYear = exp.fromYear || '';
@@ -199,6 +204,7 @@ const ProfileEdit = () => {
             setNostrProfile(profile);
             if (profile) {
                 setNostrForm({
+                    display_name: profile.display_name || '',
                     name: profile.name || '',
                     about: profile.about || '',
                     picture: profile.picture || '',
@@ -243,6 +249,7 @@ const ProfileEdit = () => {
                 biesProjects: form.biesProjects,
                 showExperience: form.showExperience,
                 showNostrFeed: form.showNostrFeed,
+                nostrFeedSource: form.nostrFeedSource,
                 nostrNpub: form.nostrNpub,
                 nip05Name: form.nip05Name || undefined,
                 lightningAddress: form.lightningAddress,
@@ -399,7 +406,11 @@ const ProfileEdit = () => {
         try {
             const data = {};
             Object.entries(nostrForm).forEach(([k, v]) => { if (v) data[k] = v; });
-            await nostrService.updateProfile(data);
+            if (publishMode === 'bies') {
+                await nostrService.updateProfileToBiesRelay(data);
+            } else {
+                await nostrService.updateProfile(data);
+            }
             setNostrSaved(true);
             setTimeout(() => setNostrSaved(false), 3000);
             await fetchNostrProfile();
@@ -427,6 +438,7 @@ const ProfileEdit = () => {
         setError('');
         try {
             const data = {};
+            if (form.name) data.display_name = form.name;
             if (form.name) data.name = form.name;
             if (form.bio) data.about = form.bio;
             if (form.avatar) data.picture = form.avatar;
@@ -843,9 +855,18 @@ const ProfileEdit = () => {
                                 ) : (
                                     <>
                                         <div className="form-row">
-                                            <label className="form-label">Nostr Name</label>
+                                            <label className="form-label">Display Name</label>
                                             <div className="form-content">
-                                                <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="Name on Nostr" />
+                                                <input type="text" value={nostrForm.display_name} onChange={handleNostrFormChange('display_name')} className="input-field" placeholder="Your display name" />
+                                            </div>
+                                        </div>
+                                        <div className="form-row">
+                                            <label className="form-label">@Name</label>
+                                            <div className="form-content">
+                                                <div style={{ position: 'relative' }}>
+                                                    <AtSign size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', pointerEvents: 'none' }} />
+                                                    <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="username" style={{ paddingLeft: '2.25rem' }} />
+                                                </div>
                                             </div>
                                         </div>
                                         <div className="form-row">
@@ -888,64 +909,80 @@ const ProfileEdit = () => {
                                 )
                             }
 
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '2rem' }}>
-                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ flex: 1, minWidth: '160px', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem' }}>
-                                    {savingNostr ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={16} />}
-                                    {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : 'Save to Nostr'}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '2rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <div style={{ display: 'flex', flex: 1, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+                                        <button type="button" onClick={() => setPublishMode('bies')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'bies' ? '#7c3aed' : 'transparent', color: publishMode === 'bies' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                            BIES private relay only
+                                        </button>
+                                        <button type="button" onClick={() => setPublishMode('all')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', borderLeft: '1px solid #e5e7eb', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'all' ? '#7c3aed' : 'transparent', color: publishMode === 'all' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                            BIES relay + all public relays
+                                        </button>
+                                    </div>
+                                    <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '0.25rem', display: 'flex', alignItems: 'center' }}>
+                                        <HelpCircle size={18} />
+                                    </button>
+                                </div>
+                                {showPublishHelp && (
+                                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#4b5563', lineHeight: 1.5 }}>
+                                        <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Publish mode</p>
+                                        <p style={{ margin: '0 0 0.25rem' }}><strong>BIES private relay only</strong> — Saves your Nostr profile to the private BIES relay. Only visible within the BIES platform. Good for drafting your profile before going public.</p>
+                                        <p style={{ margin: '0 0 0.75rem' }}><strong>BIES relay + all public relays</strong> — Saves to the BIES relay and broadcasts to public Nostr relays (Damus, Primal, nos.lol, etc). Your profile will be visible across all Nostr clients.</p>
+                                        <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Actions</p>
+                                        <p style={{ margin: '0 0 0.25rem' }}><strong>Fetch from relays</strong> — Pulls the latest version of your Nostr profile from public relays and loads it into the Nostr form fields above.</p>
+                                        <p style={{ margin: '0 0 0.25rem' }}><strong>Apply to BIES form</strong> — Copies your Nostr profile data (name, bio, avatar, banner, website) into the BIES profile form so you can save it to your BIES account.</p>
+                                        <p style={{ margin: 0 }}><strong>Publish BIES form to relays</strong> — Takes your BIES profile fields and publishes them as a Nostr profile to all relays (BIES + public).</p>
+                                    </div>
+                                )}
+                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ width: '100%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem 1rem' }}>
+                                    {savingNostr ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                                    {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : publishMode === 'bies' ? 'Publish to BIES relay' : 'Publish to all relays'}
                                     {nostrSaved && <CheckCircle size={16} />}
                                 </button>
-                                <button type="button" onClick={fetchNostrProfile} style={{ flex: 0.5, minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md)', background: 'none', color: '#7c3aed', cursor: 'pointer', fontWeight: 500 }}>
-                                    <RefreshCw size={16} /> Refresh
-                                </button>
-                                <button type="button" onClick={handleSyncFromNostr} style={{ flex: 0.5, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 500 }}>
-                                    Sync to BIES
-                                </button>
-                                <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} style={{ flex: 0.5, minWidth: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', background: 'none', color: '#16a34a', cursor: 'pointer', fontWeight: 500 }}>
-                                    <Send size={16} /> Push BIES to Nostr
-                                </button>
-                            </div>
-                        </div >
-                    </div >
-
-                    {/* Nostr Identity & Feed Toggle */}
-                    < div className="profile-card" >
-                        <div className="w-full max-w-2xl">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
-                                <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <Hash size={20} style={{ color: '#F7931A' }} />
-                                    Nostr Identity & Feed
-                                </h3>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-600)' }}>Show feed</span>
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>Connect your Nostr NPUB to display your notes directly on your profile.</p>
-
-                            <div className="form-row">
-                                <label className="form-label">Nostr npub</label>
-                                <div className="form-content">
-                                    <input
-                                        type="text"
-                                        placeholder="npub1..."
-                                        value={form.nostrNpub}
-                                        onChange={handleChange('nostrNpub')}
-                                        className="input-field"
-                                        style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}
-                                    />
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                    <button type="button" onClick={fetchNostrProfile} style={{ flex: 1, minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md)', background: 'none', color: '#7c3aed', cursor: 'pointer', fontWeight: 500 }}>
+                                        <RefreshCw size={16} /> Fetch from relays
+                                    </button>
+                                    <button type="button" onClick={handleSyncFromNostr} style={{ flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 500 }}>
+                                        Apply to BIES form
+                                    </button>
+                                    <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} style={{ flex: 1, minWidth: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', background: 'none', color: '#16a34a', cursor: 'pointer', fontWeight: 500 }}>
+                                        <Send size={16} /> Publish BIES form to relays
+                                    </button>
                                 </div>
                             </div>
 
-                            {form.showNostrFeed && form.nostrNpub && (
-                                <div style={{ marginTop: '2rem', borderTop: '1px solid var(--color-gray-200)', paddingTop: '2rem', opacity: 0.6, pointerEvents: 'none' }}>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)', fontWeight: 500, marginBottom: '1rem' }}>Feed Preview:</p>
-                                    <NostrFeed npub={form.nostrNpub} notes={[]} />
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-gray-200)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-700)' }}>Show Nostr feed on profile</span>
+                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '0.125rem', display: 'flex', alignItems: 'center' }}>
+                                        <HelpCircle size={15} />
+                                    </button>
+                                </div>
+                                <label className="toggle-switch">
+                                    <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
+                                    <span className="toggle-slider"></span>
+                                </label>
+                            </div>
+                            {showFeedHelp && (
+                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#4b5563', lineHeight: 1.5, marginTop: '0.5rem' }}>
+                                    <p style={{ margin: '0 0 0.25rem' }}>When enabled, your recent Nostr notes (kind:1 posts) will be displayed on your public BIES profile. This uses your connected Nostr keypair — no need to enter an npub manually.</p>
+                                    <p style={{ margin: '0.5rem 0 0.25rem', fontWeight: 600 }}>Feed source</p>
+                                    <p style={{ margin: '0 0 0.25rem' }}><strong>Private relay only</strong> — Shows only notes stored on the BIES private relay. Only notes you've published through BIES will appear.</p>
+                                    <p style={{ margin: 0 }}><strong>Private + public relays</strong> — Shows notes from both the BIES private relay and public Nostr relays (Damus, Primal, etc). All your Nostr activity will be visible.</p>
                                 </div>
                             )}
-                        </div>
+                            {form.showNostrFeed && (
+                                <div style={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #e5e7eb', marginTop: '0.75rem' }}>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'private' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'private' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                        Private relay only
+                                    </button>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', borderLeft: '1px solid #e5e7eb', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'all' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'all' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                        Private + public relays
+                                    </button>
+                                </div>
+                            )}
+                        </div >
                     </div >
 
                     {/* Projects */}
