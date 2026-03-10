@@ -274,6 +274,287 @@ export async function getAuditLogs(req: Request, res: Response): Promise<void> {
     }
 }
 
+// ─── Delete User ─────────────────────────────────────────────────────────────
+
+/**
+ * DELETE /admin/users/:id
+ * Hard-delete a user and all related data. ADMIN only.
+ */
+export async function deleteUser(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can delete users' }); return;
+        }
+
+        const targetUser = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, nostrPubkey: true, email: true, role: true, profile: { select: { name: true } } },
+        });
+        if (!targetUser) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        // Remove from relay whitelist
+        removeFromRelayWhitelist(targetUser.nostrPubkey);
+
+        // Cascade delete handles profile, projects, sessions, messages, etc.
+        await prisma.user.delete({ where: { id: req.params.id } });
+
+        // Clear caches
+        await Promise.all([
+            cache.delPattern('profiles:'),
+            cache.delPattern('projects:'),
+            cache.delPattern('events:'),
+        ]);
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'USER_DELETED',
+                resource: `user:${req.params.id}`,
+                metadata: JSON.stringify({
+                    deletedUserName: targetUser.profile?.name || '',
+                    deletedUserPubkey: targetUser.nostrPubkey,
+                }),
+            },
+        });
+
+        res.json({ message: 'User permanently deleted' });
+    } catch (error) {
+        console.error('Delete user error:', error);
+        res.status(500).json({ error: 'Failed to delete user' });
+    }
+}
+
+// ─── Sync Accounts ───────────────────────────────────────────────────────────
+
+/**
+ * POST /admin/users/sync
+ * Sync all data (profile, projects, events) from a source user to a target user.
+ * Optionally delete the source account after sync. ADMIN only.
+ *
+ * Body: { sourceUserId, targetUserId, deleteSource: boolean }
+ */
+export async function syncAccounts(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can sync accounts' }); return;
+        }
+
+        const { sourceUserId, targetUserId, deleteSource } = req.body;
+
+        if (!sourceUserId || !targetUserId || typeof sourceUserId !== 'string' || typeof targetUserId !== 'string') {
+            res.status(400).json({ error: 'sourceUserId and targetUserId are required' }); return;
+        }
+        if (sourceUserId === targetUserId) {
+            res.status(400).json({ error: 'Source and target must be different users' }); return;
+        }
+
+        // Fetch both users with all related data counts
+        const [sourceUser, targetUser] = await Promise.all([
+            prisma.user.findUnique({
+                where: { id: sourceUserId },
+                include: {
+                    profile: true,
+                    projects: { select: { id: true } },
+                    hostedEvents: { select: { id: true } },
+                    investments: { select: { id: true } },
+                    watchlist: { select: { id: true } },
+                    teamMemberships: { select: { id: true } },
+                    following: { select: { id: true } },
+                    followers: { select: { id: true } },
+                    sentMessages: { select: { id: true } },
+                    receivedMessages: { select: { id: true } },
+                    deckRequests: { select: { id: true } },
+                    eventRSVPs: { select: { id: true } },
+                },
+            }),
+            prisma.user.findUnique({
+                where: { id: targetUserId },
+                include: { profile: true },
+            }),
+        ]);
+
+        if (!sourceUser) {
+            res.status(404).json({ error: 'Source user not found' }); return;
+        }
+        if (!targetUser) {
+            res.status(404).json({ error: 'Target user not found' }); return;
+        }
+
+        const syncResults: string[] = [];
+
+        // 1. Sync profile data (overwrite target profile with source profile fields)
+        if (sourceUser.profile) {
+            const profileData: any = {};
+            const profileFields = [
+                'name', 'bio', 'avatar', 'banner', 'location', 'skills', 'website',
+                'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
+                'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
+                'portfolioCount', 'lookingFor', 'experience', 'biesProjects',
+                'showExperience', 'showNostrFeed', 'nostrNpub', 'lightningAddress', 'isPublic',
+            ];
+
+            for (const field of profileFields) {
+                const val = (sourceUser.profile as any)[field];
+                // Only copy non-empty values
+                if (val !== '' && val !== '[]' && val !== null && val !== undefined && val !== 0 && val !== false) {
+                    profileData[field] = val;
+                }
+            }
+
+            // Don't copy nip05Name as it's unique — would cause conflict
+            if (Object.keys(profileData).length > 0) {
+                if (targetUser.profile) {
+                    await prisma.profile.update({
+                        where: { userId: targetUserId },
+                        data: profileData,
+                    });
+                } else {
+                    await prisma.profile.create({
+                        data: { ...profileData, userId: targetUserId },
+                    });
+                }
+                syncResults.push(`Profile synced (${Object.keys(profileData).length} fields)`);
+            }
+        }
+
+        // 2. Transfer projects ownership
+        if (sourceUser.projects.length > 0) {
+            await prisma.project.updateMany({
+                where: { ownerId: sourceUserId },
+                data: { ownerId: targetUserId },
+            });
+            syncResults.push(`${sourceUser.projects.length} projects transferred`);
+        }
+
+        // 3. Transfer hosted events
+        if (sourceUser.hostedEvents.length > 0) {
+            await prisma.event.updateMany({
+                where: { hostId: sourceUserId },
+                data: { hostId: targetUserId },
+            });
+            syncResults.push(`${sourceUser.hostedEvents.length} events transferred`);
+        }
+
+        // 4. Transfer investments (skip duplicates)
+        if (sourceUser.investments.length > 0) {
+            const existingInvestments = await prisma.investment.findMany({
+                where: { investorId: targetUserId },
+                select: { projectId: true },
+            });
+            const existingProjectIds = new Set(existingInvestments.map(i => i.projectId));
+
+            const toTransfer = await prisma.investment.findMany({
+                where: { investorId: sourceUserId, projectId: { notIn: Array.from(existingProjectIds) } },
+            });
+            if (toTransfer.length > 0) {
+                await prisma.investment.updateMany({
+                    where: { investorId: sourceUserId, projectId: { notIn: Array.from(existingProjectIds) } },
+                    data: { investorId: targetUserId },
+                });
+            }
+            syncResults.push(`${toTransfer.length} investments transferred`);
+        }
+
+        // 5. Transfer team memberships (skip duplicates)
+        if (sourceUser.teamMemberships.length > 0) {
+            const existingMemberships = await prisma.projectTeamMember.findMany({
+                where: { userId: targetUserId },
+                select: { projectId: true },
+            });
+            const existingProjIds = new Set(existingMemberships.map(m => m.projectId));
+
+            await prisma.projectTeamMember.updateMany({
+                where: { userId: sourceUserId, projectId: { notIn: Array.from(existingProjIds) } },
+                data: { userId: targetUserId },
+            });
+            syncResults.push('Team memberships transferred');
+        }
+
+        // 6. Transfer event RSVPs (skip duplicates)
+        if (sourceUser.eventRSVPs.length > 0) {
+            const existingRSVPs = await prisma.eventAttendee.findMany({
+                where: { userId: targetUserId },
+                select: { eventId: true },
+            });
+            const existingEventIds = new Set(existingRSVPs.map(r => r.eventId));
+
+            await prisma.eventAttendee.updateMany({
+                where: { userId: sourceUserId, eventId: { notIn: Array.from(existingEventIds) } },
+                data: { userId: targetUserId },
+            });
+            syncResults.push('Event RSVPs transferred');
+        }
+
+        // 7. Transfer watchlist items (skip duplicates)
+        if (sourceUser.watchlist.length > 0) {
+            const existingWatch = await prisma.watchlistItem.findMany({
+                where: { userId: targetUserId },
+                select: { projectId: true },
+            });
+            const existingWatchProjIds = new Set(existingWatch.map(w => w.projectId));
+
+            await prisma.watchlistItem.updateMany({
+                where: { userId: sourceUserId, projectId: { notIn: Array.from(existingWatchProjIds) } },
+                data: { userId: targetUserId },
+            });
+            syncResults.push('Watchlist items transferred');
+        }
+
+        // 8. Transfer follows (skip duplicates)
+        if (sourceUser.following.length > 0) {
+            const existingFollowing = await prisma.follow.findMany({
+                where: { followerId: targetUserId },
+                select: { followingId: true },
+            });
+            const existingFollowIds = new Set(existingFollowing.map(f => f.followingId));
+
+            await prisma.follow.updateMany({
+                where: { followerId: sourceUserId, followingId: { notIn: Array.from(existingFollowIds) } },
+                data: { followerId: targetUserId },
+            });
+            syncResults.push('Following transferred');
+        }
+
+        // 9. Optionally delete source account
+        if (deleteSource) {
+            removeFromRelayWhitelist(sourceUser.nostrPubkey);
+            await prisma.user.delete({ where: { id: sourceUserId } });
+            syncResults.push('Source account deleted');
+        }
+
+        // Clear caches
+        await Promise.all([
+            cache.delPattern('profiles:'),
+            cache.delPattern('projects:'),
+            cache.delPattern('events:'),
+        ]);
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'ACCOUNTS_SYNCED',
+                resource: `user:${sourceUserId}->user:${targetUserId}`,
+                metadata: JSON.stringify({
+                    sourceUserId,
+                    targetUserId,
+                    deleteSource: !!deleteSource,
+                    results: syncResults,
+                }),
+            },
+        });
+
+        res.json({
+            message: 'Accounts synced successfully',
+            results: syncResults,
+        });
+    } catch (error) {
+        console.error('Sync accounts error:', error);
+        res.status(500).json({ error: 'Failed to sync accounts' });
+    }
+}
+
 // ─── System ───────────────────────────────────────────────────────────────────
 
 /**
