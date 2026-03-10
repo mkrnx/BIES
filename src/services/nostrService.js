@@ -89,13 +89,14 @@ class NostrService {
     }
 
     // Fetch user profile (Kind 0 — NIP-01 + NIP-24 extra metadata fields)
-    // Queries all public relays and picks the most recent Kind 0 event,
+    // Queries BIES relay + public relays and picks the most recent Kind 0 event,
     // then merges any missing fields from older events so we get the
     // most complete profile (banner, picture, etc.).
     async getProfile(pubkey) {
         try {
             const filter = { kinds: [0], authors: [pubkey] };
-            const events = await this.pool.querySync(this.publicRelays, filter);
+            const allRelays = [this.biesRelay, ...this.publicRelays];
+            const events = await this.pool.querySync(allRelays, filter);
 
             if (!events || events.length === 0) return null;
 
