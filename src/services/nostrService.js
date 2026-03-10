@@ -371,6 +371,45 @@ class NostrService {
     }
 
     /**
+     * Get Nostr follower count (kind:3 contact lists that include this pubkey).
+     * Uses relay.nostr.band which supports NIP-45 COUNT or falls back to querying.
+     */
+    async getFollowerCount(pubkey) {
+        try {
+            const events = await this.pool.querySync(
+                ['wss://relay.nostr.band'],
+                { kinds: [3], '#p': [pubkey], limit: 1000 }
+            );
+            // Deduplicate by author (each author's latest kind:3 is their contact list)
+            const uniqueAuthors = new Set(events.map(e => e.pubkey));
+            return uniqueAuthors.size;
+        } catch (error) {
+            console.error('Error fetching Nostr follower count:', error);
+            return 0;
+        }
+    }
+
+    /**
+     * Get Nostr following count (kind:3 contact list p-tags for this pubkey).
+     */
+    async getFollowingCount(pubkey) {
+        try {
+            const events = await this.pool.querySync(
+                this.publicRelays,
+                { kinds: [3], authors: [pubkey], limit: 1 }
+            );
+            if (!events || events.length === 0) return 0;
+            // Sort newest-first and use the latest contact list
+            events.sort((a, b) => b.created_at - a.created_at);
+            const pTags = events[0].tags.filter(t => t[0] === 'p');
+            return pTags.length;
+        } catch (error) {
+            console.error('Error fetching Nostr following count:', error);
+            return 0;
+        }
+    }
+
+    /**
      * Search Nostr profiles by name using NIP-50 search on relay.nostr.band.
      * Returns an array of { pubkey, name, display_name, picture, nip05 }.
      */
