@@ -279,7 +279,7 @@ const Feed = () => {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    color: var(--color-neutral-dark, #1f2937);
+                    color: var(--color-gray-900);
                 }
 
                 /* Feed Mode Tabs */
@@ -287,7 +287,7 @@ const Feed = () => {
                     display: flex;
                     gap: 0.5rem;
                     margin-bottom: 1.5rem;
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 0.25rem;
@@ -328,7 +328,7 @@ const Feed = () => {
 
                 /* Compose Box */
                 .compose-box {
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 1rem;
@@ -474,7 +474,7 @@ const Feed = () => {
                     gap: 1rem;
                 }
                 .feed-note {
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 1.25rem;

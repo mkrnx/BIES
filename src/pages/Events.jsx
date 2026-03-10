@@ -96,16 +96,16 @@ const MOCK_COMMUNITY_EVENTS = [
 ];
 
 const CATEGORY_COLORS = {
-    CONFERENCE: '#DBEAFE',
-    HACKATHON: '#FEF3C7',
+    CONFERENCE: 'var(--color-blue-tint)',
+    HACKATHON: 'var(--color-amber-tint)',
     WORKSHOP: '#EDE9FE',
-    MEETUP: '#D1FAE5',
+    MEETUP: 'var(--color-green-tint)',
     NETWORKING: '#FFE4E6',
-    DEMO_DAY: '#FFF7ED',
+    DEMO_DAY: 'var(--color-orange-tint)',
 };
 
 const EventCard = ({ event, isOfficial }) => {
-    const bgColor = CATEGORY_COLORS[event.category] || '#F1F5F9';
+    const bgColor = CATEGORY_COLORS[event.category] || 'var(--color-gray-100)';
     const hasImage = event.coverImage || event.image || event.thumbnail;
     const categoryLabel = (event.category || '').replace(/_/g, ' ');
     const dateStr = (() => {
@@ -156,7 +156,7 @@ const EventCard = ({ event, isOfficial }) => {
             </div>
             <style jsx>{`
                 .event-card {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     overflow: hidden;
                     border: 1px solid ${isOfficial ? '#fed7aa' : 'var(--color-gray-200)'};
@@ -177,12 +177,12 @@ const EventCard = ({ event, isOfficial }) => {
                     position: absolute;
                     top: 1rem;
                     left: 1rem;
-                    background: rgba(255,255,255,0.9);
+                    background: rgba(75, 85, 99, 0.85);
                     padding: 4px 8px;
                     border-radius: 4px;
                     font-size: 0.72rem;
                     font-weight: 600;
-                    color: var(--color-neutral-dark);
+                    color: white;
                     text-transform: uppercase;
                     letter-spacing: 0.03em;
                 }
@@ -217,8 +217,8 @@ const EventCard = ({ event, isOfficial }) => {
                     position: absolute;
                     bottom: 1rem;
                     right: 1rem;
-                    background: #fef3c7;
-                    color: #d97706;
+                    background: var(--badge-warning-bg);
+                    color: var(--badge-warning-text);
                     padding: 2px 8px;
                     border-radius: 99px;
                     font-size: 0.7rem;
@@ -379,7 +379,7 @@ const Events = () => {
                     title={hasEvents ? 'Events on this date' : undefined}
                     style={{
                         ...dayStyle,
-                        background: isSelected ? 'var(--color-secondary)' : hasEvents && !isSelected ? '#eff6ff' : undefined,
+                        background: isSelected ? 'var(--color-secondary)' : hasEvents && !isSelected ? 'var(--color-blue-tint)' : undefined,
                         color: isSelected ? 'white' : isToday ? 'var(--color-secondary)' : hasEvents ? '#1d4ed8' : undefined,
                         fontWeight: isSelected || isToday || hasEvents ? 700 : undefined,
                         border: isSelected ? 'none' : isToday ? '1px solid var(--color-secondary)' : hasEvents ? '1.5px solid #3b82f6' : undefined,
@@ -598,7 +598,7 @@ const Events = () => {
                     display: flex;
                     align-items: center;
                     flex: 1;
-                    background: white;
+                    background: var(--color-gray-100);
                     padding: 0.5rem;
                     border-radius: var(--radius-full);
                     border: 1px solid var(--color-gray-300);
@@ -635,7 +635,7 @@ const Events = () => {
 
                 .filters {
                     width: 250px;
-                    background: white;
+                    background: var(--color-gray-100);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     height: fit-content;
@@ -705,8 +705,8 @@ const Events = () => {
                     transition: all 0.2s;
                     font-weight: 500;
                 }
-                .cat-item:hover { background: var(--color-gray-50); color: var(--color-primary); }
-                .cat-item.active { background: #eff6ff; color: var(--color-primary); font-weight: 600; }
+                .cat-item:hover { background: var(--color-primary); color: white; }
+                .cat-item.active { background: var(--color-primary); color: white; font-weight: 600; }
 
                 /* Calendar Widget */
                 .calendar-widget {
@@ -731,7 +731,7 @@ const Events = () => {
                 .calendar-header button:hover { color: var(--color-gray-900); background: var(--color-gray-100); }
                 
                 .sidebar-section {
-                    background: white;
+                    background: var(--color-gray-100);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-gray-200);
@@ -757,7 +757,7 @@ const Events = () => {
                     border-radius: 4px;
                     transition: all 0.2s;
                 }
-                .calendar-day:hover { background: #fef3c7; }
+                .calendar-day:hover { background: var(--color-amber-tint); }
                 .calendar-day.selected { background: var(--color-secondary); color: white; font-weight: 700; }
                 .calendar-day.today { border: 1px solid var(--color-secondary); color: var(--color-secondary); font-weight: 700; }
                 .calendar-day.empty { cursor: default; }
@@ -801,7 +801,7 @@ const Events = () => {
                     .events-grid { grid-template-columns: repeat(2, 1fr); }
                 }
 
-                .empty-state { padding: 3rem; text-align: center; color: var(--color-gray-400); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--color-gray-200); }
+                .empty-state { padding: 3rem; text-align: center; color: var(--color-gray-400); background: var(--color-gray-100); border-radius: var(--radius-lg); border: 1px dashed var(--color-gray-200); }
 
                 .mobile-filter-toggle {
                     display: none;

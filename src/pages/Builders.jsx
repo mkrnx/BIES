@@ -173,11 +173,11 @@ const Builders = () => {
                 .search-bar {
                     display: flex;
                     align-items: center;
-                    gap: 0.5rem;
-                    padding: 0.75rem 1rem;
-                    background: white;
-                    border: 1px solid var(--color-gray-200);
+                    flex: 1;
+                    background: var(--color-gray-100);
+                    padding: 0.5rem;
                     border-radius: var(--radius-full);
+                    border: 1px solid var(--color-gray-300);
                     width: 100%;
                     max-width: 400px;
                     box-shadow: var(--shadow-sm);
@@ -189,8 +189,20 @@ const Builders = () => {
                     font-size: 1rem;
                 }
 
+                .filters {
+                    width: 250px;
+                    background: var(--color-gray-100);
+                    padding: 1.5rem;
+                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-gray-200);
+                    overflow: hidden;
+                    transition: transform 0.2s, box-shadow 0.2s;
+                    height: 100%;
+                    display: flex;
+                }
+
                 .card {
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-lg);
                     overflow: hidden;

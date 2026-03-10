@@ -361,7 +361,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 }
 
                 .zap-card {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: 16px;
                     width: 90vw;
                     max-width: 420px;
@@ -375,7 +375,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     justify-content: space-between;
                     align-items: center;
                     padding: 1rem 1.25rem;
-                    border-bottom: 1px solid #e5e7eb;
+                    border-bottom: 1px solid var(--color-gray-200);
                 }
 
                 .zap-title {
@@ -392,12 +392,12 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     background: none;
                     border: none;
                     cursor: pointer;
-                    color: #6b7280;
+                    color: var(--color-gray-500);
                     padding: 4px;
                     display: flex;
                 }
 
-                .zap-close:hover { color: #111; }
+                .zap-close:hover { color: var(--color-gray-900); }
 
                 .zap-body {
                     padding: 1.25rem;
@@ -421,7 +421,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 }
 
                 .zap-status-text {
-                    color: #475569;
+                    color: var(--color-gray-600);
                     font-size: 0.9rem;
                     text-align: center;
                     margin: 0;
@@ -430,7 +430,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 .zap-label {
                     font-size: 0.8rem;
                     font-weight: 600;
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     text-transform: uppercase;
                     letter-spacing: 0.05em;
                     margin-bottom: 0.5rem;
@@ -452,7 +452,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     align-items: center;
                     gap: 0.5rem;
                     padding: 0.4rem 0.6rem;
-                    background: #f8fafc;
+                    background: var(--color-gray-100);
                     border-radius: 8px;
                 }
 
@@ -461,13 +461,13 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     height: 28px;
                     border-radius: 50%;
                     overflow: hidden;
-                    background: #e2e8f0;
+                    background: var(--color-gray-200);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     font-size: 0.7rem;
                     font-weight: 700;
-                    color: #475569;
+                    color: var(--color-gray-600);
                     flex-shrink: 0;
                 }
 
@@ -506,7 +506,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 .zap-recipient-label {
                     font-size: 0.95rem;
                     font-weight: 600;
-                    color: #1e293b;
+                    color: var(--color-gray-900);
                 }
 
                 /* Amount chips */
@@ -519,13 +519,13 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
                 .zap-amount-chip {
                     padding: 0.4rem 0.85rem;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1.5px solid var(--color-gray-200);
                     border-radius: 20px;
-                    background: white;
+                    background: var(--color-surface);
                     font-size: 0.85rem;
                     font-weight: 500;
                     cursor: pointer;
-                    color: #334155;
+                    color: var(--color-gray-600);
                     transition: all 0.15s ease;
                     font-family: var(--font-sans, 'Inter', sans-serif);
                 }
@@ -545,7 +545,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 .zap-comment-input {
                     width: 100%;
                     padding: 0.6rem 0.75rem;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1.5px solid var(--color-gray-200);
                     border-radius: 8px;
                     font-size: 0.875rem;
                     font-family: var(--font-sans, 'Inter', sans-serif);
@@ -611,8 +611,8 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 }
 
                 .zap-invoice-box {
-                    background: #f8fafc;
-                    border: 1px solid #e2e8f0;
+                    background: var(--color-gray-100);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 8px;
                     padding: 0.75rem;
                     width: 100%;
@@ -622,7 +622,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
                 .zap-invoice-text {
                     font-size: 0.75rem;
-                    color: #475569;
+                    color: var(--color-gray-600);
                 }
 
                 .zap-copy-btn {
@@ -630,12 +630,12 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     align-items: center;
                     gap: 0.35rem;
                     padding: 0.5rem 1rem;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1.5px solid var(--color-gray-200);
                     border-radius: 8px;
-                    background: white;
+                    background: var(--color-surface);
                     font-size: 0.85rem;
                     cursor: pointer;
-                    color: #334155;
+                    color: var(--color-gray-600);
                     font-family: var(--font-sans, 'Inter', sans-serif);
                     transition: all 0.15s;
                 }
@@ -675,7 +675,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     align-items: center;
                     gap: 0.4rem;
                     font-size: 0.8rem;
-                    color: #64748b;
+                    color: var(--color-gray-500);
                     padding: 0.3rem 0;
                 }
 
@@ -701,17 +701,17 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 .zap-success-text {
                     font-size: 1.1rem;
                     font-weight: 700;
-                    color: #1e293b;
+                    color: var(--color-gray-900);
                 }
 
                 .zap-done-btn {
                     padding: 0.5rem 2rem;
-                    border: 1.5px solid #e2e8f0;
+                    border: 1.5px solid var(--color-gray-200);
                     border-radius: 8px;
-                    background: white;
+                    background: var(--color-surface);
                     font-size: 0.875rem;
                     cursor: pointer;
-                    color: #334155;
+                    color: var(--color-gray-600);
                     font-family: var(--font-sans, 'Inter', sans-serif);
                     margin-top: 0.5rem;
                 }

@@ -456,7 +456,7 @@ const ProjectDetails = () => {
                                     <h2 className="modal-title">Express Interest</h2>
                                 </div>
                                 <div className="modal-body">
-                                    <p style={{ margin: 0, color: '#4b5563', lineHeight: '1.5' }}>
+                                    <p style={{ margin: 0, color: 'var(--color-gray-600)', lineHeight: '1.5' }}>
                                         Let the Builder know you are interested in their project?
                                         This will add the project to your Watchlist and send them a notification.
                                     </p>
@@ -492,17 +492,17 @@ const ProjectDetails = () => {
                 }
 
                 /* Loading & Error */
-                .pd-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6rem 2rem; color: #6b7280; gap: 1rem; }
+                .pd-loading { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 6rem 2rem; color: var(--color-gray-500); gap: 1rem; }
                 .pd-spin { animation: spin 1s linear infinite; }
                 @keyframes spin { to { transform: rotate(360deg); } }
-                .pd-error { text-align: center; padding: 6rem 2rem; color: #6b7280; }
-                .pd-error svg { color: #d1d5db; margin-bottom: 1rem; }
+                .pd-error { text-align: center; padding: 6rem 2rem; color: var(--color-gray-500); }
+                .pd-error svg { color: var(--color-gray-300); margin-bottom: 1rem; }
                 .pd-error-link { color: var(--color-primary); margin-top: 1rem; display: inline-block; }
 
                 /* Back Link */
                 .pd-back {
                     display: inline-flex; align-items: center; gap: 0.5rem;
-                    color: #6b7280; font-weight: 500; font-size: 0.9rem;
+                    color: var(--color-gray-500); font-weight: 500; font-size: 0.9rem;
                     margin-bottom: 1.5rem; transition: color 0.15s;
                     text-decoration: none;
                 }
@@ -512,17 +512,17 @@ const ProjectDetails = () => {
                 .pd-header {
                     display: flex; justify-content: space-between; align-items: flex-start;
                     padding-bottom: 1.5rem; margin-bottom: 2rem;
-                    border-bottom: 1px solid #e5e7eb;
+                    border-bottom: 1px solid var(--color-gray-200);
                 }
                 .pd-title {
                     font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em;
-                    color: #111827; margin: 0 0 0.25rem;
+                    color: var(--color-gray-900); margin: 0 0 0.25rem;
                     line-height: 1.2;
                 }
-                .pd-tagline { color: #6b7280; font-size: 1rem; font-style: italic; margin: 0 0 0.75rem; }
-                .pd-meta { display: flex; flex-wrap: wrap; gap: 1.25rem; color: #6b7280; font-size: 0.88rem; }
+                .pd-tagline { color: var(--color-gray-500); font-size: 1rem; font-style: italic; margin: 0 0 0.75rem; }
+                .pd-meta { display: flex; flex-wrap: wrap; gap: 1.25rem; color: var(--color-gray-500); font-size: 0.88rem; }
                 .pd-meta-item { display: flex; align-items: center; gap: 5px; }
-                .pd-meta-link { text-decoration: none; color: #6b7280; transition: color 0.15s; }
+                .pd-meta-link { text-decoration: none; color: var(--color-gray-500); transition: color 0.15s; }
                 .pd-meta-link:hover { color: var(--color-primary); }
                 .pd-header-actions { display: flex; gap: 0.75rem; flex-shrink: 0; }
 
@@ -535,16 +535,16 @@ const ProjectDetails = () => {
                     transition: all 0.15s; white-space: nowrap;
                 }
                 .pd-btn-outline {
-                    background: white; border-color: #d1d5db; color: #374151;
+                    background: var(--color-surface-raised); border-color: var(--color-gray-300); color: var(--color-gray-600);
                 }
-                .pd-btn-outline:hover { border-color: #9ca3af; background: #f9fafb; }
+                .pd-btn-outline:hover { border-color: var(--color-gray-400); background: var(--color-surface-overlay); }
                 .pd-btn-primary {
                     background: var(--color-secondary, #F97316); color: white; border-color: var(--color-secondary, #F97316);
                 }
                 .pd-btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(249,115,22,0.3); }
-                .pd-btn-express {
+                 .pd-btn-express {
                     width: 100%; justify-content: center;
-                    background: white; border: 2px solid #d1d5db; color: #374151;
+                    background: var(--color-surface-raised); border: 2px solid var(--color-gray-300); color: var(--color-gray-600);
                     border-radius: 8px; padding: 0.65rem;
                 }
                 .pd-btn-express:hover { border-color: var(--color-primary); color: var(--color-primary); }
@@ -571,33 +571,33 @@ const ProjectDetails = () => {
 
                 /* Cards */
                 .pd-card {
-                    background: white;
-                    border: 1px solid #e5e7eb;
+                    background: var(--color-surface);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 12px;
                     padding: 1.75rem;
                     margin-bottom: 1.75rem;
                 }
                 .pd-card h2 {
-                    font-size: 1.35rem; font-weight: 700; color: #111827;
+                    font-size: 1.35rem; font-weight: 700; color: var(--color-gray-900);
                     margin: 0 0 1.25rem; letter-spacing: -0.01em;
                 }
                 .pd-card h3 {
-                    font-size: 1.1rem; font-weight: 700; color: #111827;
+                    font-size: 1.1rem; font-weight: 700; color: var(--color-gray-900);
                     margin: 0 0 1.25rem;
                 }
 
                 /* About */
                 .pd-description p {
-                    line-height: 1.75; color: #4b5563;
+                    line-height: 1.75; color: var(--color-gray-600);
                     margin: 0 0 1rem; font-size: 0.95rem;
                 }
                 .pd-description p:last-child { margin-bottom: 0; }
                 
                 /* Rich Text Overrides */
-                .pd-rich-text { color: #4b5563; font-size: 0.95rem; line-height: 1.75; }
+                .pd-rich-text { color: var(--color-gray-600); font-size: 0.95rem; line-height: 1.75; }
                 .pd-rich-text p, .pd-rich-text div { margin-bottom: 0.5rem; }
                 .pd-rich-text p:last-child, .pd-rich-text div:last-child { margin-bottom: 0; }
-                .pd-rich-text b, .pd-rich-text strong { font-weight: 700 !important; color: #111827; }
+                .pd-rich-text b, .pd-rich-text strong { font-weight: 700 !important; color: var(--color-gray-900); }
                 .pd-rich-text i, .pd-rich-text em { font-style: italic !important; }
                 .pd-rich-text u { text-decoration: underline !important; }
                 .pd-rich-text ul { list-style: disc; padding-left: 1.5rem; margin-bottom: 0.5rem; }
@@ -608,33 +608,33 @@ const ProjectDetails = () => {
                 .pd-info-list { display: flex; flex-direction: column; gap: 1.25rem; }
                 .pd-info-row { display: flex; align-items: flex-start; gap: 1rem; }
                 .pd-info-icon-sm { color: var(--color-primary); margin-top: 0.15rem; flex-shrink: 0; }
-                .pd-info-row h4 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; margin: 0 0 0.25rem; }
-                .pd-info-row p { font-size: 0.95rem; font-weight: 600; color: #111827; margin: 0; }
+                .pd-info-row h4 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--color-gray-400); margin: 0 0 0.25rem; }
+                .pd-info-row p { font-size: 0.95rem; font-weight: 600; color: var(--color-gray-900); margin: 0; }
 
 
                 /* Tags */
                 .pd-tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-                .pd-tag {
+                 .pd-tag {
                     padding: 4px 12px; border-radius: 99px;
                     font-size: 0.8rem; font-weight: 500;
-                    background: #f3f4f6; color: #4b5563;
-                    border: 1px solid #e5e7eb;
+                    background: var(--color-surface-raised); color: var(--color-gray-600);
+                    border: 1px solid var(--color-gray-200);
                 }
 
                 /* Sidebar Funding */
                 .pd-funding { border-top: 4px solid var(--color-secondary, #F97316); }
                 .pd-funding-stage { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem; }
-                .pd-label { font-size: 0.88rem; color: #6b7280; font-weight: 500; }
-                .pd-value { font-size: 0.88rem; font-weight: 700; color: #111827; }
-                .pd-muted { color: #9ca3af; font-weight: 400; }
+                .pd-label { font-size: 0.88rem; color: var(--color-gray-500); font-weight: 500; }
+                .pd-value { font-size: 0.88rem; font-weight: 700; color: var(--color-gray-900); }
+                .pd-muted { color: var(--color-gray-400); font-weight: 400; }
 
                 .pd-progress-info {
                     display: flex; justify-content: space-between; align-items: baseline;
-                    font-size: 1rem; font-weight: 700; color: #111827;
+                    font-size: 1rem; font-weight: 700; color: var(--color-gray-900);
                     margin-bottom: 0.5rem;
                 }
                 .pd-progress-bar {
-                    height: 8px; background: #e5e7eb; border-radius: 99px;
+                    height: 8px; background: var(--color-gray-200); border-radius: 99px;
                     overflow: hidden; margin-bottom: 0.4rem;
                 }
                 .pd-progress-fill {
@@ -642,7 +642,7 @@ const ProjectDetails = () => {
                     background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-success, #22c55e) 100%);
                     transition: width 0.6s ease;
                 }
-                .pd-progress-pct { font-size: 0.78rem; color: #6b7280; margin: 0; }
+                .pd-progress-pct { font-size: 0.78rem; color: var(--color-gray-500); margin: 0; }
 
                 .pd-funding-actions {
                     display: flex; flex-direction: column; gap: 0.6rem;
@@ -652,10 +652,10 @@ const ProjectDetails = () => {
                 /* Use of Funds */
                 .pd-use-of-funds {
                     margin-top: 1.25rem; padding-top: 1.25rem;
-                    border-top: 1px solid #f3f4f6;
+                    border-top: 1px solid var(--color-gray-100);
                 }
                 .pd-uof-title {
-                    font-size: 0.88rem; font-weight: 700; color: #111827;
+                    font-size: 0.88rem; font-weight: 700; color: var(--color-gray-900);
                     margin: 0 0 1rem;
                 }
                 .pd-pie-container {
@@ -675,10 +675,10 @@ const ProjectDetails = () => {
                     width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0;
                 }
                 .pd-uof-label {
-                    flex: 1; color: #4b5563;
+                    flex: 1; color: var(--color-gray-600);
                 }
                 .pd-uof-pct {
-                    font-weight: 600; color: #111827;
+                    font-weight: 600; color: var(--color-gray-900);
                 }
 
                 /* Core Team */
@@ -693,34 +693,34 @@ const ProjectDetails = () => {
                 .pd-avatar img { width: 100%; height: 100%; object-fit: cover; }
                 .pd-avatar.sm { width: 36px; height: 36px; }
                 .pd-avatar.sm span { font-size: 0.85rem; }
-                .pd-team-name { font-weight: 700; color: #111827; font-size: 0.95rem; }
+                .pd-team-name { font-weight: 700; color: var(--color-gray-900); font-size: 0.95rem; }
                 .pd-team-name.sm { font-size: 0.88rem; }
-                .pd-team-role { font-size: 0.82rem; color: #6b7280; }
-                .pd-team-bio { font-size: 0.85rem; line-height: 1.6; color: #6b7280; margin: 0.5rem 0 0; }
+                .pd-team-role { font-size: 0.82rem; color: var(--color-gray-500); }
+                .pd-team-bio { font-size: 0.85rem; line-height: 1.6; color: var(--color-gray-500); margin: 0.5rem 0 0; }
                 .pd-team-list {
                     display: flex; flex-direction: column; gap: 0.75rem;
                     padding-top: 0.75rem; margin-top: 0.75rem;
-                    border-top: 1px solid #f3f4f6;
+                    border-top: 1px solid var(--color-gray-100);
                 }
                 .pd-team-member { display: flex; align-items: center; gap: 0.6rem; }
 
                 /* Document Links */
                 .pd-team-links {
                     margin-top: 1.25rem; padding-top: 1.25rem;
-                    border-top: 1px solid #f3f4f6;
+                    border-top: 1px solid var(--color-gray-100);
                     display: flex; flex-direction: column; gap: 0.5rem;
                 }
-                .pd-doc-link {
+                 .pd-doc-link {
                     display: flex; align-items: center; gap: 0.5rem;
                     padding: 0.5rem 0.75rem; border-radius: 8px;
                     font-size: 0.85rem; font-weight: 500; color: var(--color-primary);
-                    background: #f7f9fc; border: 1px solid #e8ecf1;
+                    background: var(--color-surface-raised); border: 1px solid var(--color-gray-200);
                     text-decoration: none; cursor: pointer;
                     transition: all 0.15s;
                 }
-                .pd-doc-link:hover { background: #eef2ff; border-color: #c7d2fe; }
+                .pd-doc-link:hover { background: var(--color-blue-tint); border-color: var(--color-primary); }
                 .pd-link-ext { margin-left: auto; opacity: 0.5; }
-                .pd-doc-available { color: #059669; background: #ecfdf5; border-color: #a7f3d0; cursor: default; }
+                .pd-doc-available { color: #059669; background: var(--color-green-tint); border-color: #a7f3d0; cursor: default; }
 
                 /* Modal & Animations */
                 .modal-backdrop {
@@ -730,18 +730,18 @@ const ProjectDetails = () => {
                     animation: fadeIn 0.2s ease-out;
                 }
                 .modal-content {
-                    background: white; border-radius: 16px; padding: 2rem;
+                    background: var(--color-surface); border-radius: 16px; padding: 2rem;
                     width: 90%; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
                     animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                 }
                 .modal-header { margin-bottom: 1rem; }
-                .modal-title { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }
+                .modal-title { font-size: 1.25rem; font-weight: 700; color: var(--color-gray-900); margin: 0; }
                 .success-animation-container {
                     display: flex; flex-direction: column; align-items: center; justify-content: center;
                     text-align: center; padding: 1rem 0;
                 }
-                .success-animation-container h3 { margin: 1rem 0 0.5rem; font-size: 1.25rem; color: #111827; }
-                .success-animation-container p { margin: 0; color: #6b7280; font-size: 0.95rem; }
+                .success-animation-container h3 { margin: 1rem 0 0.5rem; font-size: 1.25rem; color: var(--color-gray-900); }
+                .success-animation-container p { margin: 0; color: var(--color-gray-500); font-size: 0.95rem; }
 
                 /* Checkmark SVG Animation */
                 .checkmark { width: 56px; height: 56px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 0 auto; box-shadow: inset 0px 0px 0px var(--color-success, #22c55e); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }
@@ -762,7 +762,7 @@ const ProjectDetails = () => {
                     .pd-cover img { height: 240px; }
                     .pd-title { font-size: 1.75rem; }
                     .pd-sidebar-section { padding: 1.5rem !important; margin-bottom: 1rem; border-radius: 12px; }
-                    .pd-sidebar-section h3 { font-size: 1.1rem; margin-bottom: 1rem; font-weight: 700; color: #111827; }
+                    .pd-sidebar-section h3 { font-size: 1.1rem; margin-bottom: 1rem; font-weight: 700; color: var(--color-gray-900); }
                     .pd-sidebar-section .pd-description { font-size: 0.9rem; }
                     .pd-sidebar-section .pd-graph-section { height: 260px !important; }
                 }
@@ -803,24 +803,24 @@ const ProjectSection = ({ section, pieColors, isSidebar }) => {
                     <ResponsiveContainer width="100%" height="100%">
                         {section.graphType === 'BAR' ? (
                             <BarChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
-                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-gray-200)" />
+                                <XAxis dataKey="label" tick={{ fill: 'var(--color-gray-500)', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="var(--color-gray-600)" fontSize={13} fontWeight={600} />}
                                 </XAxis>
-                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
-                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                <YAxis tick={{ fill: 'var(--color-gray-500)', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="var(--color-gray-600)" fontSize={13} fontWeight={600} />}
                                 </YAxis>
-                                <Tooltip cursor={{ fill: '#f3f4f6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Tooltip cursor={{ fill: 'var(--color-gray-100)' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                                 <Bar dataKey="value" fill="var(--color-primary)" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         ) : section.graphType === 'LINE' ? (
                             <LineChart data={section.dataPoints} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
-                                <XAxis dataKey="label" tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
-                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--color-gray-200)" />
+                                <XAxis dataKey="label" tick={{ fill: 'var(--color-gray-500)', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.xAxisLabel && <Label value={section.xAxisLabel} offset={-10} position="insideBottom" fill="var(--color-gray-600)" fontSize={13} fontWeight={600} />}
                                 </XAxis>
-                                <YAxis tick={{ fill: '#6b7280', fontSize: 12 }} axisLine={false} tickLine={false}>
-                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="#4b5563" fontSize={13} fontWeight={600} />}
+                                <YAxis tick={{ fill: 'var(--color-gray-500)', fontSize: 12 }} axisLine={false} tickLine={false}>
+                                    {section.yAxisLabel && <Label value={section.yAxisLabel} angle={-90} position="insideLeft" style={{ textAnchor: 'middle' }} fill="var(--color-gray-600)" fontSize={13} fontWeight={600} />}
                                 </YAxis>
                                 <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
                                 <Line type="monotone" dataKey="value" stroke="var(--color-primary)" strokeWidth={3} dot={{ fill: 'var(--color-primary)', strokeWidth: 2, r: 4 }} activeDot={{ r: 6 }} />
@@ -860,7 +860,7 @@ const CarouselViewer = ({ images }) => {
     };
 
     return (
-        <div className="pd-carousel-wrapper" style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', backgroundColor: '#f3f4f6' }}>
+        <div className="pd-carousel-wrapper" style={{ position: 'relative', width: '100%', borderRadius: '12px', overflow: 'hidden', backgroundColor: 'var(--color-gray-100)' }}>
             <div
                 className="pd-carousel-track"
                 style={{
@@ -887,13 +887,13 @@ const CarouselViewer = ({ images }) => {
                         onClick={prevSlide}
                         style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                     >
-                        <ChevronLeft size={24} color="#374151" />
+                        <ChevronLeft size={24} color="var(--color-gray-600)" />
                     </button>
                     <button
                         onClick={nextSlide}
                         style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}
                     >
-                        <ChevronRight size={24} color="#374151" />
+                        <ChevronRight size={24} color="var(--color-gray-600)" />
                     </button>
                     <div style={{ position: 'absolute', bottom: '10px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '6px' }}>
                         {images.map((_, idx) => (

@@ -1053,7 +1053,7 @@ const ProfileEdit = () => {
 
             <style jsx>{`
                 /* ── Page Layout ── */
-                .pe-page { background: #f8fafc; min-height: 100vh; }
+                .pe-page { background: var(--color-surface-overlay, #f8fafc); min-height: 100vh; }
                 .pe-container {
                     max-width: 680px;
                     margin: 0 auto;
@@ -1075,7 +1075,7 @@ const ProfileEdit = () => {
                     color: var(--color-gray-900);
                 }
                 .pe-error {
-                    background: #FEF2F2;
+                    background: var(--color-red-tint, #FEF2F2);
                     color: #EF4444;
                     padding: 0.6rem 0.875rem;
                     border-radius: 8px;
@@ -1084,7 +1084,7 @@ const ProfileEdit = () => {
 
                 /* ── Cards ── */
                 .pe-card {
-                    background: white;
+                    background: var(--color-surface, white);
                     padding: 1.25rem;
                     border-radius: var(--radius-xl, 12px);
                     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
@@ -1144,7 +1144,7 @@ const ProfileEdit = () => {
                     width: 100%;
                     padding: 0.55rem 0.75rem;
                     border: 1px solid var(--color-gray-300, #d1d5db);
-                    background: white;
+                    background: var(--color-surface, white);
                     border-radius: var(--radius-md, 6px);
                     outline: none;
                     font-size: 0.875rem;
@@ -1156,7 +1156,7 @@ const ProfileEdit = () => {
                 }
                 .pe-input-sm { padding: 0.45rem 0.65rem; font-size: 0.825rem; }
                 .pe-input-readonly {
-                    background: #f9fafb;
+                    background: var(--color-gray-100, #f9fafb);
                     cursor: default;
                     font-family: monospace;
                     font-size: 0.8rem;
@@ -1226,8 +1226,8 @@ const ProfileEdit = () => {
                     display: flex;
                     align-items: center;
                     gap: 0.35rem;
-                    background: white;
-                    color: #1f2937;
+                    background: var(--color-surface, white);
+                    color: var(--color-gray-900, #1f2937);
                     border-radius: var(--radius-md, 6px);
                     padding: 0.4rem 0.75rem;
                     font-weight: 600;
@@ -1251,7 +1251,7 @@ const ProfileEdit = () => {
                     height: 96px;
                     border-radius: 50%;
                     overflow: hidden;
-                    border: 3px solid white;
+                    border: 3px solid var(--color-surface, white);
                     box-shadow: 0 2px 6px rgba(0,0,0,0.12);
                 }
                 .pe-avatar img { width: 100%; height: 100%; object-fit: cover; }
@@ -1281,7 +1281,7 @@ const ProfileEdit = () => {
                     right: 2px;
                     width: 30px;
                     height: 30px;
-                    background: white;
+                    background: var(--color-surface, white);
                     border-radius: 50%;
                     border: 1px solid #e5e7eb;
                     display: flex;
@@ -1318,12 +1318,12 @@ const ProfileEdit = () => {
                 .toggle-switch input { opacity: 0; width: 0; height: 0; }
                 .toggle-slider {
                     position: absolute; cursor: pointer; inset: 0;
-                    background: #cbd5e1; transition: .3s; border-radius: 22px;
+                    background: var(--color-surface-raised, #cbd5e1); border: 1px solid var(--color-gray-200, #e5e7eb); transition: .3s; border-radius: 22px;
                 }
                 .toggle-slider:before {
                     content: ""; position: absolute;
                     height: 16px; width: 16px; left: 3px; bottom: 3px;
-                    background: white; transition: .3s; border-radius: 50%;
+                    background: var(--color-surface, white); transition: .3s; border-radius: 50%;
                     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
                 }
                 .toggle-switch input:checked + .toggle-slider { background: var(--color-primary, #0052cc); }
@@ -1392,14 +1392,14 @@ const ProfileEdit = () => {
                     justify-content: space-between;
                     align-items: center;
                     padding: 0.65rem 0.875rem;
-                    background: #fafbfc;
+                    background: var(--color-surface-raised, #fafbfc);
                     border: none;
                     cursor: pointer;
                     font-size: 0.85rem;
                     font-weight: 600;
                     color: var(--color-gray-700, #374151);
                 }
-                .pe-collapsible-trigger:hover { background: #f5f6f8; }
+                .pe-collapsible-trigger:hover { background: var(--color-gray-100, #f5f6f8); }
                 .pe-collapsible-label { display: flex; align-items: center; gap: 0.5rem; }
                 .pe-collapsible-body { padding: 0.875rem; display: flex; flex-direction: column; gap: 0.65rem; }
 
@@ -1437,8 +1437,8 @@ const ProfileEdit = () => {
                     align-items: center;
                 }
                 .pe-help-box {
-                    background: #f9fafb;
-                    border: 1px solid #e5e7eb;
+                    background: var(--color-gray-100, #f9fafb);
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
                     border-radius: var(--radius-md, 6px);
                     padding: 0.6rem 0.75rem;
                     font-size: 0.75rem;
@@ -1503,9 +1503,9 @@ const ProfileEdit = () => {
                     padding: 0.65rem 0.75rem;
                     border: 1px solid var(--color-gray-200, #e5e7eb);
                     border-radius: var(--radius-md, 6px);
-                    background: white;
+                    background: var(--color-surface, white);
                 }
-                .pe-project-added { background: #f0f7ff; border-color: #bfdbfe; opacity: 0.7; }
+                .pe-project-added { background: var(--color-blue-tint, #f0f7ff); border-color: #bfdbfe; opacity: 0.7; }
                 .pe-project-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
                 .pe-project-img-placeholder {
                     background: var(--color-gray-100, #f3f4f6);
@@ -1538,7 +1538,7 @@ const ProfileEdit = () => {
                     z-index: 20;
                     margin-top: 0.35rem;
                     width: 100%;
-                    background: white;
+                    background: var(--color-surface, white);
                     border: 1px solid var(--color-gray-200, #e5e7eb);
                     border-radius: var(--radius-md, 6px);
                     box-shadow: 0 8px 20px rgba(0,0,0,0.1);
@@ -1557,7 +1557,7 @@ const ProfileEdit = () => {
                     background: none;
                     cursor: pointer;
                 }
-                .pe-dropdown-item:hover { background: #f9fafb; }
+                .pe-dropdown-item:hover { background: var(--color-gray-100, #f9fafb); }
                 .pe-dropdown-empty {
                     padding: 1rem 0.75rem;
                     text-align: center;

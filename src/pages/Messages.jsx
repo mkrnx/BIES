@@ -422,7 +422,7 @@ const sharedStyles = `
         height: 100%;
     }
     .connect-card {
-        background: white;
+        background: var(--color-surface);
         padding: 3rem;
         border-radius: var(--radius-xl);
         box-shadow: var(--shadow-lg);
@@ -434,7 +434,7 @@ const sharedStyles = `
     }
 
     .error-banner {
-        background: #FEF2F2;
+        background: var(--color-red-tint);
         color: #EF4444;
         padding: 0.75rem 1rem;
         border-radius: 8px;
@@ -445,7 +445,7 @@ const sharedStyles = `
         width: 100%;
     }
 
-    .messages-layout { display: flex; height: 100%; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; background: white; }
+    .messages-layout { display: flex; height: 100%; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface); }
 
     .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; }
     .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; }
@@ -465,7 +465,7 @@ const sharedStyles = `
     .user-result-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .user-result-nip05 { font-size: 0.7rem; color: var(--color-gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .source-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; font-weight: 600; flex-shrink: 0; }
-    .source-badge.bies { background: #DBEAFE; color: #1E40AF; }
+    .source-badge.bies { background: var(--color-blue-tint); color: #1E40AF; }
     .source-badge.nostr { background: #F3E8FF; color: #7C3AED; }
 
     .btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 600; }
@@ -488,20 +488,20 @@ const sharedStyles = `
 
     .unread-badge { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: var(--color-primary); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 99px; }
 
-    .nip17-badge { font-size: 0.7rem; background: #DCFCE7; color: #166534; padding: 1px 6px; border-radius: 99px; }
+    .nip17-badge { font-size: 0.7rem; background: var(--color-green-tint); color: #166534; padding: 1px 6px; border-radius: 99px; }
 
     .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); }
-    .chat-header { padding: 1rem; background: white; border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; }
+    .chat-header { padding: 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; }
 
     .active-chat-content { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
 
     .msg { max-width: 60%; padding: 0.75rem 1rem; border-radius: 12px; position: relative; }
-    .msg.received { background: white; border: 1px solid var(--color-gray-200); align-self: flex-start; border-bottom-left-radius: 2px; }
+    .msg.received { background: var(--color-surface); border: 1px solid var(--color-gray-200); align-self: flex-start; border-bottom-left-radius: 2px; }
     .msg.sent { background: var(--color-primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
 
     .msg-time { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
 
-    .chat-input-area { padding: 1rem; background: white; border-top: 1px solid var(--color-gray-200); display: flex; gap: 1rem; }
+    .chat-input-area { padding: 1rem; background: var(--color-surface); border-top: 1px solid var(--color-gray-200); display: flex; gap: 1rem; }
     .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; }
     .chat-input-area input:disabled { opacity: 0.5; }
     .send-btn { border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; padding: 0; }

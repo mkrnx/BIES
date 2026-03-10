@@ -165,7 +165,8 @@ const Investors = () => {
 
                 .icon-wrapper {
                     padding: 1.5rem;
-                    background: rgba(255, 91, 0, 0.1);
+                    background: var(--color-gray-100);
+                    color: var(--color-secondary);
                     border-radius: 50%;
                     width: fit-content;
                 }
@@ -175,7 +176,7 @@ const Investors = () => {
                     align-items: center;
                     gap: 0.5rem;
                     padding: 0.75rem 1rem;
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-full);
                     width: 100%;
@@ -190,7 +191,7 @@ const Investors = () => {
                 }
 
                 .card {
-                    background: white;
+                    background: var(--color-gray-100);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-lg);
                     overflow: hidden;

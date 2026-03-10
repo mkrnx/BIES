@@ -231,7 +231,7 @@ const MyProjects = () => {
                                         return (
                                             <tr key={project.id}>
                                                 <td>
-                                                    <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                                    <Link to={`/project/${project.id}`} className="project-name-link">
                                                         {project.title || project.name}
                                                     </Link>
                                                 </td>
@@ -317,14 +317,14 @@ const MyProjects = () => {
                                                         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
                                                             <button
                                                                 className="btn"
-                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#DCFCE7', color: '#166534', border: '1px solid #bbf7d0' }}
+                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'var(--badge-success-bg)', color: 'var(--badge-success-text)', border: '1px solid var(--badge-success-bg)' }}
                                                                 onClick={() => handleReviewRequest(req.projectId, req.id, 'APPROVED')}
                                                             >
                                                                 Approve
                                                             </button>
                                                             <button
                                                                 className="btn"
-                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: '#FEE2E2', color: '#991B1B', border: '1px solid #fecaca' }}
+                                                                style={{ padding: '4px 12px', fontSize: '0.8rem', background: 'var(--badge-error-bg)', color: 'var(--badge-error-text)', border: '1px solid var(--badge-error-bg)' }}
                                                                 onClick={() => handleReviewRequest(req.projectId, req.id, 'DENIED')}
                                                             >
                                                                 Deny
@@ -345,11 +345,19 @@ const MyProjects = () => {
             </div>
 
             <style jsx>{`
+                .project-name-link {
+                    font-weight: 600;
+                    color: var(--color-primary);
+                    text-decoration: none;
+                }
+                :global([data-theme="dark"]) .project-name-link {
+                    color: #0047AB !important;
+                }
                 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
                 .subtitle { color: var(--color-gray-500); }
 
                 .card-container {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
@@ -384,7 +392,7 @@ const MyProjects = () => {
                     border: none;
                     background: none;
                 }
-                .tab.active { background: var(--color-gray-100); color: var(--color-primary); }
+                .tab.active { background: var(--color-gray-100); color: #F97316; font-weight: 600; }
 
                 .search-input {
                     padding: 0.5rem 1rem;
@@ -411,14 +419,14 @@ const MyProjects = () => {
                 .projects-table tr:last-child td { border-bottom: none; }
 
                 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
-                .status-badge.active { background: #DCFCE7; color: #166534; }
-                .status-badge.draft { background: #F3F4F6; color: #4B5563; }
-                .status-badge.pending-review { background: #FEF9C3; color: #854D0E; }
-                .status-badge.pending { background: #FEF9C3; color: #854D0E; }
-                .status-badge.approved { background: #DCFCE7; color: #166534; }
-                .status-badge.denied { background: #FEE2E2; color: #991B1B; }
+                .status-badge.active { background: var(--badge-success-bg); color: var(--badge-success-text); }
+                .status-badge.draft { background: var(--badge-draft-bg); color: var(--badge-draft-text); }
+                .status-badge.pending-review { background: var(--badge-warning-bg); color: var(--badge-warning-text); }
+                .status-badge.pending { background: var(--badge-warning-bg); color: var(--badge-warning-text); }
+                .status-badge.approved { background: var(--badge-success-bg); color: var(--badge-success-text); }
+                .status-badge.denied { background: var(--badge-error-bg); color: var(--badge-error-text); }
 
-                .progress-bar-sm { width: 100px; height: 4px; background: #E5E7EB; border-radius: 99px; margin-top: 4px; overflow: hidden; }
+                .progress-bar-sm { width: 100px; height: 4px; background: var(--color-gray-200); border-radius: 99px; margin-top: 4px; overflow: hidden; }
                 .progress-bar-sm .fill { height: 100%; background: var(--color-success); border-radius: 99px; }
             `}</style>
 
@@ -433,21 +441,21 @@ const MyProjects = () => {
                     border-radius: 6px;
                     border: 1px solid transparent;
                     background: none;
-                    color: #6b7280;
+                    color: var(--color-gray-500);
                     cursor: pointer;
                     transition: all 0.15s;
                 }
                 .action-menu-trigger:hover {
-                    background: #f3f4f6;
-                    border-color: #e5e7eb;
-                    color: #374151;
+                    background: var(--color-gray-100);
+                    border-color: var(--color-gray-200);
+                    color: var(--color-gray-600);
                 }
 
                 .ctx-menu {
                     min-width: 190px;
-                    background: rgba(255,255,255,0.98);
+                    background: var(--color-surface);
                     backdrop-filter: blur(12px);
-                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 10px;
                     box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
                     z-index: 9999;
@@ -468,7 +476,7 @@ const MyProjects = () => {
                     padding: 0.5rem 0.85rem;
                     font-size: 0.84rem;
                     font-weight: 500;
-                    color: #374151;
+                    color: var(--color-gray-600);
                     background: none;
                     border: none;
                     cursor: pointer;
@@ -476,17 +484,17 @@ const MyProjects = () => {
                     transition: background 0.08s;
                     white-space: nowrap;
                 }
-                .ctx-item:hover { background: #f3f4f6; }
+                .ctx-item:hover { background: var(--color-gray-100); }
                 .ctx-item:first-child { border-radius: 8px 8px 0 0; }
                 .ctx-item:last-child { border-radius: 0 0 8px 8px; }
                 .ctx-submit { color: var(--color-primary, #0052cc); }
-                .ctx-submit:hover { background: #eff6ff; }
+                .ctx-submit:hover { background: var(--color-blue-tint); }
                 .ctx-delete { color: #ef4444; }
-                .ctx-delete:hover { background: #fef2f2; }
+                .ctx-delete:hover { background: var(--color-red-tint); }
 
                 .ctx-divider {
                     height: 1px;
-                    background: #e5e7eb;
+                    background: var(--color-gray-200);
                     margin: 3px 0;
                 }
             `}</style>

@@ -150,10 +150,10 @@ const DeckRequestButton = ({ projectId, className = '' }) => {
                                     <h2 className="modal-title">Request Pitch Deck</h2>
                                 </div>
                                 <div className="modal-body">
-                                    <p style={{ margin: 0, color: '#4b5563', lineHeight: '1.5', marginBottom: '1rem' }}>
+                                    <p style={{ margin: 0, color: 'var(--color-gray-600)', lineHeight: '1.5', marginBottom: '1rem' }}>
                                         Would you like to request access to the pitch deck? The Builder will be notified immediately.
                                     </p>
-                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: '#374151', marginBottom: '0.4rem' }}>
+                                    <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-gray-600)', marginBottom: '0.4rem' }}>
                                         Add a message (optional)
                                     </label>
                                     <textarea
@@ -226,7 +226,7 @@ const DeckRequestButton = ({ projectId, className = '' }) => {
                 }
                 .deck-request-btn.btn-secondary:hover:not(:disabled) { filter: brightness(1.1); }
                 .deck-request-btn.btn-outline {
-                    background: white;
+                    background: var(--color-surface);
                     color: var(--color-gray-500);
                     border: 1px solid var(--color-gray-300);
                 }
@@ -239,19 +239,19 @@ const DeckRequestButton = ({ projectId, className = '' }) => {
                     animation: fadeIn 0.2s ease-out;
                 }
                 .modal-content {
-                    background: white; border-radius: 16px; padding: 2rem;
+                    background: var(--color-surface); border-radius: 16px; padding: 2rem;
                     width: 90%; max-width: 440px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04);
                     animation: scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                     text-align: left;
                 }
                 .modal-header { margin-bottom: 1rem; }
-                .modal-title { font-size: 1.25rem; font-weight: 700; color: #111827; margin: 0; }
+                .modal-title { font-size: 1.25rem; font-weight: 700; color: var(--color-gray-900); margin: 0; }
                 .success-animation-container {
                     display: flex; flex-direction: column; align-items: center; justify-content: center;
                     text-align: center; padding: 1rem 0;
                 }
-                .success-animation-container h3 { margin: 1rem 0 0.5rem; font-size: 1.25rem; color: #111827; }
-                .success-animation-container p { margin: 0; color: #6b7280; font-size: 0.95rem; }
+                .success-animation-container h3 { margin: 1rem 0 0.5rem; font-size: 1.25rem; color: var(--color-gray-900); }
+                .success-animation-container p { margin: 0; color: var(--color-gray-500); font-size: 0.95rem; }
 
                 /* Checkmark SVG Animation */
                 .checkmark { width: 56px; height: 56px; border-radius: 50%; display: block; stroke-width: 2; stroke: #fff; stroke-miterlimit: 10; margin: 0 auto; box-shadow: inset 0px 0px 0px var(--color-success, #22c55e); animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both; }

@@ -189,11 +189,11 @@ const Following = () => {
             <style>{`
                 .flw-header { margin-bottom: 1.5rem; }
                 .flw-header h1 { margin: 0 0 0.25rem; font-size: 1.75rem; }
-                .flw-subtitle { color: #6b7280; margin: 0; }
+                .flw-subtitle { color: var(--color-gray-500); margin: 0; }
 
                 .flw-tabs {
                     display: flex; gap: 0;
-                    border-bottom: 2px solid #e5e7eb;
+                    border-bottom: 2px solid var(--color-gray-200);
                     margin-bottom: 1.5rem;
                     overflow-x: auto;
                 }
@@ -202,19 +202,19 @@ const Following = () => {
                     padding: 0.65rem 0.75rem;
                     background: none; border: none; border-bottom: 2px solid transparent;
                     margin-bottom: -2px;
-                    font-size: 0.85rem; font-weight: 500; color: #6b7280;
+                    font-size: 0.85rem; font-weight: 500; color: var(--color-gray-500);
                     cursor: pointer; transition: all 0.15s;
                     white-space: nowrap;
                 }
-                .flw-tab:hover { color: #374151; }
-                .flw-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
+                .flw-tab:hover { color: var(--color-gray-600); }
+                .flw-tab.active { color: #F97316; border-bottom-color: #F97316; font-weight: 600; }
                 .flw-tab-count {
-                    background: #f3f4f6; color: #6b7280;
+                    background: var(--color-gray-100); color: var(--color-gray-500);
                     font-size: 0.72rem; font-weight: 600;
                     padding: 1px 6px; border-radius: 99px;
                     min-width: 20px; text-align: center;
                 }
-                .flw-tab.active .flw-tab-count { background: #dbeafe; color: var(--color-primary); }
+                .flw-tab.active .flw-tab-count { background: #FFF7ED; color: #F97316; }
 
                 .flw-loading { display: flex; justify-content: center; padding: 4rem; }
                 .flw-spin { animation: spin 1s linear infinite; }
@@ -226,15 +226,15 @@ const Following = () => {
                     gap: 0.75rem;
                 }
                 .flw-card {
-                    background: white;
-                    border: 1px solid #e5e7eb;
+                    background: var(--color-surface);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 12px;
                     padding: 1rem;
                     display: flex; flex-direction: column; gap: 0.75rem;
                     transition: border-color 0.15s, box-shadow 0.15s;
                     overflow: hidden;
                 }
-                .flw-card:hover { border-color: #c7d2fe; box-shadow: 0 2px 12px rgba(99,102,241,0.06); }
+                .flw-card:hover { border-color: var(--color-primary); box-shadow: 0 2px 12px rgba(99,102,241,0.06); }
                 .flw-card-top { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 
                 .flw-avatar {
@@ -249,27 +249,27 @@ const Following = () => {
 
                 .flw-info { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
                 .flw-name {
-                    font-weight: 600; color: #111827; font-size: 0.95rem;
+                    font-weight: 600; color: var(--color-gray-900); font-size: 0.95rem;
                     text-decoration: none; white-space: nowrap;
                     overflow: hidden; text-overflow: ellipsis;
                 }
                 .flw-name:hover { color: var(--color-primary); }
-                .flw-sub { font-size: 0.8rem; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+                .flw-sub { font-size: 0.8rem; color: var(--color-gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 
                 .flw-unfollow {
                     display: flex; align-items: center; gap: 0.35rem;
                     align-self: flex-start;
                     padding: 0.35rem 0.75rem;
-                    border: 1px solid #e5e7eb; border-radius: 6px;
-                    background: white; color: #6b7280;
+                    border: 1px solid var(--color-gray-200); border-radius: 6px;
+                    background: var(--color-surface); color: var(--color-gray-500);
                     font-size: 0.78rem; font-weight: 500;
                     cursor: pointer; transition: all 0.15s;
                 }
-                .flw-unfollow:hover { border-color: #ef4444; color: #ef4444; background: #fef2f2; }
+                .flw-unfollow:hover { border-color: #ef4444; color: #ef4444; background: var(--color-red-tint); }
 
                 .flw-empty {
                     text-align: center; padding: 4rem 2rem;
-                    color: #9ca3af;
+                    color: var(--color-gray-400);
                 }
                 .flw-empty svg { margin-bottom: 1rem; opacity: 0.4; }
                 .flw-empty p { margin: 0 0 1rem; }

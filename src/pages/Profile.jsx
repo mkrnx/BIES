@@ -129,9 +129,9 @@ const Profile = () => {
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5 }}>
                             {(profile.avatar || nostrProfile?.picture) ? (
-                                <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} className="shadow-md bg-white flex-shrink-0" style={{ width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover', border: '5px solid white' }} />
+                                <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} className="shadow-md flex-shrink-0" style={{ width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover', border: '5px solid var(--color-surface)', background: 'var(--color-surface-raised)' }} />
                             ) : (
-                                <div className="shadow-md bg-white flex-shrink-0 flex items-center justify-center" style={{ width: '168px', height: '168px', borderRadius: '50%', border: '5px solid white', background: 'var(--color-gray-100)', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
+                                <div className="shadow-md flex-shrink-0 flex items-center justify-center" style={{ width: '168px', height: '168px', borderRadius: '50%', border: '5px solid var(--color-surface)', background: 'var(--color-surface-raised)', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
                                     {(profile.name || user?.email || '?').charAt(0).toUpperCase()}
                                 </div>
                             )}
@@ -177,7 +177,7 @@ const Profile = () => {
                                 {profile.tags && profile.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {profile.tags.map((tag, index) => (
-                                            <span key={index} style={{ padding: '2px 12px', backgroundColor: 'var(--color-gray-100)', color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500 }}>
+                                            <span key={index} style={{ padding: '2px 12px', backgroundColor: 'var(--color-surface-raised)', color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500 }}>
                                                 {tag}
                                             </span>
                                         ))}
@@ -271,10 +271,14 @@ const Profile = () => {
                                 <div>
                                     {profile.biesProjects.map((proj, idx) => (
                                         <Link
-                                            to={`/ project / ${proj.id} `}
+                                            to={`/project/${proj.id}`}
                                             key={idx}
-                                            className="project-link flex items-stretch justify-between gap-4 p-4 bg-white border border-gray-200 rounded-xl transition-all hover:border-primary"
-                                            style={{ marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0' }}
+                                            className="project-link flex items-stretch justify-between gap-4 p-4 border rounded-xl transition-all hover:border-primary"
+                                            style={{
+                                                background: 'var(--color-surface)',
+                                                borderColor: 'var(--color-gray-200)',
+                                                marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0'
+                                            }}
                                         >
                                             <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
                                                 <div className="flex items-center gap-2">
@@ -286,7 +290,7 @@ const Profile = () => {
                                                     <span className="status-badge flex-shrink-0">{proj.status}</span>
                                                 </div>
                                             </div>
-                                            <div className="bg-gray-100 rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-200" style={{ width: '120px', height: '68px', minWidth: '120px', minHeight: '68px' }}>
+                                            <div className="rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-200" style={{ width: '120px', height: '68px', minWidth: '120px', minHeight: '68px', background: 'var(--color-surface-raised)' }}>
                                                 {proj.image ? (
                                                     <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 ) : (
@@ -335,7 +339,7 @@ const Profile = () => {
                                                 <div style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '0.95rem', fontFamily: 'var(--font-display)' }}>{rsvp.event.title}</div>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.8rem', marginTop: '0.2rem' }}>
                                                     <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{new Date(rsvp.event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                                                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, background: rsvp.status === 'GOING' ? '#dcfce7' : '#fef9c3', color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e' }}>
+                                                    <span style={{ padding: '0.15rem 0.5rem', borderRadius: '999px', fontSize: '0.75rem', fontWeight: 600, background: rsvp.status === 'GOING' ? 'var(--color-green-tint)' : 'var(--color-amber-tint)', color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e' }}>
                                                         {rsvp.status === 'GOING' ? 'Attending' : 'Interested'}
                                                     </span>
                                                 </div>
@@ -443,14 +447,14 @@ const Profile = () => {
                 }
 
                 .profile-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 2rem;
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
                 }
 
-                .bg-gray-50 { background-color: var(--color-gray-50); }
+                .bg-gray-50 { background-color: var(--color-surface-overlay); }
 
                 .h1-title { font-size: 1.875rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
                 .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
@@ -491,7 +495,7 @@ const Profile = () => {
                 .project-link:hover { border-color: var(--color-primary); box-shadow: var(--shadow-sm); }
 
                 .status-badge {
-                    background: #dcfce7;
+                    background: var(--color-green-tint);
                     color: #15803d;
                     padding: 0.25rem 0.5rem;
                     border-radius: 9999px;

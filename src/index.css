@@ -67,6 +67,30 @@
   --color-error: #EF4444;
   --color-warning: #F59E0B;
 
+  /* Surface colors */
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #FFFFFF;
+  --color-surface-overlay: #FFFFFF;
+
+  /* Tinted backgrounds */
+  --color-blue-tint: #EDF5FF;
+  --color-red-tint: #FEF2F2;
+  --color-green-tint: #F0FDF4;
+  --color-amber-tint: #FEF9C3;
+  --color-orange-tint: #FFF7ED;
+
+  /* Badge colors */
+  --badge-draft-bg: #F3F4F6;
+  --badge-draft-text: #4B5563;
+  --badge-success-bg: #D1FAE5;
+  --badge-success-text: #065F46;
+  --badge-error-bg: #FEE2E2;
+  --badge-error-text: #991B1B;
+  --badge-warning-bg: #FEF3C7;
+  --badge-warning-text: #854D0E;
+  --badge-info-bg: #DBEAFE;
+  --badge-info-text: #1E40AF;
+
   /* Typography */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-display: 'PP Formula Narrow', system-ui, -apple-system, sans-serif;
@@ -92,6 +116,61 @@
   --radius-full: 9999px;
 }
 
+/* Dark Mode Overrides */
+[data-theme="dark"] {
+  --color-primary: #00004E;
+  --color-primary-dark: #000038;
+
+  --color-gray-50: #0F172A;
+  /* Pure dark background */
+  --color-gray-100: #1E293B;
+  /* Card backgrounds */
+  --color-gray-200: #334155;
+  /* Borders and dividers */
+  --color-gray-300: #475569;
+  /* Stronger borders/buttons */
+  --color-gray-400: #64748B;
+  /* Muted text/icons */
+  --color-gray-500: #94A3B8;
+  /* Readable secondary text */
+  --color-gray-600: #CBD5E1;
+  /* Emphasized secondary text */
+  --color-gray-700: #E2E8F0;
+  /* Strong text/icons */
+  --color-gray-800: #F1F5F9;
+  /* Headings/Primary text */
+  --color-gray-900: #F8FAFC;
+  /* Brightest white equivalent */
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+
+  /* Surface colors */
+  --color-surface: #1E293B;
+  --color-surface-raised: #253349;
+  --color-surface-overlay: #2D3B50;
+
+  /* Tinted backgrounds */
+  --color-blue-tint: #172554;
+  --color-red-tint: #450A0A;
+  --color-green-tint: #052E16;
+  --color-amber-tint: #422006;
+  --color-orange-tint: #431407;
+
+  /* Badge colors */
+  --badge-draft-bg: #334155;
+  --badge-draft-text: #CBD5E1;
+  --badge-success-bg: #064E3B;
+  --badge-success-text: #6EE7B7;
+  --badge-error-bg: #7F1D1D;
+  --badge-error-text: #FECACA;
+  --badge-warning-bg: #78350F;
+  --badge-warning-text: #FDE68A;
+  --badge-info-bg: #1E3A5F;
+  --badge-info-text: #93C5FD;
+}
+
 *,
 *::before,
 *::after {
@@ -106,6 +185,18 @@ body {
   background-color: var(--color-gray-50);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+}
+
+input,
+textarea,
+select {
+  color: var(--color-gray-900);
+  background: var(--color-surface);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-gray-400);
 }
 
 h1,
@@ -358,7 +449,7 @@ textarea {
 
 /* Background & Border Utilities */
 .bg-white {
-  background: white;
+  background: var(--color-gray-100);
 }
 
 .border-y {
@@ -394,7 +485,7 @@ textarea {
 }
 
 .input-field:focus {
-  background-color: white;
+  background-color: var(--color-gray-100);
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.1);
 }

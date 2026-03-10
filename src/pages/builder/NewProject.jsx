@@ -355,16 +355,16 @@ const NewProject = () => {
     const renderSection = (section, idx) => {
         const stype = section.type || 'TEXT';
         const typeConfig = {
-            TEXT: { icon: <AlignLeftIcon size={12} />, label: 'Text', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-            PHOTO: { icon: <ImageIcon size={12} />, label: 'Photo', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            TEXT: { icon: <AlignLeftIcon size={12} />, label: 'Text', color: '#2563eb', bg: 'var(--color-blue-tint)', border: '#bfdbfe' },
+            PHOTO: { icon: <ImageIcon size={12} />, label: 'Photo', color: '#16a34a', bg: 'var(--color-green-tint)', border: '#bbf7d0' },
             CAROUSEL: { icon: <LayoutIcon size={12} />, label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-            GRAPH: { icon: <LineChartIcon size={12} />, label: 'Graph', color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
-        }[stype] || { icon: null, label: stype, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+            GRAPH: { icon: <LineChartIcon size={12} />, label: 'Graph', color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
+        }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
 
         const isBeingDragged = draggingIdx === idx;
         return (
             <div key={idx} {...getSectionDragProps(idx)} style={{
-                marginBottom: '1rem', background: 'white',
+                marginBottom: '1rem', background: 'var(--color-surface)',
                 border: `1px solid ${typeConfig.border}`,
                 borderRadius: '12px', overflow: 'hidden',
                 boxShadow: isBeingDragged ? '0 4px 16px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.06)',
@@ -389,7 +389,7 @@ const NewProject = () => {
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <div style={{
-                            display: 'flex', background: '#fff', padding: '2px',
+                            display: 'flex', background: 'var(--color-surface)', padding: '2px',
                             borderRadius: '6px', border: `1px solid ${typeConfig.border}`,
                             boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.05)'
                         }}>
@@ -399,7 +399,7 @@ const NewProject = () => {
                                     padding: '2px 8px', fontSize: '0.65rem', fontWeight: 700,
                                     borderRadius: '4px', border: 'none', cursor: 'pointer',
                                     background: (section.placement === 'LEFT' || !section.placement) ? typeConfig.color : 'transparent',
-                                    color: (section.placement === 'LEFT' || !section.placement) ? '#fff' : '#6b7280',
+                                    color: (section.placement === 'LEFT' || !section.placement) ? '#fff' : 'var(--color-gray-500)',
                                     transition: 'all 0.2s'
                                 }}
                                 onClick={() => updateSection(idx, 'placement', 'LEFT')}
@@ -412,7 +412,7 @@ const NewProject = () => {
                                     padding: '2px 8px', fontSize: '0.65rem', fontWeight: 700,
                                     borderRadius: '4px', border: 'none', cursor: 'pointer',
                                     background: section.placement === 'RIGHT' ? typeConfig.color : 'transparent',
-                                    color: section.placement === 'RIGHT' ? '#fff' : '#6b7280',
+                                    color: section.placement === 'RIGHT' ? '#fff' : 'var(--color-gray-500)',
                                     transition: 'all 0.2s'
                                 }}
                                 onClick={() => updateSection(idx, 'placement', 'RIGHT')}
@@ -435,7 +435,7 @@ const NewProject = () => {
                             width: '100%', padding: '0.4rem 0',
                             border: 'none', borderBottom: `2px solid ${typeConfig.border}`,
                             background: 'transparent', outline: 'none',
-                            fontSize: '0.95rem', fontWeight: 700, color: '#111827',
+                            fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gray-900)',
                             fontFamily: 'var(--font-display)', marginBottom: '0.875rem',
                             transition: 'border-color 0.2s',
                         }}
@@ -784,7 +784,7 @@ const NewProject = () => {
                             <div className="section-inner" style={{ padding: '1.5rem' }}>
                                 <h3 className="h3-title section-heading" style={{ fontSize: '1.1rem', marginBottom: '1.25rem' }}>Core Team</h3>
 
-                                <div className="team-entry sm" style={{ background: '#f0f7ff', borderColor: '#bfdbfe', padding: '0.75rem' }}>
+                                <div className="team-entry sm" style={{ background: 'var(--color-blue-tint)', borderColor: '#bfdbfe', padding: '0.75rem' }}>
                                     <div className="team-fields">
                                         <span style={{ fontWeight: 600, fontSize: '0.85rem' }}>Main Builder (You)</span>
                                         <input
@@ -928,7 +928,7 @@ const NewProject = () => {
 
             <style jsx>{`
                 .project-edit-page {
-                    background-color: #f8fafc;
+                    background-color: var(--color-gray-100);
                     min-height: 100vh;
                     padding-bottom: 4rem;
                 }
@@ -948,13 +948,13 @@ const NewProject = () => {
                 .text-gray-500 { color: var(--color-gray-500); margin: 0; }
 
                 .error-banner {
-                    background: #FEF2F2; color: #EF4444;
+                    background: var(--color-red-tint); color: #EF4444;
                     padding: 0.75rem 1rem; border-radius: 8px;
                     margin-bottom: 1rem; font-size: 0.875rem;
                 }
 
                 .profile-card {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-xl, 16px);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
@@ -989,7 +989,7 @@ const NewProject = () => {
 
                 .banner-btn {
                     display: flex; align-items: center; gap: 0.4rem;
-                    background: white; color: #1f2937;
+                    background: var(--color-surface); color: var(--color-gray-900);
                     border-radius: var(--radius-md, 8px); height: 38px; padding: 0 16px;
                     font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap;
@@ -1020,7 +1020,7 @@ const NewProject = () => {
 
                 .input-field {
                     width: 100%; padding: 0.75rem 1rem;
-                    border: 1px solid var(--color-gray-300); background: white;
+                    border: 1px solid var(--color-gray-300); background: var(--color-surface);
                     border-radius: var(--radius-md, 8px); outline: none;
                     font-size: 0.95rem; transition: all 0.2s;
                 }
@@ -1061,11 +1061,11 @@ const NewProject = () => {
                     background: none; border: none; cursor: pointer; padding: 0.35rem;
                     color: var(--color-gray-400); border-radius: 6px; transition: all 0.15s;
                 }
-                .team-remove:hover { color: #ef4444; background: #fef2f2; }
+                .team-remove:hover { color: #ef4444; background: var(--color-red-tint); }
 
                 .member-dropdown {
                     position: absolute; z-index: 30; top: 100%; left: 0; right: 0;
-                    margin-top: 4px; background: white; border: 1px solid var(--color-gray-200);
+                    margin-top: 4px; background: var(--color-surface); border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md, 8px); box-shadow: 0 10px 25px rgba(0,0,0,0.1);
                     max-height: 200px; overflow-y: auto;
                 }
@@ -1085,7 +1085,7 @@ const NewProject = () => {
                 /* Custom Sections */
                 .custom-section-entry {
                     margin-bottom: 1rem;
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: 12px;
                     overflow: hidden;
@@ -1101,7 +1101,7 @@ const NewProject = () => {
                     display: inline-flex; align-items: center; gap: 0.35rem;
                     font-size: 0.72rem; font-weight: 700; text-transform: uppercase;
                     letter-spacing: 0.06em; color: var(--color-primary);
-                    background: #e8f0fe; padding: 0.25rem 0.6rem;
+                    background: var(--color-blue-tint); padding: 0.25rem 0.6rem;
                     border-radius: 99px;
                 }
                 .custom-section-body {
@@ -1111,7 +1111,7 @@ const NewProject = () => {
                     width: 100%; padding: 0.5rem 0;
                     border: none; border-bottom: 2px solid var(--color-gray-200);
                     background: transparent; outline: none;
-                    font-size: 1rem; font-weight: 700; color: #111827;
+                    font-size: 1rem; font-weight: 700; color: var(--color-gray-900);
                     font-family: var(--font-display);
                     margin-bottom: 1rem;
                     transition: border-color 0.2s;
@@ -1127,7 +1127,7 @@ const NewProject = () => {
                     color: var(--color-primary); font-weight: 600; font-size: 0.88rem;
                     cursor: pointer; transition: all 0.15s;
                 }
-                .add-btn:hover { border-color: var(--color-primary); background: #f0f7ff; }
+                .add-btn:hover { border-color: var(--color-primary); background: var(--color-blue-tint); }
 
                 /* Deck */
                 .deck-upload-area {
@@ -1137,7 +1137,7 @@ const NewProject = () => {
                     background: var(--color-gray-50, #f9fafb);
                     display: flex; flex-direction: column; align-items: center; justify-content: center;
                 }
-                .deck-upload-area:hover { border-color: var(--color-primary); background: #FFFBF5; }
+                .deck-upload-area:hover { border-color: var(--color-primary); background: var(--color-orange-tint); }
 
                 .deck-file-display {
                     display: flex; align-items: center; gap: 0.75rem;
@@ -1154,7 +1154,7 @@ const NewProject = () => {
                 .deck-replace-btn {
                     padding: 4px 12px; border-radius: var(--radius-md, 8px);
                     font-size: 0.8rem; font-weight: 600; color: var(--color-primary);
-                    background: white; border: 1px solid var(--color-gray-200); cursor: pointer;
+                    background: var(--color-surface); border: 1px solid var(--color-gray-200); cursor: pointer;
                 }
                 .deck-replace-btn:hover { background: var(--color-gray-50, #f9fafb); }
 
@@ -1173,7 +1173,7 @@ const NewProject = () => {
                 .deck-file-display.sm { padding: 0.5rem 0.75rem; }
                 .deck-name.sm { font-size: 0.8rem; }
                 .deck-upload-area.sm { padding: 1rem; border-radius: 8px; }
-                .add-section-buttons-container { padding: 1.5rem; background: #f8fafc; border: 1px dashed var(--color-gray-300); border-radius: 12px; }
+                .add-section-buttons-container { padding: 1.5rem; background: var(--color-gray-100); border: 1px dashed var(--color-gray-300); border-radius: 12px; }
                 .section-label-hint { font-size: 0.75rem; font-weight: 600; color: var(--color-gray-500); margin-bottom: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
                 .add-section-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
                 
@@ -1208,7 +1208,7 @@ const NewProject = () => {
                     transition: all 0.1s;
                 }
                 .placement-toggle button.active {
-                    background: white;
+                    background: var(--color-surface);
                     color: var(--color-primary);
                     box-shadow: 0 1px 2px rgba(0,0,0,0.05);
                 }
