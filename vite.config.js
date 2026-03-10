@@ -27,6 +27,11 @@ export default defineConfig({
                 ws: true,
                 rewrite: (path) => path.replace(/^\/biestest/, ''),
             },
+            '/biestest/relay': {
+                target: 'ws://localhost:7777',
+                ws: true,
+                rewrite: () => '/',
+            },
             '/uploads': {
                 target: 'http://localhost:3001',
                 changeOrigin: true,
