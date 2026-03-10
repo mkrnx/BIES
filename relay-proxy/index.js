@@ -59,6 +59,7 @@ wss.on('connection', (clientWs) => {
     let authenticated = false;
     let upstream = null;
     let authTimer = null;
+    const pendingMessages = []; // Buffer messages received before auth completes
 
     // Generate random challenge
     const challenge = crypto.randomBytes(32).toString('hex');
@@ -101,6 +102,16 @@ wss.on('connection', (clientWs) => {
         }
     }, AUTH_TIMEOUT);
 
+    // Flush buffered messages to upstream after successful auth
+    function flushPending() {
+        while (pendingMessages.length > 0) {
+            const buffered = pendingMessages.shift();
+            if (upstream && upstream.readyState === WebSocket.OPEN) {
+                upstream.send(buffered);
+            }
+        }
+    }
+
     clientWs.on('message', (data) => {
         let msg;
         try {
@@ -133,15 +144,15 @@ wss.on('connection', (clientWs) => {
             clearTimeout(authTimer);
             console.log(`[Proxy] Authenticated: ${event.pubkey.substring(0, 8)}...`);
             clientWs.send(JSON.stringify(['OK', event.id, true, '']));
+
+            // Forward any messages that arrived during the auth handshake
+            flushPending();
             return;
         }
 
-        // Before auth, reject all other messages
+        // Before auth, buffer messages instead of dropping them
         if (!authenticated) {
-            clientWs.send(JSON.stringify([
-                'NOTICE',
-                'auth-required: please authenticate first',
-            ]));
+            pendingMessages.push(data);
             return;
         }
 
