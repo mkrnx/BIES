@@ -399,7 +399,7 @@ const Discover = () => {
       {/* Header & Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', position: 'relative' }}>
         <h1 style={{ textAlign: 'center', flex: 1 }}>Discover Projects</h1>
-        {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN') && (
+        {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
           <Link to="/dashboard/builder/new-project" title="Create Project" style={{
             display: 'inline-flex',
             alignItems: 'center',

@@ -27,9 +27,10 @@ const Feed = () => {
         fetchedProfiles.current.clear();
 
         const relays = feedMode === 'private' ? [BIES_RELAY] : PUBLIC_RELAYS;
+        const since = Math.floor(Date.now() / 1000) - 86400; // last 24h
         const filter = feedMode === 'private'
             ? { kinds: [1], limit: 50 }
-            : { kinds: [1], '#t': ['bies'], limit: 50 };
+            : { kinds: [1], limit: 50, since };
 
         const timeout = setTimeout(() => setLoading(false), 15000);
 
@@ -213,7 +214,7 @@ const Feed = () => {
                         <p>
                             {feedMode === 'private'
                                 ? 'Be the first to post on the BIES private relay!'
-                                : 'No #bies tagged posts found on public relays yet.'}
+                                : 'No posts found on public relays. Try again in a moment.'}
                         </p>
                         {feedMode === 'private' && (
                             <button className="try-public-btn" onClick={() => setFeedMode('public')}>

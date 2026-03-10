@@ -123,7 +123,7 @@ test.describe('Feed Page - Authenticated', () => {
         await expect(postBtn).toBeEnabled();
     });
 
-    test('Private tab shows loading then empty state (no local relay)', async ({ page }) => {
+    test('Private tab loads posts from BIES relay', async ({ page }) => {
         await injectAuth(page, token, user);
         await page.goto(`${BASE}/feed`);
 
@@ -135,11 +135,15 @@ test.describe('Feed Page - Authenticated', () => {
         // Wait for either loading, empty state, or posts to appear
         await expect(loadingEl.or(emptyEl).or(listEl)).toBeVisible({ timeout: 10000 });
 
-        // Eventually should resolve to empty or posts (after timeout)
-        await expect(emptyEl.or(listEl)).toBeVisible({ timeout: 20000 });
+        // Private relay should have events (seeded by test setup) — expect posts
+        await expect(listEl).toBeVisible({ timeout: 20000 });
+
+        const notes = page.locator('[data-testid="feed-note"]');
+        const count = await notes.count();
+        expect(count).toBeGreaterThan(0);
     });
 
-    test('Switching to Public tab subscribes to public relays', async ({ page }) => {
+    test('Switching to Public tab loads real posts from public relays', async ({ page }) => {
         const jsErrors = [];
         page.on('pageerror', err => jsErrors.push(err.message));
 
@@ -168,8 +172,14 @@ test.describe('Feed Page - Authenticated', () => {
         // Wait for loading, empty, or posts
         await expect(loadingText.or(emptyEl).or(listEl)).toBeVisible({ timeout: 10000 });
 
-        // Eventually should resolve
-        await expect(emptyEl.or(listEl)).toBeVisible({ timeout: 20000 });
+        // Public feed should load real posts from public relays (no #bies filter)
+        await expect(listEl).toBeVisible({ timeout: 30000 });
+
+        // Should have actual feed notes
+        const notes = page.locator('[data-testid="feed-note"]');
+        await expect(notes.first()).toBeVisible({ timeout: 10000 });
+        const count = await notes.count();
+        expect(count).toBeGreaterThan(0);
 
         expect(jsErrors, `JS errors on public feed: ${jsErrors.join('; ')}`).toHaveLength(0);
     });

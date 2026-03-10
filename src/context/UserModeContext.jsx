@@ -39,8 +39,8 @@ export const UserModeProvider = ({ children }) => {
 
   const selectMode = async (newMode) => {
     setMode(newMode);
-    // If authenticated and NOT an admin, also update role on backend
-    if (isAuthenticated && updateRole && user?.role !== 'ADMIN') {
+    // If authenticated and NOT an admin/mod, also update role on backend
+    if (isAuthenticated && updateRole && user?.role !== 'ADMIN' && user?.role !== 'MOD') {
       try {
         // Only BUILDER and INVESTOR are valid roles to update to via this endpoint
         if (newMode === 'builder' || newMode === 'investor') {
