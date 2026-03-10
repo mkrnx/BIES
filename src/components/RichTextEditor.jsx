@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
+import DOMPurify from 'dompurify';
 import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 
 const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) => {
@@ -28,7 +29,7 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
 
     useEffect(() => {
         if (editorRef.current && editorRef.current.innerHTML !== value) {
-            editorRef.current.innerHTML = value || '';
+            editorRef.current.innerHTML = DOMPurify.sanitize(value || '', { ADD_ATTR: ['style'] });
         }
     }, [value]);
 
@@ -40,10 +41,15 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
     };
 
     const handlePaste = (e) => {
-        // Optional: you can strip formatting if you want, or just let it pass
-        // e.preventDefault();
-        // const text = e.clipboardData.getData('text/plain');
-        // document.execCommand('insertText', false, text);
+        e.preventDefault();
+        const html = e.clipboardData.getData('text/html');
+        const text = e.clipboardData.getData('text/plain');
+        if (html) {
+            const clean = DOMPurify.sanitize(html, { ADD_ATTR: ['style'] });
+            document.execCommand('insertHTML', false, clean);
+        } else {
+            document.execCommand('insertText', false, text);
+        }
     };
 
     const execCmd = (cmd, arg = null) => {
