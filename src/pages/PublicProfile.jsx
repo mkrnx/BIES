@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
@@ -20,6 +20,10 @@ const PublicProfile = ({ type }) => {
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
     const [nostrProfile, setNostrProfile] = useState(null);
+    const [biesFollowers, setBiesFollowers] = useState(0);
+    const [biesFollowing, setBiesFollowing] = useState(0);
+    const [nostrFollowers, setNostrFollowers] = useState(null);
+    const [nostrFollowing, setNostrFollowing] = useState(null);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -60,12 +64,28 @@ const PublicProfile = ({ type }) => {
                 const decoded = nip19.decode(npub);
                 if (decoded.type === 'npub') {
                     nostrService.getProfile(decoded.data).then(setNostrProfile).catch(() => { });
+                    nostrService.getFollowerCount(decoded.data).then(setNostrFollowers).catch(() => { });
+                    nostrService.getFollowingCount(decoded.data).then(setNostrFollowing).catch(() => { });
                 }
             } catch {
                 // Invalid npub — skip
             }
         }
     }, [profile]);
+
+    // Fetch BIES followers/following counts
+    useEffect(() => {
+        const userId = profile?.user?.id || profile?.userId;
+        if (!userId) return;
+        profilesApi.getFollowers(userId).then(res => {
+            const list = res?.data || res || [];
+            setBiesFollowers(list.length);
+        }).catch(() => { });
+        profilesApi.getFollowing(userId).then(res => {
+            const list = res?.data || res || [];
+            setBiesFollowing(list.length);
+        }).catch(() => { });
+    }, [profile?.user?.id, profile?.userId]);
 
     if (loading) {
         return (
@@ -235,6 +255,38 @@ const PublicProfile = ({ type }) => {
                                                 {tag}
                                             </span>
                                         ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Follower Stats */}
+                            <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+                                {/* BIES stats */}
+                                <div style={{ display: 'flex', gap: '1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <Users size={16} style={{ color: 'var(--color-primary)' }} />
+                                        <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{biesFollowers}</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Followers</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{biesFollowing}</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Following</span>
+                                    </div>
+                                </div>
+                                {/* Nostr stats */}
+                                {nostrFollowers !== null && (
+                                    <div style={{ display: 'flex', gap: '1.5rem', paddingLeft: '1.5rem', borderLeft: '1px solid var(--color-gray-200)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <NostrIcon size={14} className="text-purple-500" />
+                                            <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{nostrFollowers}</span>
+                                            <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Nostr Followers</span>
+                                        </div>
+                                        {nostrFollowing !== null && (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{nostrFollowing}</span>
+                                                <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Following</span>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
                             </div>
