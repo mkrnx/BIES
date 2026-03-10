@@ -42,14 +42,17 @@ export async function publishEvent(
         const { finalizeEvent } = await import('nostr-tools/pure');
         const signedEvent = finalizeEvent(eventTemplate, privateKeyBytes);
 
-        // Publish to relays
+        // Publish to private relay only
         const pool = await getPool();
+        const relays = config.nostrPrivateRelay
+            ? [config.nostrPrivateRelay]
+            : config.nostrRelays;
         const results = await Promise.allSettled(
-            pool.publish(config.nostrRelays, signedEvent)
+            pool.publish(relays, signedEvent)
         );
 
         const published = results.filter((r) => r.status === 'fulfilled').length;
-        console.log(`[Nostr] Published to ${published}/${config.nostrRelays.length} relays`);
+        console.log(`[Nostr] Published to ${published}/${relays.length} relays`);
 
         return published > 0 ? signedEvent.id : null;
     } catch (error) {
@@ -177,19 +180,12 @@ export async function publishProjectListing(
  * Tags BIES relay as write, public relays as read.
  */
 export async function publishRelayList(userId: string): Promise<string | null> {
-    const biesRelay = config.nostrRelays[0] || 'wss://relay.bies.sovit.xyz';
-
     const tags: string[][] = [
-        ['r', biesRelay, 'write'],
+        ['r', config.nostrPublicRelay, 'write'],
     ];
 
     // Add public relays as read
-    const publicRelays = [
-        'wss://relay.damus.io',
-        'wss://relay.primal.net',
-        'wss://nos.lol',
-    ];
-    for (const relay of publicRelays) {
+    for (const relay of config.nostrRelays) {
         tags.push(['r', relay, 'read']);
     }
 

@@ -46,6 +46,8 @@ export const config = {
     adminPubkeys: (process.env.ADMIN_PUBKEYS || '').split(',').filter(Boolean),
 
     // ─── Nostr ───────────────────────────────────────────────────────────────
+    nostrPrivateRelay: process.env.NOSTR_PRIVATE_RELAY || '',
+    nostrPublicRelay: process.env.NOSTR_PUBLIC_RELAY || 'wss://sovit.xyz/biestest/relay',
     nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
 
     // ─── Twitter/X (gallery-dl + browser cookies) ──────────────────────────
