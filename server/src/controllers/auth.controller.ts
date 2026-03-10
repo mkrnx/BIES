@@ -4,7 +4,7 @@ import jwt from 'jsonwebtoken';
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
 // use dynamic import() so the compiled CJS output doesn't call require().
 import prisma from '../lib/prisma';
-import { generateToken, isMasterAdmin } from '../middleware/auth';
+import { generateToken, isAdminPubkey } from '../middleware/auth';
 import { encryptPrivateKey } from '../services/crypto.service';
 import { publishRelayList } from '../services/nostr.service';
 import { cache } from '../services/redis.service';
@@ -332,14 +332,14 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             include: { profile: true },
         });
 
-        const isAdminPubkey = config.adminPubkeys.includes(pubkey);
+        const isEnvAdmin = isAdminPubkey(pubkey);
 
         if (!user) {
             // Auto-create user for Nostr login (no custodial key needed — they manage their own)
             user = await prisma.user.create({
                 data: {
                     nostrPubkey: pubkey,
-                    role: isAdminPubkey ? 'ADMIN' : 'BUILDER',
+                    role: isEnvAdmin ? 'ADMIN' : 'BUILDER',
                     profile: {
                         create: {
                             name: `nostr:${pubkey.substring(0, 8)}`,
@@ -364,7 +364,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 });
             }
 
-        } else if (isAdminPubkey && user.role !== 'ADMIN') {
+        } else if (isEnvAdmin && user.role !== 'ADMIN') {
             // Promote existing user to admin if their pubkey is in the admin list
             user = await prisma.user.update({
                 where: { id: user.id },
@@ -421,7 +421,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             email: user.email,
             nostrPubkey: user.nostrPubkey,
             role: user.role,
-            isMasterAdmin: user.role === 'ADMIN' && isMasterAdmin(user.nostrPubkey),
+            isAdmin: user.role === 'ADMIN',
             profile: user.profile,
         });
     } catch (error) {

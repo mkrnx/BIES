@@ -402,7 +402,7 @@ const Discover = () => {
 
       <div className="search-row">
         <div className="search-left-column">
-          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN') && (
+          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
             <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn">
               <Plus size={18} /> Create Project
             </Link>

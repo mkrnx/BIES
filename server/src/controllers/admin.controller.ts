@@ -1,6 +1,6 @@
 /**
  * Admin controller — platform moderation and management.
- * All routes require role = ADMIN.
+ * All routes require role = ADMIN or MOD.
  */
 
 import { Request, Response } from 'express';
@@ -8,7 +8,7 @@ import prisma from '../lib/prisma';
 import { cache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
-import { isMasterAdmin } from '../middleware/auth';
+import { isAdminPubkey } from '../middleware/auth';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -69,13 +69,13 @@ export async function banUser(req: Request, res: Response): Promise<void> {
             res.status(400).json({ error: '"banned" must be a boolean' }); return;
         }
 
-        // Check if target is an admin — only master admins can ban other admins
+        // Only admins can ban other admins or mods
         const targetUser = await prisma.user.findUnique({
             where: { id: req.params.id },
             select: { role: true },
         });
-        if (targetUser?.role === 'ADMIN' && !isMasterAdmin(req.user!.nostrPubkey)) {
-            res.status(403).json({ error: 'Only master admins can ban other admins' }); return;
+        if ((targetUser?.role === 'ADMIN' || targetUser?.role === 'MOD') && req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can ban other admins or mods' }); return;
         }
 
         const user = await prisma.user.update({
@@ -115,17 +115,18 @@ export async function banUser(req: Request, res: Response): Promise<void> {
 export async function setUserRole(req: Request, res: Response): Promise<void> {
     try {
         const { role } = req.body;
-        if (!['BUILDER', 'INVESTOR', 'ADMIN'].includes(role)) {
+        if (!['BUILDER', 'INVESTOR', 'MOD', 'ADMIN'].includes(role)) {
             res.status(400).json({ error: 'Invalid role' }); return;
         }
 
-        // Only master admins can promote to ADMIN or demote from ADMIN
+        // Only admins can promote/demote to MOD or ADMIN, or demote existing admins/mods
         const targetUser = await prisma.user.findUnique({
             where: { id: req.params.id },
             select: { role: true },
         });
-        if ((role === 'ADMIN' || targetUser?.role === 'ADMIN') && !isMasterAdmin(req.user!.nostrPubkey)) {
-            res.status(403).json({ error: 'Only master admins can promote or demote admins' }); return;
+        const isPrivilegedRole = (r: string) => r === 'ADMIN' || r === 'MOD';
+        if ((isPrivilegedRole(role) || isPrivilegedRole(targetUser?.role || '')) && req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can promote or demote admins and mods' }); return;
         }
 
         const user = await prisma.user.update({

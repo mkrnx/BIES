@@ -504,12 +504,12 @@ const CreateEvent = () => {
                         </div>
 
                         {/* Settings */}
-                        {(user?.role === 'ADMIN' || (!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE')) && (
+                        {(user?.role === 'ADMIN' || user?.role === 'MOD' || (!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE')) && (
                             <div className="profile-card">
                                 <div className="section-inner" style={{ padding: '1.5rem' }}>
                                     <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Settings</h3>
 
-                                    {user?.role === 'ADMIN' && (
+                                    {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
                                         <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
                                             <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--color-secondary)' }} />
                                             <div>

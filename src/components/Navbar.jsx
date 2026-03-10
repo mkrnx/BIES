@@ -174,7 +174,7 @@ const Navbar = () => {
                       <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
                       <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
-                      {user?.role === 'ADMIN' && (
+                      {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Admin Panel</Link>
                       )}
                       <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
@@ -199,7 +199,7 @@ const Navbar = () => {
                       <div className="dot investor"></div>
                       Investor View
                     </button>
-                    {user?.role === 'ADMIN' && (
+                    {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
                       <button
                         className={`dropdown-item ${mode === 'admin' ? 'active' : ''}`}
                         onClick={() => { selectMode('admin'); setIsUserMenuOpen(false); navigate('/admin'); }}

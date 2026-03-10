@@ -71,14 +71,14 @@ const PublicRoute = ({ children }) => {
     return children;
 };
 
-// Admin Route Guard
+// Admin/Mod Route Guard
 const AdminRoute = ({ children }) => {
-    const { user, loading, isAdmin } = useAuth();
+    const { user, loading, isStaff } = useAuth();
     const location = useLocation();
 
     if (loading) return <div className="p-10 text-center">Loading...</div>;
     if (!user) return <Navigate to="/login" state={{ from: location }} replace />;
-    if (!isAdmin) return <Navigate to="/dashboard" replace />;
+    if (!isStaff) return <Navigate to="/dashboard" replace />;
 
     return children;
 };

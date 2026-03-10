@@ -422,7 +422,7 @@ const Events = () => {
 
             <div className="search-row">
                 <div className="search-left-column">
-                    {(user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'INVESTOR') && (
+                    {(user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
                         <Link to="/events/create" className="btn btn-primary create-project-btn">
                             <Plus size={18} /> Create Event
                         </Link>
