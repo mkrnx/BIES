@@ -199,7 +199,7 @@ export const AuthProvider = ({ children }) => {
             const list = result?.data || result || [];
             if (Array.isArray(list)) {
                 setNotifications(list);
-                setUnreadCount(list.filter(n => !n.read).length);
+                setUnreadCount(list.filter(n => !n.isRead).length);
             }
         } catch { /* ignore on failure */ }
     };

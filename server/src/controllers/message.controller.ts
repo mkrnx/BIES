@@ -198,20 +198,18 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
         });
 
         // Push message in real-time to recipient
-        const delivered = sendToUser(recipientId, {
+        sendToUser(recipientId, {
             type: 'new_message',
             message,
         });
 
-        // Create notification if not delivered via WebSocket (user offline)
-        if (delivered === 0) {
-            await notifyNewMessage({
-                recipientId,
-                senderName: sender?.profile?.name || 'Someone',
-                preview: isEncrypted ? '[Encrypted message]' : content.substring(0, 80),
-                senderId,
-            });
-        }
+        // Always create a notification so it appears in the notification center
+        await notifyNewMessage({
+            recipientId,
+            senderName: sender?.profile?.name || 'Someone',
+            preview: isEncrypted ? '[Encrypted message]' : content.substring(0, 80),
+            senderId,
+        });
 
         res.status(201).json(message);
     } catch (error) {

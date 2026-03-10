@@ -11,6 +11,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey, TTL } from '../services/redis.service';
+import { createNotification } from '../services/notification.service';
 
 // ─── Controllers ─────────────────────────────────────────────────────────────
 
@@ -29,6 +30,11 @@ export async function recordProjectView(req: Request, res: Response): Promise<vo
         const alreadyViewed = await cache.get(dedupKey);
 
         if (!alreadyViewed) {
+            const project = await prisma.project.findUnique({
+                where: { id: projectId },
+                select: { ownerId: true, title: true },
+            });
+
             await Promise.all([
                 prisma.projectView.create({
                     data: { projectId, userId, ipAddress },
@@ -39,6 +45,21 @@ export async function recordProjectView(req: Request, res: Response): Promise<vo
                 }),
                 cache.set(dedupKey, '1', 3600), // 1 hour cooldown
             ]);
+
+            // Notify project owner (don't notify yourself)
+            if (project && userId && project.ownerId !== userId) {
+                const viewer = await prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { profile: { select: { name: true } } },
+                });
+                createNotification({
+                    userId: project.ownerId,
+                    type: 'PROJECT_VIEW',
+                    title: `Someone viewed "${project.title}"`,
+                    body: `${viewer?.profile?.name || 'A visitor'} checked out your project.`,
+                    data: { projectId, viewerId: userId },
+                }).catch(() => {});
+            }
         }
 
         res.json({ recorded: !alreadyViewed });

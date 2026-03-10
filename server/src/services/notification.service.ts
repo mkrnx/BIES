@@ -20,6 +20,7 @@ export type NotificationType =
     | 'DECK_DENIED'
     | 'PROFILE_VIEW'
     | 'ZAP_RECEIVED'
+    | 'EVENT_RSVP'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -225,6 +226,24 @@ export async function notifyInvestmentStatus(params: {
         title: `Investment update for "${params.projectTitle}"`,
         body: `Your investment status changed to: ${params.status}`,
         data: { projectId: params.projectId, status: params.status },
+    });
+}
+
+export async function notifyEventRsvp(params: {
+    hostId: string;
+    attendeeName: string;
+    attendeeId: string;
+    eventTitle: string;
+    eventId: string;
+    status: string;
+}): Promise<void> {
+    const statusText = params.status === 'GOING' ? 'is going to' : 'is interested in';
+    await createNotification({
+        userId: params.hostId,
+        type: 'EVENT_RSVP',
+        title: `${params.attendeeName} ${statusText} "${params.eventTitle}"`,
+        body: `Someone RSVPed to your event.`,
+        data: { eventId: params.eventId, attendeeId: params.attendeeId, status: params.status },
     });
 }
 
