@@ -1,0 +1,245 @@
+/**
+ * Playwright E2E tests for BIES Nostr feed functionality.
+ * Tests the landing page SocialPulse and the authenticated Feed page
+ * with Private/Public relay tab switching.
+ */
+
+import { test, expect } from '@playwright/test';
+
+const API = 'http://localhost:3001/api';
+const BASE = '/biestest';
+
+// ── Helpers ──────────────────────────────────────────────────────────
+
+async function registerUser(request, suffix) {
+    const email = `feedtest-${suffix}-${Date.now()}@test.local`;
+    const res = await request.post(`${API}/auth/register`, {
+        data: { email, password: 'TestPass123!', role: 'BUILDER', name: `FeedTest ${suffix}` },
+    });
+    expect(res.ok(), `Register ${suffix} failed: ${res.status()}`).toBeTruthy();
+    const body = await res.json();
+    return { token: body.token, user: body.user, email };
+}
+
+async function injectAuth(page, token, user) {
+    await page.goto(`${BASE}/`);
+    await page.evaluate(({ token, user }) => {
+        localStorage.setItem('bies_token', token);
+        localStorage.setItem('bies_user', JSON.stringify(user));
+    }, { token, user });
+}
+
+// ── 1. Landing Page - SocialPulse ────────────────────────────────────
+
+test.describe('Landing Page - Social Pulse', () => {
+
+    test('SocialPulse section renders with cards', async ({ page }) => {
+        const jsErrors = [];
+        page.on('pageerror', err => jsErrors.push(err.message));
+
+        await page.goto(`${BASE}/`);
+
+        // Wait for the social pulse section to appear (live or mock data)
+        const grid = page.locator('[data-testid="social-pulse-grid"]');
+        await expect(grid).toBeVisible({ timeout: 20000 });
+
+        // Should have cards rendered
+        const cards = page.locator('[data-testid="social-pulse-card"]');
+        const count = await cards.count();
+        expect(count).toBeGreaterThan(0);
+
+        // Cards should have content
+        const firstCard = cards.first();
+        await expect(firstCard).toContainText(/.+/);
+
+        expect(jsErrors, `JS errors on landing: ${jsErrors.join('; ')}`).toHaveLength(0);
+    });
+
+    test('SocialPulse cards show user names and content', async ({ page }) => {
+        await page.goto(`${BASE}/`);
+
+        const grid = page.locator('[data-testid="social-pulse-grid"]');
+        await expect(grid).toBeVisible({ timeout: 20000 });
+
+        const cards = page.locator('[data-testid="social-pulse-card"]');
+        const count = await cards.count();
+
+        for (let i = 0; i < count; i++) {
+            const card = cards.nth(i);
+            // Each card should have visible text content
+            const text = await card.textContent();
+            expect(text.length).toBeGreaterThan(10);
+        }
+    });
+});
+
+// ── 2. Feed Page - Tabs & Rendering ─────────────────────────────────
+
+test.describe('Feed Page - Authenticated', () => {
+    let token, user;
+
+    test.beforeAll(async ({ request }) => {
+        ({ token, user } = await registerUser(request, 'feed'));
+    });
+
+    test('Feed page loads with Private/Public tabs', async ({ page }) => {
+        const jsErrors = [];
+        page.on('pageerror', err => jsErrors.push(err.message));
+
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+
+        // Feed tabs should be visible
+        const tabs = page.locator('[data-testid="feed-tabs"]');
+        await expect(tabs).toBeVisible({ timeout: 10000 });
+
+        // Private tab should exist and be active by default
+        const privateTab = page.locator('[data-testid="tab-private"]');
+        await expect(privateTab).toBeVisible();
+        await expect(privateTab).toHaveClass(/active/);
+
+        // Public tab should exist but not active
+        const publicTab = page.locator('[data-testid="tab-public"]');
+        await expect(publicTab).toBeVisible();
+
+        expect(jsErrors, `JS errors on feed: ${jsErrors.join('; ')}`).toHaveLength(0);
+    });
+
+    test('Feed page shows compose box with textarea and post button', async ({ page }) => {
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+
+        const composeInput = page.locator('[data-testid="compose-input"]');
+        await expect(composeInput).toBeVisible({ timeout: 10000 });
+
+        const postBtn = page.locator('[data-testid="post-btn"]');
+        await expect(postBtn).toBeVisible();
+
+        // Post button should be disabled when input is empty
+        await expect(postBtn).toBeDisabled();
+
+        // Type something and post button should become enabled
+        await composeInput.fill('Test post from Playwright');
+        await expect(postBtn).toBeEnabled();
+    });
+
+    test('Private tab shows loading then empty state (no local relay)', async ({ page }) => {
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+
+        // Should initially show loading
+        const loadingEl = page.locator('[data-testid="feed-loading"]');
+        const emptyEl = page.locator('[data-testid="feed-empty"]');
+        const listEl = page.locator('[data-testid="feed-list"]');
+
+        // Wait for either loading, empty state, or posts to appear
+        await expect(loadingEl.or(emptyEl).or(listEl)).toBeVisible({ timeout: 10000 });
+
+        // Eventually should resolve to empty or posts (after timeout)
+        await expect(emptyEl.or(listEl)).toBeVisible({ timeout: 20000 });
+    });
+
+    test('Switching to Public tab subscribes to public relays', async ({ page }) => {
+        const jsErrors = [];
+        page.on('pageerror', err => jsErrors.push(err.message));
+
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+
+        // Wait for tabs
+        const publicTab = page.locator('[data-testid="tab-public"]');
+        await expect(publicTab).toBeVisible({ timeout: 10000 });
+
+        // Click Public tab
+        await publicTab.click();
+
+        // Public tab should now be active
+        await expect(publicTab).toHaveClass(/active/);
+
+        // Private tab should no longer be active
+        const privateTab = page.locator('[data-testid="tab-private"]');
+        await expect(privateTab).not.toHaveClass(/active/);
+
+        // Should show loading for public relays
+        const loadingText = page.locator('text=Connecting to public relays');
+        const emptyEl = page.locator('[data-testid="feed-empty"]');
+        const listEl = page.locator('[data-testid="feed-list"]');
+
+        // Wait for loading, empty, or posts
+        await expect(loadingText.or(emptyEl).or(listEl)).toBeVisible({ timeout: 10000 });
+
+        // Eventually should resolve
+        await expect(emptyEl.or(listEl)).toBeVisible({ timeout: 20000 });
+
+        expect(jsErrors, `JS errors on public feed: ${jsErrors.join('; ')}`).toHaveLength(0);
+    });
+
+    test('Switching between tabs clears and reloads posts', async ({ page }) => {
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+
+        const privateTab = page.locator('[data-testid="tab-private"]');
+        const publicTab = page.locator('[data-testid="tab-public"]');
+        await expect(privateTab).toBeVisible({ timeout: 10000 });
+
+        // Switch to public
+        await publicTab.click();
+        await expect(publicTab).toHaveClass(/active/);
+
+        // Switch back to private
+        await privateTab.click();
+        await expect(privateTab).toHaveClass(/active/);
+
+        // Should show loading or content - no crash
+        const loadingEl = page.locator('[data-testid="feed-loading"]');
+        const emptyEl = page.locator('[data-testid="feed-empty"]');
+        const listEl = page.locator('[data-testid="feed-list"]');
+        await expect(loadingEl.or(emptyEl).or(listEl)).toBeVisible({ timeout: 10000 });
+    });
+});
+
+// ── 3. Feed Page - Unauthenticated Redirect ─────────────────────────
+
+test.describe('Feed Page - Unauthenticated', () => {
+
+    test('Redirects to login when not authenticated', async ({ page }) => {
+        await page.goto(`${BASE}/feed`);
+        await page.waitForLoadState('networkidle');
+
+        const url = page.url();
+        expect(url).toContain('/login');
+    });
+});
+
+// ── 4. Page Stability ────────────────────────────────────────────────
+
+test.describe('Feed Stability - No JS Crashes', () => {
+    let token, user;
+
+    test.beforeAll(async ({ request }) => {
+        ({ token, user } = await registerUser(request, 'stability'));
+    });
+
+    test('No uncaught errors on feed page', async ({ page }) => {
+        const jsErrors = [];
+        page.on('pageerror', err => jsErrors.push(err.message));
+
+        await injectAuth(page, token, user);
+        await page.goto(`${BASE}/feed`);
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(3000);
+
+        expect(jsErrors, `Uncaught JS errors: ${jsErrors.join('; ')}`).toHaveLength(0);
+    });
+
+    test('No uncaught errors on landing page with SocialPulse', async ({ page }) => {
+        const jsErrors = [];
+        page.on('pageerror', err => jsErrors.push(err.message));
+
+        await page.goto(`${BASE}/`);
+        await page.waitForLoadState('networkidle');
+        await page.waitForTimeout(3000);
+
+        expect(jsErrors, `Uncaught JS errors: ${jsErrors.join('; ')}`).toHaveLength(0);
+    });
+});

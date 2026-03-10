@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock } from 'lucide-react';
-import { nostrService, BIES_RELAY } from '../services/nostrService';
+import { nostrService, BIES_RELAY, PUBLIC_RELAYS } from '../services/nostrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { useAuth } from '../context/AuthContext';
 import NostrIcon from '../components/NostrIcon';
@@ -11,6 +11,7 @@ const Feed = () => {
     const [posts, setPosts] = useState([]);
     const [profiles, setProfiles] = useState({});
     const [loading, setLoading] = useState(true);
+    const [feedMode, setFeedMode] = useState('private'); // 'private' | 'public'
     const fetchedProfiles = useRef(new Set());
 
     // Compose state
@@ -19,13 +20,22 @@ const Feed = () => {
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState('');
 
+    // Subscribe to feed based on selected mode
     useEffect(() => {
+        setPosts([]);
         setLoading(true);
+        fetchedProfiles.current.clear();
+
+        const relays = feedMode === 'private' ? [BIES_RELAY] : PUBLIC_RELAYS;
+        const filter = feedMode === 'private'
+            ? { kinds: [1], limit: 50 }
+            : { kinds: [1], '#t': ['bies'], limit: 50 };
+
         const timeout = setTimeout(() => setLoading(false), 15000);
 
         const sub = nostrService.pool.subscribeMany(
-            [BIES_RELAY],
-            { kinds: [1], limit: 50 },
+            relays,
+            filter,
             {
                 onevent: async (event) => {
                     if (!fetchedProfiles.current.has(event.pubkey)) {
@@ -43,6 +53,7 @@ const Feed = () => {
                     clearTimeout(timeout);
                     setLoading(false);
                 },
+                oneose: () => setLoading(false),
                 onclose: () => setLoading(false),
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
@@ -52,7 +63,7 @@ const Feed = () => {
             clearTimeout(timeout);
             if (sub) sub.close();
         };
-    }, []);
+    }, [feedMode]);
 
     const handlePost = async () => {
         if (!composeText.trim() || posting) return;
@@ -125,7 +136,26 @@ const Feed = () => {
                     <h1 className="feed-title">
                         <NostrIcon size={24} /> BIES Feed
                     </h1>
-                    <span className="relay-badge">Private Relay</span>
+                </div>
+
+                {/* Feed Mode Tabs */}
+                <div className="feed-tabs" data-testid="feed-tabs">
+                    <button
+                        className={`feed-tab ${feedMode === 'private' ? 'active' : ''}`}
+                        onClick={() => setFeedMode('private')}
+                        data-testid="tab-private"
+                    >
+                        <Lock size={14} />
+                        <span>Private Relay</span>
+                    </button>
+                    <button
+                        className={`feed-tab ${feedMode === 'public' ? 'active' : ''}`}
+                        onClick={() => setFeedMode('public')}
+                        data-testid="tab-public"
+                    >
+                        <Globe size={14} />
+                        <span>Public Feed</span>
+                    </button>
                 </div>
 
                 {/* Compose Box */}
@@ -145,6 +175,7 @@ const Feed = () => {
                             onChange={(e) => setComposeText(e.target.value)}
                             onKeyDown={handleKeyDown}
                             rows={3}
+                            data-testid="compose-input"
                         />
                     </div>
                     {postError && <div className="compose-error">{postError}</div>}
@@ -161,6 +192,7 @@ const Feed = () => {
                             className="post-btn"
                             onClick={handlePost}
                             disabled={!composeText.trim() || posting}
+                            data-testid="post-btn"
                         >
                             {posting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
                             <span>{posting ? 'Posting...' : 'Post'}</span>
@@ -170,20 +202,29 @@ const Feed = () => {
 
                 {/* Feed */}
                 {loading && posts.length === 0 ? (
-                    <div className="feed-loading">
+                    <div className="feed-loading" data-testid="feed-loading">
                         <Loader2 size={24} className="spin" />
-                        <p>Connecting to BIES relay...</p>
+                        <p>Connecting to {feedMode === 'private' ? 'BIES relay' : 'public relays'}...</p>
                     </div>
                 ) : posts.length === 0 ? (
-                    <div className="feed-empty">
+                    <div className="feed-empty" data-testid="feed-empty">
                         <NostrIcon size={40} />
                         <h3>No posts yet</h3>
-                        <p>Be the first to post on the BIES private relay!</p>
+                        <p>
+                            {feedMode === 'private'
+                                ? 'Be the first to post on the BIES private relay!'
+                                : 'No #bies tagged posts found on public relays yet.'}
+                        </p>
+                        {feedMode === 'private' && (
+                            <button className="try-public-btn" onClick={() => setFeedMode('public')}>
+                                <Globe size={14} /> Try Public Feed
+                            </button>
+                        )}
                     </div>
                 ) : (
-                    <div className="feed-list">
+                    <div className="feed-list" data-testid="feed-list">
                         {posts.map(post => (
-                            <div key={post.id} className="feed-note">
+                            <div key={post.id} className="feed-note" data-testid="feed-note">
                                 <div className="note-header">
                                     <div className="note-avatar">
                                         {getAvatar(post.pubkey) ? (
@@ -224,7 +265,7 @@ const Feed = () => {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    margin-bottom: 1.5rem;
+                    margin-bottom: 1rem;
                 }
                 .feed-title {
                     font-size: 1.5rem;
@@ -234,14 +275,45 @@ const Feed = () => {
                     gap: 0.5rem;
                     color: var(--color-neutral-dark, #1f2937);
                 }
-                .relay-badge {
-                    font-size: 0.75rem;
+
+                /* Feed Mode Tabs */
+                .feed-tabs {
+                    display: flex;
+                    gap: 0.5rem;
+                    margin-bottom: 1.5rem;
+                    background: white;
+                    border: 1px solid #e5e7eb;
+                    border-radius: var(--radius-xl, 12px);
+                    padding: 0.25rem;
+                }
+                .feed-tab {
+                    flex: 1;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.375rem;
+                    padding: 0.625rem 1rem;
+                    border-radius: 10px;
+                    font-size: 0.85rem;
                     font-weight: 600;
-                    background: #ede9fe;
-                    color: #7c3aed;
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 9999px;
-                    border: 1px solid #ddd6fe;
+                    border: none;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    background: transparent;
+                    color: #9ca3af;
+                }
+                .feed-tab:hover {
+                    color: #6b7280;
+                    background: #f9fafb;
+                }
+                .feed-tab.active {
+                    background: #7c3aed;
+                    color: white;
+                    box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+                }
+                .feed-tab.active:nth-child(2) {
+                    background: #2563eb;
+                    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
                 }
 
                 /* Compose Box */
@@ -370,6 +442,22 @@ const Feed = () => {
                     font-weight: 600;
                     color: #6b7280;
                 }
+                .try-public-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.375rem;
+                    margin-top: 0.5rem;
+                    padding: 0.5rem 1.25rem;
+                    background: #2563eb;
+                    color: white;
+                    border: none;
+                    border-radius: 9999px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: opacity 0.2s;
+                }
+                .try-public-btn:hover { opacity: 0.9; }
                 .feed-list {
                     display: flex;
                     flex-direction: column;
