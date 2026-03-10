@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
-import { publishAnnouncement } from '../services/nostr.service';
+import { publishAnnouncement, publishCalendarEvent } from '../services/nostr.service';
 import { notifyEventRsvp } from '../services/notification.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -44,6 +44,7 @@ export const createEventSchema = z.object({
         yAxisLabel: z.string().optional(),
         dataPoints: z.array(z.object({ label: z.string(), value: z.union([z.string(), z.number()]) })).optional(),
     })).optional(),
+    nostrPublish: z.enum(['none', 'bies', 'public', 'both']).default('bies'),
 });
 
 export const updateEventSchema = createEventSchema.partial();
@@ -270,7 +271,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             'location', 'locationName', 'locationAddress', 'locationMapUrl',
             'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
-            'endorsementRequested', 'guestList', 'customSections',
+            'endorsementRequested', 'guestList', 'customSections', 'nostrPublish',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -282,10 +283,14 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             }
         }
 
+        // Extract nostrPublish before DB write (stored separately)
+        const nostrPublish: string = data.nostrPublish || 'none';
+
         // Derive isPublished from visibility
         const visibility = data.visibility || 'PUBLIC';
         const isPublished = visibilityToPublished(visibility);
 
+        const parsedTags: string[] = data.tags || [];
         if (data.tags) data.tags = JSON.stringify(data.tags);
         if (data.guestList) data.guestList = JSON.stringify(data.guestList);
         if (data.customSections) data.customSections = JSON.stringify(data.customSections);
@@ -312,6 +317,35 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             const dateStr = data.startDate ? new Date(data.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
             publishAnnouncement(req.user!.id, `${hostName} is hosting "${event.title}"${dateStr ? ` on ${dateStr}` : ''}${event.location ? ` in ${event.location}` : ''}. Check it out on BIES!`, [['t', 'new-event']]).catch((err) =>
                 console.error('[Nostr] Event announcement failed:', err)
+            );
+        }
+
+        // Publish NIP-52 calendar event to Nostr relays (custodial users)
+        if (nostrPublish !== 'none' && isPublished) {
+            publishCalendarEvent(req.user!.id, {
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                startDate: data.startDate,
+                endDate: data.endDate || undefined,
+                location: event.location || undefined,
+                locationName: event.locationName || undefined,
+                locationAddress: event.locationAddress || undefined,
+                isOnline: event.isOnline,
+                onlineUrl: event.onlineUrl || undefined,
+                category: event.category,
+                tags: parsedTags,
+                thumbnail: event.thumbnail || undefined,
+                ticketUrl: event.ticketUrl || undefined,
+            }, nostrPublish as 'bies' | 'public' | 'both').then(async (nostrEventId) => {
+                if (nostrEventId) {
+                    await prisma.event.update({
+                        where: { id: event.id },
+                        data: { nostrEventId },
+                    });
+                }
+            }).catch((err) =>
+                console.error('[Nostr] NIP-52 calendar event publish failed:', err)
             );
         }
 
@@ -352,7 +386,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             'location', 'locationName', 'locationAddress', 'locationMapUrl',
             'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
-            'endorsementRequested', 'guestList', 'customSections',
+            'endorsementRequested', 'guestList', 'customSections', 'nostrPublish',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -364,12 +398,15 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             }
         }
 
+        const nostrPublish: string = data.nostrPublish || 'none';
+
         // Sync isPublished when visibility changes
         if (data.visibility !== undefined) {
             data.isPublished = visibilityToPublished(data.visibility);
         }
 
         // Format arrays into JSON strings for SQLite
+        const parsedTags: string[] = data.tags || [];
         if (data.tags !== undefined) data.tags = JSON.stringify(data.tags);
         if (data.guestList !== undefined) data.guestList = JSON.stringify(data.guestList);
         if (data.customSections !== undefined) data.customSections = JSON.stringify(data.customSections);
@@ -379,6 +416,38 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
 
         const event = await prisma.event.update({ where: { id: req.params.id }, data });
         await cache.delPattern('events:');
+
+        // Re-publish NIP-52 calendar event if nostrPublish is set
+        if (nostrPublish !== 'none') {
+            const isPublished = event.isPublished;
+            if (isPublished) {
+                publishCalendarEvent(req.user!.id, {
+                    id: event.id,
+                    title: event.title,
+                    description: event.description,
+                    startDate: event.startDate,
+                    endDate: event.endDate || undefined,
+                    location: event.location || undefined,
+                    locationName: event.locationName || undefined,
+                    locationAddress: event.locationAddress || undefined,
+                    isOnline: event.isOnline,
+                    onlineUrl: event.onlineUrl || undefined,
+                    category: event.category,
+                    tags: parsedTags.length > 0 ? parsedTags : JSON.parse(event.tags || '[]'),
+                    thumbnail: event.thumbnail || undefined,
+                    ticketUrl: event.ticketUrl || undefined,
+                }, nostrPublish as 'bies' | 'public' | 'both').then(async (nostrEventId) => {
+                    if (nostrEventId) {
+                        await prisma.event.update({
+                            where: { id: event.id },
+                            data: { nostrEventId },
+                        });
+                    }
+                }).catch((err) =>
+                    console.error('[Nostr] NIP-52 calendar event update failed:', err)
+                );
+            }
+        }
 
         res.json({
             ...event,
