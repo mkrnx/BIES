@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
+import { publishAnnouncement } from '../services/nostr.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -304,6 +305,15 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
 
         await cache.delPattern('events:');
 
+        // Announce new event on the BIES feed
+        if (isPublished) {
+            const hostName = event.host?.profile?.name || 'A BIES member';
+            const dateStr = data.startDate ? new Date(data.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '';
+            publishAnnouncement(req.user!.id, `${hostName} is hosting "${event.title}"${dateStr ? ` on ${dateStr}` : ''}${event.location ? ` in ${event.location}` : ''}. Check it out on BIES!`, [['t', 'new-event']]).catch((err) =>
+                console.error('[Nostr] Event announcement failed:', err)
+            );
+        }
+
         res.status(201).json({
             ...event,
             tags: JSON.parse(event.tags || '[]'),
@@ -448,7 +458,7 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
 
         const event = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
+            select: { title: true, maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
         });
 
         if (!event || !event.isPublished) {
@@ -464,11 +474,28 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
             }
         }
 
+        // Check if this is a new RSVP (not an update)
+        const existingRsvp = await prisma.eventAttendee.findUnique({
+            where: { eventId_userId: { eventId: req.params.id, userId } },
+        });
+
         const attendee = await prisma.eventAttendee.upsert({
             where: { eventId_userId: { eventId: req.params.id, userId } },
             update: { status },
             create: { eventId: req.params.id, userId, status },
         });
+
+        // Announce RSVP on the BIES feed (only for new RSVPs with GOING status)
+        if (!existingRsvp && status === 'GOING') {
+            const rsvpUser = await prisma.user.findUnique({
+                where: { id: userId },
+                select: { profile: { select: { name: true } } },
+            });
+            const userName = rsvpUser?.profile?.name || 'A BIES member';
+            publishAnnouncement(userId, `${userName} is going to "${event.title}"!`, [['t', 'rsvp']]).catch((err) =>
+                console.error('[Nostr] RSVP announcement failed:', err)
+            );
+        }
 
         res.json(attendee);
     } catch (error) {

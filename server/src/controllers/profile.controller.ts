@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { notifyProfileView } from '../services/notification.service';
-import { publishProfileUpdate } from '../services/nostr.service';
+import { publishProfileUpdate, publishAnnouncement } from '../services/nostr.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -271,6 +271,9 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             }
         }
 
+        // Fetch old profile to detect lightning address changes
+        const oldProfile = await prisma.profile.findUnique({ where: { userId: req.user!.id }, select: { lightningAddress: true } });
+
         // Convert arrays/objects to JSON strings for SQLite
         const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
         for (const field of arrayFields) {
@@ -310,6 +313,13 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             }).catch((err) => console.error('[Nostr] Profile sync failed:', err));
         }
 
+        // Announce lightning address addition on the BIES feed
+        if (req.body.lightningAddress && req.body.lightningAddress !== oldProfile?.lightningAddress) {
+            publishAnnouncement(req.user!.id, `${profile.name || 'A BIES member'} just added a Lightning address! They're ready to receive sats.`, [['t', 'lightning']]).catch((err) =>
+                console.error('[Nostr] Lightning announcement failed:', err)
+            );
+        }
+
         res.json(parsed);
     } catch (error) {
         console.error('Update profile error:', error);
@@ -331,7 +341,10 @@ export async function checkNip05(req: Request, res: Response): Promise<void> {
         }
 
         const existing = await prisma.profile.findFirst({
-            where: { nip05Name: name },
+            where: {
+                nip05Name: name,
+                ...(req.user?.id ? { userId: { not: req.user.id } } : {}),
+            },
             select: { id: true },
         });
 

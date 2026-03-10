@@ -67,13 +67,11 @@ class NostrService {
 
         const sub = this.pool.subscribeMany(
             this.relays,
-            [
-                {
-                    kinds: [1],
-                    authors: authorsHex,
-                    limit: 20
-                }
-            ],
+            {
+                kinds: [1],
+                authors: authorsHex,
+                limit: 20
+            },
             {
                 onevent: (event) => {
                     callback(event);
@@ -234,15 +232,17 @@ class NostrService {
     subscribeToNip17DMs(myPubkey, callback) {
         // Subscribe on DM relays — gift-wraps live on public relays, not the
         // BIES relay (throwaway keys aren't whitelisted there).
+        //
+        // Pass a single filter object (not wrapped in an array) — SimplePool
+        // in nostr-tools v2 double-nests arrays, producing invalid REQ
+        // messages that relays reject with "filter is not an object".
         const sub = this.pool.subscribeMany(
             this.dmRelays,
-            [
-                {
-                    kinds: [1059],
-                    '#p': [myPubkey],
-                    limit: 100,
-                }
-            ],
+            {
+                kinds: [1059],
+                '#p': [myPubkey],
+                limit: 100,
+            },
             {
                 onevent: (event) => {
                     callback(event);
@@ -287,16 +287,20 @@ class NostrService {
     }
 
     // Legacy NIP-04 methods (kept for backward compatibility)
+    // Use two separate subscriptions since SimplePool double-nests filter arrays.
     subscribeToDMs(myPubkey, callback) {
-        const sub = this.pool.subscribeMany(
+        const params = { onevent: (event) => callback(event), onauth: handleRelayAuth };
+        const sub1 = this.pool.subscribeMany(
             this.relays,
-            [
-                { kinds: [4], '#p': [myPubkey], limit: 50 },
-                { kinds: [4], authors: [myPubkey], limit: 50 }
-            ],
-            { onevent: (event) => callback(event), onauth: handleRelayAuth }
+            { kinds: [4], '#p': [myPubkey], limit: 50 },
+            params,
         );
-        return sub;
+        const sub2 = this.pool.subscribeMany(
+            this.relays,
+            { kinds: [4], authors: [myPubkey], limit: 50 },
+            params,
+        );
+        return { close: (reason) => { sub1.close(reason); sub2.close(reason); } };
     }
 
     async publishEvent(event) {

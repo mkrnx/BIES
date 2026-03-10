@@ -22,7 +22,7 @@ const ProfileSetup = () => {
     useEffect(() => {
         // Redirect if user doesn't need setup (returning user)
         if (user?.profile?.name && !user.profile.name.startsWith('nostr:')) {
-            navigate('/dashboard', { replace: true });
+            navigate('/feed', { replace: true });
             return;
         }
 
@@ -88,8 +88,20 @@ const ProfileSetup = () => {
                 }
             }
 
+            // Announce new user on the BIES private relay feed
+            try {
+                await nostrService.publishToBiesRelay({
+                    kind: 1,
+                    created_at: Math.floor(Date.now() / 1000),
+                    tags: [['t', 'bies'], ['t', 'new-user']],
+                    content: `${biesName.trim()} just joined BIES! Welcome to the Bitcoin Investment Ecosystem of El Salvador.`,
+                });
+            } catch (announceErr) {
+                console.error('New user announcement failed (non-blocking):', announceErr);
+            }
+
             await refreshUser();
-            navigate('/dashboard');
+            navigate('/feed');
         } catch (err) {
             setError(err.message || 'Failed to save profile.');
         } finally {

@@ -13,6 +13,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { notifyInvestmentInterest, notifyInvestmentStatus } from '../services/notification.service';
+import { publishAnnouncement } from '../services/nostr.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -183,13 +184,19 @@ export async function createInvestment(req: Request, res: Response): Promise<voi
         });
 
         // Notify builder
+        const investorName = investor?.profile?.name || 'An investor';
         await notifyInvestmentInterest({
             builderId: project.ownerId,
-            investorName: investor?.profile?.name || 'An investor',
+            investorName,
             projectTitle: project.title,
             projectId: project.id,
             investmentId: investment.id,
         });
+
+        // Announce investment interest on the BIES feed
+        publishAnnouncement(investorId, `${investorName} expressed investment interest in "${project.title}".`, [['t', 'investment']]).catch((err) =>
+            console.error('[Nostr] Investment announcement failed:', err)
+        );
 
         res.status(201).json(investment);
     } catch (error: any) {

@@ -363,6 +363,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                     data: { nip05Name },
                 });
             }
+
         } else if (isAdminPubkey && user.role !== 'ADMIN') {
             // Promote existing user to admin if their pubkey is in the admin list
             user = await prisma.user.update({

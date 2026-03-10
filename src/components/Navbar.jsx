@@ -51,7 +51,7 @@ const Navbar = () => {
       <div className="container flex items-center justify-between" style={{ height: '100%' }}>
 
         {/* Logo */}
-        <Link to="/" className="logo">
+        <Link to={isAuthenticated ? "/feed" : "/"} className="logo">
           <img src={logoHorizontalWhite} alt="Build in El Salvador" style={{ height: '40px' }} />
         </Link>
 
