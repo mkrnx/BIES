@@ -146,9 +146,9 @@ const PublicProfile = ({ type }) => {
                     }}>
                         <Link to={type === 'builder' ? '/builders' : '/investors'} style={{
                             position: 'absolute', top: '24px', left: '24px',
-                            borderRadius: '50%', background: 'white', border: '1px solid var(--color-gray-200)',
+                            borderRadius: '50%', background: 'var(--color-surface-raised)', border: '1px solid var(--color-gray-200)',
                             width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            textDecoration: 'none', color: 'var(--color-gray-700)', boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                            textDecoration: 'none', color: 'var(--color-gray-700)', boxShadow: 'var(--shadow-sm)',
                         }}>
                             <ArrowLeft size={20} />
                         </Link>
@@ -157,10 +157,10 @@ const PublicProfile = ({ type }) => {
                         <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
                             {currentUser && targetUserId && currentUser.id === targetUserId ? (
                                 <Link to="/profile" style={{
-                                    borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--color-neutral-dark)',
+                                    borderRadius: 'var(--radius-md)', background: 'var(--color-surface-raised)', color: 'var(--color-gray-900)',
                                     border: '1px solid var(--color-gray-200)', height: '42px', padding: '0 24px',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
-                                    fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                    fontWeight: 600, boxShadow: 'var(--shadow-sm)'
                                 }}>
                                     Edit Profile
                                 </Link>
@@ -188,12 +188,12 @@ const PublicProfile = ({ type }) => {
                                         disabled={followLoading}
                                         style={{
                                             borderRadius: 'var(--radius-md)',
-                                            background: isFollowing ? 'var(--color-primary)' : 'white',
-                                            color: isFollowing ? 'white' : 'var(--color-neutral-dark)',
+                                            background: isFollowing ? 'var(--color-primary)' : 'var(--color-surface-raised)',
+                                            color: isFollowing ? 'white' : 'var(--color-gray-900)',
                                             border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
                                             height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
                                             cursor: followLoading ? 'wait' : 'pointer',
-                                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                            boxShadow: 'var(--shadow-sm)',
                                             opacity: followLoading ? 0.7 : 1,
                                         }}>
                                         {followLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
@@ -218,18 +218,18 @@ const PublicProfile = ({ type }) => {
 
                             <div style={{ position: 'relative' }}>
                                 <button onClick={() => setShowMenu(!showMenu)} style={{
-                                    borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--color-neutral-dark)',
+                                    borderRadius: 'var(--radius-md)', background: 'var(--color-surface-raised)', color: 'var(--color-gray-900)',
                                     border: '1px solid var(--color-gray-200)', height: '42px', width: '48px', padding: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                    boxShadow: 'var(--shadow-sm)',
                                 }}>
                                     <MoreHorizontal size={20} />
                                 </button>
                                 {showMenu && (
                                     <div style={{
                                         position: 'absolute', right: 0, marginTop: '0.5rem', width: '12rem',
-                                        background: 'white', borderRadius: 'var(--radius-xl)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                                        border: '1px solid var(--color-gray-100)', padding: '0.25rem 0', zIndex: 50,
+                                        background: 'var(--color-surface-overlay)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)',
+                                        border: '1px solid var(--color-gray-200)', padding: '0.25rem 0', zIndex: 50,
                                     }}>
                                         <button onClick={() => setShowMenu(false)} style={{
                                             width: '100%', textAlign: 'left', padding: '0.625rem 1rem',
@@ -251,14 +251,14 @@ const PublicProfile = ({ type }) => {
                             {(profile.avatar || nostrProfile?.picture) ? (
                                 <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} style={{
                                     width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover',
-                                    border: '5px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', background: 'white',
+                                    border: '5px solid var(--color-surface)', boxShadow: 'var(--shadow-md)', background: 'var(--color-surface)',
                                 }} />
                             ) : (
                                 <div style={{
-                                    width: '168px', height: '168px', borderRadius: '50%', border: '5px solid white',
-                                    background: 'var(--color-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                    width: '168px', height: '168px', borderRadius: '50%', border: '5px solid var(--color-surface)',
+                                    background: 'var(--color-surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)',
-                                    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)',
+                                    boxShadow: 'var(--shadow-md)',
                                 }}>
                                     {(profile.name || '?').charAt(0).toUpperCase()}
                                 </div>
@@ -287,7 +287,7 @@ const PublicProfile = ({ type }) => {
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                                         {profile.tags.map((tag, index) => (
                                             <span key={index} style={{
-                                                padding: '2px 12px', backgroundColor: 'var(--color-gray-100)',
+                                                padding: '2px 12px', backgroundColor: 'var(--color-surface-raised)',
                                                 color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500,
                                             }}>
                                                 {tag}
@@ -379,7 +379,7 @@ const PublicProfile = ({ type }) => {
                     <div className="profile-sidebar">
 
                         {/* Projects Panel */}
-                        <div className="profile-card" style={{ marginBottom: '1.5rem', background: 'var(--color-gray-50)', border: '1px solid var(--color-gray-200)' }}>
+                        <div className="profile-card" style={{ marginBottom: '1.5rem', background: 'var(--color-surface-overlay)', border: '1px solid var(--color-gray-200)' }}>
                             <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>{projectsTitle}</h3>
 
                             {(profile.biesProjects || []).length > 0 ? (
@@ -401,7 +401,7 @@ const PublicProfile = ({ type }) => {
                                             </div>
                                             <div style={{
                                                 width: '120px', height: '68px', minWidth: '120px', minHeight: '68px',
-                                                background: 'var(--color-gray-100)', borderRadius: '0.5rem', flexShrink: 0,
+                                                background: 'var(--color-surface-raised)', borderRadius: '0.5rem', flexShrink: 0,
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
                                                 border: '1px solid var(--color-gray-200)',
                                             }}>
@@ -480,7 +480,7 @@ const PublicProfile = ({ type }) => {
                                                         borderRadius: '999px',
                                                         fontSize: '0.75rem',
                                                         fontWeight: 600,
-                                                        background: rsvp.status === 'GOING' ? '#dcfce7' : '#fef9c3',
+                                                        background: rsvp.status === 'GOING' ? 'var(--color-green-tint)' : 'var(--color-amber-tint)',
                                                         color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e',
                                                     }}>
                                                         {rsvp.status === 'GOING' ? 'Attending' : 'Interested'}
@@ -577,7 +577,7 @@ const PublicProfile = ({ type }) => {
                 }
 
                 .profile-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 2rem;
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-sm);
@@ -602,7 +602,7 @@ const PublicProfile = ({ type }) => {
                     justify-content: space-between;
                     gap: 1rem;
                     padding: 1rem;
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-xl);
                     transition: border-color 0.2s, box-shadow 0.2s;

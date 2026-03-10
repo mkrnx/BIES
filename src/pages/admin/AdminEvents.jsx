@@ -162,7 +162,7 @@ const AdminEvents = () => {
                     display: inline-flex;
                     align-items: center;
                     gap: 0.5rem;
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
                     padding: 0.5rem 0.75rem;
@@ -176,7 +176,7 @@ const AdminEvents = () => {
                     width: 200px;
                 }
                 .empty-state {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     padding: 3rem;
                     text-align: center;
@@ -184,7 +184,7 @@ const AdminEvents = () => {
                     border: 1px solid var(--color-gray-200);
                 }
                 .table-container {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     overflow-x: auto;
@@ -214,8 +214,8 @@ const AdminEvents = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .status-badge.active { background: #DCFCE7; color: #166534; }
-                .status-badge.draft { background: #F3F4F6; color: #4B5563; }
+                .status-badge.active { background: var(--color-green-tint); color: #166534; }
+                .status-badge.draft { background: var(--badge-draft-bg); color: var(--color-gray-600); }
                 .action-group { display: flex; gap: 0.25rem; align-items: center; }
                 .icon-btn {
                     display: inline-flex;
@@ -232,7 +232,7 @@ const AdminEvents = () => {
                 }
                 .icon-btn:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
                 .icon-btn.delete { color: #dc2626; }
-                .icon-btn.delete:hover { background: #FEE2E2; }
+                .icon-btn.delete:hover { background: var(--color-red-tint); }
                 .icon-btn.featured-active { color: #eab308; }
                 .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination {
@@ -246,7 +246,7 @@ const AdminEvents = () => {
                     padding: 0.5rem 1rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     cursor: pointer;
                     font-size: 0.875rem;
                 }

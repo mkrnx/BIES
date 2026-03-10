@@ -57,7 +57,7 @@ const TagInput = ({ tags, onChange }) => {
                 }
                 .tag-chip {
                     display: inline-flex; align-items: center; gap: 4px;
-                    padding: 3px 8px 3px 10px; background: #fff7ed; border: 1px solid #fed7aa;
+                    padding: 3px 8px 3px 10px; background: var(--color-orange-tint); border: 1px solid #fed7aa;
                     border-radius: 99px; font-size: 0.82rem; font-weight: 600; color: var(--color-secondary-dark);
                 }
                 .tag-chip-remove {

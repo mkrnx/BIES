@@ -249,7 +249,7 @@ const Login = () => {
                         background: var(--color-gray-50);
                     }
                     .login-card {
-                        background: white;
+                        background: var(--color-surface);
                         padding: 3rem;
                         border-radius: var(--radius-xl);
                         box-shadow: var(--shadow-lg);
@@ -263,7 +263,7 @@ const Login = () => {
                         width: 72px;
                         height: 72px;
                         border-radius: 50%;
-                        background: #eff6ff;
+                        background: var(--color-blue-tint);
                         color: var(--color-primary);
                         display: flex;
                         align-items: center;
@@ -282,26 +282,26 @@ const Login = () => {
                     .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
                     .btn-skip {
                         background: transparent;
-                        border: 1px solid #e5e7eb;
-                        color: #6b7280;
+                        border: 1px solid var(--color-gray-200);
+                        color: var(--color-gray-500);
                         font-weight: 500;
                         cursor: pointer;
                         transition: all 0.2s;
                     }
-                    .btn-skip:hover { background: #f9fafb; }
+                    .btn-skip:hover { background: var(--color-gray-100); }
                     .btn-skip:disabled { opacity: 0.6; cursor: not-allowed; }
                     .error-banner {
                         display: flex;
                         align-items: center;
                         gap: 8px;
-                        background: #FEF2F2;
+                        background: var(--color-red-tint);
                         color: var(--color-error);
                         padding: 0.75rem 1rem;
                         border-radius: var(--radius-md);
                         font-size: 0.875rem;
                         width: 100%;
                         margin-bottom: 1rem;
-                        border: 1px solid #FECACA;
+                        border: 1px solid var(--color-red-200, #FECACA);
                     }
                     .spin {
                         animation: spin 1s linear infinite;
@@ -473,18 +473,18 @@ const Login = () => {
                                 }}
                             />
                             {loading ? (
-                                <Loader2 size={24} className="spin" style={{ color: '#9ca3af' }} />
+                                <Loader2 size={24} className="spin" style={{ color: 'var(--color-gray-400)' }} />
                             ) : (
-                                <Upload size={24} style={{ color: '#9ca3af' }} />
+                                <Upload size={24} style={{ color: 'var(--color-gray-400)' }} />
                             )}
                             {keyFileName ? (
                                 <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{keyFileName}</span>
                             ) : (
                                 <>
-                                    <span className="text-sm font-medium" style={{ color: '#6b7280' }}>
+                                    <span className="text-sm font-medium" style={{ color: 'var(--color-gray-500)' }}>
                                         Drop your <strong>bies-nostr-keys.txt</strong> here
                                     </span>
-                                    <span className="text-xs" style={{ color: '#9ca3af' }}>or click to browse</span>
+                                    <span className="text-xs" style={{ color: 'var(--color-gray-400)' }}>or click to browse</span>
                                 </>
                             )}
                         </label>
@@ -570,7 +570,7 @@ const Login = () => {
                     background: var(--color-gray-50);
                 }
                 .login-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 3rem;
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-lg);
@@ -622,7 +622,7 @@ const Login = () => {
                     align-items: center;
                     gap: 1rem;
                     margin: 0.75rem 0;
-                    color: #9ca3af;
+                    color: var(--color-gray-400);
                     font-size: 0.875rem;
                 }
                 .divider::before,
@@ -630,7 +630,7 @@ const Login = () => {
                     content: '';
                     flex: 1;
                     height: 1px;
-                    background: #e5e7eb;
+                    background: var(--color-gray-200);
                 }
                 .mode-tabs {
                     display: flex;
@@ -645,23 +645,23 @@ const Login = () => {
                     justify-content: center;
                     gap: 6px;
                     padding: 0.5rem;
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md, 8px);
                     background: transparent;
-                    color: #9ca3af;
+                    color: var(--color-gray-400);
                     font-size: 0.8rem;
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.2s;
                 }
                 .mode-tab:hover {
-                    border-color: #d1d5db;
-                    color: #6b7280;
+                    border-color: var(--color-gray-300);
+                    color: var(--color-gray-500);
                 }
                 .mode-tab.active {
                     border-color: var(--color-primary);
                     color: var(--color-primary);
-                    background: #eff6ff;
+                    background: var(--color-blue-tint);
                 }
                 .key-input-wrapper {
                     width: 100%;
@@ -672,13 +672,13 @@ const Login = () => {
                 .key-input-icon {
                     position: absolute;
                     left: 14px;
-                    color: #9ca3af;
+                    color: var(--color-gray-400);
                     pointer-events: none;
                 }
                 .key-input {
                     width: 100%;
                     padding: 0.75rem 0.75rem 0.75rem 2.5rem;
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 9999px;
                     font-size: 0.875rem;
                     outline: none;
@@ -690,7 +690,7 @@ const Login = () => {
                 .seed-input {
                     width: 100%;
                     padding: 0.75rem;
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md, 8px);
                     font-size: 0.875rem;
                     font-family: monospace;
@@ -709,7 +709,7 @@ const Login = () => {
                     justify-content: center;
                     gap: 0.5rem;
                     padding: 2rem 1rem;
-                    border: 2px dashed #e5e7eb;
+                    border: 2px dashed var(--color-gray-200);
                     border-radius: var(--radius-md, 8px);
                     cursor: pointer;
                     transition: border-color 0.2s, background 0.2s;
@@ -717,7 +717,7 @@ const Login = () => {
                 }
                 .file-drop-zone:hover {
                     border-color: var(--color-primary);
-                    background: #f9fafb;
+                    background: var(--color-gray-100);
                 }
                 .hidden-file-input {
                     display: none;
@@ -739,14 +739,14 @@ const Login = () => {
                     display: flex;
                     align-items: center;
                     gap: 8px;
-                    background: #FEF2F2;
+                    background: var(--color-red-tint);
                     color: var(--color-error);
                     padding: 0.75rem 1rem;
                     border-radius: var(--radius-md);
                     font-size: 0.875rem;
                     width: 100%;
                     margin-bottom: 1rem;
-                    border: 1px solid #FECACA;
+                    border: 1px solid var(--color-red-200, #FECACA);
                 }
                 .spin {
                     animation: spin 1s linear infinite;

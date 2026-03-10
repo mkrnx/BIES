@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
@@ -237,11 +238,13 @@ const AppContent = () => {
 function App() {
     return (
         <AuthProvider>
-            <UserModeProvider>
-                <Router basename="/">
-                    <AppContent />
-                </Router>
-            </UserModeProvider>
+            <ThemeProvider>
+                <UserModeProvider>
+                    <Router basename="/">
+                        <AppContent />
+                    </Router>
+                </UserModeProvider>
+            </ThemeProvider>
         </AuthProvider>
     );
 }

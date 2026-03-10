@@ -479,7 +479,7 @@ const ProfileEdit = () => {
                 </div>
 
                 {error && (
-                    <div style={{ background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
+                    <div style={{ background: 'var(--color-red-tint)', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
                         {error}
                     </div>
                 )}
@@ -498,7 +498,7 @@ const ProfileEdit = () => {
                                     {uploadingBanner ? 'Uploading banner...' : 'Loading image...'}
                                 </span>
                                 <div style={{ width: '160px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', borderRadius: '2px', background: 'white', animation: 'progress-indeterminate 1.5s ease-in-out infinite' }} />
+                                    <div style={{ height: '100%', borderRadius: '2px', background: 'var(--color-surface)', animation: 'progress-indeterminate 1.5s ease-in-out infinite' }} />
                                 </div>
                             </div>
                         )}
@@ -539,25 +539,25 @@ const ProfileEdit = () => {
                     <div className="pb-8" style={{ paddingLeft: '24px', paddingRight: '24px', position: 'relative', zIndex: 5 }}>
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5, width: 'fit-content' }}>
-                            <div style={{ width: '168px', height: '168px', borderRadius: '50%', overflow: 'hidden', border: '5px solid white', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                            <div style={{ width: '168px', height: '168px', borderRadius: '50%', overflow: 'hidden', border: '5px solid var(--color-surface)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
                                 {(form.avatar || nostrProfile?.picture) ? (
                                     <img src={form.avatar || nostrProfile?.picture} alt={form.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                 ) : (
-                                    <div style={{ width: '100%', height: '100%', background: 'var(--color-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
+                                    <div style={{ width: '100%', height: '100%', background: 'var(--color-surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
                                         {(form.name || user?.email || '?').charAt(0).toUpperCase()}
                                     </div>
                                 )}
                             </div>
                             {(uploadingAvatar || avatarImageLoading) && (
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.7)', borderRadius: '50%', gap: '0.25rem' }}>
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', gap: '0.25rem' }}>
                                     <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />
                                     <span style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--color-primary)' }}>
                                         {uploadingAvatar ? 'Uploading...' : 'Loading...'}
                                     </span>
                                 </div>
                             )}
-                            <label style={{ position: 'absolute', bottom: '4px', right: '4px', width: '40px', height: '40px', backgroundColor: 'white', borderRadius: '50%', border: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                                <Camera size={18} style={{ color: '#374151' }} />
+                            <label style={{ position: 'absolute', bottom: '4px', right: '4px', width: '40px', height: '40px', backgroundColor: 'var(--color-surface)', borderRadius: '50%', border: '1px solid var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                                <Camera size={18} style={{ color: 'var(--color-gray-600)' }} />
                                 <input type="file" accept="image/*" onChange={handleAvatarSelect} style={{ display: 'none' }} />
                             </label>
                         </div>
@@ -839,7 +839,7 @@ const ProfileEdit = () => {
                                                 readOnly
                                                 value={nip19.npubEncode(user.nostrPubkey)}
                                                 className="input-field"
-                                                style={{ cursor: 'default', background: '#f9fafb', fontFamily: 'monospace', fontSize: '0.875rem' }}
+                                                style={{ cursor: 'default', background: 'var(--color-gray-100)', fontFamily: 'monospace', fontSize: '0.875rem' }}
                                             />
                                         </div>
                                     </div>
@@ -911,20 +911,20 @@ const ProfileEdit = () => {
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '2rem' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <div style={{ display: 'flex', flex: 1, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
-                                        <button type="button" onClick={() => setPublishMode('bies')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'bies' ? '#7c3aed' : 'transparent', color: publishMode === 'bies' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                    <div style={{ display: 'flex', flex: 1, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
+                                        <button type="button" onClick={() => setPublishMode('bies')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'bies' ? '#7c3aed' : 'transparent', color: publishMode === 'bies' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
                                             BIES private relay only
                                         </button>
-                                        <button type="button" onClick={() => setPublishMode('all')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', borderLeft: '1px solid #e5e7eb', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'all' ? '#7c3aed' : 'transparent', color: publishMode === 'all' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                        <button type="button" onClick={() => setPublishMode('all')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', borderLeft: '1px solid var(--color-gray-200)', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'all' ? '#7c3aed' : 'transparent', color: publishMode === 'all' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
                                             BIES relay + all public relays
                                         </button>
                                     </div>
-                                    <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '0.25rem', display: 'flex', alignItems: 'center' }}>
+                                    <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}>
                                         <HelpCircle size={18} />
                                     </button>
                                 </div>
                                 {showPublishHelp && (
-                                    <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#4b5563', lineHeight: 1.5 }}>
+                                    <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-gray-600)', lineHeight: 1.5 }}>
                                         <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Publish mode</p>
                                         <p style={{ margin: '0 0 0.25rem' }}><strong>BIES private relay only</strong> — Saves your Nostr profile to the private BIES relay. Only visible within the BIES platform. Good for drafting your profile before going public.</p>
                                         <p style={{ margin: '0 0 0.75rem' }}><strong>BIES relay + all public relays</strong> — Saves to the BIES relay and broadcasts to public Nostr relays (Damus, Primal, nos.lol, etc). Your profile will be visible across all Nostr clients.</p>
@@ -955,7 +955,7 @@ const ProfileEdit = () => {
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-gray-200)' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-700)' }}>Show Nostr feed on profile</span>
-                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9ca3af', padding: '0.125rem', display: 'flex', alignItems: 'center' }}>
+                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '0.125rem', display: 'flex', alignItems: 'center' }}>
                                         <HelpCircle size={15} />
                                     </button>
                                 </div>
@@ -965,7 +965,7 @@ const ProfileEdit = () => {
                                 </label>
                             </div>
                             {showFeedHelp && (
-                                <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: '#4b5563', lineHeight: 1.5, marginTop: '0.5rem' }}>
+                                <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-gray-600)', lineHeight: 1.5, marginTop: '0.5rem' }}>
                                     <p style={{ margin: '0 0 0.25rem' }}>When enabled, your recent Nostr notes (kind:1 posts) will be displayed on your public BIES profile. This uses your connected Nostr keypair — no need to enter an npub manually.</p>
                                     <p style={{ margin: '0.5rem 0 0.25rem', fontWeight: 600 }}>Feed source</p>
                                     <p style={{ margin: '0 0 0.25rem' }}><strong>Private relay only</strong> — Shows only notes stored on the BIES private relay. Only notes you've published through BIES will appear.</p>
@@ -973,11 +973,11 @@ const ProfileEdit = () => {
                                 </div>
                             )}
                             {form.showNostrFeed && (
-                                <div style={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid #e5e7eb', marginTop: '0.75rem' }}>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'private' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'private' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                <div style={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-gray-200)', marginTop: '0.75rem' }}>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'private' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'private' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
                                         Private relay only
                                     </button>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', borderLeft: '1px solid #e5e7eb', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'all' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'all' ? '#fff' : '#6b7280', transition: 'all 0.2s' }}>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', borderLeft: '1px solid var(--color-gray-200)', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'all' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'all' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
                                         Private + public relays
                                     </button>
                                 </div>
@@ -998,9 +998,9 @@ const ProfileEdit = () => {
                                         {autoProjects.map(project => {
                                             const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
                                             return (
-                                                <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: alreadyAdded ? '#f0f7ff' : 'white', border: `1px solid ${alreadyAdded ? '#bfdbfe' : 'var(--color-gray-200)'}`, borderRadius: 'var(--radius-xl)', opacity: alreadyAdded ? 0.7 : 1 }}>
+                                                <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: alreadyAdded ? 'var(--color-blue-tint)' : 'var(--color-surface)', border: `1px solid ${alreadyAdded ? '#bfdbfe' : 'var(--color-gray-200)'}`, borderRadius: 'var(--radius-xl)', opacity: alreadyAdded ? 0.7 : 1 }}>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        {project.image ? <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--color-gray-100)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gray-400)' }}>{project.name.charAt(0)}</div>}
+                                                        {project.image ? <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--color-surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gray-400)' }}>{project.name.charAt(0)}</div>}
                                                         <div>
                                                             <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-900)' }}>{project.name}</p>
                                                             <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>{project.role}</p>
@@ -1033,7 +1033,7 @@ const ProfileEdit = () => {
                                         onChange={(e) => setNewProjectRole(e.target.value)}
                                     />
                                     <div ref={searchRef} style={{ position: 'relative' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'white' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-surface)' }}>
                                             <div style={{ paddingLeft: '1rem', color: 'var(--color-gray-400)' }}>
                                                 <Search size={18} />
                                             </div>
@@ -1053,7 +1053,7 @@ const ProfileEdit = () => {
                                         </div>
 
                                         {showProjectDropdown && projectSearch.length > 0 && (
-                                            <div style={{ position: 'absolute', zIndex: 20, marginTop: '0.5rem', width: '100%', background: 'white', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto', padding: '0.5rem 0' }}>
+                                            <div style={{ position: 'absolute', zIndex: 20, marginTop: '0.5rem', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto', padding: '0.5rem 0' }}>
                                                 {projectResults.filter(p =>
                                                     (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
                                                     !form.biesProjects.some(bp => bp.id === p.id)
@@ -1084,7 +1084,7 @@ const ProfileEdit = () => {
                             {form.biesProjects.length > 0 && (
                                 <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                                     {form.biesProjects.map(project => (
-                                        <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'white', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)' }}>
+                                        <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)' }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                                 {project.image && <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />}
                                                 <div>
@@ -1117,13 +1117,13 @@ const ProfileEdit = () => {
 
             <style jsx>{`
                 .profile-page {
-                    background-color: #f8fafc;
+                    background-color: var(--color-surface-overlay);
                     min-height: 100vh;
                 }
                 .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
 
                 .profile-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 2rem;
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-sm);
@@ -1135,8 +1135,8 @@ const ProfileEdit = () => {
                     align-items: center;
                     justify-content: center;
                     gap: 0.5rem;
-                    background-color: white;
-                    color: #1f2937;
+                    background-color: var(--color-surface);
+                    color: var(--color-gray-900);
                     border-radius: var(--radius-md);
                     height: 42px;
                     padding: 0 24px;
@@ -1177,7 +1177,7 @@ const ProfileEdit = () => {
                     font-family: var(--font-display);
                     width: 100%;
                     border: 1px solid var(--color-gray-200);
-                    background: white;
+                    background: var(--color-surface);
                     padding: 0.75rem 1rem;
                     border-radius: var(--radius-md);
                     transition: all 0.2s;
@@ -1192,11 +1192,12 @@ const ProfileEdit = () => {
                 .input-field {
                     width: 100%;
                     padding: 0.75rem 1rem;
-                    border: 1px solid var(--color-gray-300);
-                    background: white;
+                    border: 1px solid var(--color-gray-200);
+                    background: var(--color-surface-raised);
                     border-radius: var(--radius-md);
                     outline: none;
                     transition: all 0.2s;
+                    color: var(--color-gray-900);
                 }
                 .input-field:focus {
                     border-color: var(--color-primary);
@@ -1214,7 +1215,7 @@ const ProfileEdit = () => {
                 }
 
                 .status-badge {
-                    background: #dcfce7;
+                    background: var(--color-green-tint);
                     color: #15803d;
                     padding: 0.25rem 0.5rem;
                     border-radius: 9999px;
@@ -1247,7 +1248,8 @@ const ProfileEdit = () => {
                     position: absolute;
                     cursor: pointer;
                     top: 0; left: 0; right: 0; bottom: 0;
-                    background-color: #cbd5e1;
+                    background-color: var(--color-surface-raised);
+                    border: 1px solid var(--color-gray-200);
                     transition: .3s;
                     border-radius: 24px;
                 }
@@ -1258,7 +1260,7 @@ const ProfileEdit = () => {
                     width: 18px;
                     left: 3px;
                     bottom: 3px;
-                    background-color: white;
+                    background-color: var(--color-surface);
                     transition: .3s;
                     border-radius: 50%;
                     box-shadow: 0 1px 3px rgba(0,0,0,0.2);

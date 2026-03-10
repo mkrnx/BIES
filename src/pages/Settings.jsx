@@ -1,8 +1,11 @@
 import React from 'react';
 import { Moon, Bell, Lock, Globe, Eye, Zap } from 'lucide-react';
 import WalletConnect from '../components/WalletConnect';
+import { useTheme } from '../context/ThemeContext';
 
 const Settings = () => {
+    const { theme, setTheme } = useTheme();
+
     return (
         <div className="container py-8 max-w-3xl">
             <h1 className="mb-8">Settings</h1>
@@ -24,7 +27,15 @@ const Settings = () => {
                             <p className="setting-desc">Switch between light and dark themes</p>
                         </div>
                     </div>
-                    <button className="toggle-btn">Off</button>
+                    <select
+                        className="select-input"
+                        value={theme}
+                        onChange={(e) => setTheme(e.target.value)}
+                    >
+                        <option value="light">Light</option>
+                        <option value="dark">Dark</option>
+                        <option value="system">System</option>
+                    </select>
                 </div>
                 <div className="setting-item">
                     <div className="setting-info">
@@ -82,7 +93,7 @@ const Settings = () => {
             <style jsx>{`
                 .max-w-3xl { max-width: 48rem; }
 
-                .settings-section { background: white; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem; }
+                .settings-section { background: var(--color-surface); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem; }
                 .settings-section h2 { padding: 1rem 1.5rem; background: var(--color-gray-50); border-bottom: 1px solid var(--color-gray-200); font-size: 1rem; color: var(--color-gray-600); }
 
                 .setting-item { padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-gray-100); }
@@ -98,7 +109,7 @@ const Settings = () => {
                     padding: 0.5rem 1rem;
                     border-radius: 99px;
                     border: 1px solid var(--color-gray-300);
-                    background: white;
+                    background: var(--color-surface);
                     color: var(--color-gray-500);
                     font-size: 0.85rem;
                     cursor: pointer;

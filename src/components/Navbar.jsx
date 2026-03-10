@@ -227,14 +227,14 @@ const Navbar = () => {
                     </div>
                     <button
                       className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
-                      onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); }}
+                      onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); navigate('/dashboard/builder'); }}
                     >
                       <div className="dot builder"></div>
                       Builder View
                     </button>
                     <button
                       className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
-                      onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); }}
+                      onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); navigate('/dashboard/investor'); }}
                     >
                       <div className="dot investor"></div>
                       Investor View
@@ -505,7 +505,7 @@ const Navbar = () => {
           top: 100%;
           right: 0;
           width: 200px;
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-md);
           box-shadow: var(--shadow-lg);
           border: 1px solid var(--color-gray-100);
@@ -676,7 +676,7 @@ const Navbar = () => {
             gap: 10px;
         }
         .notification-item:last-child { border-bottom: none; }
-        .notification-item.unread { background: #F0F9FF; }
+        .notification-item.unread { background: var(--color-blue-tint); }
 
         .notif-text { font-size: 0.85rem; line-height: 1.3; color: var(--color-neutral-dark); }
         .notif-time { font-size: 0.75rem; color: var(--color-gray-400); display: block; margin-top: 4px; }

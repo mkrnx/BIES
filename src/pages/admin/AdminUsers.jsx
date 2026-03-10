@@ -239,7 +239,7 @@ const AdminUsers = () => {
                     padding: 0.5rem 0.75rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     font-size: 0.875rem;
                     color: var(--color-gray-600);
                     cursor: pointer;
@@ -248,7 +248,7 @@ const AdminUsers = () => {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
                     padding: 0.5rem 0.75rem;
@@ -262,7 +262,7 @@ const AdminUsers = () => {
                     width: 220px;
                 }
                 .empty-state {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     padding: 3rem;
                     text-align: center;
@@ -270,7 +270,7 @@ const AdminUsers = () => {
                     border: 1px solid var(--color-gray-200);
                 }
                 .table-container {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     overflow-x: auto;
@@ -292,14 +292,14 @@ const AdminUsers = () => {
                     font-size: 0.875rem;
                 }
                 .data-table tr:last-child td { border-bottom: none; }
-                .row-banned { background: #FEF2F2; }
+                .row-banned { background: var(--color-red-tint); }
                 .font-semibold { font-weight: 600; }
                 .role-select {
                     padding: 0.25rem 0.5rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
                     font-size: 0.8rem;
-                    background: white;
+                    background: var(--color-surface);
                     cursor: pointer;
                 }
                 .status-badge {
@@ -310,8 +310,8 @@ const AdminUsers = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .status-badge.active { background: #DCFCE7; color: #166534; }
-                .status-badge.banned { background: #FEE2E2; color: #991B1B; }
+                .status-badge.active { background: var(--color-green-tint); color: #166534; }
+                .status-badge.banned { background: var(--color-red-tint); color: #991B1B; }
                 .role-badge {
                     display: inline-block;
                     font-size: 0.7rem;
@@ -322,8 +322,8 @@ const AdminUsers = () => {
                 }
                 .role-badge.mod { background: #E0E7FF; color: #3730A3; }
                 .role-badge.admin { background: #EDE9FE; color: #5B21B6; }
-                .role-badge.builder { background: #DBEAFE; color: #1E40AF; }
-                .role-badge.investor { background: #FEF3C7; color: #92400E; }
+                .role-badge.builder { background: var(--color-blue-tint); color: #1E40AF; }
+                .role-badge.investor { background: var(--color-amber-tint); color: #92400E; }
                 .action-group { display: flex; gap: 0.25rem; align-items: center; }
                 .icon-btn {
                     display: inline-flex;
@@ -340,9 +340,9 @@ const AdminUsers = () => {
                 }
                 .icon-btn:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
                 .icon-btn.approve { color: #16a34a; }
-                .icon-btn.approve:hover { background: #DCFCE7; }
+                .icon-btn.approve:hover { background: var(--color-green-tint); }
                 .icon-btn.delete { color: #dc2626; }
-                .icon-btn.delete:hover { background: #FEE2E2; }
+                .icon-btn.delete:hover { background: var(--color-red-tint); }
                 .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination {
                     display: flex;
@@ -355,7 +355,7 @@ const AdminUsers = () => {
                     padding: 0.5rem 1rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     cursor: pointer;
                     font-size: 0.875rem;
                 }

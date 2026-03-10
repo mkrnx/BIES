@@ -97,7 +97,7 @@ const InvestorDashboard = () => {
                                 width: '44px',
                                 height: '44px',
                                 borderRadius: '50%',
-                                background: active ? '#FFF7ED' : 'var(--color-gray-100)',
+                                background: active ? 'var(--color-orange-tint)' : 'var(--color-gray-100)',
                                 color: active ? 'var(--color-secondary)' : 'var(--color-gray-400)',
                                 transition: 'all 0.2s',
                             }}>
@@ -114,13 +114,21 @@ const InvestorDashboard = () => {
                 {isRoot ? (
                     <>
                         <div className="header">
-                            <div>
-                                <h1>Investor Dashboard</h1>
-                                <p className="subtitle">Welcome back{user?.profile?.name ? `, ${user.profile.name}` : ''}.</p>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                <div style={{ flex: 1 }}>
+                                    <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                                        Investor Dashboard
+                                        {/* Mobile icon */}
+                                        <Link to="/discover" className="hide-on-desktop" title="Find Projects" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
+                                            <Search size={18} />
+                                        </Link>
+                                    </h1>
+                                    <p className="subtitle">Welcome back{user?.profile?.name ? `, ${user.profile.name}` : ''}.</p>
+                                </div>
+                                <Link to="/discover" className="btn btn-secondary hide-on-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: 'auto' }}>
+                                    <Search size={18} style={{ marginRight: 8 }} /> Find Projects
+                                </Link>
                             </div>
-                            <Link to="/discover" className="btn btn-secondary">
-                                <Search size={18} style={{ marginRight: 8 }} /> Find Projects
-                            </Link>
                         </div>
 
                         {/* Portfolio Stats Widgets */}
@@ -182,7 +190,7 @@ const InvestorDashboard = () => {
                                                 return (
                                                     <tr key={item.id || project.id}>
                                                         <td className="font-semibold">
-                                                            <Link to={`/project/${project.id}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                                                            <Link to={`/project/${project.id}`} className="project-name-link">
                                                                 {project.name}
                                                             </Link>
                                                         </td>
@@ -235,12 +243,12 @@ const InvestorDashboard = () => {
         .dashboard-layout {
           display: flex;
           min-height: calc(100vh - 70px);
-          background: var(--color-gray-100);
+          background: var(--color-gray-50);
         }
 
         .desktop-sidebar {
           width: 260px;
-          background: white;
+          background: var(--color-surface);
           border-right: 1px solid var(--color-gray-200);
           display: flex;
           flex-direction: column;
@@ -287,10 +295,10 @@ const InvestorDashboard = () => {
           font-size: 0.95rem;
         }
 
-        .desktop-sidebar .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        .desktop-sidebar .sidebar-link.active { background: rgba(255, 91, 0, 0.05); color: var(--color-secondary); font-weight: 600; }
+        .desktop-sidebar .sidebar-link:hover { background: var(--color-secondary-dark); color: white; }
+        .desktop-sidebar .sidebar-link.active { background: var(--color-secondary); color: white; font-weight: 600; }
         .desktop-sidebar .sidebar-link.text-error { color: var(--color-error); }
-        .desktop-sidebar .sidebar-link.text-error:hover { background: #FEF2F2; }
+        .desktop-sidebar .sidebar-link.text-error:hover { background: var(--color-red-tint); }
 
         .desktop-sidebar .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
         .desktop-sidebar .mt-auto { margin-top: auto; }
@@ -320,7 +328,7 @@ const InvestorDashboard = () => {
         }
 
         .stat-box {
-          background: white;
+          background: var(--color-surface);
           padding: 1.5rem;
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
@@ -345,7 +353,7 @@ const InvestorDashboard = () => {
         }
 
         .dashboard-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
           padding: 1.5rem;
@@ -361,12 +369,20 @@ const InvestorDashboard = () => {
         }
 
         /* Watchlist Table */
+        .project-name-link {
+            font-weight: 600;
+            color: var(--color-primary);
+            text-decoration: none;
+        }
+        [data-theme="dark"] .project-name-link {
+            color: #0047AB !important;
+        }
         .watchlist-table { width: 100%; border-collapse: collapse; }
         .watchlist-table th { text-align: left; padding-bottom: 1rem; color: var(--color-gray-400); font-size: 0.85rem; }
-        .watchlist-table td { padding: 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--color-gray-100); }
+        .watchlist-table td { padding: 0.75rem 0; font-size: 0.95rem; border-bottom: 1px solid var(--color-gray-200); }
         .watchlist-table tr:last-child td { border-bottom: none; }
 
-        .pill { background: var(--color-gray-100); padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; color: var(--color-gray-600); }
+        .pill { background: var(--color-gray-200); padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; color: var(--color-gray-500); }
         .text-success { color: var(--color-success); font-weight: 600; }
 
         /* Recommendations */
@@ -375,14 +391,14 @@ const InvestorDashboard = () => {
             gap: 1rem;
             margin-bottom: 1rem;
             padding: 1rem;
-            border: 1px solid var(--color-gray-100);
+            border: 1px solid var(--color-gray-200);
             border-radius: var(--radius-md);
             transition: transform 0.2s;
         }
         .rec-item:hover { transform: translateY(-2px); border-color: var(--color-secondary); }
 
         .rec-icon {
-            width: 32px; height: 32px; background: #FFF7ED; border-radius: 50%; color: var(--color-secondary);
+            width: 32px; height: 32px; background: var(--color-orange-tint); border-radius: 50%; color: var(--color-secondary);
             display: flex; align-items: center; justify-content: center; flex-shrink: 0;
         }
         .rec-content h4 { font-size: 0.95rem; margin-bottom: 0.25rem; }
@@ -401,7 +417,7 @@ const InvestorDashboard = () => {
             display: flex !important;
             justify-content: space-evenly;
             align-items: flex-start;
-            background: white;
+            background: var(--color-surface);
             border-bottom: 1px solid var(--color-gray-200);
             padding: 6px 0;
             position: sticky;
@@ -409,7 +425,15 @@ const InvestorDashboard = () => {
             z-index: 50;
           }
           .dashboard-content { padding: 1rem; }
-          .stats-grid { grid-template-columns: 1fr; }
+          .stats-grid { 
+              grid-template-columns: 1fr 1fr; 
+              gap: 0.75rem; 
+              margin-bottom: 1.5rem; 
+          }
+          .stat-box { padding: 1rem 1.25rem; }
+          .stat-box .label { font-size: 0.8rem; margin-bottom: 0.25rem; }
+          .value-row { gap: 0.5rem; margin-bottom: 0.25rem; }
+          .value-row .value { font-size: 1.4rem; }
         }
       `}</style>
         </div>

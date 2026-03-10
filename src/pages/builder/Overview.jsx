@@ -207,7 +207,7 @@ const BuilderOverview = () => {
                                 {projectList.slice(0, 5).map(project => (
                                     <tr key={project.id}>
                                         <td>
-                                            <Link to={`/project/${project.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                            <Link to={`/project/${project.id}`} className="project-name-link">
                                                 {project.title || project.name}
                                             </Link>
                                         </td>
@@ -230,7 +230,15 @@ const BuilderOverview = () => {
             </section>
 
             <style jsx>{`
-        .header {
+                .project-name-link {
+                    font-weight: 600;
+                    color: var(--color-primary);
+                    text-decoration: none;
+                }
+                :global([data-theme="dark"]) .project-name-link {
+                    color: #0047AB !important;
+                }
+                .header {
           display: flex;
           justify-content: space-between;
           align-items: center;
@@ -240,7 +248,7 @@ const BuilderOverview = () => {
         .subtitle { color: var(--color-gray-500); }
 
         .empty-state {
-          background: white;
+          background: var(--color-gray-100);
           border-radius: var(--radius-lg);
           padding: 3rem;
           text-align: center;
@@ -257,7 +265,7 @@ const BuilderOverview = () => {
         }
 
         .stat-box {
-          background: white;
+          background: var(--color-gray-100);
           padding: 1.5rem;
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-sm);
@@ -288,7 +296,7 @@ const BuilderOverview = () => {
 
         /* Projects Table */
         .projects-table-container {
-            background: white;
+            background: var(--color-gray-100);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-sm);
             overflow: hidden;
@@ -323,8 +331,8 @@ const BuilderOverview = () => {
           font-weight: 600;
           text-transform: uppercase;
         }
-        .status-badge.active { background: #DCFCE7; color: #166534; }
-        .status-badge.draft { background: #F3F4F6; color: #4B5563; }
+        .status-badge.active { background: var(--badge-success-bg); color: var(--badge-success-text); }
+        .status-badge.draft { background: var(--badge-draft-bg); color: var(--badge-draft-text); }
 
         @media (max-width: 768px) {
             .header { margin-bottom: 0.75rem; }
@@ -346,16 +354,16 @@ const BuilderOverview = () => {
                     width: 32px; height: 32px;
                     display: flex; align-items: center; justify-content: center;
                     border-radius: 6px; border: 1px solid transparent;
-                    background: none; color: #6b7280; cursor: pointer;
+                    background: none; color: var(--color-gray-500); cursor: pointer;
                     transition: all 0.15s;
                 }
-                .action-menu-trigger:hover { background: #f3f4f6; border-color: #e5e7eb; color: #374151; }
+                .action-menu-trigger:hover { background: var(--color-gray-100); border-color: var(--color-gray-200); color: var(--color-gray-600); }
 
                 .ctx-menu {
                     min-width: 190px;
-                    background: rgba(255,255,255,0.98);
+                    background: var(--color-surface);
                     backdrop-filter: blur(12px);
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 10px;
                     box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
                     padding: 4px 0;
@@ -368,18 +376,18 @@ const BuilderOverview = () => {
                 .ctx-item {
                     display: flex; align-items: center; gap: 0.6rem;
                     width: 100%; padding: 0.5rem 0.85rem;
-                    font-size: 0.84rem; font-weight: 500; color: #374151;
+                    font-size: 0.84rem; font-weight: 500; color: var(--color-gray-600);
                     background: none; border: none; cursor: pointer;
                     text-align: left; transition: background 0.08s; white-space: nowrap;
                 }
-                .ctx-item:hover { background: #f3f4f6; }
+                .ctx-item:hover { background: var(--color-gray-100); }
                 .ctx-item:first-child { border-radius: 8px 8px 0 0; }
                 .ctx-item:last-child { border-radius: 0 0 8px 8px; }
                 .ctx-submit { color: var(--color-primary, #0052cc); }
-                .ctx-submit:hover { background: #eff6ff; }
+                .ctx-submit:hover { background: var(--color-blue-tint); }
                 .ctx-delete { color: #ef4444; }
-                .ctx-delete:hover { background: #fef2f2; }
-                .ctx-divider { height: 1px; background: #e5e7eb; margin: 3px 0; }
+                .ctx-delete:hover { background: var(--color-red-tint); }
+                .ctx-divider { height: 1px; background: var(--color-gray-200); margin: 3px 0; }
             `}</style>
         </>
     );

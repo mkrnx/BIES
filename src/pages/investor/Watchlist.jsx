@@ -85,7 +85,7 @@ const WatchlistCard = ({ project, onRemove }) => {
             </div>
             <style jsx>{`
         .project-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           overflow: hidden;
           border: 1px solid var(--color-gray-200);
@@ -140,6 +140,10 @@ const WatchlistCard = ({ project, onRemove }) => {
           font-weight: 600;
           color: var(--color-neutral-dark);
         }
+        :global([data-theme="dark"]) .industry-badge {
+          background: var(--color-gray-100);
+          color: inherit;
+        }
 
         .stage-badge {
           position: absolute;
@@ -180,7 +184,7 @@ const WatchlistCard = ({ project, onRemove }) => {
           display: flex;
           align-items: center;
           font-size: 0.85rem;
-          color: var(--color-neutral-dark);
+          color: inherit;
           font-weight: 500;
         }
 
@@ -364,7 +368,7 @@ const InvestorWatchlist = () => {
                 .empty-state {
                     text-align: center;
                     padding: 4rem 2rem;
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     border: 1px dashed var(--color-gray-300);
                 }
@@ -376,7 +380,7 @@ const InvestorWatchlist = () => {
 
                 .empty-state h2 {
                     font-size: 1.25rem;
-                    color: var(--color-gray-700);
+                    color: inherit;
                     margin-bottom: 0.5rem;
                 }
 

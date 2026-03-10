@@ -54,7 +54,7 @@ const ProjectCard = ({ project }) => {
         <div
           className="card-image"
           style={{
-            backgroundColor: project.color || '#E0F2FE',
+            backgroundColor: project.color || 'var(--color-blue-tint)',
             backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${getAssetUrl(project.thumbnail || project.coverImage || project.image)})` : 'none'
           }}
         >
@@ -110,7 +110,7 @@ const ProjectCard = ({ project }) => {
       </div>
       <style jsx>{`
         .project-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           overflow: hidden;
           border: 1px solid var(--color-gray-200);
@@ -158,12 +158,12 @@ const ProjectCard = ({ project }) => {
           position: absolute;
           top: 1rem;
           left: 1rem;
-          background: rgba(255,255,255,0.9);
+          background: rgba(75, 85, 99, 0.85);
           padding: 4px 8px;
           border-radius: 4px;
           font-size: 0.75rem;
           font-weight: 600;
-          color: var(--color-neutral-dark);
+          color: white;
         }
 
         .stage-badge {
@@ -212,7 +212,7 @@ const ProjectCard = ({ project }) => {
         .avatar {
           width: 24px;
           height: 24px;
-          background: var(--color-gray-200);
+          background: var(--color-surface-raised);
           border-radius: 50%;
           display: flex;
           align-items: center;
@@ -416,6 +416,7 @@ const Discover = () => {
               placeholder="Search by name, industry, or tag..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
             />
             <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
               <SlidersHorizontal size={20} />
@@ -552,11 +553,17 @@ const Discover = () => {
           display: flex;
           align-items: center;
           flex: 1;
-          background: white;
+          background: var(--color-surface-raised);
           padding: 0.5rem;
           border-radius: var(--radius-full);
-          border: 1px solid var(--color-gray-300);
+          border: 1px solid var(--color-gray-200);
           box-shadow: var(--shadow-sm);
+          transition: all 0.2s;
+        }
+        .search-bar:focus-within { 
+            border-color: var(--color-primary); 
+            box-shadow: 0 0 0 3px rgba(0, 71, 171, 0.1); 
+            background: var(--color-surface-raised); 
         }
 
         .search-icon {
@@ -571,6 +578,8 @@ const Discover = () => {
           outline: none;
           font-size: 1rem;
         }
+        .search-input:focus { outline: none; }
+
 
         /* Layout */
         .content-layout {
@@ -581,7 +590,7 @@ const Discover = () => {
 
         .filters {
           width: 250px;
-          background: white;
+          background: var(--color-surface);
           padding: 1.5rem;
           border-radius: var(--radius-lg);
           height: fit-content;
@@ -631,11 +640,37 @@ const Discover = () => {
         
         .checkbox-list input[type="checkbox"] {
             margin: 0;
-            width: 16px;
-            height: 16px;
+            padding: 0;
+            display: block;
+            width: 16px !important;
+            min-width: 16px;
+            max-width: 16px;
+            height: 16px !important;
+            min-height: 16px;
+            max-height: 16px;
             accent-color: var(--color-primary);
-            flex-shrink: 0;
+            flex: 0 0 16px;
             cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            background: var(--color-surface-raised);
+            border: 1px solid var(--color-gray-200);
+            border-radius: 3px;
+            position: relative;
+            box-sizing: content-box;
+        }
+        .checkbox-list input[type="checkbox"]:checked {
+            background: var(--color-primary);
+        }
+        .checkbox-list input[type="checkbox"]:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 11px;
+            font-weight: 700;
         }
 
         .project-grid {

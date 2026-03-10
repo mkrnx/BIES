@@ -7,11 +7,11 @@ import { useApiQuery } from '../hooks/useApi';
 import { getAssetUrl } from '../utils/assets';
 
 const VISIBILITY_CFG = {
-    PUBLIC: { label: 'Public', color: '#16a34a', bg: '#dcfce7', icon: <Globe size={12} /> },
-    LIMITED_SPACES: { label: 'Limited Spaces', color: '#d97706', bg: '#fef3c7', icon: <Users size={12} /> },
+    PUBLIC: { label: 'Public', color: 'var(--badge-success-text)', bg: 'var(--badge-success-bg)', icon: <Globe size={12} /> },
+    LIMITED_SPACES: { label: 'Limited Spaces', color: 'var(--badge-warning-text)', bg: 'var(--badge-warning-bg)', icon: <Users size={12} /> },
     INVITE_ONLY: { label: 'Invite Only', color: '#7c3aed', bg: '#ede9fe', icon: <UserCheck size={12} /> },
-    PRIVATE: { label: 'Private', color: '#dc2626', bg: '#fee2e2', icon: <Lock size={12} /> },
-    DRAFT: { label: 'Draft', color: '#6b7280', bg: '#f3f4f6', icon: <EyeOff size={12} /> },
+    PRIVATE: { label: 'Private', color: 'var(--badge-error-text)', bg: 'var(--badge-error-bg)', icon: <Lock size={12} /> },
+    DRAFT: { label: 'Draft', color: 'var(--badge-draft-text)', bg: 'var(--badge-draft-bg)', icon: <EyeOff size={12} /> },
 };
 
 const VISIBILITY_OPTIONS = ['PUBLIC', 'LIMITED_SPACES', 'INVITE_ONLY', 'PRIVATE', 'DRAFT'];
@@ -254,7 +254,7 @@ const MyEvents = () => {
                                                     />
                                                 )}
                                                 <div>
-                                                    <Link to={`/events/${event.id}`} style={{ fontWeight: 600, color: 'var(--color-primary)', textDecoration: 'none' }}>
+                                                    <Link to={`/events/${event.id}`} className="event-name-link">
                                                         {event.title}
                                                     </Link>
                                                     {event.location && (
@@ -309,11 +309,19 @@ const MyEvents = () => {
             </div>
 
             <style jsx>{`
+                .event-name-link {
+                    font-weight: 600;
+                    color: var(--color-primary);
+                    text-decoration: none;
+                }
+                :global([data-theme="dark"]) .event-name-link {
+                    color: white !important;
+                }
                 .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; }
                 .subtitle { color: var(--color-gray-500); }
 
                 .card-container {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     border: 1px solid var(--color-gray-200);
@@ -339,7 +347,7 @@ const MyEvents = () => {
                     border: none;
                     background: none;
                 }
-                .tab.active { background: var(--color-gray-100); color: var(--color-primary); }
+                .tab.active { background: var(--color-gray-100); color: #F97316; font-weight: 600; }
 
                 .search-input {
                     padding: 0.5rem 1rem;
@@ -377,9 +385,9 @@ const MyEvents = () => {
                     white-space: nowrap;
                 }
                 .badge-official { background: var(--color-secondary); color: white; }
-                .badge-endorsed { background: #fef3c7; color: #d97706; }
-                .badge-pending { background: #f3f4f6; color: #6b7280; }
-                .badge-copied { background: #dcfce7; color: #16a34a; }
+                .badge-endorsed { background: var(--badge-warning-bg); color: var(--badge-warning-text); }
+                .badge-pending { background: var(--badge-draft-bg); color: var(--badge-draft-text); }
+                .badge-copied { background: var(--badge-success-bg); color: var(--badge-success-text); }
             `}</style>
 
             <style>{`
@@ -392,20 +400,20 @@ const MyEvents = () => {
                     border-radius: 6px;
                     border: 1px solid transparent;
                     background: none;
-                    color: #6b7280;
+                    color: var(--color-gray-500);
                     cursor: pointer;
                     transition: all 0.15s;
                 }
                 .action-menu-trigger:hover {
-                    background: #f3f4f6;
-                    border-color: #e5e7eb;
-                    color: #374151;
+                    background: var(--color-gray-100);
+                    border-color: var(--color-gray-200);
+                    color: var(--color-gray-600);
                 }
                 .ctx-menu {
                     min-width: 190px;
-                    background: rgba(255,255,255,0.98);
+                    background: var(--color-surface);
                     backdrop-filter: blur(12px);
-                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: 10px;
                     box-shadow: 0 12px 32px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
                     z-index: 9999;
@@ -421,7 +429,7 @@ const MyEvents = () => {
                     font-size: 0.72rem;
                     font-weight: 700;
                     text-transform: uppercase;
-                    color: #9ca3af;
+                    color: var(--color-gray-400);
                     letter-spacing: 0.04em;
                 }
                 .ctx-item {
@@ -432,7 +440,7 @@ const MyEvents = () => {
                     padding: 0.5rem 0.85rem;
                     font-size: 0.84rem;
                     font-weight: 500;
-                    color: #374151;
+                    color: var(--color-gray-600);
                     background: none;
                     border: none;
                     cursor: pointer;
@@ -440,13 +448,13 @@ const MyEvents = () => {
                     transition: background 0.08s;
                     white-space: nowrap;
                 }
-                .ctx-item:hover { background: #f3f4f6; }
+                .ctx-item:hover { background: var(--color-gray-100); }
                 .ctx-copy { color: #1d4ed8; }
-                .ctx-copy:hover { background: #eff6ff; }
+                .ctx-copy:hover { background: var(--color-blue-tint); }
                 .ctx-active { font-weight: 700; }
                 .ctx-delete { color: #ef4444; }
-                .ctx-delete:hover { background: #fef2f2; }
-                .ctx-divider { height: 1px; background: #e5e7eb; margin: 3px 0; }
+                .ctx-delete:hover { background: var(--color-red-tint); }
+                .ctx-divider { height: 1px; background: var(--color-gray-200); margin: 3px 0; }
             `}</style>
         </div>
     );

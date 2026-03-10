@@ -84,7 +84,7 @@ const BuilderDashboard = () => {
                 width: '44px',
                 height: '44px',
                 borderRadius: '50%',
-                background: active ? '#EDF5FF' : 'var(--color-gray-100)',
+                background: active ? 'var(--color-blue-tint)' : 'var(--color-gray-100)',
                 color: active ? 'var(--color-primary)' : 'var(--color-gray-400)',
                 transition: 'all 0.2s',
               }}>
@@ -105,12 +105,12 @@ const BuilderDashboard = () => {
         .dashboard-layout {
           display: flex;
           min-height: calc(100vh - 70px);
-          background: var(--color-gray-100);
+          background: var(--color-gray-50);
         }
 
         .desktop-sidebar {
           width: 260px;
-          background: white;
+          background: var(--color-surface);
           border-right: 1px solid var(--color-gray-200);
           display: flex;
           flex-direction: column;
@@ -157,10 +157,10 @@ const BuilderDashboard = () => {
           font-size: 0.95rem;
         }
 
-        .desktop-sidebar .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        .desktop-sidebar .sidebar-link.active { background: #EDF5FF; color: var(--color-primary); font-weight: 600; }
+        .desktop-sidebar .sidebar-link:hover { background: var(--color-primary-dark); color: white; }
+        .desktop-sidebar .sidebar-link.active { background: var(--color-primary); color: white; font-weight: 600; }
         .desktop-sidebar .sidebar-link.text-error { color: var(--color-error); }
-        .desktop-sidebar .sidebar-link.text-error:hover { background: #FEF2F2; }
+        .desktop-sidebar .sidebar-link.text-error:hover { background: var(--color-red-tint); }
 
         .desktop-sidebar .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
         .desktop-sidebar .mt-auto { margin-top: auto; }
@@ -180,7 +180,7 @@ const BuilderDashboard = () => {
             display: flex !important;
             justify-content: space-evenly;
             align-items: flex-start;
-            background: white;
+            background: var(--color-surface);
             border-bottom: 1px solid var(--color-gray-200);
             padding: 6px 0;
             position: sticky;

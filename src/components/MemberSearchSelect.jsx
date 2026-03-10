@@ -162,7 +162,7 @@ const MemberSearchSelect = ({ value = [], onChange }) => {
                     align-items: center;
                     gap: 0.35rem;
                     padding: 4px 8px 4px 4px;
-                    background: #eff6ff;
+                    background: var(--color-blue-tint);
                     border: 1px solid #bfdbfe;
                     border-radius: 99px;
                     font-size: 0.82rem;
@@ -251,7 +251,7 @@ const MemberSearchSelect = ({ value = [], onChange }) => {
                     top: calc(100% + 4px);
                     left: 0;
                     right: 0;
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
                     box-shadow: 0 8px 24px rgba(0,0,0,0.1);

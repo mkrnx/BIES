@@ -142,14 +142,14 @@ const CreateEvent = () => {
     const renderSection = (section, idx) => {
         const stype = section.type || 'TEXT';
         const typeConfig = {
-            TEXT:     { icon: <AlignLeftIcon size={12} />,  label: 'Text',     color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-            PHOTO:    { icon: <ImageIcon size={12} />,       label: 'Photo',    color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+            TEXT:     { icon: <AlignLeftIcon size={12} />,  label: 'Text',     color: '#2563eb', bg: 'var(--color-blue-tint)', border: '#bfdbfe' },
+            PHOTO:    { icon: <ImageIcon size={12} />,       label: 'Photo',    color: '#16a34a', bg: 'var(--color-green-tint)', border: '#bbf7d0' },
             CAROUSEL: { icon: <LayoutIcon size={12} />,      label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
-            GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: '#fff7ed', border: '#fed7aa' },
-        }[stype] || { icon: null, label: stype, color: '#6b7280', bg: '#f9fafb', border: '#e5e7eb' };
+            GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
+        }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
 
         return (
-            <div key={idx} style={{ marginBottom: '1rem', background: 'white', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div key={idx} style={{ marginBottom: '1rem', background: 'var(--color-surface)', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.55rem 0.875rem', background: typeConfig.bg, borderBottom: `1px solid ${typeConfig.border}` }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: typeConfig.color }}>
                         {typeConfig.icon} {typeConfig.label} Section
@@ -160,7 +160,7 @@ const CreateEvent = () => {
                     <input
                         type="text" value={section.title}
                         onChange={(e) => updateSection(idx, 'title', e.target.value)}
-                        style={{ width: '100%', padding: '0.4rem 0', border: 'none', borderBottom: `2px solid ${typeConfig.border}`, background: 'transparent', outline: 'none', fontSize: '0.95rem', fontWeight: 700, color: '#111827', fontFamily: 'var(--font-display)', marginBottom: '0.875rem', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
+                        style={{ width: '100%', padding: '0.4rem 0', border: 'none', borderBottom: `2px solid ${typeConfig.border}`, background: 'transparent', outline: 'none', fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)', marginBottom: '0.875rem', transition: 'border-color 0.2s', boxSizing: 'border-box' }}
                         onFocus={e => e.target.style.borderBottomColor = typeConfig.color}
                         onBlur={e => e.target.style.borderBottomColor = typeConfig.border}
                         placeholder="Section Title"
@@ -488,11 +488,11 @@ const CreateEvent = () => {
                                 <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Visibility</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                     {VISIBILITY_OPTIONS.map(opt => (
-                                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${form.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.visibility === opt.value ? '#eff6ff' : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
+                                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${form.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.visibility === opt.value ? 'var(--color-blue-tint)' : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
                                             <input type="radio" name="visibility" value={opt.value} checked={form.visibility === opt.value} onChange={handleChange} style={{ display: 'none' }} />
                                             <span style={{ color: form.visibility === opt.value ? 'var(--color-primary)' : 'var(--color-gray-500)', flexShrink: 0 }}>{opt.icon}</span>
                                             <span>
-                                                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#111827' }}>{opt.label}</span>
+                                                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{opt.label}</span>
                                                 <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--color-gray-500)' }}>{opt.desc}</span>
                                             </span>
                                         </label>
@@ -516,8 +516,8 @@ const CreateEvent = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                         {[
                                             { value: 'none', label: 'Don\'t Publish', desc: 'Event stays on BIES only', color: 'var(--color-gray-500)', bg: 'var(--color-gray-50)', border: 'var(--color-gray-200)' },
-                                            { value: 'bies', label: 'BIES Relay Only', desc: 'Published to the private BIES relay', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
-                                            { value: 'public', label: 'Public Relays', desc: 'Published to public Nostr relays (damus, primal, etc.)', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                                            { value: 'bies', label: 'BIES Relay Only', desc: 'Published to the private BIES relay', color: '#2563eb', bg: 'var(--color-blue-tint)', border: '#bfdbfe' },
+                                            { value: 'public', label: 'Public Relays', desc: 'Published to public Nostr relays (damus, primal, etc.)', color: '#16a34a', bg: 'var(--color-green-tint)', border: '#bbf7d0' },
                                             { value: 'both', label: 'Both', desc: 'Published to BIES relay and public relays', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
                                         ].map(opt => (
                                             <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 0.75rem', border: `1px solid ${form.nostrPublish === opt.value ? opt.border : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.nostrPublish === opt.value ? opt.bg : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
@@ -526,7 +526,7 @@ const CreateEvent = () => {
                                                     {form.nostrPublish === opt.value && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: opt.color }} />}
                                                 </span>
                                                 <span>
-                                                    <span style={{ display: 'block', fontSize: '0.83rem', fontWeight: 600, color: '#111827' }}>{opt.label}</span>
+                                                    <span style={{ display: 'block', fontSize: '0.83rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{opt.label}</span>
                                                     <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--color-gray-500)' }}>{opt.desc}</span>
                                                 </span>
                                             </label>
@@ -576,7 +576,7 @@ const CreateEvent = () => {
                                     <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Settings</h3>
 
                                     {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: '#fff7ed', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-orange-tint)', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
                                             <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--color-secondary)' }} />
                                             <div>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><ShieldCheck size={14} /> Official BIES Event</span>
@@ -586,7 +586,7 @@ const CreateEvent = () => {
                                     )}
 
                                     {!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', cursor: 'pointer' }}>
+                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-amber-tint)', border: '1px solid #fde68a', borderRadius: '8px', cursor: 'pointer' }}>
                                             <input type="checkbox" name="endorsementRequested" checked={form.endorsementRequested} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: '#d97706' }} />
                                             <div>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><Award size={14} style={{ color: '#d97706' }} /> Request BIES Endorsement</span>
@@ -611,7 +611,7 @@ const CreateEvent = () => {
             </div>
 
             <style jsx>{`
-                .event-edit-page { background: #f8fafc; min-height: 100vh; padding-bottom: 4rem; }
+                .event-edit-page { background: var(--color-gray-100); min-height: 100vh; padding-bottom: 4rem; }
                 .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
                 .mb-8 { margin-bottom: 2rem; }
                 .max-w-6xl { max-width: 1200px; margin: 0 auto; }
@@ -621,15 +621,15 @@ const CreateEvent = () => {
                 .h1-title { font-size: 2rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
                 .h3-title { font-size: 1.2rem; font-weight: 700; font-family: var(--font-display); }
                 .text-gray-500 { color: var(--color-gray-500); margin: 0; }
-                .error-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: #FEF2F2; color: #B91C1C; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; }
-                .profile-card { background: white; border-radius: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--color-gray-200); }
+                .error-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--color-red-tint); color: #B91C1C; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; }
+                .profile-card { background: var(--color-surface); border-radius: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--color-gray-200); }
                 .section-inner { padding: 2rem; }
                 .section-heading { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-gray-200); }
                 .cover-banner { position: relative; height: 220px; background-color: #0a192f; background-size: cover; background-position: center; display: flex; align-items: flex-end; justify-content: space-between; padding: 1.25rem; }
                 .cover-banner::before { content: ''; position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0,0,0,0.45)); pointer-events: none; }
                 .upload-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.5); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 15; }
                 .banner-actions-left, .banner-actions-right { position: relative; z-index: 20; display: flex; gap: 0.5rem; }
-                .banner-btn { display: flex; align-items: center; gap: 0.4rem; background: white; color: #1f2937; border-radius: 8px; height: 38px; padding: 0 16px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap; }
+                .banner-btn { display: flex; align-items: center; gap: 0.4rem; background: var(--color-surface); color: var(--color-gray-900); border-radius: 8px; height: 38px; padding: 0 16px; font-weight: 600; font-size: 0.85rem; border: none; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.15); white-space: nowrap; }
                 .banner-btn:hover { opacity: 0.9; }
                 .banner-btn.danger { color: #EF4444; }
                 .save-btn { display: inline-flex; align-items: center; gap: 0.5rem; background: var(--color-primary); color: white; border: none; border-radius: 8px; height: 44px; padding: 0 24px; font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.25); white-space: nowrap; }
@@ -637,7 +637,7 @@ const CreateEvent = () => {
                 .form-row-label { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; align-items: start; margin-bottom: 1.75rem; }
                 .form-label { text-align: right; color: var(--color-gray-700); font-weight: 600; font-size: 0.875rem; padding-top: 0.6rem; }
                 .form-content { min-width: 0; }
-                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: white; border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
+                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-surface); border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
                 .input-field:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }
                 select.input-field { appearance: auto; cursor: pointer; }
                 .sidebar-form-group { margin-bottom: 1rem; }
@@ -645,20 +645,20 @@ const CreateEvent = () => {
                 .checkbox-label-inline { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; font-size: 0.82rem; font-weight: 600; color: var(--color-gray-700); }
                 .input-field.sm { padding: 0.5rem 0.75rem; font-size: 0.85rem; border-radius: 6px; }
                 .team-remove { background: none; border: none; cursor: pointer; padding: 0.35rem; color: var(--color-gray-400); border-radius: 6px; transition: all 0.15s; display: flex; align-items: center; }
-                .team-remove:hover { color: #ef4444; background: #fef2f2; }
-                .add-section-buttons-container { padding: 1.25rem; background: #f8fafc; border: 1px dashed var(--color-gray-300); border-radius: 12px; }
+                .team-remove:hover { color: #ef4444; background: var(--color-red-tint); }
+                .add-section-buttons-container { padding: 1.25rem; background: var(--color-gray-100); border: 1px dashed var(--color-gray-300); border-radius: 12px; }
                 .section-label-hint { font-size: 0.73rem; font-weight: 600; color: var(--color-gray-500); margin-bottom: 0.6rem; text-transform: uppercase; letter-spacing: 0.05em; }
                 .add-section-buttons { display: flex; gap: 0.4rem; flex-wrap: wrap; }
                 .add-btn { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.6rem 1.25rem; border-radius: 8px; border: 2px dashed var(--color-gray-300); background: none; color: var(--color-primary); font-weight: 600; font-size: 0.88rem; cursor: pointer; transition: all 0.15s; }
-                .add-btn:hover { border-color: var(--color-primary); background: #f0f7ff; }
+                .add-btn:hover { border-color: var(--color-primary); background: var(--color-blue-tint); }
                 .add-btn.sm { padding: 0.35rem 0.7rem; font-size: 0.78rem; border-radius: 6px; }
                 .add-btn-sm { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; border-radius: 6px; border: 1px dashed var(--color-gray-300); background: none; color: var(--color-primary); font-weight: 600; font-size: 0.78rem; cursor: pointer; margin-top: 0.25rem; }
-                .add-btn-sm:hover { border-color: var(--color-primary); background: #f0f7ff; }
+                .add-btn-sm:hover { border-color: var(--color-primary); background: var(--color-blue-tint); }
                 .deck-upload-area { border: 2px dashed var(--color-gray-300); border-radius: 12px; padding: 1.5rem; text-align: center; cursor: pointer; transition: all 0.2s; background: var(--color-gray-50); display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; box-sizing: border-box; }
-                .deck-upload-area:hover { border-color: var(--color-primary); background: #f0fdf4; }
+                .deck-upload-area:hover { border-color: var(--color-primary); background: var(--color-green-tint); }
                 .placement-toggle { display: flex; background: var(--color-gray-100); padding: 2px; border-radius: 6px; }
                 .placement-toggle button { padding: 2px 8px; font-size: 0.72rem; font-weight: 600; border-radius: 4px; border: none; background: transparent; color: var(--color-gray-500); cursor: pointer; transition: all 0.1s; }
-                .placement-toggle button.active { background: white; color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+                .placement-toggle button.active { background: var(--color-surface); color: var(--color-primary); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @media (max-width: 1024px) {
                     .event-edit-page > .container > div[style] { flex-direction: column !important; }

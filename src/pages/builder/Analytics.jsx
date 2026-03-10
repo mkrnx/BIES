@@ -119,9 +119,9 @@ const Analytics = () => {
                 .subtitle { color: var(--color-gray-500); }
 
                 .date-filter {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 0.5rem 1rem;
-                    border: 1px solid var(--color-gray-300);
+                    border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
                     display: flex;
                     align-items: center;
@@ -139,7 +139,7 @@ const Analytics = () => {
                 }
 
                 .metric-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-gray-200);
@@ -159,7 +159,7 @@ const Analytics = () => {
                 }
 
                 .chart-card {
-                    background: white;
+                    background: var(--color-surface);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     border: 1px solid var(--color-gray-200);
@@ -184,7 +184,7 @@ const Analytics = () => {
                 }
                 .bar {
                     flex: 1;
-                    background: var(--color-primary);
+                    background: var(--color-secondary);
                     opacity: 0.8;
                     border-radius: 4px 4px 0 0;
                     transition: height 0.5s ease;
@@ -197,7 +197,7 @@ const Analytics = () => {
                     justify-content: space-between;
                     padding: 0.75rem 0;
                     border-bottom: 1px solid var(--color-gray-100);
-                    color: var(--color-gray-700);
+                    color: inherit;
                     font-size: 0.95rem;
                 }
                 .location-list li:last-child { border-bottom: none; }
