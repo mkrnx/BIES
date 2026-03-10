@@ -13,7 +13,7 @@ COPY public/ public/
 COPY src/ src/
 
 # In production, API calls go through nginx at the same origin
-ENV VITE_API_URL=/biestest/api
+ENV VITE_API_URL=/api
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -78,7 +78,7 @@ FROM nginx:1.27-alpine AS nginx
 RUN rm /etc/nginx/conf.d/default.conf
 
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
-COPY --from=client-build /app/dist /usr/share/nginx/html/biestest
+COPY --from=client-build /app/dist /usr/share/nginx/html
 COPY bugs/index.html /usr/share/nginx/html/bugs/index.html
 
 # Run nginx as non-root
