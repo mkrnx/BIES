@@ -47,7 +47,7 @@ const Navbar = () => {
   const isActive = (path) => location.pathname === path;
 
   return (
-    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100 }}>
+    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100, paddingBottom: '6px' }}>
       <div className="container flex items-center justify-between" style={{ height: '100%' }}>
 
         {/* Logo */}
@@ -243,12 +243,66 @@ const Navbar = () => {
 
       {/* Mode Indicator Strip - Removed since it conflicts with the bottom orange border in this layout */}
 
+      {/* Mobile Slide-Out Menu */}
+      {isMenuOpen && (
+        <>
+          <div className="mobile-overlay" onClick={() => setIsMenuOpen(false)} />
+          <div className="mobile-drawer">
+            <div className="mobile-drawer-header">
+              <img src={logoHorizontalWhite} alt="BIES" style={{ height: '32px' }} />
+              <button onClick={() => setIsMenuOpen(false)} style={{ color: 'white', background: 'none', border: 'none', fontSize: '1.5rem', padding: '8px', cursor: 'pointer' }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 0', display: 'flex', flexDirection: 'column' }}>
+              {navLinks.map((link) => {
+                const linkStyle = {
+                  display: 'block',
+                  padding: '0.9rem 1.5rem',
+                  color: isActive(link.path) ? 'white' : 'rgba(255,255,255,0.8)',
+                  fontSize: '1rem',
+                  fontWeight: isActive(link.path) ? 700 : 500,
+                  textDecoration: 'none',
+                  borderLeft: isActive(link.path) ? '3px solid var(--color-secondary)' : '3px solid transparent',
+                  background: isActive(link.path) ? 'rgba(255,255,255,0.1)' : 'none',
+                };
+                return (
+                  <Link key={link.path} to={link.path} style={linkStyle} onClick={() => setIsMenuOpen(false)}>
+                    {link.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
+              {isAuthenticated ? (
+                <>
+                  {[
+                    { to: '/dashboard', label: 'Dashboard' },
+                    { to: '/messages', label: 'Messages' },
+                    { to: '/settings', label: 'Settings' },
+                  ].map(item => (
+                    <Link key={item.to} to={item.to} style={{ display: 'block', padding: '0.9rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500, textDecoration: 'none', borderLeft: '3px solid transparent' }} onClick={() => setIsMenuOpen(false)}>
+                      {item.label}
+                    </Link>
+                  ))}
+                  <button onClick={() => { logout(); clearMode(); setIsMenuOpen(false); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.9rem 1.5rem', color: '#ef4444', fontSize: '1rem', fontWeight: 500, background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left' }}>
+                    <LogOut size={16} /> Log Out
+                  </button>
+                </>
+              ) : (
+                <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.9rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500, textDecoration: 'none', borderLeft: '3px solid transparent' }} onClick={() => setIsMenuOpen(false)}>
+                  <NostrIcon size={16} /> Log In
+                </Link>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       {/* Bitcoin Orange Line */}
       <div style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
 
       <style jsx>{`
         .navbar {
-          height: 70px;
+          min-height: 70px;
           background: var(--color-primary);
           position: sticky;
           top: 0;
@@ -459,12 +513,84 @@ const Navbar = () => {
         .mode-strip.investor { background: var(--color-secondary); }
 
         .hidden-mobile { display: block; }
-        .mobile-toggle { display: none; color: white; }
+        .mobile-toggle { display: none; color: white; padding: 8px; }
+
+        /* Mobile Drawer */
+        .mobile-overlay {
+          position: fixed;
+          top: 0; left: 0; right: 0; bottom: 0;
+          background: rgba(0,0,0,0.5);
+          z-index: 200;
+          animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        .mobile-drawer {
+          position: fixed;
+          top: 0; right: 0; bottom: 0;
+          width: 280px;
+          max-width: 85vw;
+          background: var(--color-primary);
+          z-index: 201;
+          display: flex;
+          flex-direction: column;
+          animation: slideIn 0.25s ease-out;
+          padding: env(safe-area-inset-top, 0) 0 env(safe-area-inset-bottom, 0) 0;
+        }
+        @keyframes slideIn { from { transform: translateX(100%); } to { transform: translateX(0); } }
+
+        .mobile-drawer-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          padding: 1.25rem 1.5rem;
+          border-bottom: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .mobile-drawer-links {
+          flex: 1;
+          overflow-y: auto;
+          padding: 0.75rem 0;
+        }
+
+        .mobile-drawer-link {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 0.9rem 1.5rem;
+          color: rgba(255,255,255,0.85);
+          font-size: 1rem;
+          font-weight: 500;
+          text-decoration: none;
+          transition: background 0.15s;
+          width: 100%;
+          border: none;
+          background: none;
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .mobile-drawer-link:hover,
+        .mobile-drawer-link:active {
+          background: rgba(255,255,255,0.1);
+        }
+        .mobile-drawer-link.active {
+          color: white;
+          font-weight: 700;
+          background: rgba(255,255,255,0.1);
+          border-left: 3px solid var(--color-secondary);
+        }
+
+        .mobile-drawer-footer {
+          border-top: 1px solid rgba(255,255,255,0.15);
+          padding: 0.5rem 0;
+        }
 
         @media (max-width: 768px) {
           .desktop-links { display: none; }
           .hidden-mobile { display: none; }
           .mobile-toggle { display: block; }
+          .search-container { display: none; }
+          .notifications-menu { display: none; }
         }
 
         /* Notifications */

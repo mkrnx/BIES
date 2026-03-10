@@ -1,0 +1,26 @@
+{
+  "name": "BIES - Build in El Salvador",
+  "short_name": "BIES",
+  "description": "Bitcoin-native investment ecosystem connecting builders and investors in El Salvador",
+  "start_url": "/biestest/",
+  "scope": "/biestest/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0047ab",
+  "theme_color": "#0047ab",
+  "categories": ["business", "finance"],
+  "icons": [
+    {
+      "src": "/biestest/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/biestest/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

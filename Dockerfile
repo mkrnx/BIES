@@ -9,6 +9,7 @@ COPY package.json package-lock.json ./
 RUN npm ci
 
 COPY index.html vite.config.js ./
+COPY public/ public/
 COPY src/ src/
 
 # In production, API calls go through nginx at the same origin

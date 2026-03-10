@@ -502,3 +502,52 @@ textarea {
   text-align: left !important;
   display: block;
 }
+
+/* ===== PWA & Mobile App Styles ===== */
+
+.app-content {
+  min-height: calc(100vh - 73px);
+}
+
+@media (max-width: 768px) {
+  .app-content {
+    min-height: calc(100vh - 73px);
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); /* space for bottom nav + safe area */
+  }
+
+  .container {
+    padding: 0 var(--spacing-sm);
+  }
+
+  /* Make all text slightly smaller on mobile for density */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.2rem !important; }
+
+  /* Touch-friendly tap targets */
+  button, a {
+    min-height: 36px;
+  }
+
+  /* Prevent horizontal overflow */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* Safe area adjustments for notched phones (iPhone X+) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .navbar {
+    padding-top: env(safe-area-inset-top, 0) !important;
+  }
+}
+
+/* On mobile, make body blue so the area below bottom nav matches the nav color */
+@media (max-width: 768px) {
+  body {
+    background-color: #0047AB !important;
+  }
+
+  .app-content {
+    background-color: var(--color-gray-50);
+  }
+}
