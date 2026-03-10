@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { publishProject, publishProjectListing } from '../services/nostr.service';
+import { publishProject, publishProjectListing, publishAnnouncement } from '../services/nostr.service';
 import { getPresignedUrl } from '../services/storage.service';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { notifyProjectUpdate, notifyDeckRequest, notifyDeckApproved, notifyDeckDenied, notifyInvestmentInterest } from '../services/notification.service';
@@ -264,6 +264,12 @@ export async function createProject(req: Request, res: Response): Promise<void> 
                 await prisma.project.update({ where: { id: project.id }, data: { nostrListingEventId: listingEventId } });
             }
         }).catch((err) => console.error('[Nostr] Project listing sync failed:', err));
+
+        // Announce new project on the BIES feed
+        const ownerName = project.owner?.profile?.name || 'A builder';
+        publishAnnouncement(req.user!.id, `${ownerName} just created a new project: "${project.title}" in ${project.category}. Check it out on BIES!`, [['t', 'new-project']]).catch((err) =>
+            console.error('[Nostr] Project announcement failed:', err)
+        );
 
         res.status(201).json({ ...project, tags: JSON.parse(project.tags || '[]'), customSections: JSON.parse(project.customSections || '[]'), teamInfo: JSON.parse(project.teamInfo || '[]'), useOfFunds: JSON.parse(project.useOfFunds || '[]') });
     } catch (error) {

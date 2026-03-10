@@ -196,12 +196,12 @@ class NwcClient {
 
             const sub = this.pool.subscribeMany(
                 [relay],
-                [{
+                {
                     kinds: [23195],
                     authors: [walletPubkey],
                     '#p': [clientPubkey],
                     '#e': [requestEventId],
-                }],
+                },
                 {
                     onevent: (event) => {
                         clearTimeout(timeout);

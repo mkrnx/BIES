@@ -50,13 +50,13 @@ const Login = () => {
     // Redirect to dashboard if already logged in, but not while passkey prompt is showing
     useEffect(() => {
         if (!authLoading && authedUser && !showPasskeyPrompt) {
-            navigate('/dashboard', { replace: true });
+            navigate('/feed', { replace: true });
         }
     }, [authLoading, authedUser, showPasskeyPrompt, navigate]);
 
     const handleResult = (result, nsec) => {
         if (result.success) {
-            const target = result.needsProfileSetup ? '/profile-setup' : '/dashboard';
+            const target = result.needsProfileSetup ? '/profile-setup' : '/feed';
 
             // Offer passkey save if: we have the nsec, passkeys are supported,
             // and user doesn't already have one for this account

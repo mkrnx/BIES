@@ -204,6 +204,26 @@ export async function publishRelayList(userId: string): Promise<string | null> {
 }
 
 /**
+ * Publish a Kind 1 announcement note to the BIES relay on behalf of a user.
+ * Used for system events: new user joined, project created, lightning address added.
+ * Only works for custodial-key users; Nostr-native users handle this client-side.
+ */
+export async function publishAnnouncement(
+    userId: string,
+    content: string,
+    tags: string[][] = []
+): Promise<string | null> {
+    const event: EventTemplate = {
+        kind: 1,
+        created_at: Math.floor(Date.now() / 1000),
+        tags: [['t', 'bies'], ...tags],
+        content,
+    };
+
+    return publishEvent(userId, event);
+}
+
+/**
  * Convert hex string to Uint8Array
  */
 function hexToBytes(hex: string): Uint8Array {

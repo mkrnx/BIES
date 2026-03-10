@@ -7,6 +7,7 @@ import ModeSelectionModal from './components/ModeSelectionModal';
 
 // Pages
 import Landing from './pages/Landing';
+import Feed from './pages/Feed';
 import BuilderDashboard from './pages/builder/Dashboard';
 import InvestorDashboard from './pages/investor/Dashboard';
 import Discover from './pages/Discover';
@@ -66,7 +67,7 @@ const ProtectedRoute = ({ children }) => {
 const PublicRoute = ({ children }) => {
     const { user, loading } = useAuth();
     if (loading) return null;
-    if (user) return <Navigate to="/dashboard" replace />;
+    if (user) return <Navigate to="/feed" replace />;
     return children;
 };
 
@@ -112,7 +113,10 @@ const AppContent = () => {
             <div style={{ minHeight: 'calc(100vh - 73px)' }}>
                 <Routes>
                     {/* Public Routes */}
-                    <Route path="/" element={<Landing />} />
+                    <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Landing />} />
+                    <Route path="/feed" element={
+                        <ProtectedRoute><Feed /></ProtectedRoute>
+                    } />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
 
