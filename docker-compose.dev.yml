@@ -1,0 +1,17 @@
+services:
+  bies-relay:
+    build:
+      context: ./relay
+    ports:
+      - "7777:7777"
+    volumes:
+      - relay-dev-data:/app/strfry-db
+      - relay-dev-whitelist:/app/data
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+volumes:
+  relay-dev-data:
+  relay-dev-whitelist:
