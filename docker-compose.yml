@@ -65,6 +65,19 @@ services:
         limits:
           memory: 128M
 
+  bies-bugs:
+    build:
+      context: ./bugs
+    restart: unless-stopped
+    volumes:
+      - bugs-data:/app/data
+    networks:
+      - bies-net
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
   bies-nginx:
     build:
       context: .
@@ -85,6 +98,7 @@ services:
 volumes:
   bies-data:
   bies-uploads:
+  bugs-data:
   relay-data:
   relay-whitelist:
 

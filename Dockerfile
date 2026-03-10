@@ -78,6 +78,7 @@ RUN rm /etc/nginx/conf.d/default.conf
 
 COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=client-build /app/dist /usr/share/nginx/html/biestest
+COPY bugs/index.html /usr/share/nginx/html/bugs/index.html
 
 # Run nginx as non-root
 RUN chown -R nginx:nginx /usr/share/nginx/html \
