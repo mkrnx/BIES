@@ -192,17 +192,19 @@ const Following = () => {
                 .flw-subtitle { color: #6b7280; margin: 0; }
 
                 .flw-tabs {
-                    display: flex; gap: 0.5rem;
+                    display: flex; gap: 0;
                     border-bottom: 2px solid #e5e7eb;
                     margin-bottom: 1.5rem;
+                    overflow-x: auto;
                 }
                 .flw-tab {
-                    display: flex; align-items: center; gap: 0.4rem;
-                    padding: 0.65rem 1rem;
+                    display: flex; align-items: center; gap: 0.35rem;
+                    padding: 0.65rem 0.75rem;
                     background: none; border: none; border-bottom: 2px solid transparent;
                     margin-bottom: -2px;
-                    font-size: 0.9rem; font-weight: 500; color: #6b7280;
+                    font-size: 0.85rem; font-weight: 500; color: #6b7280;
                     cursor: pointer; transition: all 0.15s;
+                    white-space: nowrap;
                 }
                 .flw-tab:hover { color: #374151; }
                 .flw-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); font-weight: 600; }
@@ -220,22 +222,23 @@ const Following = () => {
 
                 .flw-grid {
                     display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-                    gap: 1rem;
+                    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+                    gap: 0.75rem;
                 }
                 .flw-card {
                     background: white;
                     border: 1px solid #e5e7eb;
                     border-radius: 12px;
-                    padding: 1.25rem;
-                    display: flex; flex-direction: column; gap: 1rem;
+                    padding: 1rem;
+                    display: flex; flex-direction: column; gap: 0.75rem;
                     transition: border-color 0.15s, box-shadow 0.15s;
+                    overflow: hidden;
                 }
                 .flw-card:hover { border-color: #c7d2fe; box-shadow: 0 2px 12px rgba(99,102,241,0.06); }
-                .flw-card-top { display: flex; align-items: center; gap: 0.75rem; }
+                .flw-card-top { display: flex; align-items: center; gap: 0.75rem; min-width: 0; }
 
                 .flw-avatar {
-                    width: 44px; height: 44px; border-radius: 50%;
+                    width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0;
                     background: linear-gradient(135deg, var(--color-primary), var(--color-secondary, #F97316));
                     display: flex; align-items: center; justify-content: center;
                     overflow: hidden; flex-shrink: 0;
@@ -244,14 +247,14 @@ const Following = () => {
                 .flw-avatar.project { border-radius: 10px; }
                 .flw-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
-                .flw-info { display: flex; flex-direction: column; min-width: 0; }
+                .flw-info { display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
                 .flw-name {
                     font-weight: 600; color: #111827; font-size: 0.95rem;
                     text-decoration: none; white-space: nowrap;
                     overflow: hidden; text-overflow: ellipsis;
                 }
                 .flw-name:hover { color: var(--color-primary); }
-                .flw-sub { font-size: 0.8rem; color: #9ca3af; }
+                .flw-sub { font-size: 0.8rem; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
 
                 .flw-unfollow {
                     display: flex; align-items: center; gap: 0.35rem;
@@ -278,8 +281,9 @@ const Following = () => {
                 }
                 .flw-btn-link:hover { filter: brightness(1.1); }
 
-                @media (max-width: 600px) {
+                @media (max-width: 768px) {
                     .flw-grid { grid-template-columns: 1fr; }
+                    .flw-header h1 { font-size: 1.4rem; }
                 }
             `}</style>
         </>

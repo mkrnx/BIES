@@ -52,7 +52,7 @@ const Investors = () => {
                 <div className="icon-wrapper mb-4">
                     <TrendingUp size={48} className="text-secondary" />
                 </div>
-                <h1>Investor Network</h1>
+                <h1 className="page-header">Investor Network</h1>
                 <p className="text-lg text-gray-500 max-w-2xl mt-4">
                     Connect with capital allocators looking to fund the next generation of Bitcoin companies.
                 </p>
@@ -232,6 +232,10 @@ const Investors = () => {
                     align-items: center;
                     gap: 1rem;
                     margin-top: 3rem;
+                }
+
+                @media (max-width: 768px) {
+                    .page-header { display: none !important; }
                 }
             `}</style>
         </div>

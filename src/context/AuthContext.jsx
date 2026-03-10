@@ -136,6 +136,17 @@ export const AuthProvider = ({ children }) => {
         return { ...result, needsProfileSetup: isNew };
     };
 
+    const loginWithDemo = async () => {
+        try {
+            const user = await authService.loginWithDemo();
+            setUser(user);
+            initWebSocket(user);
+            return { success: true, user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
     const loginWithEmail = async (email, password) => {
         try {
             const user = await authService.loginWithEmail(email, password);
@@ -224,6 +235,7 @@ export const AuthProvider = ({ children }) => {
             loginWithPasskey,
             loginWithPasskeyAndCheckNew,
             loginWithEmail,
+            loginWithDemo,
             signup,
             logout,
             updateRole,

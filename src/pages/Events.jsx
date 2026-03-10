@@ -271,6 +271,7 @@ const Events = () => {
     const [showOfficial, setShowOfficial] = useState(true);
     const [showCommunity, setShowCommunity] = useState(true);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
     const categories = [
         { id: 'NETWORKING', label: 'Networking' },
@@ -418,29 +419,39 @@ const Events = () => {
         <div className="events-page container">
             <div className="discover-header">
                 <h1>Ecosystem Events</h1>
-                <p className="text-gray-500">Connect, learn, and grow within the BIES network.</p>
             </div>
 
             <div className="search-row">
                 <div className="search-left-column">
                     {(user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
-                        <Link to="/events/create" className="btn btn-primary create-project-btn">
-                            <Plus size={18} /> Create Event
+                        <Link to="/events/create" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
+                            <Plus size={18} /><span>Create Event</span>
                         </Link>
                     )}
                 </div>
-                <div className="search-bar">
-                    <Search size={20} className="search-icon" />
-                    <input
-                        type="text"
-                        placeholder="Search events by name, host, or tag..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
-                    <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
-                        <SlidersHorizontal size={20} />
-                    </button>
-                    <button className="btn btn-primary search-btn-desktop">Search</button>
+                <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center' }}>
+                    <div className="search-bar">
+                        <Search size={20} className="search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search events, hosts, or tags"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+                            <SlidersHorizontal size={20} />
+                        </button>
+                        <button className="btn btn-primary search-btn-desktop">Search</button>
+                    </div>
+                    {isPWA && (user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
+                        <Link to="/events/create" className="pwa-create-btn" title="Create Event" style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            width: 44, height: 44, minWidth: 44, borderRadius: '50%',
+                            background: '#FF5B00', color: 'white', textDecoration: 'none', flexShrink: 0
+                        }}>
+                            <Plus size={24} strokeWidth={2.5} />
+                        </Link>
+                    )}
                 </div>
             </div>
 
@@ -569,7 +580,7 @@ const Events = () => {
                 }
 
                 .create-project-btn {
-                    display: inline-flex;
+                    display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 0.5rem;
@@ -578,6 +589,7 @@ const Events = () => {
                     padding: 0.6rem 1.5rem;
                     white-space: nowrap;
                     width: 100%;
+                    box-sizing: border-box;
                     flex-shrink: 0;
                     text-decoration: none;
                 }
@@ -806,8 +818,14 @@ const Events = () => {
                 }
 
                 @media (max-width: 768px) {
+                    .search-left-column { display: none !important; }
+                    .discover-header { display: none !important; }
+                    .page-header { display: none !important; }
+                }
+
+                @media (max-width: 768px) {
                     .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
-                    .search-left-column { width: 100%; }
+                    .search-left-column { display: none !important; }
                     .content-layout { flex-direction: column; }
                     .filters-column {
                         width: 100%;

@@ -299,6 +299,7 @@ const Discover = () => {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
   const categories = [
     { id: 'FINTECH', label: 'Fintech' },
@@ -396,44 +397,43 @@ const Discover = () => {
 
   return (
     <div className="discover-page container">
-      {/* Header & Search */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', position: 'relative' }}>
-        <h1 style={{ textAlign: 'center', flex: 1 }}>Discover Projects</h1>
-        {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
-          <Link to="/dashboard/builder/new-project" title="Create Project" style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '36px',
-            height: '36px',
-            borderRadius: '50%',
-            background: 'var(--color-primary)',
-            color: 'white',
-            textDecoration: 'none',
-            position: 'absolute',
-            right: 0,
-          }}>
-            <Plus size={20} />
-          </Link>
-        )}
-      </div>
+      {/* Header */}
+      <h1 className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Discover Projects</h1>
 
       <div className="search-row">
-        <div className="search-bar">
-          <Search size={20} className="search-icon" />
-          <input
-            type="text"
-            placeholder="Search by name, industry, or tag..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
-            <SlidersHorizontal size={20} />
-            {(selectedIndustries.length + selectedStages.length) > 0 && (
-              <span className="filter-badge">{selectedIndustries.length + selectedStages.length}</span>
-            )}
-          </button>
-          <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>Search</button>
+        <div className="search-left-column">
+          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
+            <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
+              <Plus size={18} /><span>New Project</span>
+            </Link>
+          )}
+        </div>
+        <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center' }}>
+          <div className="search-bar">
+            <Search size={20} className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search by name, industry, or tag..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+            <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+              <SlidersHorizontal size={20} />
+              {(selectedIndustries.length + selectedStages.length) > 0 && (
+                <span className="filter-badge">{selectedIndustries.length + selectedStages.length}</span>
+              )}
+            </button>
+            <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>Search</button>
+          </div>
+          {isPWA && (mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
+            <Link to="/dashboard/builder/new-project" className="pwa-create-btn" title="New Project" style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 44, height: 44, minWidth: 44, borderRadius: '50%',
+              background: 'var(--color-primary)', color: 'white', textDecoration: 'none', flexShrink: 0
+            }}>
+              <Plus size={24} strokeWidth={2.5} />
+            </Link>
+          )}
         </div>
       </div>
 
@@ -523,6 +523,22 @@ const Discover = () => {
           align-items: center;
           gap: 2rem;
           margin-bottom: 2rem;
+        }
+
+        .search-left-column {
+          width: 250px;
+          flex-shrink: 0;
+        }
+
+        .create-project-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          text-decoration: none;
+          white-space: nowrap;
+          width: 100%;
+          box-sizing: border-box;
         }
 
         .filters-column {
@@ -675,7 +691,13 @@ const Discover = () => {
         }
 
         @media (max-width: 768px) {
+          .search-left-column { display: none !important; }
+          .page-header { display: none !important; }
+        }
+
+        @media (max-width: 768px) {
           .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
+          .search-left-column { display: none !important; }
           .content-layout { flex-direction: column; }
           .filters-column {
             width: 100%;

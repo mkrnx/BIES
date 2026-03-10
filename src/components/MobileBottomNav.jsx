@@ -8,7 +8,7 @@ const tabs = [
   { path: '/discover', icon: Compass, label: 'Discover' },
   { path: '/events', icon: Calendar, label: 'Events' },
   { path: '/news', icon: Newspaper, label: 'News' },
-  { path: '/profile', icon: User, label: 'Profile', auth: true },
+  { path: '/dashboard', icon: User, label: 'Dashboard', auth: true },
 ];
 
 const itemStyle = (active) => ({

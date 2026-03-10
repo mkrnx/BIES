@@ -55,6 +55,11 @@ export const authService = {
         const token = authService.getToken();
         if (!token) return null;
 
+        // TODO: Remove before production — demo bypass
+        if (token === 'demo-token') {
+            return authService.getCachedUser();
+        }
+
         try {
             const user = await authApi.me();
             authService.setCachedUser(user);
@@ -180,6 +185,15 @@ export const authService = {
         const { passkeyService } = await import('./passkeyService.js');
         const nsec = await passkeyService.loginWithPasskey();
         return authService.loginWithNsec(nsec);
+    },
+
+    // ─── Demo login (temporary — TODO: remove before production) ───────────
+
+    loginWithDemo: async () => {
+        const { user, token } = await authApi.demoLogin();
+        authService.setToken(token);
+        authService.setCachedUser(user);
+        return user;
     },
 
     // ─── Email/password login ───────────────────────────────────────────────

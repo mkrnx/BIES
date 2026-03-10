@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
-import { Menu, Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 import { notificationsApi } from '../services/api';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
+import logoIconDark from '../assets/logo-icon-dark.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
@@ -46,14 +47,47 @@ const Navbar = () => {
 
   const isActive = (path) => location.pathname === path;
 
+  // Derive mobile navbar title from route
+  const getPageTitle = () => {
+    const path = location.pathname;
+    if (path === '/' || path === '/feed') return 'BIES Feed';
+    if (path.startsWith('/discover')) return 'Discover Projects';
+    if (path.startsWith('/events')) return 'Ecosystem Events';
+    if (path.startsWith('/news')) return 'News';
+    if (path.startsWith('/investors')) return 'Investors';
+    if (path.startsWith('/builders')) return 'Builders';
+    if (path.startsWith('/media')) return 'Media';
+    if (path.startsWith('/about')) return 'About';
+    if (path.startsWith('/profile') || path.startsWith('/dashboard')) return 'Dashboard';
+    if (path.startsWith('/messages')) return 'Messages';
+    if (path.startsWith('/settings')) return 'Settings';
+    if (path.startsWith('/admin')) return 'Admin Panel';
+    return '';
+  };
+
   return (
-    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100, paddingBottom: '6px' }}>
-      <div className="container flex items-center justify-between" style={{ height: '100%' }}>
+    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100, display: 'flex', alignItems: 'center' }}>
+      <div className="container flex items-center justify-between" style={{ height: '100%', minHeight: '70px', position: 'relative' }}>
 
         {/* Logo */}
-        <Link to={isAuthenticated ? "/feed" : "/"} className="logo">
-          <img src={logoHorizontalWhite} alt="Build in El Salvador" style={{ height: '40px' }} />
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Link to={isAuthenticated ? "/feed" : "/"} className="logo">
+            <img src={logoHorizontalWhite} alt="Build in El Salvador" className="logo-desktop" style={{ height: '40px' }} />
+            <img src={logoIconDark} alt="BIES" className="logo-mobile-pwa" style={{ height: '36px', display: 'none' }} />
+          </Link>
+        </div>
+
+        {/* Mobile Page Title (Absolute Centered) */}
+        {getPageTitle() && (
+          <div className="mobile-page-title" style={{
+            position: 'absolute', left: '50%', transform: 'translateX(-50%)',
+            color: 'white', fontWeight: 700, fontSize: '1.05rem', fontFamily: 'var(--font-display)',
+            display: 'none', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            pointerEvents: 'none'
+          }}>
+            {getPageTitle()}
+          </div>
+        )}
 
         {/* Desktop Nav */}
         <div className="desktop-links flex items-center gap-lg">
@@ -171,7 +205,13 @@ const Navbar = () => {
                   <div className="dropdown user-dropdown">
                     {/* Top Section */}
                     <div className="dropdown-section vertical-stack">
-                      <Link to="/profile" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Profile</Link>
+                      <Link
+                        to={user?.role === 'INVESTOR' ? `/investor/${user.id}` : `/builder/${user?.id || ''}`}
+                        className="dropdown-item"
+                        onClick={() => setIsUserMenuOpen(false)}
+                      >
+                        Profile
+                      </Link>
                       <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
                       {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
@@ -231,12 +271,18 @@ const Navbar = () => {
             </Link>
           )}
 
-          {/* Mobile Menu Toggle */}
+          {/* Mobile Menu Toggle — uses avatar/user icon instead of hamburger */}
           <button
             className="mobile-toggle"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
           >
-            <Menu size={24} />
+            <div className="avatar" style={{ width: 32, height: 32 }}>
+              {user?.profile?.avatar ? (
+                <img src={user.profile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+              ) : (
+                <User size={18} />
+              )}
+            </div>
           </button>
         </div>
       </div>
@@ -249,10 +295,10 @@ const Navbar = () => {
           <div className="mobile-overlay" onClick={() => setIsMenuOpen(false)} />
           <div className="mobile-drawer">
             <div className="mobile-drawer-header">
-              <img src={logoHorizontalWhite} alt="BIES" style={{ height: '32px' }} />
+              <img src={logoIconDark} alt="BIES" style={{ height: '32px' }} />
               <button onClick={() => setIsMenuOpen(false)} style={{ color: 'white', background: 'none', border: 'none', fontSize: '1.5rem', padding: '8px', cursor: 'pointer' }}>✕</button>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 0', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ overflowY: 'auto', padding: '0.75rem 0', display: 'flex', flexDirection: 'column' }}>
               {navLinks.map((link) => {
                 const linkStyle = {
                   display: 'block',
@@ -271,10 +317,11 @@ const Navbar = () => {
                 );
               })}
             </div>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
               {isAuthenticated ? (
                 <>
                   {[
+                    { to: user?.role === 'INVESTOR' ? `/investor/${user.id}` : `/builder/${user?.id || ''}`, label: 'Profile' },
                     { to: '/dashboard', label: 'Dashboard' },
                     { to: '/messages', label: 'Messages' },
                     { to: '/settings', label: 'Settings' },
@@ -308,6 +355,22 @@ const Navbar = () => {
           top: 0;
           z-index: 100;
           box-shadow: var(--shadow-sm);
+        }
+
+        @media (display-mode: standalone) {
+          .navbar {
+            padding-bottom: 6px;
+          }
+          .logo-desktop { display: none !important; }
+          .logo-mobile-pwa { display: block !important; }
+          .mobile-page-title { display: block !important; }
+        }
+
+        /* Catch-all for very narrow mobile screens even if not standalone */
+        @media (max-width: 768px) {
+          .logo-desktop { display: none !important; }
+          .logo-mobile-pwa { display: block !important; }
+          .mobile-page-title { display: block !important; }
         }
 
         .logo {
@@ -528,8 +591,8 @@ const Navbar = () => {
         .mobile-drawer {
           position: fixed;
           top: 0; right: 0; bottom: 0;
-          width: 280px;
-          max-width: 85vw;
+          width: 180px;
+          max-width: 60vw;
           background: var(--color-primary);
           z-index: 201;
           display: flex;
@@ -591,6 +654,7 @@ const Navbar = () => {
           .mobile-toggle { display: block; }
           .search-container { display: none; }
           .notifications-menu { display: none; }
+          .user-menu { display: none; }
         }
 
         /* Notifications */

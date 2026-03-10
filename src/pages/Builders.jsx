@@ -52,7 +52,7 @@ const Builders = () => {
                 <div className="icon-wrapper mb-4">
                     <Hammer size={48} className="text-primary" />
                 </div>
-                <h1>Builders Directory</h1>
+                <h1 className="page-header">Builders Directory</h1>
                 <p className="text-lg text-gray-500 max-w-2xl mt-4">
                     Discover the visionaries building the infrastructure of freedom in El Salvador.
                 </p>
@@ -224,6 +224,10 @@ const Builders = () => {
                     gap: 0.75rem;
                     align-items: center;
                     margin-top: auto;
+                }
+
+                @media (max-width: 768px) {
+                    .page-header { display: none !important; }
                 }
             `}</style>
         </div>

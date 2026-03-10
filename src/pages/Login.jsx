@@ -9,7 +9,7 @@ import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
-    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew } = useAuth();
+    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -157,6 +157,20 @@ const Login = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // TODO: Remove before production
+    const handleDemoLogin = () => {
+        const demoUser = {
+            id: 'demo-user',
+            email: 'demo@bies.dev',
+            nostrPubkey: '0000000000000000000000000000000000000000000000000000000000000000',
+            role: 'BUILDER',
+            profile: { name: 'Demo User', bio: 'Demo account for mobile testing', avatar: '', banner: '' },
+        };
+        localStorage.setItem('bies_token', 'demo-token');
+        localStorage.setItem('bies_user', JSON.stringify(demoUser));
+        window.location.href = '/biestest/feed';
     };
 
     const handleSavePasskey = async () => {
@@ -494,6 +508,27 @@ const Login = () => {
                     }}>
                         Create New Account
                     </Link>
+                </div>
+
+                {/* Demo login — TODO: Remove before production */}
+                <div className="mt-4 w-full">
+                    <button
+                        onClick={handleDemoLogin}
+                        disabled={loading}
+                        style={{
+                            display: 'block',
+                            width: '100%',
+                            padding: '0.75rem 1.5rem',
+                            background: 'transparent',
+                            color: 'var(--color-gray-400)',
+                            border: '1px dashed var(--color-gray-300)',
+                            borderRadius: '9999px',
+                            fontSize: '0.85rem',
+                            cursor: 'pointer',
+                        }}
+                    >
+                        {loading ? 'Logging in...' : 'Demo Login (skip auth)'}
+                    </button>
                 </div>
 
                 {/* Extension hint — shown when no extension detected */}

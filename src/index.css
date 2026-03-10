@@ -429,6 +429,16 @@ textarea {
   .grid-cols-2 {
     grid-template-columns: 1fr;
   }
+
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .hide-on-desktop {
+    display: none !important;
+  }
 }
 
 /* Rich Text Content */
@@ -512,7 +522,8 @@ textarea {
 @media (max-width: 768px) {
   .app-content {
     min-height: calc(100vh - 73px);
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0)); /* space for bottom nav + safe area */
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0));
+    /* space for bottom nav + safe area */
   }
 
   .container {
@@ -520,11 +531,17 @@ textarea {
   }
 
   /* Make all text slightly smaller on mobile for density */
-  h1 { font-size: 1.5rem !important; }
-  h2 { font-size: 1.2rem !important; }
+  h1 {
+    font-size: 1.5rem !important;
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+  }
 
   /* Touch-friendly tap targets */
-  button, a {
+  button,
+  a {
     min-height: 36px;
   }
 
