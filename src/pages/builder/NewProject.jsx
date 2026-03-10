@@ -3,6 +3,7 @@ import { Camera, ChevronLeft, Loader2, FileText, X, Save, Upload, Plus, UserPlus
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { projectsApi, uploadApi, profilesApi } from '../../services/api';
 import RichTextEditor from '../../components/RichTextEditor';
+import { useSectionDrag, reorderArray } from '../../hooks/useSectionDrag';
 
 const NewProject = () => {
     const navigate = useNavigate();
@@ -183,6 +184,15 @@ const NewProject = () => {
         }));
     };
 
+    const moveSection = (fromIdx, toIdx) => {
+        setForm(prev => ({
+            ...prev,
+            customSections: reorderArray(prev.customSections, fromIdx, toIdx),
+        }));
+    };
+
+    const { draggingIdx, getSectionDragProps } = useSectionDrag(moveSection);
+
     const handleSectionImageUpload = async (index, file) => {
         if (!file) return;
         setLoading(true);
@@ -351,12 +361,15 @@ const NewProject = () => {
             GRAPH: { icon: <LineChartIcon size={12} />, label: 'Graph', color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
         }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
 
+        const isBeingDragged = draggingIdx === idx;
         return (
-            <div key={idx} style={{
+            <div key={idx} {...getSectionDragProps(idx)} style={{
                 marginBottom: '1rem', background: 'var(--color-surface)',
                 border: `1px solid ${typeConfig.border}`,
                 borderRadius: '12px', overflow: 'hidden',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                boxShadow: isBeingDragged ? '0 4px 16px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.06)',
+                opacity: isBeingDragged ? 0.5 : 1,
+                transition: 'box-shadow 0.2s, opacity 0.2s',
             }}>
                 {/* Section Header */}
                 <div style={{
@@ -370,6 +383,7 @@ const NewProject = () => {
                         fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase',
                         letterSpacing: '0.07em', color: typeConfig.color,
                     }}>
+                        <GripVertical size={14} style={{ cursor: 'grab', color: 'var(--color-gray-400)', marginRight: '0.2rem', flexShrink: 0 }} />
                         {typeConfig.icon}
                         {typeConfig.label} Section
                     </span>

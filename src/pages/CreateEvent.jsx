@@ -16,6 +16,7 @@ import MemberSearchSelect from '../components/MemberSearchSelect';
 import TagInput from '../components/TagInput';
 import RichTextEditor from '../components/RichTextEditor';
 import { getAssetUrl } from '../utils/assets';
+import { useSectionDrag, reorderArray } from '../hooks/useSectionDrag';
 
 const VISIBILITY_OPTIONS = [
     { value: 'PUBLIC', label: 'Public', icon: <Globe size={15} />, desc: 'Visible to everyone on BIES' },
@@ -102,6 +103,11 @@ const CreateEvent = () => {
     const removeSection = (index) =>
         setCustomSections(prev => prev.filter((_, i) => i !== index));
 
+    const moveSection = (fromIdx, toIdx) =>
+        setCustomSections(prev => reorderArray(prev, fromIdx, toIdx));
+
+    const { draggingIdx, getSectionDragProps } = useSectionDrag(moveSection);
+
     const handleSectionImageUpload = async (index, file) => {
         if (!file) return;
         try {
@@ -148,10 +154,12 @@ const CreateEvent = () => {
             GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
         }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
 
+        const isBeingDragged = draggingIdx === idx;
         return (
-            <div key={idx} style={{ marginBottom: '1rem', background: 'var(--color-surface)', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div key={idx} {...getSectionDragProps(idx)} style={{ marginBottom: '1rem', background: 'var(--color-surface)', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: isBeingDragged ? `0 4px 16px rgba(0,0,0,0.15)` : '0 1px 4px rgba(0,0,0,0.06)', opacity: isBeingDragged ? 0.5 : 1, transition: 'box-shadow 0.2s, opacity 0.2s' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.55rem 0.875rem', background: typeConfig.bg, borderBottom: `1px solid ${typeConfig.border}` }}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: typeConfig.color }}>
+                        <GripVertical size={14} style={{ cursor: 'grab', color: 'var(--color-gray-400)', marginRight: '0.2rem', flexShrink: 0 }} />
                         {typeConfig.icon} {typeConfig.label} Section
                     </span>
                     <button type="button" className="team-remove" onClick={() => removeSection(idx)}><Trash2 size={15} /></button>

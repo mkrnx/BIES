@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil, Users } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil, Users, Copy, Check } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,7 @@ const Profile = () => {
     const [biesFollowing, setBiesFollowing] = useState(0);
     const [nostrFollowers, setNostrFollowers] = useState(null);
     const [nostrFollowing, setNostrFollowing] = useState(null);
+    const [npubCopied, setNpubCopied] = useState(false);
 
     useEffect(() => {
         loadProfile();
@@ -141,6 +142,27 @@ const Profile = () => {
                             <h1 className="h1-title mb-1" style={{ fontSize: '2rem' }}>
                                 {profile.name || profile.biesDisplayName || user?.email || 'Unnamed'}
                             </h1>
+                            {npub && (
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(npub);
+                                        setNpubCopied(true);
+                                        setTimeout(() => setNpubCopied(false), 2000);
+                                    }}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                        background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)',
+                                        borderRadius: '999px', padding: '0.3rem 0.75rem', cursor: 'pointer',
+                                        fontSize: '0.8rem', color: 'var(--color-gray-500)', fontFamily: 'monospace',
+                                        marginBottom: '0.5rem', transition: 'all 0.2s',
+                                    }}
+                                    title="Click to copy full npub"
+                                >
+                                    <NostrIcon size={14} style={{ flexShrink: 0 }} />
+                                    <span>{npub.substring(0, 16)}...{npub.substring(npub.length - 6)}</span>
+                                    {npubCopied ? <Check size={14} style={{ color: '#15803d' }} /> : <Copy size={14} />}
+                                </button>
+                            )}
                             {(profile.title || profile.company) && (
                                 <p className="role-text mb-3 text-xl text-gray-600">
                                     {profile.title}{profile.title && profile.company && ' at '}

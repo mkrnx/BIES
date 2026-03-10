@@ -1,10 +1,351 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield } from 'lucide-react';
+import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield, Trash2, RefreshCw, X } from 'lucide-react';
 import { adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_OPTIONS = ['', 'BUILDER', 'INVESTOR', 'MOD', 'ADMIN'];
+
+// ─── Sync Modal ──────────────────────────────────────────────────────────────
+
+const SyncModal = ({ isOpen, onClose, users, onSync }) => {
+    const [sourceId, setSourceId] = useState('');
+    const [targetId, setTargetId] = useState('');
+    const [deleteSource, setDeleteSource] = useState(false);
+    const [step, setStep] = useState(1); // 1 = select, 2 = confirm
+    const [syncing, setSyncing] = useState(false);
+    const [result, setResult] = useState(null);
+    const [searchSource, setSearchSource] = useState('');
+    const [searchTarget, setSearchTarget] = useState('');
+
+    const resetModal = () => {
+        setSourceId('');
+        setTargetId('');
+        setDeleteSource(false);
+        setStep(1);
+        setSyncing(false);
+        setResult(null);
+        setSearchSource('');
+        setSearchTarget('');
+    };
+
+    const handleClose = () => {
+        resetModal();
+        onClose();
+    };
+
+    const sourceUser = users.find(u => u.id === sourceId);
+    const targetUser = users.find(u => u.id === targetId);
+
+    const filterUsers = (list, search, excludeId) =>
+        list.filter(u => {
+            if (u.id === excludeId) return false;
+            if (!search) return true;
+            const s = search.toLowerCase();
+            return (
+                (u.profile?.name || '').toLowerCase().includes(s) ||
+                (u.email || '').toLowerCase().includes(s) ||
+                (u.nostrPubkey || '').toLowerCase().includes(s)
+            );
+        });
+
+    const handleConfirm = async () => {
+        setSyncing(true);
+        try {
+            const res = await adminApi.syncAccounts(sourceId, targetId, deleteSource);
+            setResult(res);
+            onSync();
+        } catch (err) {
+            setResult({ error: err?.response?.data?.error || 'Sync failed' });
+        } finally {
+            setSyncing(false);
+        }
+    };
+
+    if (!isOpen) return null;
+
+    return (
+        <div className="modal-overlay" onClick={handleClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h2>Sync Accounts</h2>
+                    <button className="modal-close" onClick={handleClose}><X size={20} /></button>
+                </div>
+
+                {result ? (
+                    <div className="modal-body">
+                        {result.error ? (
+                            <div className="sync-error">{result.error}</div>
+                        ) : (
+                            <div className="sync-success">
+                                <h3>Sync Complete</h3>
+                                <ul>
+                                    {result.results?.map((r, i) => <li key={i}>{r}</li>)}
+                                </ul>
+                            </div>
+                        )}
+                        <div className="modal-actions">
+                            <button className="btn btn-primary" onClick={handleClose}>Done</button>
+                        </div>
+                    </div>
+                ) : step === 1 ? (
+                    <div className="modal-body">
+                        <p className="sync-desc">
+                            Transfer all data (profile, projects, events, investments, follows) from one account to another.
+                            This is an <strong>admin-only</strong> action.
+                        </p>
+
+                        <div className="sync-field">
+                            <label>Source Account (copy FROM)</label>
+                            <input
+                                type="text"
+                                placeholder="Search by name, email, or pubkey..."
+                                value={searchSource}
+                                onChange={e => setSearchSource(e.target.value)}
+                                className="sync-search"
+                            />
+                            <div className="user-list">
+                                {filterUsers(users, searchSource, targetId).map(u => (
+                                    <div
+                                        key={u.id}
+                                        className={`user-option ${sourceId === u.id ? 'selected' : ''}`}
+                                        onClick={() => setSourceId(u.id)}
+                                    >
+                                        <div className="user-option-info">
+                                            {u.profile?.avatar ? (
+                                                <img src={u.profile.avatar} alt="" className="user-option-avatar" />
+                                            ) : (
+                                                <div className="user-option-avatar placeholder">
+                                                    {(u.profile?.name || '?')[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div className="user-option-name">{u.profile?.name || '(unnamed)'}</div>
+                                                <div className="user-option-meta">{u.email || truncatePubkey(u.nostrPubkey)}</div>
+                                            </div>
+                                        </div>
+                                        <span className={`role-badge ${(u.role || '').toLowerCase()}`}>{u.role}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="sync-field">
+                            <label>Target Account (copy TO)</label>
+                            <input
+                                type="text"
+                                placeholder="Search by name, email, or pubkey..."
+                                value={searchTarget}
+                                onChange={e => setSearchTarget(e.target.value)}
+                                className="sync-search"
+                            />
+                            <div className="user-list">
+                                {filterUsers(users, searchTarget, sourceId).map(u => (
+                                    <div
+                                        key={u.id}
+                                        className={`user-option ${targetId === u.id ? 'selected' : ''}`}
+                                        onClick={() => setTargetId(u.id)}
+                                    >
+                                        <div className="user-option-info">
+                                            {u.profile?.avatar ? (
+                                                <img src={u.profile.avatar} alt="" className="user-option-avatar" />
+                                            ) : (
+                                                <div className="user-option-avatar placeholder">
+                                                    {(u.profile?.name || '?')[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                            <div>
+                                                <div className="user-option-name">{u.profile?.name || '(unnamed)'}</div>
+                                                <div className="user-option-meta">{u.email || truncatePubkey(u.nostrPubkey)}</div>
+                                            </div>
+                                        </div>
+                                        <span className={`role-badge ${(u.role || '').toLowerCase()}`}>{u.role}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="modal-actions">
+                            <button className="btn btn-secondary" onClick={handleClose}>Cancel</button>
+                            <button
+                                className="btn btn-primary"
+                                disabled={!sourceId || !targetId}
+                                onClick={() => setStep(2)}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="modal-body">
+                        <h3>Confirm Sync</h3>
+                        <div className="sync-confirm-details">
+                            <div className="sync-confirm-row">
+                                <span className="sync-label">From:</span>
+                                <strong>{sourceUser?.profile?.name || '(unnamed)'}</strong>
+                                <span className="sync-meta">{sourceUser?.email || truncatePubkey(sourceUser?.nostrPubkey)}</span>
+                            </div>
+                            <div className="sync-arrow">&#8595;</div>
+                            <div className="sync-confirm-row">
+                                <span className="sync-label">To:</span>
+                                <strong>{targetUser?.profile?.name || '(unnamed)'}</strong>
+                                <span className="sync-meta">{targetUser?.email || truncatePubkey(targetUser?.nostrPubkey)}</span>
+                            </div>
+                        </div>
+
+                        <div className="sync-delete-option">
+                            <label className="checkbox-label">
+                                <input
+                                    type="checkbox"
+                                    checked={deleteSource}
+                                    onChange={e => setDeleteSource(e.target.checked)}
+                                />
+                                Delete the source account after syncing
+                            </label>
+                            {deleteSource && (
+                                <p className="sync-warning">
+                                    The source account will be permanently deleted after data is transferred. This cannot be undone.
+                                </p>
+                            )}
+                        </div>
+
+                        <p className="sync-info">
+                            This will transfer profile data, projects, events, investments, team memberships,
+                            watchlist items, follows, and event RSVPs to the target account. Non-empty target profile
+                            fields will be overwritten with source data.
+                        </p>
+
+                        <div className="modal-actions">
+                            <button className="btn btn-secondary" onClick={() => setStep(1)}>Back</button>
+                            <button
+                                className="btn btn-danger"
+                                onClick={handleConfirm}
+                                disabled={syncing}
+                            >
+                                {syncing ? <><Loader2 size={16} className="spin" /> Syncing...</> : 'Are you sure? Sync Now'}
+                            </button>
+                        </div>
+                    </div>
+                )}
+            </div>
+
+            <style jsx>{`
+                .modal-overlay {
+                    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0,0,0,0.5); display: flex;
+                    align-items: center; justify-content: center; z-index: 1000;
+                }
+                .modal-content {
+                    background: white; border-radius: var(--radius-lg);
+                    width: 90%; max-width: 600px; max-height: 85vh;
+                    overflow-y: auto; box-shadow: var(--shadow-xl);
+                }
+                .modal-header {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--color-gray-200);
+                }
+                .modal-header h2 { margin: 0; font-size: 1.1rem; }
+                .modal-close {
+                    background: none; border: none; cursor: pointer;
+                    color: var(--color-gray-400); padding: 0.25rem;
+                    border-radius: var(--radius-md);
+                }
+                .modal-close:hover { background: var(--color-gray-100); color: var(--color-gray-600); }
+                .modal-body { padding: 1.5rem; }
+                .modal-actions {
+                    display: flex; gap: 0.75rem; justify-content: flex-end;
+                    margin-top: 1.5rem; padding-top: 1rem;
+                    border-top: 1px solid var(--color-gray-100);
+                }
+                .sync-desc { color: var(--color-gray-600); margin-bottom: 1.25rem; font-size: 0.9rem; line-height: 1.5; }
+                .sync-field { margin-bottom: 1.25rem; }
+                .sync-field label { display: block; font-weight: 600; margin-bottom: 0.5rem; font-size: 0.875rem; }
+                .sync-search {
+                    width: 100%; padding: 0.5rem 0.75rem; border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md); font-size: 0.875rem; margin-bottom: 0.5rem;
+                    box-sizing: border-box;
+                }
+                .user-list {
+                    max-height: 180px; overflow-y: auto; border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
+                }
+                .user-option {
+                    display: flex; align-items: center; justify-content: space-between;
+                    padding: 0.6rem 0.75rem; cursor: pointer;
+                    border-bottom: 1px solid var(--color-gray-100);
+                    transition: background 0.15s;
+                }
+                .user-option:last-child { border-bottom: none; }
+                .user-option:hover { background: var(--color-gray-50); }
+                .user-option.selected { background: #EDF5FF; border-left: 3px solid var(--color-primary); }
+                .user-option-info { display: flex; align-items: center; gap: 0.5rem; }
+                .user-option-avatar {
+                    width: 28px; height: 28px; border-radius: 50%;
+                    object-fit: cover; flex-shrink: 0;
+                }
+                .user-option-avatar.placeholder {
+                    background: var(--color-gray-200); display: flex;
+                    align-items: center; justify-content: center;
+                    font-size: 0.7rem; color: var(--color-gray-500);
+                }
+                .user-option-name { font-weight: 500; font-size: 0.875rem; }
+                .user-option-meta { font-size: 0.75rem; color: var(--color-gray-400); }
+                .sync-confirm-details {
+                    background: var(--color-gray-50); border-radius: var(--radius-md);
+                    padding: 1rem; margin: 1rem 0;
+                }
+                .sync-confirm-row { display: flex; align-items: center; gap: 0.5rem; }
+                .sync-label { color: var(--color-gray-500); min-width: 40px; font-size: 0.875rem; }
+                .sync-meta { color: var(--color-gray-400); font-size: 0.8rem; }
+                .sync-arrow { text-align: center; font-size: 1.2rem; color: var(--color-gray-400); margin: 0.5rem 0; }
+                .sync-delete-option { margin: 1rem 0; }
+                .checkbox-label {
+                    display: flex; align-items: center; gap: 0.5rem;
+                    font-size: 0.9rem; cursor: pointer;
+                }
+                .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+                .sync-warning {
+                    color: #dc2626; font-size: 0.8rem; margin-top: 0.5rem;
+                    padding: 0.5rem; background: #FEF2F2; border-radius: var(--radius-md);
+                }
+                .sync-info {
+                    color: var(--color-gray-500); font-size: 0.8rem;
+                    line-height: 1.5; margin-top: 0.75rem;
+                }
+                .sync-success {
+                    background: #DCFCE7; color: #166534; padding: 1rem;
+                    border-radius: var(--radius-md);
+                }
+                .sync-success h3 { margin: 0 0 0.5rem; }
+                .sync-success ul { margin: 0; padding-left: 1.25rem; }
+                .sync-success li { margin-bottom: 0.25rem; font-size: 0.875rem; }
+                .sync-error {
+                    background: #FEE2E2; color: #991B1B; padding: 1rem;
+                    border-radius: var(--radius-md); font-size: 0.9rem;
+                }
+                .btn {
+                    padding: 0.5rem 1rem; border-radius: var(--radius-md);
+                    font-size: 0.875rem; font-weight: 500; cursor: pointer;
+                    border: 1px solid transparent; display: inline-flex;
+                    align-items: center; gap: 0.4rem;
+                }
+                .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+                .btn-primary { background: var(--color-primary); color: white; }
+                .btn-primary:hover:not(:disabled) { opacity: 0.9; }
+                .btn-secondary { background: white; color: var(--color-gray-600); border-color: var(--color-gray-200); }
+                .btn-secondary:hover:not(:disabled) { background: var(--color-gray-50); }
+                .btn-danger { background: #dc2626; color: white; }
+                .btn-danger:hover:not(:disabled) { background: #b91c1c; }
+                .spin { animation: spin 1s linear infinite; }
+                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+            `}</style>
+        </div>
+    );
+};
+
+const truncatePubkey = (pk) => pk ? `${pk.substring(0, 8)}...${pk.substring(pk.length - 4)}` : '—';
+
+// ─── Main Component ──────────────────────────────────────────────────────────
 
 const AdminUsers = () => {
     const { isAdmin } = useAuth();
@@ -15,6 +356,7 @@ const AdminUsers = () => {
     const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
+    const [syncModalOpen, setSyncModalOpen] = useState(false);
 
     const fetchUsers = useCallback(async (page = 1) => {
         setLoading(true);
@@ -74,12 +416,19 @@ const AdminUsers = () => {
         }
     };
 
-    const roleBadge = (role) => {
-        const cls = (role || '').toLowerCase();
-        return <span className={`role-badge ${cls}`}>{role}</span>;
+    const handleDelete = async (id, name) => {
+        if (!window.confirm(`Are you sure you want to permanently delete "${name || 'this user'}"?\n\nThis will remove their profile, projects, events, messages, and all associated data.\n\nThis action CANNOT be undone.`)) return;
+        if (!window.confirm(`FINAL WARNING: You are about to permanently delete the user "${name || id}". Type "delete" in your mind and click OK to proceed.`)) return;
+        setActionLoading(id);
+        try {
+            await adminApi.deleteUser(id);
+            fetchUsers(pagination.page);
+        } catch (err) {
+            alert(err?.response?.data?.error || 'Failed to delete user');
+        } finally {
+            setActionLoading(null);
+        }
     };
-
-    const truncatePubkey = (pk) => pk ? `${pk.substring(0, 8)}...${pk.substring(pk.length - 4)}` : '—';
 
     return (
         <>
@@ -88,6 +437,11 @@ const AdminUsers = () => {
                     <h1>User Management</h1>
                     <p className="subtitle">Manage platform users and access</p>
                 </div>
+                {isAdmin && (
+                    <button className="sync-btn" onClick={() => setSyncModalOpen(true)}>
+                        <RefreshCw size={16} /> Sync Accounts
+                    </button>
+                )}
             </div>
 
             <div className="toolbar">
@@ -191,6 +545,7 @@ const AdminUsers = () => {
                                     <td>{new Date(u.createdAt).toLocaleDateString()}</td>
                                     <td>
                                         <div className="action-group">
+                                            {/* Ban / Unban */}
                                             <button
                                                 className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
                                                 onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
@@ -199,6 +554,18 @@ const AdminUsers = () => {
                                             >
                                                 <Ban size={16} />
                                             </button>
+                                            {/* Delete — admin only */}
+                                            {isAdmin && (
+                                                <button
+                                                    className="icon-btn delete"
+                                                    onClick={() => handleDelete(u.id, u.profile?.name)}
+                                                    title="Permanently delete user"
+                                                    disabled={actionLoading === u.id}
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
+                                            {/* View profile */}
                                             <Link
                                                 to={`/${u.role === 'INVESTOR' ? 'investor' : 'builder'}/${u.id}`}
                                                 className="icon-btn"
@@ -223,9 +590,30 @@ const AdminUsers = () => {
                 </div>
             )}
 
+            {/* Sync Modal — admin only */}
+            <SyncModal
+                isOpen={syncModalOpen}
+                onClose={() => setSyncModalOpen(false)}
+                users={users}
+                onSync={() => fetchUsers(pagination.page)}
+            />
+
             <style jsx>{`
-                .header { margin-bottom: 1.5rem; }
+                .header {
+                    margin-bottom: 1.5rem;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                }
                 .subtitle { color: var(--color-gray-500); }
+                .sync-btn {
+                    display: inline-flex; align-items: center; gap: 0.4rem;
+                    padding: 0.5rem 1rem; background: var(--color-primary);
+                    color: white; border: none; border-radius: var(--radius-md);
+                    font-size: 0.875rem; font-weight: 500; cursor: pointer;
+                    transition: opacity 0.15s;
+                }
+                .sync-btn:hover { opacity: 0.9; }
                 .toolbar {
                     display: flex;
                     justify-content: space-between;
@@ -363,6 +751,7 @@ const AdminUsers = () => {
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
                 @media (max-width: 768px) {
                     .toolbar { flex-direction: column; align-items: stretch; }
+                    .header { flex-direction: column; gap: 1rem; }
                 }
             `}</style>
         </>

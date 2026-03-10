@@ -49,18 +49,34 @@ const EXEMPT_FIELDS = new Set(['encryptedPrivkey', 'password']);
 // but safe formatting tags (<b>, <i>, <u>, <span>, <p>, <div>, etc.) are preserved.
 const RICH_HTML_FIELDS = new Set(['description', 'body', 'content', 'bio']);
 
+// Decode HTML entities so encoded payloads (&#106;avascript:, &#x6A;, etc.) are caught.
+function decodeHtmlEntities(str: string): string {
+    return str
+        .replace(/&#x([0-9a-f]+);?/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+        .replace(/&#(\d+);?/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
+        .replace(/&tab;|&newline;/gi, '');
+}
+
 // Strip only dangerous content from rich HTML, preserving safe formatting tags.
 function sanitizeRichHtml(str: string): string {
-    return str
+    // First pass: decode entities in attribute values to catch obfuscated payloads
+    let result = str
         .replace(/<script[\s\S]*?<\/script>/gi, '')
         .replace(/<style[\s\S]*?<\/style>/gi, '')
         .replace(/<iframe[\s\S]*?<\/iframe>/gi, '')
         .replace(/<object[\s\S]*?>/gi, '')
         .replace(/<embed[\s\S]*?>/gi, '')
+        .replace(/<form[\s\S]*?<\/form>/gi, '')
+        .replace(/<form[\s\S]*?>/gi, '')
         .replace(/\son\w+\s*=\s*["'][^"']*["']/gi, '')  // remove event handlers
-        .replace(/\son\w+\s*=\s*[^\s>]*/gi, '')
-        .replace(/javascript\s*:/gi, '')
-        .trim();
+        .replace(/\son\w+\s*=\s*[^\s>]*/gi, '');
+
+    // Decode entities then strip javascript: protocol (catches &#106;avascript: etc.)
+    result = decodeHtmlEntities(result).replace(/javascript\s*:/gi, '');
+    // Also strip vbscript: and data: URIs in attributes (additional protocol vectors)
+    result = result.replace(/vbscript\s*:/gi, '').replace(/data\s*:[^,]*;base64/gi, '');
+
+    return result.trim();
 }
 
 function sanitizeObject(obj: Record<string, unknown>): Record<string, unknown> {

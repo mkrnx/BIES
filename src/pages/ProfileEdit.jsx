@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle, ChevronDown, ChevronUp, User, Link as LinkIcon } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,30 @@ import { nostrService } from '../services/nostrService';
 import { Link, useNavigate } from 'react-router-dom';
 import NostrFeed from '../components/NostrFeed';
 import ImageCropModal from '../components/ImageCropModal';
+
+// Defined outside component to prevent re-mount on every render (which causes input focus loss)
+const SectionHeader = ({ icon, title, children }) => (
+    <div className="pe-section-header">
+        <div className="pe-section-title">
+            {icon}
+            <h3>{title}</h3>
+        </div>
+        {children}
+    </div>
+);
+
+const CollapsibleSub = ({ title, icon, open, onToggle, children }) => (
+    <div className="pe-collapsible">
+        <button type="button" className="pe-collapsible-trigger" onClick={onToggle}>
+            <div className="pe-collapsible-label">
+                {icon}
+                <span>{title}</span>
+            </div>
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        </button>
+        {open && <div className="pe-collapsible-body">{children}</div>}
+    </div>
+);
 
 const ProfileEdit = () => {
     const { user, refreshUser } = useAuth();
@@ -63,6 +87,11 @@ const ProfileEdit = () => {
     const [showPublishHelp, setShowPublishHelp] = useState(false);
     const [showFeedHelp, setShowFeedHelp] = useState(false);
 
+    // Collapsible section state
+    const [nostrIdentityOpen, setNostrIdentityOpen] = useState(true);
+    const [nostrProfileOpen, setNostrProfileOpen] = useState(false);
+    const [nostrPublishOpen, setNostrPublishOpen] = useState(false);
+
     // Project search
     const [projectSearch, setProjectSearch] = useState('');
     const [projectResults, setProjectResults] = useState([]);
@@ -81,6 +110,23 @@ const ProfileEdit = () => {
             fetchNostrProfile();
         }
     }, [user?.nostrPubkey]);
+
+    // Auto-apply Nostr profile fields to BIES form when BIES profile is missing them
+    useEffect(() => {
+        if (!nostrProfile) return;
+        setForm(prev => {
+            const updates = {};
+            if (!prev.banner && nostrProfile.banner) updates.banner = nostrProfile.banner;
+            if (!prev.avatar && nostrProfile.picture) updates.avatar = nostrProfile.picture;
+            if (!prev.name && (nostrProfile.display_name || nostrProfile.name)) {
+                updates.name = nostrProfile.display_name || nostrProfile.name;
+            }
+            if (!prev.bio && nostrProfile.about) updates.bio = nostrProfile.about;
+            if (!prev.website && nostrProfile.website) updates.website = nostrProfile.website;
+            if (Object.keys(updates).length === 0) return prev;
+            return { ...prev, ...updates };
+        });
+    }, [nostrProfile]);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -468,495 +514,392 @@ const ProfileEdit = () => {
     const projectsTitle = user?.role === 'INVESTOR' ? 'Invested In' : 'Working On';
 
     return (
-        <div className="profile-page">
-            <div className="container py-8 max-w-6xl">
+        <div className="pe-page">
+            <div className="pe-container">
 
-                <div className="flex justify-between items-center mb-8">
-                    <div>
-                        <h1 className="h1-title mb-1">Edit Profile</h1>
-                        <p className="text-gray-500">Manage your profile appearance and information.</p>
-                    </div>
+                {/* Top bar */}
+                <div className="pe-topbar">
+                    <h1 className="pe-page-title">Edit Profile</h1>
+                    <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn">
+                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                        {saving ? 'Saving...' : 'Save'}
+                    </button>
                 </div>
 
                 {error && (
-                    <div style={{ background: 'var(--color-red-tint)', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, marginBottom: '1rem', fontSize: '0.875rem' }}>
-                        {error}
-                    </div>
+                    <div className="pe-error">{error}</div>
                 )}
 
-                {/* Header Card */}
-                <div className="profile-card mb-8" style={{ padding: 0, overflow: 'hidden' }}>
-                    {/* Banner */}
-                    <div className="relative" style={{
-                        height: '240px',
-                        background: (form.banner || nostrProfile?.banner) ? `url(${form.banner || nostrProfile?.banner}) center/cover no-repeat` : 'linear-gradient(to right, #0052cc, #0a192f)'
+                {/* Banner + Avatar card */}
+                <div className="pe-card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="pe-banner" style={{
+                        background: (form.banner || nostrProfile?.banner)
+                            ? `url(${form.banner || nostrProfile?.banner}) center/cover no-repeat`
+                            : 'linear-gradient(135deg, #0052cc, #0a192f)'
                     }}>
                         {(uploadingBanner || bannerImageLoading) && (
-                            <div style={{ position: 'absolute', inset: 0, zIndex: 15, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.45)', gap: '0.75rem' }}>
-                                <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
-                                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.875rem' }}>
-                                    {uploadingBanner ? 'Uploading banner...' : 'Loading image...'}
+                            <div className="pe-banner-overlay">
+                                <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'white' }} />
+                                <span style={{ color: 'white', fontWeight: 600, fontSize: '0.8rem' }}>
+                                    {uploadingBanner ? 'Uploading...' : 'Loading...'}
                                 </span>
-                                <div style={{ width: '160px', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.3)', overflow: 'hidden' }}>
-                                    <div style={{ height: '100%', borderRadius: '2px', background: 'var(--color-surface)', animation: 'progress-indeterminate 1.5s ease-in-out infinite' }} />
-                                </div>
                             </div>
                         )}
-                        <div className="absolute z-10 flex gap-3" style={{ top: '24px', left: '24px' }}>
-                            <label className="banner-btn" style={{ cursor: 'pointer' }}>
-                                {uploadingBanner ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={18} />}
-                                {uploadingBanner ? 'Uploading...' : 'Edit Banner'}
-                                <input type="file" accept="image/*" onChange={handleBannerSelect} style={{ display: 'none' }} />
-                            </label>
-                        </div>
-
-                        <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20 }}>
-                            <button onClick={handleSave} type="button" disabled={saving} style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '0.5rem',
-                                background: 'var(--color-primary, #0052cc)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 'var(--radius-md, 8px)',
-                                height: '44px',
-                                padding: '0 24px',
-                                fontWeight: 700,
-                                fontFamily: 'var(--font-display)',
-                                fontSize: '1rem',
-                                letterSpacing: '0.02em',
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                opacity: saving ? 0.7 : 1,
-                            }}>
-                                {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={18} />}
-                                {saving ? 'Saving...' : 'Save Changes'}
-                            </button>
-                        </div>
+                        <label className="pe-banner-edit">
+                            {uploadingBanner ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Camera size={14} />}
+                            <span className="pe-banner-edit-text">Edit</span>
+                            <input type="file" accept="image/*" onChange={handleBannerSelect} style={{ display: 'none' }} />
+                        </label>
                     </div>
 
-                    {/* Profile Info */}
-                    <div className="pb-8" style={{ paddingLeft: '24px', paddingRight: '24px', position: 'relative', zIndex: 5 }}>
-                        {/* Avatar */}
-                        <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5, width: 'fit-content' }}>
-                            <div style={{ width: '168px', height: '168px', borderRadius: '50%', overflow: 'hidden', border: '5px solid var(--color-surface)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
+                    <div className="pe-avatar-row">
+                        <div className="pe-avatar-wrapper">
+                            <div className="pe-avatar">
                                 {(form.avatar || nostrProfile?.picture) ? (
-                                    <img src={form.avatar || nostrProfile?.picture} alt={form.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <img src={form.avatar || nostrProfile?.picture} alt={form.name} />
                                 ) : (
-                                    <div style={{ width: '100%', height: '100%', background: 'var(--color-surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '3rem', fontWeight: 700, color: 'var(--color-gray-400)' }}>
+                                    <div className="pe-avatar-placeholder">
                                         {(form.name || user?.email || '?').charAt(0).toUpperCase()}
                                     </div>
                                 )}
                             </div>
                             {(uploadingAvatar || avatarImageLoading) && (
-                                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', borderRadius: '50%', gap: '0.25rem' }}>
-                                    <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />
-                                    <span style={{ fontSize: '0.625rem', fontWeight: 600, color: 'var(--color-primary)' }}>
-                                        {uploadingAvatar ? 'Uploading...' : 'Loading...'}
-                                    </span>
+                                <div className="pe-avatar-loading">
+                                    <Loader2 size={22} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-primary)' }} />
                                 </div>
                             )}
-                            <label style={{ position: 'absolute', bottom: '4px', right: '4px', width: '40px', height: '40px', backgroundColor: 'var(--color-surface)', borderRadius: '50%', border: '1px solid var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
-                                <Camera size={18} style={{ color: 'var(--color-gray-600)' }} />
+                            <label className="pe-avatar-edit">
+                                <Camera size={14} style={{ color: '#374151' }} />
                                 <input type="file" accept="image/*" onChange={handleAvatarSelect} style={{ display: 'none' }} />
                             </label>
                         </div>
+                    </div>
+                </div>
 
-                        {/* Form Fields */}
-                        <div className="w-full max-w-2xl" style={{ marginTop: '1rem' }}>
-                            <div className="form-row">
-                                <label className="form-label">Name</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.name} onChange={handleChange('name')} className="input-field" placeholder="Your Name" />
-                                </div>
+                {/* Basic Info */}
+                <div className="pe-card">
+                    <SectionHeader icon={<User size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Basic Info" />
+                    <div className="pe-field-grid">
+                        <div className="pe-field">
+                            <label className="pe-label">Name</label>
+                            <input type="text" value={form.name} onChange={handleChange('name')} className="pe-input" placeholder="Your Name" />
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label">Current Role</label>
+                            <input type="text" value={form.title} onChange={handleChange('title')} className="pe-input" placeholder="Role/Title" />
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label">Company</label>
+                            <input type="text" value={form.company} onChange={handleChange('company')} className="pe-input" placeholder="Company" />
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label">Location</label>
+                            <div className="pe-input-icon">
+                                <MapPin size={16} className="pe-icon" />
+                                <input type="text" value={form.location} onChange={handleChange('location')} className="pe-input pe-input-with-icon" placeholder="City, Country" />
                             </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Current Role</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.title} onChange={handleChange('title')} className="input-field" placeholder="Role/Title" />
-                                </div>
+                        </div>
+                    </div>
+                    <div className="pe-field" style={{ marginTop: '0.25rem' }}>
+                        <label className="pe-label">Bio</label>
+                        <textarea
+                            rows="3"
+                            className="pe-input"
+                            style={{ resize: 'vertical', minHeight: '80px' }}
+                            value={form.bio}
+                            onChange={handleChange('bio')}
+                            placeholder="Tell us about yourself..."
+                        />
+                    </div>
+                    <div className="pe-field" style={{ marginTop: '0.75rem' }}>
+                        <label className="pe-label">Tags</label>
+                        <input type="text" className="pe-input" placeholder="Add tag (press Enter)" onKeyDown={handleTagKeyDown} />
+                        {form.tags.length > 0 && (
+                            <div className="pe-tags">
+                                {form.tags.map((tag, idx) => (
+                                    <span key={idx} className="pe-tag">
+                                        {tag}
+                                        <button onClick={() => removeTag(tag)} type="button"><X size={11} /></button>
+                                    </span>
+                                ))}
                             </div>
+                        )}
+                    </div>
+                </div>
 
-                            <div className="form-row">
-                                <label className="form-label">Company</label>
-                                <div className="form-content">
-                                    <input type="text" value={form.company} onChange={handleChange('company')} className="input-field" placeholder="Company" />
-                                </div>
+                {/* Links & Social */}
+                <div className="pe-card">
+                    <SectionHeader icon={<LinkIcon size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Links & Social" />
+                    <div className="pe-field-grid">
+                        <div className="pe-field">
+                            <label className="pe-label">Website</label>
+                            <div className="pe-input-icon">
+                                <Globe size={16} className="pe-icon" />
+                                <input type="url" value={form.website} onChange={handleChange('website')} className="pe-input pe-input-with-icon" placeholder="https://" />
                             </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Location</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon w-full">
-                                        <MapPin size={18} className="icon" />
-                                        <input type="text" value={form.location} onChange={handleChange('location')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="City, Country" />
-                                    </div>
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label">X (Twitter)</label>
+                            <div className="pe-input-icon">
+                                <div className="pe-icon" style={{ display: 'flex', alignItems: 'center' }}>
+                                    <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
                                 </div>
+                                <input type="text" value={form.twitter} onChange={handleChange('twitter')} className="pe-input pe-input-with-icon" placeholder="@handle" />
                             </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Tags</label>
-                                <div className="form-content">
-                                    <input type="text" className="input-field" placeholder="Add tag (press Enter)" onKeyDown={handleTagKeyDown} />
-                                    {form.tags.length > 0 && (
-                                        <div className="flex flex-wrap gap-2" style={{ marginTop: '0.75rem' }}>
-                                            {form.tags.map((tag, idx) => (
-                                                <span key={idx} className="status-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.375rem 0.75rem' }}>
-                                                    {tag}
-                                                    <button onClick={() => removeTag(tag)} style={{ color: 'inherit', opacity: 0.6 }}><X size={12} /></button>
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
+                        </div>
+                        <div className="pe-field pe-field-full">
+                            <label className="pe-label">LinkedIn</label>
+                            <div className="pe-input-icon">
+                                <Linkedin size={16} className="pe-icon" />
+                                <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="pe-input pe-input-with-icon" placeholder="LinkedIn URL" />
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Sections below the header */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginBottom: '4rem' }}>
-
-                    {/* About Section */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>About</h3>
-                            <div className="form-row" style={{ marginBottom: 0 }}>
-                                <label className="form-label">Bio</label>
-                                <div className="form-content">
-                                    <textarea
-                                        rows="5"
-                                        className="input-field"
-                                        style={{ resize: 'vertical', minHeight: '120px' }}
-                                        value={form.bio}
-                                        onChange={handleChange('bio')}
-                                        placeholder="Tell us about yourself..."
-                                    />
-                                </div>
-                            </div>
+                {/* Experience */}
+                <div className="pe-card">
+                    <SectionHeader icon={<Briefcase size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Experience">
+                        <div className="pe-toggle-row">
+                            <span className="pe-toggle-label">Show</span>
+                            <label className="toggle-switch">
+                                <input type="checkbox" checked={form.showExperience} onChange={handleChange('showExperience')} />
+                                <span className="toggle-slider"></span>
+                            </label>
                         </div>
-                    </div>
+                    </SectionHeader>
 
-                    {/* Experience */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
-                                <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <Briefcase size={20} style={{ color: 'var(--color-gray-400)' }} />
-                                    Experience
-                                </h3>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-600)' }}>Show on profile</span>
-                                    <label className="toggle-switch">
-                                        <input type="checkbox" checked={form.showExperience} onChange={handleChange('showExperience')} />
-                                        <span className="toggle-slider"></span>
-                                    </label>
-                                </div>
-                            </div>
-
-                            {form.showExperience && (
-                                <div>
-                                    {form.experience.map((exp, idx) => (
-                                        <div key={idx} className="experience-item" style={{ marginBottom: '2rem' }}>
-                                            <div className="experience-dot"></div>
-                                            <div style={{ position: 'relative' }}>
-                                                <button onClick={() => handleRemoveExperience(idx)} style={{ position: 'absolute', top: '-4px', right: 0, color: 'var(--color-gray-400)', padding: '4px', background: 'none', border: 'none', cursor: 'pointer' }}>
-                                                    <X size={16} />
-                                                </button>
-                                                <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: '1rem' }}>
-                                                    <label className="form-label" style={{ width: 'auto' }}>Role</label>
-                                                    <input type="text" value={exp.title} onChange={handleExperienceChange(idx, 'title')} placeholder="Job Title" className="input-field" />
-                                                </div>
-                                                <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: '1rem' }}>
-                                                    <label className="form-label" style={{ width: 'auto' }}>Company</label>
-                                                    <input type="text" value={exp.company} onChange={handleExperienceChange(idx, 'company')} placeholder="Company Name" className="input-field" />
-                                                </div>
-                                                <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: '1rem' }}>
-                                                    <label className="form-label" style={{ width: 'auto' }}>Date</label>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        <select
-                                                            value={exp.fromYear || ''}
-                                                            onChange={(e) => {
-                                                                const updated = [...form.experience];
-                                                                updated[idx] = { ...updated[idx], fromYear: e.target.value, date: `${e.target.value} - ${updated[idx].toYear || 'Present'}` };
-                                                                setForm(prev => ({ ...prev, experience: updated }));
-                                                            }}
-                                                            className="input-field"
-                                                            style={{ flex: 1, appearance: 'auto', cursor: 'pointer' }}
-                                                        >
-                                                            <option value="">From</option>
-                                                            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                                                        </select>
-                                                        <span style={{ color: 'var(--color-gray-400)', fontWeight: 500 }}>to</span>
-                                                        <select
-                                                            value={exp.toYear || ''}
-                                                            onChange={(e) => {
-                                                                const updated = [...form.experience];
-                                                                updated[idx] = { ...updated[idx], toYear: e.target.value, date: `${updated[idx].fromYear || ''} - ${e.target.value || 'Present'}` };
-                                                                setForm(prev => ({ ...prev, experience: updated }));
-                                                            }}
-                                                            className="input-field"
-                                                            style={{ flex: 1, appearance: 'auto', cursor: 'pointer' }}
-                                                        >
-                                                            <option value="">Present</option>
-                                                            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-                                                        </select>
-                                                    </div>
-                                                </div>
-                                                <div className="form-row" style={{ gridTemplateColumns: '100px 1fr', marginBottom: 0 }}>
-                                                    <label className="form-label" style={{ width: 'auto' }}>Details</label>
-                                                    <textarea rows="3" value={exp.description} onChange={handleExperienceChange(idx, 'description')} placeholder="Describe your experience..." className="input-field" style={{ resize: 'vertical' }} />
-                                                </div>
+                    {form.showExperience && (
+                        <div className="pe-experience-list">
+                            {form.experience.map((exp, idx) => (
+                                <div key={idx} className="pe-exp-item">
+                                    <div className="pe-exp-dot" />
+                                    <div className="pe-exp-content">
+                                        <button onClick={() => handleRemoveExperience(idx)} type="button" className="pe-exp-remove">
+                                            <X size={14} />
+                                        </button>
+                                        <div className="pe-field-grid pe-field-grid-tight">
+                                            <div className="pe-field">
+                                                <label className="pe-label-sm">Role</label>
+                                                <input type="text" value={exp.title} onChange={handleExperienceChange(idx, 'title')} placeholder="Job Title" className="pe-input pe-input-sm" />
+                                            </div>
+                                            <div className="pe-field">
+                                                <label className="pe-label-sm">Company</label>
+                                                <input type="text" value={exp.company} onChange={handleExperienceChange(idx, 'company')} placeholder="Company Name" className="pe-input pe-input-sm" />
                                             </div>
                                         </div>
-                                    ))}
-                                    <div style={{ marginLeft: 'calc(100px + 2rem)' }}>
-                                        <button onClick={handleAddExperience} type="button" style={{ width: '100%', padding: '0.75rem', border: '2px dashed var(--color-gray-300)', borderRadius: 'var(--radius-md)', background: 'none', color: 'var(--color-gray-500)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '0.875rem', fontWeight: 500 }}>
-                                            <Plus size={18} /> Add Experience
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Links */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>Links</h3>
-
-                            <div className="form-row">
-                                <label className="form-label">Website</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon w-full">
-                                        <Globe size={18} className="icon" />
-                                        <input type="url" value={form.website} onChange={handleChange('website')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="https://" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">X (Twitter)</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon w-full">
-                                        <div className="icon" style={{ display: 'flex', alignItems: 'center' }}>
-                                            <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"></path></svg>
+                                        <div className="pe-date-row">
+                                            <select
+                                                value={exp.fromYear || ''}
+                                                onChange={(e) => {
+                                                    const updated = [...form.experience];
+                                                    updated[idx] = { ...updated[idx], fromYear: e.target.value, date: `${e.target.value} - ${updated[idx].toYear || 'Present'}` };
+                                                    setForm(prev => ({ ...prev, experience: updated }));
+                                                }}
+                                                className="pe-input pe-input-sm"
+                                            >
+                                                <option value="">From</option>
+                                                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                            </select>
+                                            <span className="pe-date-sep">-</span>
+                                            <select
+                                                value={exp.toYear || ''}
+                                                onChange={(e) => {
+                                                    const updated = [...form.experience];
+                                                    updated[idx] = { ...updated[idx], toYear: e.target.value, date: `${updated[idx].fromYear || ''} - ${e.target.value || 'Present'}` };
+                                                    setForm(prev => ({ ...prev, experience: updated }));
+                                                }}
+                                                className="pe-input pe-input-sm"
+                                            >
+                                                <option value="">Present</option>
+                                                {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+                                            </select>
                                         </div>
-                                        <input type="text" value={form.twitter} onChange={handleChange('twitter')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="@handle" />
+                                        <textarea rows="2" value={exp.description} onChange={handleExperienceChange(idx, 'description')} placeholder="Details..." className="pe-input pe-input-sm" style={{ resize: 'vertical' }} />
                                     </div>
                                 </div>
-                            </div>
-
-                            <div className="form-row">
-                                <label className="form-label">LinkedIn</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon w-full">
-                                        <Linkedin size={18} className="icon" />
-                                        <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="input-field w-full" style={{ paddingLeft: '40px' }} placeholder="LinkedIn URL" />
-                                    </div>
-                                </div>
-                            </div>
+                            ))}
+                            <button onClick={handleAddExperience} type="button" className="pe-add-btn">
+                                <Plus size={16} /> Add Experience
+                            </button>
                         </div>
-                    </div>
+                    )}
+                </div>
 
-                    {/* BIES Identity & Lightning */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
-                                <AtSign size={20} style={{ color: '#f59e0b' }} />
-                                BIES Identity & Lightning
-                            </h3>
-                            <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>
-                                Get a verified NIP-05 identity and set your Lightning address for receiving zaps.
-                            </p>
+                {/* Nostr */}
+                <div className="pe-card pe-nostr-card">
+                    <SectionHeader
+                        icon={<NostrIcon size={18} color="#8b5cf6" />}
+                        title="Nostr"
+                    />
+                    <p className="pe-section-desc">Manage your Nostr identity, profile, and relay publishing.</p>
 
-                            <div className="form-row">
-                                <label className="form-label">BIES Identity</label>
-                                <div className="form-content">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                        <div className="input-with-icon" style={{ flex: 1 }}>
-                                            <AtSign size={18} className="icon" />
-                                            <input
-                                                type="text"
-                                                value={form.nip05Name}
-                                                onChange={handleChange('nip05Name')}
-                                                className="input-field"
-                                                style={{ paddingLeft: '40px' }}
-                                                placeholder="alice"
-                                            />
-                                        </div>
-                                        {nip05Checking && <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
-                                        {!nip05Checking && nip05Available === true && <CheckCircle size={18} style={{ color: '#16a34a' }} />}
-                                        {!nip05Checking && nip05Available === false && <X size={18} style={{ color: '#ef4444' }} />}
-                                    </div>
-                                    {form.nip05Name && (
-                                        <p style={{ fontSize: '0.75rem', color: nip05Available === false ? '#ef4444' : 'var(--color-gray-500)', marginTop: '0.5rem' }}>
-                                            {nip05Available === false ? 'This name is already taken' : `Your NIP-05: ${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
-                                        </p>
-                                    )}
-                                </div>
+                    {/* Identity & Lightning */}
+                    <CollapsibleSub
+                        title="Identity & Lightning"
+                        icon={<Zap size={15} style={{ color: '#f59e0b' }} />}
+                        open={nostrIdentityOpen}
+                        onToggle={() => setNostrIdentityOpen(v => !v)}
+                    >
+                        {user?.nostrPubkey && (
+                            <div className="pe-field">
+                                <label className="pe-label">Public Key (npub)</label>
+                                <input
+                                    type="text" readOnly
+                                    value={nip19.npubEncode(user.nostrPubkey)}
+                                    className="pe-input pe-input-readonly"
+                                />
                             </div>
-
-                            <div className="form-row">
-                                <label className="form-label">Lightning Address</label>
-                                <div className="form-content">
-                                    <div className="input-with-icon w-full">
-                                        <Zap size={18} className="icon" />
+                        )}
+                        <div className="pe-field-grid">
+                            <div className="pe-field">
+                                <label className="pe-label">BIES Identity (NIP-05)</label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <div className="pe-input-icon" style={{ flex: 1 }}>
+                                        <AtSign size={15} className="pe-icon" />
                                         <input
                                             type="text"
-                                            value={form.lightningAddress}
-                                            onChange={handleChange('lightningAddress')}
-                                            className="input-field w-full"
-                                            style={{ paddingLeft: '40px' }}
-                                            placeholder="you@getalby.com"
+                                            value={form.nip05Name}
+                                            onChange={handleChange('nip05Name')}
+                                            className="pe-input pe-input-with-icon"
+                                            placeholder="alice"
                                         />
                                     </div>
-                                    <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>
-                                        Your Lightning address (lud16) for receiving zaps. Works with Alby, WoS, Strike, etc.
-                                    </p>
+                                    {nip05Checking && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
+                                    {!nip05Checking && nip05Available === true && <CheckCircle size={16} style={{ color: '#16a34a' }} />}
+                                    {!nip05Checking && nip05Available === false && <X size={16} style={{ color: '#ef4444' }} />}
                                 </div>
+                                {form.nip05Name && (
+                                    <p className="pe-hint" style={{ color: nip05Available === false ? '#ef4444' : undefined }}>
+                                        {nip05Available === false ? 'This name is already taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="pe-field">
+                                <label className="pe-label">Lightning Address</label>
+                                <div className="pe-input-icon">
+                                    <Zap size={15} className="pe-icon" />
+                                    <input
+                                        type="text"
+                                        value={form.lightningAddress}
+                                        onChange={handleChange('lightningAddress')}
+                                        className="pe-input pe-input-with-icon"
+                                        placeholder="you@getalby.com"
+                                    />
+                                </div>
+                                <p className="pe-hint">For receiving zaps. Works with Alby, WoS, Strike, etc.</p>
                             </div>
                         </div>
-                    </div>
+                    </CollapsibleSub>
 
-                    {/* Nostr Profile */}
-                    <div className="profile-card">
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>
-                                <NostrIcon size={20} color="#8b5cf6" />
-                                Nostr Profile
-                            </h3 >
-                            <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', marginBottom: '1.5rem', lineHeight: 1.6 }}>Edit your Nostr identity. Changes are published to relays.</p>
-
-                            {
-                                user?.nostrPubkey && (
-                                    <div className="form-row">
-                                        <label className="form-label">Public Key (npub)</label>
-                                        <div className="form-content">
-                                            <input
-                                                type="text"
-                                                readOnly
-                                                value={nip19.npubEncode(user.nostrPubkey)}
-                                                className="input-field"
-                                                style={{ cursor: 'default', background: 'var(--color-gray-100)', fontFamily: 'monospace', fontSize: '0.875rem' }}
-                                            />
+                    {/* Nostr Profile Editor */}
+                    <CollapsibleSub
+                        title="Profile Editor"
+                        icon={<User size={15} style={{ color: '#8b5cf6' }} />}
+                        open={nostrProfileOpen}
+                        onToggle={() => setNostrProfileOpen(v => !v)}
+                    >
+                        {loadingNostr ? (
+                            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
+                                <p className="pe-hint" style={{ marginTop: '0.5rem' }}>Fetching from relays...</p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="pe-field-grid">
+                                    <div className="pe-field">
+                                        <label className="pe-label">Display Name</label>
+                                        <input type="text" value={nostrForm.display_name} onChange={handleNostrFormChange('display_name')} className="pe-input" placeholder="Display name" />
+                                    </div>
+                                    <div className="pe-field">
+                                        <label className="pe-label">@Name</label>
+                                        <div className="pe-input-icon">
+                                            <AtSign size={14} className="pe-icon" />
+                                            <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="pe-input pe-input-with-icon" placeholder="username" />
                                         </div>
                                     </div>
-                                )
-                            }
-
-                            {
-                                loadingNostr ? (
-                                    <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                                        <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
-                                        <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-400)', marginTop: '0.5rem' }}>Fetching from relays...</p>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <div className="form-row">
-                                            <label className="form-label">Display Name</label>
-                                            <div className="form-content">
-                                                <input type="text" value={nostrForm.display_name} onChange={handleNostrFormChange('display_name')} className="input-field" placeholder="Your display name" />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">@Name</label>
-                                            <div className="form-content">
-                                                <div style={{ position: 'relative' }}>
-                                                    <AtSign size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', pointerEvents: 'none' }} />
-                                                    <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="input-field" placeholder="username" style={{ paddingLeft: '2.25rem' }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">About</label>
-                                            <div className="form-content">
-                                                <textarea rows="3" className="input-field" style={{ resize: 'vertical' }} value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr" />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">Picture URL</label>
-                                            <div className="form-content">
-                                                <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="input-field" placeholder="https://..." />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">Website</label>
-                                            <div className="form-content">
-                                                <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="input-field" placeholder="https://..." />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">NIP-05</label>
-                                            <div className="form-content">
-                                                <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="input-field" placeholder="you@domain.com" />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">LUD-16</label>
-                                            <div className="form-content">
-                                                <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="input-field" placeholder="you@wallet.com" />
-                                            </div>
-                                        </div>
-                                        <div className="form-row">
-                                            <label className="form-label">Banner URL</label>
-                                            <div className="form-content">
-                                                <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="input-field" placeholder="https://..." />
-                                            </div>
-                                        </div>
-                                    </>
-                                )
-                            }
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '2rem' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <div style={{ display: 'flex', flex: 1, borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
-                                        <button type="button" onClick={() => setPublishMode('bies')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'bies' ? '#7c3aed' : 'transparent', color: publishMode === 'bies' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
-                                            BIES private relay only
-                                        </button>
-                                        <button type="button" onClick={() => setPublishMode('all')} style={{ flex: 1, padding: '0.5rem 1rem', border: 'none', borderLeft: '1px solid var(--color-gray-200)', cursor: 'pointer', fontWeight: 500, fontSize: '0.85rem', background: publishMode === 'all' ? '#7c3aed' : 'transparent', color: publishMode === 'all' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
-                                            BIES relay + all public relays
-                                        </button>
-                                    </div>
-                                    <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '0.25rem', display: 'flex', alignItems: 'center' }}>
-                                        <HelpCircle size={18} />
-                                    </button>
                                 </div>
-                                {showPublishHelp && (
-                                    <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-gray-600)', lineHeight: 1.5 }}>
-                                        <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Publish mode</p>
-                                        <p style={{ margin: '0 0 0.25rem' }}><strong>BIES private relay only</strong> — Saves your Nostr profile to the private BIES relay. Only visible within the BIES platform. Good for drafting your profile before going public.</p>
-                                        <p style={{ margin: '0 0 0.75rem' }}><strong>BIES relay + all public relays</strong> — Saves to the BIES relay and broadcasts to public Nostr relays (Damus, Primal, nos.lol, etc). Your profile will be visible across all Nostr clients.</p>
-                                        <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Actions</p>
-                                        <p style={{ margin: '0 0 0.25rem' }}><strong>Fetch from relays</strong> — Pulls the latest version of your Nostr profile from public relays and loads it into the Nostr form fields above.</p>
-                                        <p style={{ margin: '0 0 0.25rem' }}><strong>Apply to BIES form</strong> — Copies your Nostr profile data (name, bio, avatar, banner, website) into the BIES profile form so you can save it to your BIES account.</p>
-                                        <p style={{ margin: 0 }}><strong>Publish BIES form to relays</strong> — Takes your BIES profile fields and publishes them as a Nostr profile to all relays (BIES + public).</p>
+                                <div className="pe-field">
+                                    <label className="pe-label">About</label>
+                                    <textarea rows="2" className="pe-input" style={{ resize: 'vertical' }} value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr" />
+                                </div>
+                                <div className="pe-field-grid">
+                                    <div className="pe-field">
+                                        <label className="pe-label">Picture URL</label>
+                                        <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="pe-input" placeholder="https://..." />
                                     </div>
-                                )}
-                                <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="btn btn-primary" style={{ width: '100%', background: '#7c3aed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.75rem 1rem' }}>
-                                    {savingNostr ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
-                                    {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : publishMode === 'bies' ? 'Publish to BIES relay' : 'Publish to all relays'}
-                                    {nostrSaved && <CheckCircle size={16} />}
+                                    <div className="pe-field">
+                                        <label className="pe-label">Banner URL</label>
+                                        <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="pe-input" placeholder="https://..." />
+                                    </div>
+                                    <div className="pe-field">
+                                        <label className="pe-label">Website</label>
+                                        <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="pe-input" placeholder="https://..." />
+                                    </div>
+                                    <div className="pe-field">
+                                        <label className="pe-label">NIP-05</label>
+                                        <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="pe-input" placeholder="you@domain.com" />
+                                    </div>
+                                    <div className="pe-field pe-field-full">
+                                        <label className="pe-label">LUD-16 (Lightning)</label>
+                                        <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="pe-input" placeholder="you@wallet.com" />
+                                    </div>
+                                </div>
+                            </>
+                        )}
+                    </CollapsibleSub>
+
+                    {/* Publishing & Feed */}
+                    <CollapsibleSub
+                        title="Publishing & Feed"
+                        icon={<Send size={15} style={{ color: '#16a34a' }} />}
+                        open={nostrPublishOpen}
+                        onToggle={() => setNostrPublishOpen(v => !v)}
+                    >
+                        <div className="pe-publish-section">
+                            <div className="pe-segmented">
+                                <button type="button" onClick={() => setPublishMode('bies')} className={publishMode === 'bies' ? 'active' : ''}>
+                                    BIES relay only
                                 </button>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-                                    <button type="button" onClick={fetchNostrProfile} style={{ flex: 1, minWidth: '100px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md)', background: 'none', color: '#7c3aed', cursor: 'pointer', fontWeight: 500 }}>
-                                        <RefreshCw size={16} /> Fetch from relays
-                                    </button>
-                                    <button type="button" onClick={handleSyncFromNostr} style={{ flex: 1, minWidth: '120px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bfdbfe', borderRadius: 'var(--radius-md)', background: 'none', color: '#2563eb', cursor: 'pointer', fontWeight: 500 }}>
-                                        Apply to BIES form
-                                    </button>
-                                    <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} style={{ flex: 1, minWidth: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: '0.625rem 1rem', border: '1px solid #bbf7d0', borderRadius: 'var(--radius-md)', background: 'none', color: '#16a34a', cursor: 'pointer', fontWeight: 500 }}>
-                                        <Send size={16} /> Publish BIES form to relays
-                                    </button>
-                                </div>
+                                <button type="button" onClick={() => setPublishMode('all')} className={publishMode === 'all' ? 'active' : ''}>
+                                    BIES + public relays
+                                </button>
+                                <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} className="pe-help-btn-inline">
+                                    <HelpCircle size={15} />
+                                </button>
                             </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-gray-200)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <span style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-gray-700)' }}>Show Nostr feed on profile</span>
-                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '0.125rem', display: 'flex', alignItems: 'center' }}>
-                                        <HelpCircle size={15} />
+                            {showPublishHelp && (
+                                <div className="pe-help-box">
+                                    <p><strong>BIES relay only</strong> — Saves to the private BIES relay. Only visible within BIES.</p>
+                                    <p><strong>BIES + public relays</strong> — Broadcasts to BIES relay + public relays (Damus, Primal, etc).</p>
+                                    <p style={{ marginTop: '0.5rem' }}><strong>Fetch</strong> — Pull latest Nostr profile from relays. <strong>Apply</strong> — Copy Nostr data to BIES form. <strong>Push</strong> — Publish BIES data to all relays.</p>
+                                </div>
+                            )}
+
+                            <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="pe-publish-btn">
+                                {savingNostr ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={15} />}
+                                {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : publishMode === 'bies' ? 'Publish to BIES relay' : 'Publish to all relays'}
+                                {nostrSaved && <CheckCircle size={15} />}
+                            </button>
+
+                            <div className="pe-action-row">
+                                <button type="button" onClick={fetchNostrProfile} className="pe-action-btn pe-action-purple">
+                                    <RefreshCw size={14} /> Fetch
+                                </button>
+                                <button type="button" onClick={handleSyncFromNostr} className="pe-action-btn pe-action-blue">
+                                    Apply to BIES
+                                </button>
+                                <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} className="pe-action-btn pe-action-green">
+                                    <Send size={14} /> Push to relays
+                                </button>
+                            </div>
+
+                            <div className="pe-feed-toggle">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <span className="pe-label" style={{ padding: 0 }}>Show Nostr feed on profile</span>
+                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} className="pe-help-btn-inline">
+                                        <HelpCircle size={14} />
                                     </button>
                                 </div>
                                 <label className="toggle-switch">
@@ -964,146 +907,139 @@ const ProfileEdit = () => {
                                     <span className="toggle-slider"></span>
                                 </label>
                             </div>
+
                             {showFeedHelp && (
-                                <div style={{ background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-gray-600)', lineHeight: 1.5, marginTop: '0.5rem' }}>
-                                    <p style={{ margin: '0 0 0.25rem' }}>When enabled, your recent Nostr notes (kind:1 posts) will be displayed on your public BIES profile. This uses your connected Nostr keypair — no need to enter an npub manually.</p>
-                                    <p style={{ margin: '0.5rem 0 0.25rem', fontWeight: 600 }}>Feed source</p>
-                                    <p style={{ margin: '0 0 0.25rem' }}><strong>Private relay only</strong> — Shows only notes stored on the BIES private relay. Only notes you've published through BIES will appear.</p>
-                                    <p style={{ margin: 0 }}><strong>Private + public relays</strong> — Shows notes from both the BIES private relay and public Nostr relays (Damus, Primal, etc). All your Nostr activity will be visible.</p>
+                                <div className="pe-help-box">
+                                    <p>When enabled, your recent Nostr notes are shown on your BIES profile.</p>
+                                    <p><strong>Private only</strong> — BIES relay notes. <strong>Private + public</strong> — All Nostr activity.</p>
                                 </div>
                             )}
+
                             {form.showNostrFeed && (
-                                <div style={{ display: 'flex', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-gray-200)', marginTop: '0.75rem' }}>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'private' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'private' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
+                                <div className="pe-segmented" style={{ marginTop: '0.5rem' }}>
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} className={form.nostrFeedSource === 'private' ? 'active' : ''}>
                                         Private relay only
                                     </button>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} style={{ flex: 1, padding: '0.4rem 0.75rem', border: 'none', borderLeft: '1px solid var(--color-gray-200)', cursor: 'pointer', fontWeight: 500, fontSize: '0.8rem', background: form.nostrFeedSource === 'all' ? '#7c3aed' : 'transparent', color: form.nostrFeedSource === 'all' ? '#fff' : 'var(--color-gray-500)', transition: 'all 0.2s' }}>
-                                        Private + public relays
+                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} className={form.nostrFeedSource === 'all' ? 'active' : ''}>
+                                        Private + public
                                     </button>
-                                </div>
-                            )}
-                        </div >
-                    </div >
-
-                    {/* Projects */}
-                    < div className="profile-card" >
-                        <div className="w-full max-w-2xl">
-                            <h3 className="h3-title" style={{ marginBottom: '1.5rem', paddingBottom: '1rem', borderBottom: '1px solid var(--color-gray-200)' }}>{projectsTitle}</h3>
-
-                            {/* Auto-populated projects */}
-                            {autoProjects.length > 0 && (
-                                <div style={{ marginBottom: '1.5rem' }}>
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)', marginBottom: '1rem' }}>Your projects (auto-detected):</p>
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                                        {autoProjects.map(project => {
-                                            const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
-                                            return (
-                                                <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: alreadyAdded ? 'var(--color-blue-tint)' : 'var(--color-surface)', border: `1px solid ${alreadyAdded ? '#bfdbfe' : 'var(--color-gray-200)'}`, borderRadius: 'var(--radius-xl)', opacity: alreadyAdded ? 0.7 : 1 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                        {project.image ? <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} /> : <div style={{ width: 48, height: 48, borderRadius: 8, background: 'var(--color-surface-raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: 'var(--color-gray-400)' }}>{project.name.charAt(0)}</div>}
-                                                        <div>
-                                                            <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-900)' }}>{project.name}</p>
-                                                            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>{project.role}</p>
-                                                        </div>
-                                                    </div>
-                                                    {!alreadyAdded && (
-                                                        <button onClick={() => handleAddProject({ ...project, coverImage: project.image })} style={{ padding: '0.4rem 0.75rem', color: 'var(--color-primary)', background: 'none', border: '1px solid var(--color-primary)', cursor: 'pointer', borderRadius: 'var(--radius-md)', fontSize: '0.78rem', fontWeight: 600 }}>
-                                                            + Add
-                                                        </button>
-                                                    )}
-                                                    {alreadyAdded && (
-                                                        <span style={{ fontSize: '0.75rem', color: 'var(--color-primary)', fontWeight: 600 }}>Added</span>
-                                                    )}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Manual search (for other projects) */}
-                            <div className="form-row">
-                                <label className="form-label">Add Other</label>
-                                <div className="form-content" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                    <input
-                                        type="text"
-                                        placeholder="Your Role / Contribution"
-                                        className="input-field"
-                                        value={newProjectRole}
-                                        onChange={(e) => setNewProjectRole(e.target.value)}
-                                    />
-                                    <div ref={searchRef} style={{ position: 'relative' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-md)', overflow: 'hidden', background: 'var(--color-surface)' }}>
-                                            <div style={{ paddingLeft: '1rem', color: 'var(--color-gray-400)' }}>
-                                                <Search size={18} />
-                                            </div>
-                                            <input
-                                                type="text"
-                                                style={{ width: '100%', padding: '0.625rem 0.75rem', border: 'none', outline: 'none', fontSize: '0.875rem' }}
-                                                placeholder="Search projects to add..."
-                                                value={projectSearch}
-                                                onChange={(e) => { setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
-                                                onFocus={() => setShowProjectDropdown(true)}
-                                            />
-                                            {projectSearch && (
-                                                <button onClick={() => setProjectSearch('')} style={{ paddingRight: '1rem', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                                                    <X size={14} />
-                                                </button>
-                                            )}
-                                        </div>
-
-                                        {showProjectDropdown && projectSearch.length > 0 && (
-                                            <div style={{ position: 'absolute', zIndex: 20, marginTop: '0.5rem', width: '100%', background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', maxHeight: '240px', overflowY: 'auto', padding: '0.5rem 0' }}>
-                                                {projectResults.filter(p =>
-                                                    (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
-                                                    !form.biesProjects.some(bp => bp.id === p.id)
-                                                ).map(project => (
-                                                    <button
-                                                        key={project.id}
-                                                        style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '0.75rem', border: 'none', background: 'none', cursor: 'pointer' }}
-                                                        onClick={() => handleAddProject({ ...project, name: project.name || project.title })}
-                                                    >
-                                                        {(project.image || project.thumbnail) && <img src={project.image || project.thumbnail} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: 'cover' }} />}
-                                                        <div>
-                                                            <p style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name || project.title}</p>
-                                                            <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>{project.status || project.stage}</p>
-                                                        </div>
-                                                    </button>
-                                                ))}
-                                                {projectResults.filter(p => (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                                                    <div style={{ padding: '1.5rem 1rem', textAlign: 'center', color: 'var(--color-gray-500)', fontSize: '0.875rem', fontStyle: 'italic' }}>
-                                                        No projects found matching &ldquo;{projectSearch}&rdquo;
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {form.biesProjects.length > 0 && (
-                                <div style={{ marginTop: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                                    {form.biesProjects.map(project => (
-                                        <div key={project.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: 'var(--radius-xl)' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                {project.image && <img src={project.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }} />}
-                                                <div>
-                                                    <p style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-gray-900)' }}>{project.name}</p>
-                                                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>{project.role}</p>
-                                                </div>
-                                            </div>
-                                            <button onClick={() => handleRemoveProject(project.id)} style={{ padding: '0.5rem', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer', borderRadius: '50%' }}>
-                                                <X size={16} />
-                                            </button>
-                                        </div>
-                                    ))}
                                 </div>
                             )}
                         </div>
-                    </div >
+                    </CollapsibleSub>
+                </div>
 
-                </div >
-            </div >
+                {/* Projects */}
+                <div className="pe-card">
+                    <SectionHeader icon={<Hash size={18} style={{ color: 'var(--color-gray-400)' }} />} title={projectsTitle} />
+
+                    {autoProjects.length > 0 && (
+                        <div style={{ marginBottom: '1rem' }}>
+                            <p className="pe-hint" style={{ marginBottom: '0.75rem' }}>Your projects (auto-detected):</p>
+                            <div className="pe-project-grid">
+                                {autoProjects.map(project => {
+                                    const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
+                                    return (
+                                        <div key={project.id} className={`pe-project-item ${alreadyAdded ? 'pe-project-added' : ''}`}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                                {project.image ? (
+                                                    <img src={project.image} alt="" className="pe-project-img" />
+                                                ) : (
+                                                    <div className="pe-project-img pe-project-img-placeholder">{project.name.charAt(0)}</div>
+                                                )}
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p className="pe-project-name">{project.name}</p>
+                                                    <p className="pe-project-role">{project.role}</p>
+                                                </div>
+                                            </div>
+                                            {!alreadyAdded ? (
+                                                <button onClick={() => handleAddProject({ ...project, coverImage: project.image })} className="pe-project-add-btn">+ Add</button>
+                                            ) : (
+                                                <span className="pe-project-added-label">Added</span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="pe-field">
+                        <label className="pe-label">Add Other Projects</label>
+                        <input type="text" placeholder="Your Role / Contribution" className="pe-input pe-input-sm" value={newProjectRole} onChange={(e) => setNewProjectRole(e.target.value)} />
+                        <div ref={searchRef} style={{ position: 'relative', marginTop: '0.5rem' }}>
+                            <div className="pe-input-icon">
+                                <Search size={16} className="pe-icon" />
+                                <input
+                                    type="text"
+                                    className="pe-input pe-input-with-icon"
+                                    placeholder="Search projects..."
+                                    value={projectSearch}
+                                    onChange={(e) => { setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
+                                    onFocus={() => setShowProjectDropdown(true)}
+                                />
+                                {projectSearch && (
+                                    <button onClick={() => setProjectSearch('')} type="button" style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                        <X size={14} />
+                                    </button>
+                                )}
+                            </div>
+
+                            {showProjectDropdown && projectSearch.length > 0 && (
+                                <div className="pe-dropdown">
+                                    {projectResults.filter(p =>
+                                        (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
+                                        !form.biesProjects.some(bp => bp.id === p.id)
+                                    ).map(project => (
+                                        <button
+                                            key={project.id}
+                                            className="pe-dropdown-item"
+                                            onClick={() => handleAddProject({ ...project, name: project.name || project.title })}
+                                        >
+                                            {(project.image || project.thumbnail) && <img src={project.image || project.thumbnail} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />}
+                                            <div style={{ minWidth: 0 }}>
+                                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name || project.title}</p>
+                                                <p style={{ fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>{project.status || project.stage}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {projectResults.filter(p => (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
+                                        <div className="pe-dropdown-empty">No projects found</div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {form.biesProjects.length > 0 && (
+                        <div className="pe-project-grid" style={{ marginTop: '1rem' }}>
+                            {form.biesProjects.map(project => (
+                                <div key={project.id} className="pe-project-item">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                        {project.image && <img src={project.image} alt="" className="pe-project-img" />}
+                                        <div style={{ minWidth: 0 }}>
+                                            <p className="pe-project-name">{project.name}</p>
+                                            <p className="pe-project-role">{project.role}</p>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => handleRemoveProject(project.id)} type="button" style={{ padding: '0.25rem', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Bottom save */}
+                <div className="pe-bottom-save">
+                    <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn pe-save-btn-full">
+                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                        {saving ? 'Saving...' : 'Save Changes'}
+                    </button>
+                </div>
+
+            </div>
 
             {cropImage && (
                 <ImageCropModal
@@ -1116,157 +1052,536 @@ const ProfileEdit = () => {
             )}
 
             <style jsx>{`
-                .profile-page {
-                    background-color: var(--color-surface-overlay);
-                    min-height: 100vh;
+                /* ── Page Layout ── */
+                .pe-page { background: var(--color-surface-overlay, #f8fafc); min-height: 100vh; }
+                .pe-container {
+                    max-width: 680px;
+                    margin: 0 auto;
+                    padding: 1rem 1rem 3rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
                 }
-                .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
-
-                .profile-card {
-                    background: var(--color-surface);
-                    padding: 2rem;
-                    border-radius: var(--radius-xl);
-                    box-shadow: var(--shadow-sm);
-                    border: 1px solid var(--color-gray-200);
+                .pe-topbar {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.25rem 0;
+                }
+                .pe-page-title {
+                    font-size: 1.5rem;
+                    font-weight: 700;
+                    font-family: var(--font-display);
+                    color: var(--color-gray-900);
+                }
+                .pe-error {
+                    background: var(--color-red-tint, #FEF2F2);
+                    color: #EF4444;
+                    padding: 0.6rem 0.875rem;
+                    border-radius: 8px;
+                    font-size: 0.8rem;
                 }
 
-                .banner-btn {
+                /* ── Cards ── */
+                .pe-card {
+                    background: var(--color-surface, white);
+                    padding: 1.25rem;
+                    border-radius: var(--radius-xl, 12px);
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                }
+                .pe-nostr-card {
+                    border-left: 3px solid #8b5cf6;
+                }
+
+                /* ── Section Headers ── */
+                .pe-section-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                    padding-bottom: 0.75rem;
+                    border-bottom: 1px solid var(--color-gray-200, #e5e7eb);
+                }
+                .pe-section-title {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .pe-section-title h3 {
+                    font-size: 1.05rem;
+                    font-weight: 700;
+                    font-family: var(--font-display);
+                    margin: 0;
+                }
+                .pe-section-desc {
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500, #6b7280);
+                    margin: -0.5rem 0 0.75rem;
+                    line-height: 1.4;
+                }
+
+                /* ── Form Fields ── */
+                .pe-field { display: flex; flex-direction: column; gap: 0.3rem; }
+                .pe-field-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.75rem;
+                }
+                .pe-field-grid-tight { gap: 0.5rem; }
+                .pe-field-full { grid-column: 1 / -1; }
+                .pe-label {
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    color: var(--color-gray-600, #4b5563);
+                }
+                .pe-label-sm {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    color: var(--color-gray-500, #6b7280);
+                }
+                .pe-input {
+                    width: 100%;
+                    padding: 0.55rem 0.75rem;
+                    border: 1px solid var(--color-gray-300, #d1d5db);
+                    background: var(--color-surface, white);
+                    border-radius: var(--radius-md, 6px);
+                    outline: none;
+                    font-size: 0.875rem;
+                    transition: border-color 0.15s, box-shadow 0.15s;
+                }
+                .pe-input:focus {
+                    border-color: var(--color-primary, #0052cc);
+                    box-shadow: 0 0 0 2px rgba(0, 82, 204, 0.1);
+                }
+                .pe-input-sm { padding: 0.45rem 0.65rem; font-size: 0.825rem; }
+                .pe-input-readonly {
+                    background: var(--color-gray-100, #f9fafb);
+                    cursor: default;
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                }
+                .pe-input-icon { position: relative; display: flex; align-items: center; }
+                .pe-icon {
+                    position: absolute;
+                    left: 0.65rem;
+                    color: var(--color-gray-400, #9ca3af);
+                    pointer-events: none;
+                    z-index: 1;
+                    display: flex;
+                    align-items: center;
+                }
+                .pe-input-with-icon { padding-left: 2.1rem; flex: 1; min-width: 0; }
+                .pe-hint {
+                    font-size: 0.72rem;
+                    color: var(--color-gray-500, #6b7280);
+                    line-height: 1.3;
+                    margin-top: 0.15rem;
+                }
+
+                /* ── Tags ── */
+                .pe-tags { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.375rem; }
+                .pe-tag {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.25rem 0.6rem;
+                    background: #dcfce7;
+                    color: #15803d;
+                    border-radius: 9999px;
+                    font-size: 0.72rem;
+                    font-weight: 500;
+                }
+                .pe-tag button {
+                    color: inherit;
+                    opacity: 0.6;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 0;
+                    display: flex;
+                }
+
+                /* ── Banner / Avatar ── */
+                .pe-banner {
+                    height: 160px;
+                    position: relative;
+                }
+                .pe-banner-overlay {
+                    position: absolute;
+                    inset: 0;
+                    z-index: 5;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(0,0,0,0.45);
+                    gap: 0.375rem;
+                }
+                .pe-banner-edit {
+                    position: absolute;
+                    top: 0.75rem;
+                    left: 0.75rem;
+                    z-index: 10;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    background: var(--color-surface, white);
+                    color: var(--color-gray-900, #1f2937);
+                    border-radius: var(--radius-md, 6px);
+                    padding: 0.4rem 0.75rem;
+                    font-weight: 600;
+                    font-size: 0.78rem;
+                    cursor: pointer;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                    border: none;
+                }
+                .pe-avatar-row {
+                    padding: 0 1.25rem 1rem;
+                    position: relative;
+                    z-index: 5;
+                }
+                .pe-avatar-wrapper {
+                    margin-top: -48px;
+                    position: relative;
+                    width: fit-content;
+                }
+                .pe-avatar {
+                    width: 96px;
+                    height: 96px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    border: 3px solid var(--color-surface, white);
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+                }
+                .pe-avatar img { width: 100%; height: 100%; object-fit: cover; }
+                .pe-avatar-placeholder {
+                    width: 100%;
+                    height: 100%;
+                    background: var(--color-gray-100, #f3f4f6);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 0.5rem;
-                    background-color: var(--color-surface);
-                    color: var(--color-gray-900);
-                    border-radius: var(--radius-md);
-                    height: 42px;
-                    padding: 0 24px;
-                    white-space: nowrap;
-                    font-weight: 700;
-                    font-family: var(--font-display);
-                    font-size: 1rem;
-                    letter-spacing: 0.02em;
-                    border: none;
-                    cursor: pointer;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-                }
-                .banner-btn:hover { opacity: 0.9; }
-
-                .form-row {
-                    display: grid;
-                    grid-template-columns: 160px 1fr;
-                    gap: 2rem;
-                    align-items: start;
-                    margin-bottom: 2rem;
-                }
-                .form-label {
-                    text-align: right;
-                    color: var(--color-gray-700);
-                    font-weight: 600;
-                    font-size: 0.875rem;
-                    padding-top: 0.5rem;
-                }
-                .form-content { min-width: 0; }
-
-                .h1-title { font-size: 2rem; line-height: 2.25rem; font-weight: 700; font-family: var(--font-display); }
-                .h3-title { font-size: 1.25rem; font-weight: 700; font-family: var(--font-display); }
-
-                .editable-title {
                     font-size: 2rem;
-                    line-height: 2.25rem;
                     font-weight: 700;
-                    font-family: var(--font-display);
-                    width: 100%;
-                    border: 1px solid var(--color-gray-200);
-                    background: var(--color-surface);
-                    padding: 0.75rem 1rem;
-                    border-radius: var(--radius-md);
-                    transition: all 0.2s;
-                    color: var(--color-gray-900);
+                    color: var(--color-gray-400, #9ca3af);
                 }
-                .editable-title:focus {
-                    border-color: var(--color-primary);
-                    box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1);
-                    outline: none;
-                }
-
-                .input-field {
-                    width: 100%;
-                    padding: 0.75rem 1rem;
-                    border: 1px solid var(--color-gray-200);
-                    background: var(--color-surface-raised);
-                    border-radius: var(--radius-md);
-                    outline: none;
-                    transition: all 0.2s;
-                    color: var(--color-gray-900);
-                }
-                .input-field:focus {
-                    border-color: var(--color-primary);
-                    box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1);
-                }
-
-                .input-with-icon { position: relative; }
-                .input-with-icon .icon {
+                .pe-avatar-loading {
                     position: absolute;
-                    left: 1rem;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--color-gray-400);
-                    pointer-events: none;
-                }
-
-                .status-badge {
-                    background: var(--color-green-tint);
-                    color: #15803d;
-                    padding: 0.25rem 0.5rem;
-                    border-radius: 9999px;
-                    font-size: 0.75rem;
-                }
-
-                .experience-item {
-                    padding-left: 1.5rem;
-                    border-left: 2px solid var(--color-gray-200);
-                    position: relative;
-                }
-                .experience-dot {
-                    position: absolute;
-                    width: 12px;
-                    height: 12px;
-                    background: var(--color-primary);
+                    inset: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(255,255,255,0.7);
                     border-radius: 50%;
-                    left: -7px;
-                    top: 6px;
+                }
+                .pe-avatar-edit {
+                    position: absolute;
+                    bottom: 2px;
+                    right: 2px;
+                    width: 30px;
+                    height: 30px;
+                    background: var(--color-surface, white);
+                    border-radius: 50%;
+                    border: 1px solid #e5e7eb;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                 }
 
-                .toggle-switch {
-                    position: relative;
-                    display: inline-block;
-                    width: 44px;
-                    height: 24px;
+                /* ── Save Button ── */
+                .pe-save-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    background: var(--color-primary, #0052cc);
+                    color: white;
+                    border: none;
+                    border-radius: var(--radius-md, 6px);
+                    height: 36px;
+                    padding: 0 1.25rem;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    white-space: nowrap;
                 }
+                .pe-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+                .pe-save-btn-full { width: 100%; justify-content: center; height: 40px; }
+                .pe-bottom-save { padding-top: 0.25rem; }
+
+                /* ── Toggle ── */
+                .pe-toggle-row { display: flex; align-items: center; gap: 0.5rem; }
+                .pe-toggle-label { font-size: 0.78rem; font-weight: 500; color: var(--color-gray-500, #6b7280); }
+                .toggle-switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
                 .toggle-switch input { opacity: 0; width: 0; height: 0; }
                 .toggle-slider {
-                    position: absolute;
-                    cursor: pointer;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background-color: var(--color-surface-raised);
-                    border: 1px solid var(--color-gray-200);
-                    transition: .3s;
-                    border-radius: 24px;
+                    position: absolute; cursor: pointer; inset: 0;
+                    background: var(--color-surface-raised, #cbd5e1); border: 1px solid var(--color-gray-200, #e5e7eb); transition: .3s; border-radius: 22px;
                 }
                 .toggle-slider:before {
-                    position: absolute;
-                    content: "";
-                    height: 18px;
-                    width: 18px;
-                    left: 3px;
-                    bottom: 3px;
-                    background-color: var(--color-surface);
-                    transition: .3s;
-                    border-radius: 50%;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+                    content: ""; position: absolute;
+                    height: 16px; width: 16px; left: 3px; bottom: 3px;
+                    background: var(--color-surface, white); transition: .3s; border-radius: 50%;
+                    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
                 }
-                .toggle-switch input:checked + .toggle-slider { background-color: var(--color-primary); }
-                .toggle-switch input:checked + .toggle-slider:before { transform: translateX(20px); }
+                .toggle-switch input:checked + .toggle-slider { background: var(--color-primary, #0052cc); }
+                .toggle-switch input:checked + .toggle-slider:before { transform: translateX(18px); }
+
+                /* ── Experience ── */
+                .pe-experience-list { display: flex; flex-direction: column; gap: 0.75rem; }
+                .pe-exp-item {
+                    padding-left: 1.25rem;
+                    border-left: 2px solid var(--color-gray-200, #e5e7eb);
+                    position: relative;
+                }
+                .pe-exp-dot {
+                    position: absolute;
+                    width: 10px; height: 10px;
+                    background: var(--color-primary, #0052cc);
+                    border-radius: 50%;
+                    left: -6px; top: 4px;
+                }
+                .pe-exp-content {
+                    position: relative;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.4rem;
+                }
+                .pe-exp-remove {
+                    position: absolute;
+                    top: -2px; right: 0;
+                    color: var(--color-gray-400);
+                    background: none; border: none; cursor: pointer;
+                    padding: 2px;
+                }
+                .pe-date-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .pe-date-row select { flex: 1; appearance: auto; cursor: pointer; }
+                .pe-date-sep { color: var(--color-gray-400); font-weight: 500; font-size: 0.85rem; }
+                .pe-add-btn {
+                    width: 100%;
+                    padding: 0.6rem;
+                    border: 2px dashed var(--color-gray-300, #d1d5db);
+                    border-radius: var(--radius-md, 6px);
+                    background: none;
+                    color: var(--color-gray-500, #6b7280);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.35rem;
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                }
+
+                /* ── Collapsible Sections ── */
+                .pe-collapsible {
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border-radius: var(--radius-md, 6px);
+                    margin-bottom: 0.5rem;
+                    overflow: hidden;
+                }
+                .pe-collapsible-trigger {
+                    width: 100%;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 0.65rem 0.875rem;
+                    background: var(--color-surface-raised, #fafbfc);
+                    border: none;
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    color: var(--color-gray-700, #374151);
+                }
+                .pe-collapsible-trigger:hover { background: var(--color-gray-100, #f5f6f8); }
+                .pe-collapsible-label { display: flex; align-items: center; gap: 0.5rem; }
+                .pe-collapsible-body { padding: 0.875rem; display: flex; flex-direction: column; gap: 0.65rem; }
+
+                /* ── Nostr Publishing ── */
+                .pe-publish-section { display: flex; flex-direction: column; gap: 0.6rem; }
+                .pe-segmented {
+                    display: flex;
+                    border-radius: var(--radius-md, 6px);
+                    overflow: hidden;
+                    border: 1px solid #e5e7eb;
+                }
+                .pe-segmented button {
+                    flex: 1;
+                    padding: 0.4rem 0.5rem;
+                    border: none;
+                    cursor: pointer;
+                    font-weight: 500;
+                    font-size: 0.78rem;
+                    background: transparent;
+                    color: #6b7280;
+                    transition: all 0.15s;
+                    white-space: nowrap;
+                }
+                .pe-segmented button + button { border-left: 1px solid #e5e7eb; }
+                .pe-segmented button.active { background: #7c3aed; color: white; }
+                .pe-help-btn-inline {
+                    flex: 0 0 auto;
+                    padding: 0.25rem 0.5rem;
+                    background: none;
+                    border: none;
+                    border-left: 1px solid #e5e7eb;
+                    color: #9ca3af;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                }
+                .pe-help-box {
+                    background: var(--color-gray-100, #f9fafb);
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border-radius: var(--radius-md, 6px);
+                    padding: 0.6rem 0.75rem;
+                    font-size: 0.75rem;
+                    color: #4b5563;
+                    line-height: 1.45;
+                }
+                .pe-help-box p { margin: 0 0 0.2rem; }
+                .pe-publish-btn {
+                    width: 100%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.4rem;
+                    padding: 0.6rem 0.75rem;
+                    background: #7c3aed;
+                    color: white;
+                    border: none;
+                    border-radius: var(--radius-md, 6px);
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                }
+                .pe-publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+                .pe-action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+                .pe-action-btn {
+                    flex: 1;
+                    min-width: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.3rem;
+                    padding: 0.45rem 0.5rem;
+                    border-radius: var(--radius-md, 6px);
+                    background: none;
+                    cursor: pointer;
+                    font-weight: 500;
+                    font-size: 0.78rem;
+                    white-space: nowrap;
+                }
+                .pe-action-purple { border: 1px solid #e9d5ff; color: #7c3aed; }
+                .pe-action-blue { border: 1px solid #bfdbfe; color: #2563eb; }
+                .pe-action-green { border: 1px solid #bbf7d0; color: #16a34a; }
+                .pe-feed-toggle {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding-top: 0.6rem;
+                    border-top: 1px solid var(--color-gray-200, #e5e7eb);
+                    margin-top: 0.25rem;
+                }
+
+                /* ── Projects ── */
+                .pe-project-grid {
+                    display: grid;
+                    grid-template-columns: 1fr;
+                    gap: 0.5rem;
+                }
+                .pe-project-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0.65rem 0.75rem;
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border-radius: var(--radius-md, 6px);
+                    background: var(--color-surface, white);
+                }
+                .pe-project-added { background: var(--color-blue-tint, #f0f7ff); border-color: #bfdbfe; opacity: 0.7; }
+                .pe-project-img { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
+                .pe-project-img-placeholder {
+                    background: var(--color-gray-100, #f3f4f6);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 700;
+                    color: var(--color-gray-400, #9ca3af);
+                    font-size: 0.85rem;
+                }
+                .pe-project-name { font-size: 0.8rem; font-weight: 700; color: var(--color-gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .pe-project-role { font-size: 0.7rem; font-weight: 600; color: var(--color-primary, #0052cc); }
+                .pe-project-add-btn {
+                    padding: 0.3rem 0.6rem;
+                    color: var(--color-primary, #0052cc);
+                    background: none;
+                    border: 1px solid var(--color-primary, #0052cc);
+                    cursor: pointer;
+                    border-radius: var(--radius-md, 6px);
+                    font-size: 0.72rem;
+                    font-weight: 600;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+                .pe-project-added-label { font-size: 0.7rem; color: var(--color-primary, #0052cc); font-weight: 600; flex-shrink: 0; }
+
+                /* ── Dropdown ── */
+                .pe-dropdown {
+                    position: absolute;
+                    z-index: 20;
+                    margin-top: 0.35rem;
+                    width: 100%;
+                    background: var(--color-surface, white);
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
+                    border-radius: var(--radius-md, 6px);
+                    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+                    max-height: 200px;
+                    overflow-y: auto;
+                    padding: 0.25rem 0;
+                }
+                .pe-dropdown-item {
+                    width: 100%;
+                    padding: 0.5rem 0.75rem;
+                    text-align: left;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                    border: none;
+                    background: none;
+                    cursor: pointer;
+                }
+                .pe-dropdown-item:hover { background: var(--color-gray-100, #f9fafb); }
+                .pe-dropdown-empty {
+                    padding: 1rem 0.75rem;
+                    text-align: center;
+                    color: var(--color-gray-500, #6b7280);
+                    font-size: 0.8rem;
+                    font-style: italic;
+                }
+
+                /* ── Responsive ── */
+                @media (max-width: 600px) {
+                    .pe-container { padding: 0.75rem 0.75rem 2.5rem; gap: 0.75rem; }
+                    .pe-card { padding: 1rem; }
+                    .pe-field-grid { grid-template-columns: 1fr; gap: 0.6rem; }
+                    .pe-banner { height: 120px; }
+                    .pe-avatar { width: 72px; height: 72px; }
+                    .pe-avatar-wrapper { margin-top: -36px; }
+                    .pe-avatar-placeholder { font-size: 1.5rem; }
+                    .pe-avatar-edit { width: 26px; height: 26px; }
+                    .pe-banner-edit-text { display: none; }
+                    .pe-action-row { flex-direction: column; }
+                    .pe-action-btn { min-width: 100%; }
+                    .pe-page-title { font-size: 1.25rem; }
+                    .pe-segmented button { font-size: 0.72rem; padding: 0.35rem 0.25rem; }
+                }
 
                 @keyframes spin { to { transform: rotate(360deg); } }
                 @keyframes progress-indeterminate {
@@ -1275,7 +1590,7 @@ const ProfileEdit = () => {
                     100% { width: 0%; margin-left: 100%; }
                 }
             `}</style>
-        </div >
+        </div>
     );
 };
 

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
-import { BiesWebSocket, notificationsApi } from '../services/api';
+import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
+import { nostrService } from '../services/nostrService';
 
 const AuthContext = createContext();
 
@@ -105,6 +106,9 @@ export const AuthProvider = ({ children }) => {
         if (!result.success) return result;
 
         const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        if (isNew && result.user?.nostrPubkey) {
+            seedProfileFromNostr(result.user.nostrPubkey).catch(() => {});
+        }
         return { ...result, needsProfileSetup: isNew };
     };
 
@@ -113,6 +117,9 @@ export const AuthProvider = ({ children }) => {
         if (!result.success) return result;
 
         const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        if (isNew && result.user?.nostrPubkey) {
+            seedProfileFromNostr(result.user.nostrPubkey).catch(() => {});
+        }
         return { ...result, needsProfileSetup: isNew };
     };
 
@@ -133,6 +140,9 @@ export const AuthProvider = ({ children }) => {
         if (!result.success) return result;
 
         const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        if (isNew && result.user?.nostrPubkey) {
+            seedProfileFromNostr(result.user.nostrPubkey).catch(() => {});
+        }
         return { ...result, needsProfileSetup: isNew };
     };
 
@@ -180,7 +190,40 @@ export const AuthProvider = ({ children }) => {
 
         // New users have a generated placeholder name like "nostr:abc12345"
         const isNew = result.user?.profile?.name?.startsWith('nostr:');
+
+        // Auto-seed BIES profile from Nostr Kind 0 for new users
+        if (isNew && result.user?.nostrPubkey) {
+            seedProfileFromNostr(result.user.nostrPubkey).catch(() => {});
+        }
+
         return { ...result, needsProfileSetup: isNew };
+    };
+
+    /**
+     * Fetch the user's Kind 0 profile from public Nostr relays
+     * and update the BIES profile with any available fields
+     * (name, avatar, banner, bio, website).
+     */
+    const seedProfileFromNostr = async (pubkey) => {
+        try {
+            const nostrProfile = await nostrService.getProfile(pubkey);
+            if (!nostrProfile) return;
+
+            const updates = {};
+            if (nostrProfile.display_name || nostrProfile.name) {
+                updates.name = nostrProfile.display_name || nostrProfile.name;
+            }
+            if (nostrProfile.about) updates.bio = nostrProfile.about;
+            if (nostrProfile.picture) updates.avatar = nostrProfile.picture;
+            if (nostrProfile.banner) updates.banner = nostrProfile.banner;
+            if (nostrProfile.website) updates.website = nostrProfile.website;
+
+            if (Object.keys(updates).length > 0) {
+                await profilesApi.update(updates);
+            }
+        } catch (err) {
+            console.error('[Auth] Failed to seed profile from Nostr:', err);
+        }
     };
 
     const logout = () => {

@@ -304,6 +304,9 @@ export const adminApi = {
     reviewProject: (id, action) => put(`/admin/projects/${id}/review`, { action }),
     listEvents: (params = {}) => get('/admin/events', params),
     featureEvent: (id, featured) => put(`/admin/events/${id}/feature`, { featured }),
+    deleteUser: (id) => del(`/admin/users/${id}`),
+    syncAccounts: (sourceUserId, targetUserId, deleteSource) =>
+        post('/admin/users/sync', { sourceUserId, targetUserId, deleteSource }),
     auditLogs: (params = {}) => get('/admin/audit-logs', params),
     broadcast: (message) => post('/admin/broadcast', { message }),
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),

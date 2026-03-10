@@ -5,6 +5,8 @@ import {
     banUser,
     setUserRole,
     verifyUser,
+    deleteUser,
+    syncAccounts,
     featureProject,
     hardDeleteProject,
     listAdminProjects,
@@ -26,6 +28,8 @@ router.get('/users', listUsers);
 router.put('/users/:id/ban', banUser);
 router.put('/users/:id/role', setUserRole);
 router.put('/users/:id/verify', verifyUser);
+router.delete('/users/:id', deleteUser);        // ADMIN only (enforced in controller)
+router.post('/users/sync', syncAccounts);        // ADMIN only (enforced in controller)
 
 // Projects
 router.get('/projects', listAdminProjects);
