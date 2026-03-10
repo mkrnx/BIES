@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
 
 // Pages
@@ -110,7 +111,7 @@ const AppContent = () => {
         <>
             <Navbar />
             <ModeSelectionModal />
-            <div style={{ minHeight: 'calc(100vh - 73px)' }}>
+            <div className="app-content">
                 <Routes>
                     {/* Public Routes */}
                     <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Landing />} />
@@ -228,6 +229,7 @@ const AppContent = () => {
                     } />
                 </Routes>
             </div>
+            <MobileBottomNav />
         </>
     );
 };

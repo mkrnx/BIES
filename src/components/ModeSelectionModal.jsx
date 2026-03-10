@@ -155,17 +155,46 @@ const ModeSelectionModal = () => {
         }
 
         @media (max-width: 768px) {
+          .modal-overlay {
+            padding: 1rem;
+            align-items: center;
+          }
           .modal-content {
             flex-direction: column;
             height: auto;
-            max-height: 90vh;
+            max-height: 100vh;
             overflow-y: auto;
           }
           .mode-card {
-            padding: 3rem 1.5rem;
+            padding: 1.75rem 1.25rem;
           }
           .mode-card:hover {
-            flex: 1; /* Disable expansion on mobile */
+            flex: 1;
+          }
+          .icon-wrapper {
+            margin-bottom: 1rem;
+            padding: 1.25rem;
+          }
+          .icon-wrapper :global(svg) {
+            width: 40px !important;
+            height: 40px !important;
+          }
+          h2 {
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+          }
+          .tagline {
+            font-size: 0.95rem;
+            margin-bottom: 0.5rem;
+          }
+          .subtext {
+            font-size: 0.85rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.4;
+          }
+          .btn-outline-light {
+            padding: 0.75rem 1.5rem;
+            font-size: 0.95rem;
           }
         }
       `}</style>

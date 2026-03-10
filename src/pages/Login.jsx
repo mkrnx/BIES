@@ -110,7 +110,8 @@ const Login = () => {
             const result = await loginWithNsecAndCheckNew(nsecInput);
             handleResult(result, nsecInput.trim());
         } catch (err) {
-            setError(err.message || 'Invalid nsec key or login failed.');
+            console.error('nsec login error:', err);
+            setError(err?.message || String(err) || 'Invalid nsec key or login failed.');
         } finally {
             setLoading(false);
         }

@@ -105,7 +105,8 @@ const Signup = () => {
                 setError(result.error || 'Failed to register. Please try again.');
             }
         } catch (err) {
-            setError(err.message || 'Registration failed.');
+            console.error('Signup error:', err);
+            setError(err?.message || String(err) || 'Registration failed.');
         } finally {
             setSubmitting(false);
         }

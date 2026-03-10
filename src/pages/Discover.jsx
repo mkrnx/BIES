@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { projectsApi, watchlistApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
@@ -298,6 +298,7 @@ const Discover = () => {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const categories = [
     { id: 'FINTECH', label: 'Fintech' },
@@ -396,18 +397,28 @@ const Discover = () => {
   return (
     <div className="discover-page container">
       {/* Header & Search */}
-      <div className="discover-header">
-        <h1>Discover Projects</h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem', position: 'relative' }}>
+        <h1 style={{ textAlign: 'center', flex: 1 }}>Discover Projects</h1>
+        {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN') && (
+          <Link to="/dashboard/builder/new-project" title="Create Project" style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'var(--color-primary)',
+            color: 'white',
+            textDecoration: 'none',
+            position: 'absolute',
+            right: 0,
+          }}>
+            <Plus size={20} />
+          </Link>
+        )}
       </div>
 
       <div className="search-row">
-        <div className="search-left-column">
-          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN') && (
-            <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn">
-              <Plus size={18} /> Create Project
-            </Link>
-          )}
-        </div>
         <div className="search-bar">
           <Search size={20} className="search-icon" />
           <input
@@ -416,13 +427,19 @@ const Discover = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
-          <button className="btn btn-primary" onClick={() => { }}>Search</button>
+          <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+            <SlidersHorizontal size={20} />
+            {(selectedIndustries.length + selectedStages.length) > 0 && (
+              <span className="filter-badge">{selectedIndustries.length + selectedStages.length}</span>
+            )}
+          </button>
+          <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>Search</button>
         </div>
       </div>
 
       <div className="content-layout">
         {/* Filters Sidebar */}
-        <div className="filters-column">
+        <div className={`filters-column ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
           <aside className="filters">
             <div className="filter-header">
               <SlidersHorizontal size={18} />
@@ -501,11 +518,6 @@ const Discover = () => {
           padding-bottom: 4rem;
         }
 
-        .discover-header {
-          margin-bottom: 1.5rem;
-          text-align: center;
-        }
-
         .search-row {
           display: flex;
           align-items: center;
@@ -513,29 +525,10 @@ const Discover = () => {
           margin-bottom: 2rem;
         }
 
-        .search-left-column {
-          width: 250px;
-          flex-shrink: 0;
-          display: flex;
-        }
-
         .filters-column {
           width: 250px;
           display: flex;
           flex-direction: column;
-          flex-shrink: 0;
-        }
-
-        .create-project-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          gap: 0.5rem;
-          font-weight: 600;
-          border-radius: var(--radius-full);
-          padding: 0.6rem 1.5rem;
-          white-space: nowrap;
-          width: 100%;
           flex-shrink: 0;
         }
 
@@ -651,14 +644,50 @@ const Discover = () => {
         }
         .pagination span { font-size: 0.9rem; color: var(--color-gray-500); }
 
+        .mobile-filter-toggle {
+          display: none;
+          align-items: center;
+          justify-content: center;
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+          border: none;
+          background: none;
+          color: var(--color-gray-500);
+          cursor: pointer;
+          flex-shrink: 0;
+          position: relative;
+        }
+        .filter-badge {
+          position: absolute;
+          top: 2px;
+          right: 2px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: var(--color-secondary);
+          color: white;
+          font-size: 0.65rem;
+          font-weight: 700;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
         @media (max-width: 768px) {
           .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
-          .search-left-column { width: 100%; }
-          .search-left-column:empty { display: none; }
           .content-layout { flex-direction: column; }
-          .filters-column { width: 100%; }
+          .filters-column {
+            width: 100%;
+            display: none;
+          }
+          .filters-column.mobile-open {
+            display: flex;
+          }
           .filters { width: 100%; }
           .project-grid { grid-template-columns: 1fr; }
+          .mobile-filter-toggle { display: flex; }
+          .search-btn-desktop { display: none; }
         }
       `}</style>
     </div>

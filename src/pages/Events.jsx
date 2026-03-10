@@ -270,6 +270,7 @@ const Events = () => {
     const [selectedDate, setSelectedDate] = useState(null);
     const [showOfficial, setShowOfficial] = useState(true);
     const [showCommunity, setShowCommunity] = useState(true);
+    const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
     const categories = [
         { id: 'NETWORKING', label: 'Networking' },
@@ -436,13 +437,16 @@ const Events = () => {
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                     />
-                    <button className="btn btn-primary">Search</button>
+                    <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+                        <SlidersHorizontal size={20} />
+                    </button>
+                    <button className="btn btn-primary search-btn-desktop">Search</button>
                 </div>
             </div>
 
             <div className="content-layout">
                 {/* Filters Sidebar */}
-                <div className="filters-column">
+                <div className={`filters-column ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
                     <div className="sidebar-section calendar-section">
                         <div className="filter-header">
                             <CalendarIcon size={18} />
@@ -787,13 +791,35 @@ const Events = () => {
 
                 .empty-state { padding: 3rem; text-align: center; color: var(--color-gray-400); background: white; border-radius: var(--radius-lg); border: 1px dashed var(--color-gray-200); }
 
+                .mobile-filter-toggle {
+                    display: none;
+                    align-items: center;
+                    justify-content: center;
+                    width: 40px;
+                    height: 40px;
+                    border-radius: 50%;
+                    border: none;
+                    background: none;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    flex-shrink: 0;
+                }
+
                 @media (max-width: 768px) {
                     .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
                     .search-left-column { width: 100%; }
                     .content-layout { flex-direction: column; }
-                    .filters-column { width: 100%; }
+                    .filters-column {
+                        width: 100%;
+                        display: none;
+                    }
+                    .filters-column.mobile-open {
+                        display: flex;
+                    }
                     .filters { width: 100%; }
                     .events-grid { grid-template-columns: 1fr; }
+                    .mobile-filter-toggle { display: flex; }
+                    .search-btn-desktop { display: none; }
                 }
             `}</style>
         </div>
