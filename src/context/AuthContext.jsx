@@ -231,8 +231,9 @@ export const AuthProvider = ({ children }) => {
             isAuthenticated: !!user,
             isBuilder: user?.role === 'BUILDER',
             isInvestor: user?.role === 'INVESTOR',
+            isMod: user?.role === 'MOD',
             isAdmin: user?.role === 'ADMIN',
-            isMasterAdmin: !!user?.isMasterAdmin,
+            isStaff: user?.role === 'ADMIN' || user?.role === 'MOD',
         }}>
             {children}
         </AuthContext.Provider>

@@ -131,10 +131,10 @@ export function requireRole(...roles: string[]) {
 }
 
 /**
- * Check if a user is a master admin (pubkey listed in ADMIN_PUBKEYS env var).
- * Master admins can ban/demote other admins; regular admins cannot.
+ * Check if a pubkey belongs to an admin (listed in ADMIN_PUBKEYS env var).
+ * Admins can manage mods; mods cannot manage admins or other mods.
  */
-export function isMasterAdmin(nostrPubkey: string): boolean {
+export function isAdminPubkey(nostrPubkey: string): boolean {
     return config.adminPubkeys.includes(nostrPubkey);
 }
 
