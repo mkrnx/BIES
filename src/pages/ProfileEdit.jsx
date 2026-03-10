@@ -82,6 +82,23 @@ const ProfileEdit = () => {
         }
     }, [user?.nostrPubkey]);
 
+    // Auto-apply Nostr profile fields to BIES form when BIES profile is missing them
+    useEffect(() => {
+        if (!nostrProfile) return;
+        setForm(prev => {
+            const updates = {};
+            if (!prev.banner && nostrProfile.banner) updates.banner = nostrProfile.banner;
+            if (!prev.avatar && nostrProfile.picture) updates.avatar = nostrProfile.picture;
+            if (!prev.name && (nostrProfile.display_name || nostrProfile.name)) {
+                updates.name = nostrProfile.display_name || nostrProfile.name;
+            }
+            if (!prev.bio && nostrProfile.about) updates.bio = nostrProfile.about;
+            if (!prev.website && nostrProfile.website) updates.website = nostrProfile.website;
+            if (Object.keys(updates).length === 0) return prev;
+            return { ...prev, ...updates };
+        });
+    }, [nostrProfile]);
+
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (searchRef.current && !searchRef.current.contains(e.target)) {
