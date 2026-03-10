@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check, Trash2, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../services/api';
@@ -20,7 +20,7 @@ const Notifications = () => {
                 const result = await notificationsApi.list(params);
                 const list = result?.data || result || [];
                 setNotifications(Array.isArray(list) ? list : []);
-                setTotalPages(result?.totalPages || 1);
+                setTotalPages(result?.pagination?.totalPages || result?.totalPages || 1);
             } catch {
                 setNotifications([]);
             } finally {
@@ -33,7 +33,7 @@ const Notifications = () => {
     const handleMarkRead = async (id) => {
         try {
             await notificationsApi.markRead(id);
-            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
             refreshNotifications();
         } catch { /* ignore */ }
     };
@@ -41,7 +41,7 @@ const Notifications = () => {
     const handleMarkAllRead = async () => {
         try {
             await notificationsApi.markAllRead();
-            setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+            setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
             refreshNotifications();
         } catch { /* ignore */ }
     };
@@ -54,7 +54,13 @@ const Notifications = () => {
         } catch { /* ignore */ }
     };
 
-    const unreadCount = notifications.filter(n => !n.read).length;
+    const unreadCount = notifications.filter(n => !n.isRead).length;
+
+    const formatTime = (dateStr) => {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    };
 
     return (
         <div className="container py-8">
@@ -89,16 +95,17 @@ const Notifications = () => {
             ) : (
                 <div className="notifications-list">
                     {notifications.map(notif => (
-                        <div key={notif.id} className={`notif-item ${!notif.read ? 'unread' : ''}`}>
+                        <div key={notif.id} className={`notif-item ${!notif.isRead ? 'unread' : ''}`}>
                             <div className="notif-content">
-                                {!notif.read && <div className="dot-indicator"></div>}
+                                {!notif.isRead && <div className="dot-indicator"></div>}
                                 <div className="notif-body">
-                                    <p className="notif-text">{notif.message || notif.text}</p>
-                                    <span className="notif-time">{notif.timeAgo || notif.createdAt}</span>
+                                    <p className="notif-title">{notif.title}</p>
+                                    {notif.body && <p className="notif-text">{notif.body}</p>}
+                                    <span className="notif-time">{formatTime(notif.createdAt)}</span>
                                 </div>
                             </div>
                             <div className="notif-actions">
-                                {!notif.read && (
+                                {!notif.isRead && (
                                     <button className="action-btn" title="Mark as read" onClick={() => handleMarkRead(notif.id)}>
                                         <Check size={16} />
                                     </button>
@@ -189,7 +196,8 @@ const Notifications = () => {
                 }
 
                 .notif-body { flex: 1; }
-                .notif-text { font-size: 0.95rem; line-height: 1.4; color: var(--color-neutral-dark); }
+                .notif-title { font-size: 0.95rem; font-weight: 600; line-height: 1.4; color: var(--color-neutral-dark); margin-bottom: 2px; }
+                .notif-text { font-size: 0.85rem; line-height: 1.4; color: var(--color-gray-500); }
                 .notif-time { font-size: 0.8rem; color: var(--color-gray-400); margin-top: 2px; display: block; }
 
                 .notif-actions {

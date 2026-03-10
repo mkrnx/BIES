@@ -7,6 +7,7 @@ import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { publishAnnouncement } from '../services/nostr.service';
+import { notifyEventRsvp } from '../services/notification.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -458,7 +459,7 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
 
         const event = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { title: true, maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
+            select: { title: true, hostId: true, maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
         });
 
         if (!event || !event.isPublished) {
@@ -486,15 +487,30 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
         });
 
         // Announce RSVP on the BIES feed (only for new RSVPs with GOING status)
-        if (!existingRsvp && status === 'GOING') {
+        if (!existingRsvp && (status === 'GOING' || status === 'INTERESTED')) {
             const rsvpUser = await prisma.user.findUnique({
                 where: { id: userId },
                 select: { profile: { select: { name: true } } },
             });
             const userName = rsvpUser?.profile?.name || 'A BIES member';
-            publishAnnouncement(userId, `${userName} is going to "${event.title}"!`, [['t', 'rsvp']]).catch((err) =>
-                console.error('[Nostr] RSVP announcement failed:', err)
-            );
+
+            if (status === 'GOING') {
+                publishAnnouncement(userId, `${userName} is going to "${event.title}"!`, [['t', 'rsvp']]).catch((err) =>
+                    console.error('[Nostr] RSVP announcement failed:', err)
+                );
+            }
+
+            // Notify event host (don't notify yourself)
+            if (event.hostId !== userId) {
+                notifyEventRsvp({
+                    hostId: event.hostId,
+                    attendeeName: userName,
+                    attendeeId: userId,
+                    eventTitle: event.title,
+                    eventId: req.params.id,
+                    status,
+                }).catch(() => {});
+            }
         }
 
         res.json(attendee);
