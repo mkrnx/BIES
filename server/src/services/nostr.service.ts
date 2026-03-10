@@ -220,6 +220,124 @@ export async function publishAnnouncement(
 }
 
 /**
+ * Publish a NIP-52 time-based calendar event (Kind 31923).
+ * Allows publishing to BIES relay only, public relays only, or both.
+ */
+export async function publishCalendarEvent(
+    userId: string,
+    event: {
+        id: string;
+        title: string;
+        description: string;
+        startDate: Date;
+        endDate?: Date | null;
+        location?: string;
+        locationName?: string;
+        locationAddress?: string;
+        isOnline?: boolean;
+        onlineUrl?: string;
+        category?: string;
+        tags?: string[];
+        thumbnail?: string;
+        ticketUrl?: string;
+    },
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — signed client-side
+            console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side NIP-52 publish`);
+            return null;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const startUnix = Math.floor(event.startDate.getTime() / 1000);
+        const nip52Tags: string[][] = [
+            ['d', event.id],
+            ['title', event.title],
+            ['start', String(startUnix)],
+        ];
+
+        if (event.endDate) {
+            nip52Tags.push(['end', String(Math.floor(event.endDate.getTime() / 1000))]);
+        }
+
+        // Location tags
+        if (event.location) {
+            nip52Tags.push(['location', event.location]);
+        }
+        if (event.locationAddress) {
+            nip52Tags.push(['g', event.locationAddress]); // geohash placeholder / address
+        }
+
+        // Online events
+        if (event.isOnline && event.onlineUrl) {
+            nip52Tags.push(['r', event.onlineUrl]);
+        }
+
+        // Metadata tags
+        if (event.thumbnail) {
+            nip52Tags.push(['image', event.thumbnail]);
+        }
+        if (event.ticketUrl) {
+            nip52Tags.push(['r', event.ticketUrl]);
+        }
+
+        // Hashtags
+        nip52Tags.push(['t', 'bies']);
+        if (event.category) {
+            nip52Tags.push(['t', event.category.toLowerCase().replace(/_/g, '-')]);
+        }
+        if (event.tags) {
+            for (const tag of event.tags) {
+                nip52Tags.push(['t', tag.toLowerCase()]);
+            }
+        }
+
+        const nostrEvent: EventTemplate = {
+            kind: 31923,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: nip52Tags,
+            content: event.description,
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signedEvent = finalizeEvent(nostrEvent, privateKeyBytes);
+
+        const pool = await getPool();
+
+        // Determine which relays to publish to
+        const relays: string[] = [];
+        if ((target === 'bies' || target === 'both') && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+        if (target === 'public' || target === 'both') {
+            relays.push(...config.nostrRelays);
+        }
+        // Fallback
+        if (relays.length === 0 && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+
+        const results = await Promise.allSettled(pool.publish(relays, signedEvent));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-52 calendar event published to ${published}/${relays.length} relays (target: ${target})`);
+
+        return published > 0 ? signedEvent.id : null;
+    } catch (error) {
+        console.error('[Nostr] NIP-52 publish error:', error);
+        return null;
+    }
+}
+
+/**
  * Convert hex string to Uint8Array
  */
 function hexToBytes(hex: string): Uint8Array {

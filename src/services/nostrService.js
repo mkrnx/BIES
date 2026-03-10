@@ -447,6 +447,82 @@ class NostrService {
     }
 
     /**
+     * Publish a NIP-52 time-based calendar event (kind:31923).
+     * For Nostr-native users — signs via browser extension.
+     * @param {Object} eventData - Event details from the BIES event form
+     * @param {'bies'|'public'|'both'} target - Which relays to publish to
+     */
+    async publishCalendarEvent(eventData, target = 'bies') {
+        const pubkey = await nostrSigner.getPublicKey();
+        const startUnix = Math.floor(new Date(eventData.startDate).getTime() / 1000);
+
+        const tags = [
+            ['d', eventData.id],
+            ['title', eventData.title],
+            ['start', String(startUnix)],
+        ];
+
+        if (eventData.endDate) {
+            tags.push(['end', String(Math.floor(new Date(eventData.endDate).getTime() / 1000))]);
+        }
+
+        if (eventData.location) {
+            tags.push(['location', eventData.location]);
+        }
+        if (eventData.locationAddress) {
+            tags.push(['g', eventData.locationAddress]);
+        }
+        if (eventData.isOnline && eventData.onlineUrl) {
+            tags.push(['r', eventData.onlineUrl]);
+        }
+        if (eventData.thumbnail) {
+            tags.push(['image', eventData.thumbnail]);
+        }
+        if (eventData.ticketUrl) {
+            tags.push(['r', eventData.ticketUrl]);
+        }
+
+        tags.push(['t', 'bies']);
+        if (eventData.category) {
+            tags.push(['t', eventData.category.toLowerCase().replace(/_/g, '-')]);
+        }
+        if (eventData.tags && Array.isArray(eventData.tags)) {
+            for (const t of eventData.tags) {
+                tags.push(['t', t.toLowerCase()]);
+            }
+        }
+
+        const event = {
+            kind: 31923,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: eventData.description || '',
+        };
+
+        // Determine relays based on target
+        let relays;
+        if (target === 'bies') {
+            relays = [this.biesRelay];
+        } else if (target === 'public') {
+            relays = [...this.publicRelays];
+        } else {
+            relays = [this.biesRelay, ...this.publicRelays];
+        }
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(relays, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        if (succeeded === 0) {
+            throw new Error('Failed to publish NIP-52 calendar event to any relay');
+        }
+        console.log(`[NIP-52] Calendar event published to ${succeeded}/${relays.length} relays (target: ${target})`);
+        return signedEvent.id;
+    }
+
+    /**
      * Publish a NIP-99 classified listing (kind:30402) for a project.
      * For Nostr-native users — signs via browser extension.
      */

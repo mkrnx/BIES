@@ -6,9 +6,12 @@ import {
     Plus, Trash2, Camera, Save, X, Link as LinkIcon,
     Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon,
     AlignLeft as AlignLeftIcon, GripVertical, Upload, FileText,
+    Radio, Send,
 } from 'lucide-react';
 import { eventsApi, uploadApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { nostrService } from '../services/nostrService';
+import { nostrSigner } from '../services/nostrSigner';
 import MemberSearchSelect from '../components/MemberSearchSelect';
 import TagInput from '../components/TagInput';
 import RichTextEditor from '../components/RichTextEditor';
@@ -51,6 +54,7 @@ const CreateEvent = () => {
         isOfficial: false,
         endorsementRequested: false,
         guestList: [],
+        nostrPublish: 'bies',
     });
 
     const [tags, setTags] = useState([]);
@@ -257,6 +261,7 @@ const CreateEvent = () => {
             endorsementRequested: form.endorsementRequested,
             guestList: form.guestList,
             customSections,
+            nostrPublish: form.nostrPublish,
         };
     };
 
@@ -264,7 +269,33 @@ const CreateEvent = () => {
         setLoading(true);
         setSubmitError('');
         try {
-            await eventsApi.create(buildPayload());
+            const payload = buildPayload();
+            const created = await eventsApi.create(payload);
+
+            // For Nostr-native users (no custodial key), publish NIP-52 client-side
+            if (payload.nostrPublish !== 'none' && nostrSigner._mode) {
+                try {
+                    const eventData = created.data || created;
+                    await nostrService.publishCalendarEvent({
+                        id: eventData.id,
+                        title: payload.title,
+                        description: payload.description,
+                        startDate: payload.startDate,
+                        endDate: payload.endDate,
+                        location: [payload.locationName, payload.locationAddress].filter(Boolean).join(', '),
+                        locationAddress: payload.locationAddress,
+                        isOnline: payload.isOnline,
+                        onlineUrl: payload.onlineUrl,
+                        category: payload.category,
+                        tags: payload.tags,
+                        thumbnail: payload.thumbnail,
+                        ticketUrl: payload.ticketUrl,
+                    }, payload.nostrPublish);
+                } catch (nostrErr) {
+                    console.warn('[NIP-52] Client-side publish failed:', nostrErr);
+                }
+            }
+
             navigate('/events/my');
         } catch (err) {
             if (err.data?.details) {
@@ -469,6 +500,41 @@ const CreateEvent = () => {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Nostr Publishing (NIP-52) */}
+                        {form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
+                            <div className="profile-card">
+                                <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                    <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>
+                                        <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <Radio size={16} style={{ color: '#8b5cf6' }} /> Nostr Publishing
+                                        </span>
+                                    </h3>
+                                    <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+                                        Publish this event as a NIP-52 calendar event on Nostr. Other Nostr clients can discover and display it.
+                                    </p>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                        {[
+                                            { value: 'none', label: 'Don\'t Publish', desc: 'Event stays on BIES only', color: 'var(--color-gray-500)', bg: 'var(--color-gray-50)', border: 'var(--color-gray-200)' },
+                                            { value: 'bies', label: 'BIES Relay Only', desc: 'Published to the private BIES relay', color: '#2563eb', bg: '#eff6ff', border: '#bfdbfe' },
+                                            { value: 'public', label: 'Public Relays', desc: 'Published to public Nostr relays (damus, primal, etc.)', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
+                                            { value: 'both', label: 'Both', desc: 'Published to BIES relay and public relays', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+                                        ].map(opt => (
+                                            <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.55rem 0.75rem', border: `1px solid ${form.nostrPublish === opt.value ? opt.border : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.nostrPublish === opt.value ? opt.bg : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
+                                                <input type="radio" name="nostrPublish" value={opt.value} checked={form.nostrPublish === opt.value} onChange={handleChange} style={{ display: 'none' }} />
+                                                <span style={{ width: '16px', height: '16px', borderRadius: '50%', border: `2px solid ${form.nostrPublish === opt.value ? opt.color : 'var(--color-gray-300)'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    {form.nostrPublish === opt.value && <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: opt.color }} />}
+                                                </span>
+                                                <span>
+                                                    <span style={{ display: 'block', fontSize: '0.83rem', fontWeight: 600, color: '#111827' }}>{opt.label}</span>
+                                                    <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--color-gray-500)' }}>{opt.desc}</span>
+                                                </span>
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Guest List */}
                         {needsGuestList && (

@@ -315,6 +315,8 @@ model Event {
   locationAddress String   @default("") @map("location_address")
   locationMapUrl  String   @default("") @map("location_map_url")
   customSections  String   @default("[]") @map("custom_sections") // JSON array of {title, content}
+  nostrEventId    String   @default("") @map("nostr_event_id") // NIP-52 calendar event id
+  nostrPublish    String   @default("none") @map("nostr_publish") // none | bies | public | both
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
