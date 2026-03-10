@@ -119,7 +119,7 @@ const News = () => {
 
                 {/* Middle Column: Top Stories from API */}
                 <main className="news-col main-col">
-                    <div className="col-header">
+                    <div className="col-header page-header">
                         <h3>Top Stories</h3>
                     </div>
 
@@ -308,6 +308,10 @@ const News = () => {
 
         @media (max-width: 1024px) {
           .news-layout { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+          .page-header { display: none !important; }
         }
       `}</style>
         </div>

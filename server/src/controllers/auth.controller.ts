@@ -483,3 +483,42 @@ export async function updateRole(req: Request, res: Response): Promise<void> {
         res.status(500).json({ error: 'Failed to update role' });
     }
 }
+
+/**
+ * POST /auth/demo-login
+ * Temporary demo login — bypasses auth for mobile testing.
+ * TODO: Remove before production.
+ */
+export async function demoLogin(req: Request, res: Response): Promise<void> {
+    try {
+        const user = await prisma.user.findFirst({
+            where: { email: 'demo@bies.dev' },
+            include: { profile: true },
+        });
+
+        if (!user) {
+            res.status(404).json({ error: 'Demo account not found' });
+            return;
+        }
+
+        const token = jwt.sign(
+            { userId: user.id, role: user.role },
+            config.jwtSecret,
+            { expiresIn: '7d' },
+        );
+
+        res.json({
+            user: {
+                id: user.id,
+                email: user.email,
+                nostrPubkey: user.nostrPubkey,
+                role: user.role,
+                profile: user.profile,
+            },
+            token,
+        });
+    } catch (error) {
+        console.error('Demo login error:', error);
+        res.status(500).json({ error: 'Demo login failed' });
+    }
+}

@@ -31,14 +31,40 @@ const PublicProfile = ({ type }) => {
             try {
                 const data = await profilesApi.get(id);
                 setProfile(data);
-            } catch {
-                setError('Profile not found');
+                setError('');
+            } catch (err) {
+                if (currentUser && id === currentUser.id) {
+                    // Create an empty placeholder profile so they can see the "Edit Profile" button
+                    setProfile({
+                        id: 'new',
+                        userId: currentUser.id,
+                        user: {
+                            id: currentUser.id,
+                            role: currentUser.role,
+                            name: currentUser.name || '',
+                            email: currentUser.email || ''
+                        },
+                        name: currentUser.name || 'New User',
+                        role: currentUser.role || (type === 'investor' ? 'INVESTOR' : 'BUILDER'),
+                        bio: '',
+                        location: '',
+                        company: '',
+                        avatar: '',
+                        banner: '',
+                        skills: [],
+                        interests: [],
+                        investmentThesis: ''
+                    });
+                    setError('');
+                } else {
+                    setError('Profile not found');
+                }
             } finally {
                 setLoading(false);
             }
         };
         fetchProfile();
-    }, [id]);
+    }, [id, currentUser, type]);
 
     // The URL :id can be a profileId or userId — the follow API needs the userId
     const targetUserId = profile?.user?.id || profile?.userId;
@@ -129,47 +155,59 @@ const PublicProfile = ({ type }) => {
 
                         {/* Action Buttons */}
                         <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
-                            {currentUser && targetUserId && currentUser.id !== targetUserId && (
-                                <button
-                                    onClick={async () => {
-                                        setFollowLoading(true);
-                                        try {
-                                            if (isFollowing) {
-                                                await profilesApi.unfollow(targetUserId);
-                                                setIsFollowing(false);
-                                            } else {
-                                                await profilesApi.follow(targetUserId);
-                                                setIsFollowing(true);
+                            {currentUser && targetUserId && currentUser.id === targetUserId ? (
+                                <Link to="/profile" style={{
+                                    borderRadius: 'var(--radius-md)', background: 'white', color: 'var(--color-neutral-dark)',
+                                    border: '1px solid var(--color-gray-200)', height: '42px', padding: '0 24px',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
+                                    fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}>
+                                    Edit Profile
+                                </Link>
+                            ) : currentUser && targetUserId && currentUser.id !== targetUserId ? (
+                                <>
+                                    <button
+                                        onClick={async () => {
+                                            setFollowLoading(true);
+                                            try {
+                                                if (isFollowing) {
+                                                    await profilesApi.unfollow(targetUserId);
+                                                    setIsFollowing(false);
+                                                } else {
+                                                    await profilesApi.follow(targetUserId);
+                                                    setIsFollowing(true);
+                                                }
+                                            } catch (err) {
+                                                // 409 = already following
+                                                if (err?.status === 409) setIsFollowing(true);
+                                                else alert(err?.message || 'Failed to update follow');
+                                            } finally {
+                                                setFollowLoading(false);
                                             }
-                                        } catch (err) {
-                                            // 409 = already following
-                                            if (err?.status === 409) setIsFollowing(true);
-                                            else alert(err?.message || 'Failed to update follow');
-                                        } finally {
-                                            setFollowLoading(false);
-                                        }
-                                    }}
-                                    disabled={followLoading}
-                                    style={{
-                                        borderRadius: 'var(--radius-md)',
-                                        background: isFollowing ? 'var(--color-primary)' : 'white',
-                                        color: isFollowing ? 'white' : 'var(--color-neutral-dark)',
-                                        border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
-                                        height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
-                                        cursor: followLoading ? 'wait' : 'pointer',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                        opacity: followLoading ? 0.7 : 1,
+                                        }}
+                                        disabled={followLoading}
+                                        style={{
+                                            borderRadius: 'var(--radius-md)',
+                                            background: isFollowing ? 'var(--color-primary)' : 'white',
+                                            color: isFollowing ? 'white' : 'var(--color-neutral-dark)',
+                                            border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
+                                            height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
+                                            cursor: followLoading ? 'wait' : 'pointer',
+                                            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                            opacity: followLoading ? 0.7 : 1,
+                                        }}>
+                                        {followLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
+                                    </button>
+                                    <Link to="/messages" style={{
+                                        borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
+                                        height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                        textDecoration: 'none', fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                                     }}>
-                                    {followLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
-                                </button>
-                            )}
-                            <Link to="/messages" style={{
-                                borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
-                                height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                textDecoration: 'none', fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                            }}>
-                                Connect
-                            </Link>
+                                        Connect
+                                    </Link>
+                                </>
+                            ) : null}
+
                             {profile.user?.nostrPubkey && (
                                 <ZapButton
                                     recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}

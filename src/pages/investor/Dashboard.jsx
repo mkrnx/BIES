@@ -5,10 +5,21 @@ import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
 import { watchlistApi, analyticsApi, projectsApi } from '../../services/api';
 
+const investorTabs = [
+    { to: '/dashboard/investor', label: 'Dashboard', icon: LayoutDashboard, end: true },
+    { to: '/dashboard/investor/watchlist', label: 'Watchlist', icon: Heart },
+    { to: '/dashboard/investor/following', label: 'Following', icon: Heart },
+    { to: '/dashboard/investor/messages', label: 'Messages', icon: MessageSquare },
+    { to: '/dashboard/investor/deal-flow', label: 'Deal Flow', icon: BarChart2 },
+    { to: '/dashboard/investor/my-events', label: 'Events', icon: CalendarDays },
+];
+
 const InvestorDashboard = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
     const isRoot = location.pathname === '/dashboard/investor';
+
+    const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
 
     const { data: watchlistData, loading: wlLoading } = useApiQuery(watchlistApi.list);
     const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.investorDashboard);
@@ -30,42 +41,73 @@ const InvestorDashboard = () => {
 
     return (
         <div className="dashboard-layout">
-            {/* Sidebar */}
-            <aside className="sidebar">
+            {/* Desktop Sidebar */}
+            <aside className="desktop-sidebar">
                 <div className="sidebar-menu">
                     <div className="menu-group">
                         <p className="menu-label">Main</p>
-                        <NavLink to="/dashboard/investor" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <LayoutDashboard size={18} /> Dashboard
-                        </NavLink>
-                        <NavLink to="/dashboard/investor/watchlist" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <Heart size={18} /> My Watchlist
-                        </NavLink>
-                        <NavLink to="/dashboard/investor/following" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <Heart size={18} /> Following
-                        </NavLink>
-                        <NavLink to="/dashboard/investor/messages" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <MessageSquare size={18} /> Messages
-                        </NavLink>
-                        <NavLink to="/dashboard/investor/deal-flow" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <BarChart2 size={18} /> Deal Flow
-                        </NavLink>
-                        <NavLink to="/dashboard/investor/my-events" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <CalendarDays size={18} /> My Events
-                        </NavLink>
+                        {investorTabs.map(tab => (
+                            <NavLink key={tab.to} to={tab.to} end={tab.end} className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+                                <tab.icon size={18} /> <span className="link-label">{tab.label}</span>
+                            </NavLink>
+                        ))}
                     </div>
 
                     <div className="menu-group mt-auto">
                         <div className="divider"></div>
                         <NavLink to="/dashboard/investor/settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-                            <Settings size={18} /> Settings
+                            <Settings size={18} /> <span className="link-label">Settings</span>
                         </NavLink>
                         <button onClick={logout} className="sidebar-link text-error">
-                            <LogOut size={18} /> Logout
+                            <LogOut size={18} /> <span className="link-label">Logout</span>
                         </button>
                     </div>
                 </div>
             </aside>
+
+            {/* Mobile Tab Bar */}
+            <div className="mobile-tab-bar" style={{ display: 'none' }}>
+                {investorTabs.map(tab => {
+                    const active = isTabActive(tab.to, tab.end);
+                    const Icon = tab.icon;
+                    return (
+                        <NavLink
+                            key={tab.to}
+                            to={tab.to}
+                            end={tab.end}
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '4px',
+                                flex: 1,
+                                textDecoration: 'none',
+                                color: active ? 'var(--color-secondary)' : 'var(--color-gray-400)',
+                                fontSize: '0.65rem',
+                                fontWeight: active ? 700 : 500,
+                                padding: '8px 0',
+                                WebkitTapHighlightColor: 'transparent',
+                            }}
+                        >
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '44px',
+                                height: '44px',
+                                borderRadius: '50%',
+                                background: active ? '#FFF7ED' : 'var(--color-gray-100)',
+                                color: active ? 'var(--color-secondary)' : 'var(--color-gray-400)',
+                                transition: 'all 0.2s',
+                            }}>
+                                <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+                            </div>
+                            <span>{tab.label}</span>
+                        </NavLink>
+                    );
+                })}
+            </div>
 
             {/* Main Content */}
             <main className="dashboard-content">
@@ -189,14 +231,14 @@ const InvestorDashboard = () => {
                 )}
             </main>
 
-            <style jsx>{`
+            <style>{`
         .dashboard-layout {
           display: flex;
           min-height: calc(100vh - 70px);
           background: var(--color-gray-100);
         }
 
-        .sidebar {
+        .desktop-sidebar {
           width: 260px;
           background: white;
           border-right: 1px solid var(--color-gray-200);
@@ -204,7 +246,7 @@ const InvestorDashboard = () => {
           flex-direction: column;
         }
 
-        .sidebar-menu {
+        .desktop-sidebar .sidebar-menu {
             padding: 2rem 1.5rem;
             height: 100%;
             display: flex;
@@ -212,13 +254,13 @@ const InvestorDashboard = () => {
             gap: 1rem;
         }
 
-        .menu-group {
+        .desktop-sidebar .menu-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
         }
 
-        .menu-label {
+        .desktop-sidebar .menu-label {
             font-size: 0.75rem;
             text-transform: uppercase;
             color: var(--color-gray-400);
@@ -227,7 +269,7 @@ const InvestorDashboard = () => {
             padding-left: 0.5rem;
         }
 
-        .sidebar-link {
+        .desktop-sidebar .sidebar-link {
           display: flex;
           align-items: center;
           gap: 10px;
@@ -245,13 +287,15 @@ const InvestorDashboard = () => {
           font-size: 0.95rem;
         }
 
-        .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        .sidebar-link.active { background: rgba(255, 91, 0, 0.05); color: var(--color-secondary); font-weight: 600; }
-        .sidebar-link.text-error { color: var(--color-error); }
-        .sidebar-link.text-error:hover { background: #FEF2F2; }
+        .desktop-sidebar .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
+        .desktop-sidebar .sidebar-link.active { background: rgba(255, 91, 0, 0.05); color: var(--color-secondary); font-weight: 600; }
+        .desktop-sidebar .sidebar-link.text-error { color: var(--color-error); }
+        .desktop-sidebar .sidebar-link.text-error:hover { background: #FEF2F2; }
 
-        .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
-        .mt-auto { margin-top: auto; }
+        .desktop-sidebar .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
+        .desktop-sidebar .mt-auto { margin-top: auto; }
+
+        .mobile-tab-bar { display: none; }
 
         .dashboard-content {
           flex: 1;
@@ -352,12 +396,19 @@ const InvestorDashboard = () => {
 
         @media (max-width: 768px) {
           .dashboard-layout { flex-direction: column; }
-          .sidebar { width: 100%; padding: 0.5rem; overflow-x: auto; flex-direction: row; border-right: none; border-bottom: 1px solid var(--color-gray-200); height: auto; }
-          .sidebar-menu { flex-direction: row; padding: 0; width: 100%; gap: 0.5rem; }
-          .menu-label, .divider, .mt-auto { display: none; }
-          .menu-group { display: flex; gap: 0.5rem; width: 100%; flex-direction: row; }
-          .sidebar-link { white-space: nowrap; width: auto; justify-content: center; padding: 0.5rem; margin-bottom: 0; }
-          .sidebar-link span { display: none; }
+          .desktop-sidebar { display: none; }
+          .mobile-tab-bar {
+            display: flex !important;
+            justify-content: space-evenly;
+            align-items: flex-start;
+            background: white;
+            border-bottom: 1px solid var(--color-gray-200);
+            padding: 6px 0;
+            position: sticky;
+            top: 70px;
+            z-index: 50;
+          }
+          .dashboard-content { padding: 1rem; }
           .stats-grid { grid-template-columns: 1fr; }
         }
       `}</style>

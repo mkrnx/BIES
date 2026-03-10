@@ -47,7 +47,7 @@ const Team = () => {
             {/* Mission */}
             <section className="mission-section">
                 <div className="container text-center">
-                    <h1 className="mb-4">Orchestrating the Future</h1>
+                    <h1 className="mb-4 page-header">Orchestrating the Future</h1>
                     <p className="lead">
                         BIES (Build In El Salvador) is the digital bridge between global capital
                         and the builders of the first Bitcoin nation. We are dedicated to accelerating the hyperbitcoinization
@@ -184,6 +184,10 @@ const Team = () => {
         }
 
         .textarea { resize: vertical; }
+
+        @media (max-width: 768px) {
+          .page-header { display: none !important; }
+        }
       `}</style>
         </div>
     );

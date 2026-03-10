@@ -134,7 +134,7 @@ const Feed = () => {
         <div className="feed-page">
             <div className="feed-container">
                 <div className="feed-header">
-                    <h1 className="feed-title">
+                    <h1 className="feed-title page-header">
                         <NostrIcon size={24} /> BIES Feed
                     </h1>
                 </div>
@@ -258,6 +258,11 @@ const Feed = () => {
                     background: var(--color-gray-50, #f9fafb);
                     padding: 2rem 1rem;
                 }
+                @media (max-width: 768px) {
+                    .feed-page {
+                        padding: 0.5rem 1rem;
+                    }
+                }
                 .feed-container {
                     max-width: 640px;
                     margin: 0 auto;
@@ -286,6 +291,10 @@ const Feed = () => {
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 0.25rem;
+                }
+                
+                @media (max-width: 768px) {
+                    .page-header { display: none !important; }
                 }
                 .feed-tab {
                     flex: 1;

@@ -96,6 +96,8 @@ export const authApi = {
     nostrLogin: (pubkey, signedEvent) =>
         post('/auth/nostr-login', { pubkey, signedEvent }),
 
+    demoLogin: () => post('/auth/demo-login'), // TODO: Remove before production
+
     me: () => get('/auth/me'),
 
     updateRole: (role) => put('/auth/role', { role }),

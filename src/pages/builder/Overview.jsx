@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send, Zap } from 'lucide-react';
+import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send, Zap, FolderPlus } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
 import { projectsApi, analyticsApi, zapsApi } from '../../services/api';
@@ -125,13 +125,22 @@ const BuilderOverview = () => {
     return (
         <>
             <div className="header">
-                <div>
-                    <h1>Builder Dashboard</h1>
-                    <p className="subtitle">Manage your projects and fundraising</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <div style={{ flex: 1 }}>
+                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                            Builder Dashboard
+                            {/* Mobile icon */}
+                            <Link to="/dashboard/builder/new-project" className="hide-on-desktop" title="New Project" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
+                                <FolderPlus size={18} />
+                            </Link>
+                        </h1>
+                        <p className="subtitle">Manage your projects and fundraising</p>
+                    </div>
+                    {/* Desktop button */}
+                    <Link to="/dashboard/builder/new-project" className="btn btn-primary hide-on-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: 250 }}>
+                        <Plus size={18} style={{ marginRight: 8 }} />{' '}New Project
+                    </Link>
                 </div>
-                <Link to="/dashboard/builder/new-project" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-                    <Plus size={18} style={{ marginRight: 8 }} /> New Project
-                </Link>
             </div>
 
             {/* Stats Row */}
@@ -318,7 +327,16 @@ const BuilderOverview = () => {
         .status-badge.draft { background: #F3F4F6; color: #4B5563; }
 
         @media (max-width: 768px) {
-            .stats-grid { grid-template-columns: 1fr; }
+            .header { margin-bottom: 0.75rem; }
+            .stats-grid {
+                grid-template-columns: 1fr 1fr;
+                gap: 0.75rem;
+                margin-bottom: 1.5rem;
+            }
+            .stat-box { padding: 1rem 1.25rem; }
+            .stat-box .label { font-size: 0.8rem; margin-bottom: 0.25rem; }
+            .value-row { gap: 0.5rem; margin-bottom: 0.25rem; }
+            .value-row .value { font-size: 1.4rem; }
             .projects-table-container { overflow-x: auto; }
         }
       `}</style>

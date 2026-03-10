@@ -46,7 +46,7 @@ const Media = () => {
     return (
         <div className="media-page container py-12">
             <div className="header text-center mb-12">
-                <h1>Media & Resources</h1>
+                <h1 className="page-header">Media & Resources</h1>
                 <p className="text-gray-500">Updates, guides, and stories from the ecosystem.</p>
             </div>
 
@@ -242,6 +242,10 @@ const Media = () => {
 
         @media (max-width: 768px) {
           .grid-cols-3, .grid-cols-2 { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+          .page-header { display: none !important; }
         }
       `}</style>
         </div>

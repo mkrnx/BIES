@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Send, MoreHorizontal } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Send, MoreHorizontal, FolderPlus } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
@@ -143,13 +143,20 @@ const MyProjects = () => {
     return (
         <div className="page-content">
             <div className="header">
-                <div>
-                    <h1>My Projects</h1>
-                    <p className="subtitle">Manage and track all your ventures</p>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                    <div style={{ flex: 1 }}>
+                        <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
+                            My Projects
+                            <Link to="/dashboard/builder/new-project" className="hide-on-desktop" title="New Project" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
+                                <FolderPlus size={18} />
+                            </Link>
+                        </h1>
+                        <p className="subtitle">Manage and track all your ventures</p>
+                    </div>
+                    <Link to="/dashboard/builder/new-project" className="btn btn-primary hide-on-mobile" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
+                        <Plus size={18} style={{ marginRight: 8 }} /> Create Project
+                    </Link>
                 </div>
-                <Link to="/dashboard/builder/new-project" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-                    <Plus size={18} style={{ marginRight: 8 }} /> Create Project
-                </Link>
             </div>
 
             <div className="card-container">
