@@ -331,7 +331,10 @@ export async function checkNip05(req: Request, res: Response): Promise<void> {
         }
 
         const existing = await prisma.profile.findFirst({
-            where: { nip05Name: name },
+            where: {
+                nip05Name: name,
+                ...(req.user?.id ? { userId: { not: req.user.id } } : {}),
+            },
             select: { id: true },
         });
 

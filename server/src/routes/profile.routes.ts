@@ -19,7 +19,7 @@ import {
 const router = Router();
 
 // NIP-05 availability check (before /:id to avoid being swallowed)
-router.get('/check-nip05', checkNip05);
+router.get('/check-nip05', optionalAuth, checkNip05);
 
 // /me routes MUST come before /:id to avoid being swallowed as an id param
 router.get('/me', authenticate, getMyProfile);
