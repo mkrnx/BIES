@@ -35,6 +35,19 @@ export const updateProfileSchema = z.object({
         status: z.string().optional(),
         image: z.string().optional(),
     })).optional(),
+    customSections: z.array(z.object({
+        title: z.string().default(''),
+        type: z.enum(['TEXT', 'PHOTO', 'CAROUSEL', 'GRAPH']).default('TEXT'),
+        placement: z.enum(['LEFT', 'RIGHT']).default('LEFT'),
+        body: z.string().optional(),
+        content: z.string().optional(),
+        imageUrl: z.string().optional(),
+        images: z.array(z.string()).optional(),
+        graphType: z.string().optional(),
+        xAxisLabel: z.string().optional(),
+        yAxisLabel: z.string().optional(),
+        dataPoints: z.array(z.object({ label: z.string(), value: z.union([z.string(), z.number()]) })).optional(),
+    })).optional(),
     showExperience: z.boolean().optional(),
     showNostrFeed: z.boolean().optional(),
     nostrNpub: z.string().optional(),
@@ -120,6 +133,7 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
             lookingFor: JSON.parse(p.lookingFor || '[]'),
             experience: JSON.parse(p.experience || '[]'),
             biesProjects: JSON.parse(p.biesProjects || '[]'),
+            customSections: JSON.parse(p.customSections || '[]'),
         }));
 
         const result = {
@@ -226,6 +240,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
             lookingFor: JSON.parse(profile.lookingFor || '[]'),
             experience: JSON.parse(profile.experience || '[]'),
             biesProjects: JSON.parse(profile.biesProjects || '[]'),
+            customSections: JSON.parse(profile.customSections || '[]'),
         };
 
         await cache.setJson(cKey, result, TTL.PROFILE_DETAIL);
@@ -248,7 +263,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
             'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
             'lookingFor', 'isPublic', 'nostrNpub', 'experience', 'biesProjects',
-            'showExperience', 'showNostrFeed', 'nip05Name', 'lightningAddress',
+            'customSections', 'showExperience', 'showNostrFeed', 'nip05Name', 'lightningAddress',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -275,7 +290,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
         const oldProfile = await prisma.profile.findUnique({ where: { userId: req.user!.id }, select: { lightningAddress: true } });
 
         // Convert arrays/objects to JSON strings for SQLite
-        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
+        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
         for (const field of arrayFields) {
             if (data[field] !== undefined) data[field] = JSON.stringify(data[field]);
         }
@@ -293,7 +308,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             cache.delPattern('profiles:'),
         ]);
 
-        const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
+        const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
         const parsed: any = { ...profile };
         for (const f of arrayParsedFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
@@ -399,7 +414,7 @@ export async function getMyProfile(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects'];
+        const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
         const parsed: any = { ...profile };
         for (const f of arrayFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');

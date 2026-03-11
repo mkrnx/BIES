@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle, ChevronDown, ChevronUp, User, Link as LinkIcon } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle, ChevronDown, ChevronUp, User, Link as LinkIcon, Trash2, GripVertical, Upload, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -8,6 +8,8 @@ import { nostrService } from '../services/nostrService';
 import { Link, useNavigate } from 'react-router-dom';
 import NostrFeed from '../components/NostrFeed';
 import ImageCropModal from '../components/ImageCropModal';
+import RichTextEditor from '../components/RichTextEditor';
+import { useSectionDrag, reorderArray } from '../hooks/useSectionDrag';
 
 // Defined outside component to prevent re-mount on every render (which causes input focus loss)
 const SectionHeader = ({ icon, title, children }) => (
@@ -69,6 +71,7 @@ const ProfileEdit = () => {
         nostrNpub: '',
         nip05Name: '',
         lightningAddress: '',
+        customSections: [],
     });
 
     // NIP-05 availability check
@@ -231,6 +234,20 @@ const ProfileEdit = () => {
                         return { ...exp, fromYear, toYear };
                     }),
                     biesProjects: profile.biesProjects || [],
+                    customSections: Array.isArray(profile.customSections)
+                        ? profile.customSections.map(s => ({
+                            title: s.title || '',
+                            type: s.type || 'TEXT',
+                            placement: s.placement || 'LEFT',
+                            body: s.body || s.content || '',
+                            imageUrl: s.imageUrl || '',
+                            images: s.images || [],
+                            graphType: s.graphType || 'BAR',
+                            xAxisLabel: s.xAxisLabel || '',
+                            yAxisLabel: s.yAxisLabel || '',
+                            dataPoints: s.dataPoints || [],
+                        }))
+                        : [],
                     nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
                     nip05Name: profile.nip05Name || '',
                     lightningAddress: profile.lightningAddress || '',
@@ -293,6 +310,7 @@ const ProfileEdit = () => {
                 tags: form.tags,
                 experience: form.experience,
                 biesProjects: form.biesProjects,
+                customSections: form.customSections,
                 showExperience: form.showExperience,
                 showNostrFeed: form.showNostrFeed,
                 nostrFeedSource: form.nostrFeedSource,
@@ -439,6 +457,162 @@ const ProfileEdit = () => {
     const handleRemoveProject = (projectId) => {
         setForm(prev => ({ ...prev, biesProjects: prev.biesProjects.filter(p => p.id !== projectId) }));
     };
+
+    // ─── Custom Sections ─────────────────────────────────────────────────────
+
+    const addSection = (type = 'TEXT', placement = 'LEFT') => {
+        const extra = {
+            TEXT: { body: '' },
+            PHOTO: { imageUrl: '' },
+            CAROUSEL: { images: [] },
+            GRAPH: { graphType: 'BAR', xAxisLabel: '', yAxisLabel: '', dataPoints: [{ label: 'Data 1', value: '100' }] },
+        }[type] || { body: '' };
+        setForm(prev => ({ ...prev, customSections: [...prev.customSections, { title: '', type, placement, ...extra }] }));
+    };
+
+    const updateSection = (index, field, value) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.map((s, i) => i === index ? { ...s, [field]: value } : s) }));
+
+    const removeSection = (index) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.filter((_, i) => i !== index) }));
+
+    const moveSection = (fromIdx, toIdx) =>
+        setForm(prev => ({ ...prev, customSections: reorderArray(prev.customSections, fromIdx, toIdx) }));
+
+    const { draggingIdx, getSectionDragProps } = useSectionDrag(moveSection);
+
+    const handleSectionImageUpload = async (index, file) => {
+        if (!file) return;
+        try {
+            const result = await uploadApi.media(file);
+            updateSection(index, 'imageUrl', result.url);
+        } catch { setError('Failed to upload image.'); }
+    };
+
+    const handleCarouselImageUpload = async (index, file) => {
+        if (!file) return;
+        try {
+            const result = await uploadApi.media(file);
+            setForm(prev => {
+                const updated = [...prev.customSections];
+                updated[index] = { ...updated[index], images: [...(updated[index].images || []), result.url] };
+                return { ...prev, customSections: updated };
+            });
+        } catch { setError('Failed to upload carousel image.'); }
+    };
+
+    const removeCarouselImage = (sIdx, iIdx) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.map((s, i) => i === sIdx ? { ...s, images: s.images.filter((_, j) => j !== iIdx) } : s) }));
+
+    const addGraphDataPoint = (index) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.map((s, i) => i === index ? { ...s, dataPoints: [...(s.dataPoints || []), { label: '', value: '' }] } : s) }));
+
+    const updateGraphDataPoint = (sIdx, pIdx, field, value) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.map((s, i) => {
+            if (i !== sIdx) return s;
+            const pts = [...s.dataPoints];
+            pts[pIdx] = { ...pts[pIdx], [field]: value };
+            return { ...s, dataPoints: pts };
+        }) }));
+
+    const removeGraphDataPoint = (sIdx, pIdx) =>
+        setForm(prev => ({ ...prev, customSections: prev.customSections.map((s, i) => i === sIdx ? { ...s, dataPoints: s.dataPoints.filter((_, j) => j !== pIdx) } : s) }));
+
+    const renderSection = (section, idx) => {
+        const stype = section.type || 'TEXT';
+        const typeConfig = {
+            TEXT:     { icon: <AlignLeftIcon size={12} />,  label: 'Text',     color: '#2563eb', bg: 'var(--color-blue-tint)', border: '#bfdbfe' },
+            PHOTO:    { icon: <ImageIcon size={12} />,       label: 'Photo',    color: '#16a34a', bg: 'var(--color-green-tint)', border: '#bbf7d0' },
+            CAROUSEL: { icon: <LayoutIcon size={12} />,      label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+            GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
+        }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
+
+        const isBeingDragged = draggingIdx === idx;
+        return (
+            <div key={idx} {...getSectionDragProps(idx)} style={{ marginBottom: '0.75rem', background: 'var(--color-surface)', border: `1px solid ${typeConfig.border}`, borderRadius: '12px', overflow: 'hidden', boxShadow: isBeingDragged ? '0 4px 16px rgba(0,0,0,0.15)' : '0 1px 4px rgba(0,0,0,0.06)', opacity: isBeingDragged ? 0.5 : 1, transition: 'box-shadow 0.2s, opacity 0.2s' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: typeConfig.bg, borderBottom: `1px solid ${typeConfig.border}` }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: typeConfig.color }}>
+                        <GripVertical size={14} style={{ cursor: 'grab', color: 'var(--color-gray-400)', marginRight: '0.2rem', flexShrink: 0 }} />
+                        {typeConfig.icon} {typeConfig.label} Section
+                    </span>
+                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0.25rem', color: 'var(--color-gray-400)', borderRadius: '6px' }} onClick={() => removeSection(idx)}><Trash2 size={15} /></button>
+                </div>
+                <div style={{ padding: '0.75rem' }}>
+                    <input
+                        type="text" value={section.title}
+                        onChange={(e) => updateSection(idx, 'title', e.target.value)}
+                        className="pe-input" placeholder="Section Title"
+                        style={{ fontWeight: 700, marginBottom: '0.625rem', fontFamily: 'var(--font-display)' }}
+                    />
+                    {stype === 'TEXT' && (
+                        <RichTextEditor value={section.body} onChange={val => updateSection(idx, 'body', val)} placeholder="Section content..." minHeight="80px" />
+                    )}
+                    {stype === 'PHOTO' && (
+                        section.imageUrl
+                            ? <div style={{ position: 'relative', display: 'inline-block' }}>
+                                <img src={section.imageUrl} alt="" style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '8px' }} />
+                                <button type="button" onClick={() => updateSection(idx, 'imageUrl', '')} style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.6)', color: 'white', border: 'none', borderRadius: '6px', padding: '4px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}><X size={12} /> Remove</button>
+                              </div>
+                            : <label style={{ border: '2px dashed var(--color-gray-300)', borderRadius: '12px', padding: '2rem 1rem', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--color-gray-50)' }}>
+                                <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.4rem' }} />
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#16a34a', margin: '0 0 0.2rem' }}>Upload Photo</p>
+                                <p style={{ fontSize: '0.72rem', color: 'var(--color-gray-400)', margin: 0 }}>JPG, PNG, WebP</p>
+                                <input type="file" accept="image/*" onChange={e => handleSectionImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                              </label>
+                    )}
+                    {stype === 'CAROUSEL' && (
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                            {(section.images || []).map((img, iIdx) => (
+                                <div key={iIdx} style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--color-gray-200)' }}>
+                                    <img src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    <button type="button" onClick={() => removeCarouselImage(idx, iIdx)} style={{ position: 'absolute', top: 2, right: 2, background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', padding: '2px', cursor: 'pointer' }}><X size={10} /></button>
+                                </div>
+                            ))}
+                            <label style={{ width: '80px', height: '80px', border: '2px dashed var(--color-gray-300)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '2px', cursor: 'pointer', background: 'var(--color-gray-50)' }}>
+                                <Plus size={20} style={{ color: 'var(--color-gray-400)' }} />
+                                <span style={{ fontSize: '0.6rem', color: 'var(--color-gray-400)' }}>Add</span>
+                                <input type="file" accept="image/*" onChange={e => handleCarouselImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
+                            </label>
+                        </div>
+                    )}
+                    {stype === 'GRAPH' && (
+                        <div>
+                            <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.6rem', alignItems: 'center' }}>
+                                <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-gray-700)', whiteSpace: 'nowrap' }}>Chart Type</label>
+                                <select value={section.graphType || 'BAR'} onChange={e => updateSection(idx, 'graphType', e.target.value)} className="pe-input pe-input-sm" style={{ width: '120px' }}>
+                                    <option value="BAR">Bar Chart</option>
+                                    <option value="LINE">Line Chart</option>
+                                    <option value="PIE">Pie Chart</option>
+                                </select>
+                            </div>
+                            {section.graphType !== 'PIE' && (
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                                    <input type="text" value={section.xAxisLabel || ''} onChange={e => updateSection(idx, 'xAxisLabel', e.target.value)} className="pe-input pe-input-sm" placeholder="X-Axis Label" style={{ flex: 1 }} />
+                                    <input type="text" value={section.yAxisLabel || ''} onChange={e => updateSection(idx, 'yAxisLabel', e.target.value)} className="pe-input pe-input-sm" placeholder="Y-Axis Label" style={{ flex: 1 }} />
+                                </div>
+                            )}
+                            <p style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-gray-700)', marginBottom: '0.35rem' }}>Data Points</p>
+                            {(section.dataPoints || []).map((pt, pIdx) => (
+                                <div key={pIdx} style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', alignItems: 'center' }}>
+                                    <GripVertical size={12} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
+                                    <input type="text" value={pt.label} onChange={e => updateGraphDataPoint(idx, pIdx, 'label', e.target.value)} className="pe-input pe-input-sm" placeholder="Label" style={{ flex: 1 }} />
+                                    <input type="number" value={pt.value} onChange={e => updateGraphDataPoint(idx, pIdx, 'value', e.target.value)} className="pe-input pe-input-sm" placeholder="Value" style={{ width: '80px' }} />
+                                    <button type="button" style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px', color: 'var(--color-gray-400)' }} onClick={() => removeGraphDataPoint(idx, pIdx)}><Trash2 size={13} /></button>
+                                </div>
+                            ))}
+                            <button type="button" onClick={() => addGraphDataPoint(idx)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.75rem', cursor: 'pointer', marginTop: '0.2rem' }}><Plus size={12} /> Add Point</button>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
+    const renderCustomSections = (placement) =>
+        form.customSections
+            .map((s, idx) => ({ ...s, _idx: idx }))
+            .filter(s => placement === 'LEFT' ? (s.placement === 'LEFT' || !s.placement) : s.placement === 'RIGHT')
+            .map(s => renderSection(s, s._idx));
 
     // Nostr
     const handleNostrFormChange = (field) => (e) => {
@@ -724,6 +898,31 @@ const ProfileEdit = () => {
                             </button>
                         </div>
                     )}
+                </div>
+
+                {/* Custom Sections */}
+                <div className="pe-card">
+                    <SectionHeader icon={<LayoutIcon size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Custom Sections" />
+                    <p style={{ fontSize: '0.78rem', color: 'var(--color-gray-500)', marginTop: '-0.5rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+                        Add custom content blocks to your profile. Drag to reorder.
+                    </p>
+
+                    {form.customSections.length > 0 && (
+                        <div style={{ marginBottom: '0.75rem' }}>
+                            {renderCustomSections('LEFT')}
+                            {renderCustomSections('RIGHT')}
+                        </div>
+                    )}
+
+                    <div style={{ padding: '1rem', background: 'var(--color-gray-50, #f9fafb)', border: '1px dashed var(--color-gray-300)', borderRadius: '10px' }}>
+                        <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-gray-500)', marginBottom: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add Section</p>
+                        <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <button type="button" onClick={() => addSection('TEXT', 'LEFT')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem', borderRadius: '6px', border: '2px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.76rem', cursor: 'pointer' }}><AlignLeftIcon size={13} /> + Text</button>
+                            <button type="button" onClick={() => addSection('PHOTO', 'LEFT')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem', borderRadius: '6px', border: '2px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.76rem', cursor: 'pointer' }}><ImageIcon size={13} /> + Photo</button>
+                            <button type="button" onClick={() => addSection('CAROUSEL', 'LEFT')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem', borderRadius: '6px', border: '2px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.76rem', cursor: 'pointer' }}><LayoutIcon size={13} /> + Carousel</button>
+                            <button type="button" onClick={() => addSection('GRAPH', 'LEFT')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem', borderRadius: '6px', border: '2px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.76rem', cursor: 'pointer' }}><LineChartIcon size={13} /> + Graph</button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Nostr */}

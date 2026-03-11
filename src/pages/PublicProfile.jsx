@@ -9,6 +9,7 @@ import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
 import ZapButton from '../components/ZapButton';
+import ProfileSection from '../components/ProfileSection';
 
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
@@ -389,6 +390,14 @@ const PublicProfile = ({ type }) => {
                             </div>
                         )}
 
+                        {/* Custom Sections (Left / Main) */}
+                        {Array.isArray(profile.customSections) && profile.customSections
+                            .filter(s => s.placement === 'LEFT' || !s.placement)
+                            .map((section, idx) => (
+                                <ProfileSection key={`left-${idx}`} section={section} />
+                            ))
+                        }
+
                         {/* Nostr Feed */}
                         {profile.showNostrFeed !== false && npub && (
                             <div className="profile-card">
@@ -516,6 +525,14 @@ const PublicProfile = ({ type }) => {
                                 <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>No upcoming events.</p>
                             )}
                         </div>
+
+                        {/* Custom Sections (Right / Sidebar) */}
+                        {Array.isArray(profile.customSections) && profile.customSections
+                            .filter(s => s.placement === 'RIGHT')
+                            .map((section, idx) => (
+                                <ProfileSection key={`right-${idx}`} section={section} isSidebar />
+                            ))
+                        }
 
                         {/* Links/Socials Panel */}
                         {(profile.website || profile.twitter || profile.linkedin) && (
