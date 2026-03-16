@@ -55,7 +55,10 @@ const Feed = () => {
                     setLoading(false);
                 },
                 oneose: () => setLoading(false),
-                onclose: () => setLoading(false),
+                onclose: (reasons) => {
+                    console.warn('[Feed] Subscription closed:', reasons);
+                    setLoading(false);
+                },
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
         );
@@ -68,6 +71,13 @@ const Feed = () => {
 
     const handlePost = async () => {
         if (!composeText.trim() || posting) return;
+
+        // Check signing capability before attempting to post
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) {
+            setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
+            return;
+        }
+
         setPosting(true);
         setPostError('');
 
@@ -88,7 +98,8 @@ const Feed = () => {
             setComposeText('');
         } catch (err) {
             console.error('[Feed] Post failed:', err);
-            setPostError('Failed to post. Please try again.');
+            const msg = err?.errors?.[0]?.message || err?.message || String(err);
+            setPostError(`Post failed: ${msg}`);
         } finally {
             setPosting(false);
         }
