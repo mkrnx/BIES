@@ -10,6 +10,7 @@ import { errorHandler } from './middleware/errorHandler';
 import { sanitize } from './middleware/sanitize';
 import { auditLog } from './middleware/audit';
 import { attachWebSocketServer } from './services/websocket.service';
+import { startTwitterRefreshLoop } from './services/twitter.service';
 
 // ─── Route imports ────────────────────────────────────────────────────────────
 import authRoutes from './routes/auth.routes';
@@ -199,6 +200,9 @@ server.listen(config.port, () => {
 ║          settings | content | news | match | websocket           ║
 ╚══════════════════════════════════════════════════════════════════╝
   `);
+
+    // Start background Twitter feed refresh
+    startTwitterRefreshLoop();
 });
 
 export default app;
