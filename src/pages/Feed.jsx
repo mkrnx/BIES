@@ -531,6 +531,62 @@ const Feed = () => {
                     white-space: pre-wrap;
                     word-break: break-word;
                 }
+                :global([data-theme="dark"]) .feed-note {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .feed-note:hover {
+                    border-color: rgba(139, 92, 246, 0.4);
+                }
+                :global([data-theme="dark"]) .note-name {
+                    color: #f1f5f9;
+                }
+                :global([data-theme="dark"]) .note-handle {
+                    color: #64748b;
+                }
+                :global([data-theme="dark"]) .note-content {
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .action-btn {
+                    color: #64748b;
+                }
+                :global([data-theme="dark"]) .compose-box {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .compose-bottom {
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .compose-input {
+                    color: #f1f5f9;
+                }
+                :global([data-theme="dark"]) .feed-tabs {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .feed-tab {
+                    color: #94a3b8;
+                }
+                :global([data-theme="dark"]) .feed-tab:hover {
+                    background: #2d3748;
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .feed-tab.active {
+                    color: #ffffff;
+                }
+                :global([data-theme="dark"]) .relay-toggle.private {
+                    color: #c4b5fd;
+                    border-color: #4c3a7a;
+                    background: rgba(124, 58, 237, 0.2);
+                }
+                :global([data-theme="dark"]) .relay-toggle.public {
+                    color: #93c5fd;
+                    border-color: #1e3a5f;
+                    background: rgba(37, 99, 235, 0.2);
+                }
+                :global([data-theme="dark"]) .post-btn {
+                    color: #ffffff;
+                }
                 .note-actions {
                     display: flex;
                     gap: 1.5rem;

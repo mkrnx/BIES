@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
@@ -14,6 +15,9 @@ import ProfileSection from '../components/ProfileSection';
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
     const { user: currentUser } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const isMobile = window.innerWidth <= 768;
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -158,7 +162,7 @@ const PublicProfile = ({ type }) => {
                         {/* Action Buttons */}
                         <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
                             {currentUser && targetUserId && currentUser.id === targetUserId ? (
-                                <Link to="/profile" style={{
+                                <Link to="/profile/edit" style={{
                                     borderRadius: 'var(--radius-md)', background: 'var(--color-surface-raised)', color: 'var(--color-gray-900)',
                                     border: '1px solid var(--color-gray-200)', height: '42px', padding: '0 24px',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
@@ -168,6 +172,7 @@ const PublicProfile = ({ type }) => {
                                 </Link>
                             ) : currentUser && targetUserId && currentUser.id !== targetUserId ? (
                                 <>
+                                    {/* Follow button — icon-only on mobile */}
                                     <button
                                         onClick={async () => {
                                             setFollowLoading(true);
@@ -180,7 +185,6 @@ const PublicProfile = ({ type }) => {
                                                     setIsFollowing(true);
                                                 }
                                             } catch (err) {
-                                                // 409 = already following
                                                 if (err?.status === 409) setIsFollowing(true);
                                                 else alert(err?.message || 'Failed to update follow');
                                             } finally {
@@ -188,32 +192,42 @@ const PublicProfile = ({ type }) => {
                                             }
                                         }}
                                         disabled={followLoading}
+                                        className={isFollowing ? 'primary-action-btn' : ''}
                                         style={{
                                             borderRadius: 'var(--radius-md)',
                                             background: isFollowing ? 'var(--color-primary)' : 'var(--color-surface-raised)',
                                             color: isFollowing ? 'white' : 'var(--color-gray-900)',
                                             border: isFollowing ? 'none' : '1px solid var(--color-gray-200)',
-                                            height: '42px', padding: '0 24px', whiteSpace: 'nowrap', fontWeight: 600,
+                                            height: '42px',
+                                            padding: isMobile ? '0 14px' : '0 24px',
+                                            whiteSpace: 'nowrap', fontWeight: 600,
                                             cursor: followLoading ? 'wait' : 'pointer',
                                             boxShadow: 'var(--shadow-sm)',
                                             opacity: followLoading ? 0.7 : 1,
+                                            display: 'flex', alignItems: 'center', gap: '6px',
                                         }}>
-                                        {followLoading ? 'Loading...' : isFollowing ? 'Following ✓' : 'Follow'}
+                                        {isFollowing ? <UserCheck size={18} /> : <UserPlus size={18} />}
+                                        {!isMobile && (followLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow')}
                                     </button>
-                                    <Link to="/messages" style={{
-                                        borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
-                                        height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        textDecoration: 'none', fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                                    }}>
-                                        Connect
-                                    </Link>
+
+                                    {/* Connect button — desktop only; on mobile it moves to ... menu */}
+                                    {!isMobile && (
+                                        <Link to="/messages" className="primary-action-btn" style={{
+                                            borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
+                                            height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            textDecoration: 'none', fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                                        }}>
+                                            Connect
+                                        </Link>
+                                    )}
                                 </>
                             ) : null}
 
-                            {profile.user?.nostrPubkey && (
+                            {/* Zap — only on other people's profiles */}
+                            {profile.user?.nostrPubkey && currentUser?.id !== targetUserId && (
                                 <ZapButton
                                     recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
-                                    size="md"
+                                    size={isMobile ? 'sm' : 'md'}
                                     variant="bitcoin"
                                 />
                             )}
@@ -221,7 +235,7 @@ const PublicProfile = ({ type }) => {
                             <div style={{ position: 'relative' }}>
                                 <button onClick={() => setShowMenu(!showMenu)} style={{
                                     borderRadius: 'var(--radius-md)', background: 'var(--color-surface-raised)', color: 'var(--color-gray-900)',
-                                    border: '1px solid var(--color-gray-200)', height: '42px', width: '48px', padding: 0,
+                                    border: '1px solid var(--color-gray-200)', height: '42px', width: '42px', padding: 0,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                                     boxShadow: 'var(--shadow-sm)',
                                 }}>
@@ -233,6 +247,16 @@ const PublicProfile = ({ type }) => {
                                         background: 'var(--color-surface-overlay)', borderRadius: 'var(--radius-xl)', boxShadow: 'var(--shadow-lg)',
                                         border: '1px solid var(--color-gray-200)', padding: '0.25rem 0', zIndex: 50,
                                     }}>
+                                        {/* Connect option in ... menu on mobile */}
+                                        {isMobile && currentUser && targetUserId && currentUser.id !== targetUserId && (
+                                            <Link to="/messages" onClick={() => setShowMenu(false)} style={{
+                                                width: '100%', textAlign: 'left', padding: '0.625rem 1rem',
+                                                display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem',
+                                                fontWeight: 500, color: 'var(--color-gray-700)', textDecoration: 'none',
+                                            }}>
+                                                <MessageSquare size={16} /> Connect
+                                            </Link>
+                                        )}
                                         <button onClick={() => setShowMenu(false)} style={{
                                             width: '100%', textAlign: 'left', padding: '0.625rem 1rem',
                                             display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem',

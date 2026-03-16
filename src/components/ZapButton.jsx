@@ -92,6 +92,21 @@ const ZapButton = ({ recipients = [], eventId, size = 'md', variant = 'default',
                     min-width: 36px;
                     justify-content: center;
                 }
+
+                .zap-btn-bitcoin.zap-btn-sm {
+                    background-color: #f7931a;
+                    color: white;
+                    border: none;
+                    height: 42px;
+                    width: 42px;
+                    border-radius: 8px;
+                    font-weight: 600;
+                }
+
+                .zap-btn-bitcoin.zap-btn-sm:hover {
+                    background-color: #e88a18;
+                    transform: translateY(-1px);
+                }
             `}</style>
         </>
     );
