@@ -43,7 +43,9 @@ async function fetchPostsForHandle(handle: string): Promise<Tweet[]> {
 
         // gallery-dl --dump-json outputs a single JSON array of entries
         // Each entry is [type_id, url_or_metadata, metadata?]
-        const entries = JSON.parse(stdout);
+        // Tweet IDs exceed Number.MAX_SAFE_INTEGER — quote them before parsing
+        const safeStdout = stdout.replace(/:\s*(\d{16,})/g, ': "$1"');
+        const entries = JSON.parse(safeStdout);
         if (!Array.isArray(entries)) return [];
 
         const tweets: Tweet[] = [];
