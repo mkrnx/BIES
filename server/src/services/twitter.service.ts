@@ -26,42 +26,46 @@ async function fetchPostsForHandle(handle: string): Promise<Tweet[]> {
         '--cookies', config.twitterCookiesPath,
         '--dump-json',
         '--range', '1-10',
-        `https://x.com/${handle}`,
+        `https://x.com/${handle}/tweets`,
     ];
 
     try {
         const { stdout } = await execFileAsync('gallery-dl', args, {
-            timeout: 30000,
+            timeout: 60000,
             maxBuffer: 5 * 1024 * 1024,
         });
 
         if (!stdout.trim()) return [];
 
-        const tweets: Tweet[] = [];
-        for (const line of stdout.trim().split('\n')) {
-            try {
-                const entry = JSON.parse(line);
-                // gallery-dl outputs arrays: [directory_info, metadata]
-                // We want the metadata objects that have tweet content
-                const meta = Array.isArray(entry) ? entry[entry.length - 1] : entry;
-                if (!meta || (!meta.content && !meta.text)) continue;
+        // gallery-dl --dump-json outputs a single JSON array of entries
+        // Each entry is [type_id, url_or_metadata, metadata?]
+        const entries = JSON.parse(stdout);
+        if (!Array.isArray(entries)) return [];
 
-                tweets.push({
-                    id: String(meta.tweet_id || meta.id || ''),
-                    text: meta.content || meta.text || '',
-                    createdAt: meta.date ? new Date(meta.date).toISOString() : '',
-                    authorName: meta.author?.name || meta.user?.name || handle,
-                    authorHandle: meta.author?.nick || meta.user?.screen_name || handle,
-                    authorAvatar: meta.author?.profile_image || meta.user?.profile_image_url_https || '',
-                    metrics: {
-                        likes: meta.favorite_count ?? meta.like_count ?? 0,
-                        retweets: meta.retweet_count ?? 0,
-                        replies: meta.reply_count ?? 0,
-                    },
-                });
-            } catch {
-                // Skip unparseable lines
-            }
+        const tweets: Tweet[] = [];
+        const seen = new Set<string>();
+
+        for (const entry of entries) {
+            const meta = Array.isArray(entry) ? entry[entry.length - 1] : entry;
+            if (!meta || typeof meta !== 'object' || (!meta.content && !meta.text)) continue;
+
+            const id = String(meta.tweet_id || meta.id || '');
+            if (!id || seen.has(id)) continue;
+            seen.add(id);
+
+            tweets.push({
+                id,
+                text: meta.content || meta.text || '',
+                createdAt: meta.date ? new Date(meta.date).toISOString() : '',
+                authorName: meta.author?.nick || meta.user?.name || handle,
+                authorHandle: meta.author?.name || meta.user?.screen_name || handle,
+                authorAvatar: meta.author?.profile_image || meta.user?.profile_image_url_https || '',
+                metrics: {
+                    likes: meta.favorite_count ?? meta.like_count ?? 0,
+                    retweets: meta.retweet_count ?? 0,
+                    replies: meta.reply_count ?? 0,
+                },
+            });
         }
 
         return tweets;
@@ -84,7 +88,7 @@ export async function fetchTweetsByHandles(handles: string[]): Promise<Tweet[]> 
 
     // Check cache first
     const cached = await cache.getJson<Tweet[]>(cacheKey.twitterFeed());
-    if (cached) return cached;
+    if (cached && cached.length > 0) return cached;
 
     try {
         // Fetch all handles in parallel
