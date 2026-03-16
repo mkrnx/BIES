@@ -40,7 +40,8 @@ RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS server
 
-RUN apk add --no-cache tini openssl
+RUN apk add --no-cache tini openssl python3 py3-pip \
+    && pip3 install --no-cache-dir --break-system-packages gallery-dl
 
 WORKDIR /app
 

@@ -6,3 +6,4 @@ dist
 DEPLOY.md
 test-results/
 relay/dev-whitelist/whitelist.txt
+server/twitter-cookies.txt
