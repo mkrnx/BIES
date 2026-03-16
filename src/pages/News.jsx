@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, Loader2, Twitter, Heart, Repeat, MessageCircle } from 'lucide-react';
+import { TrendingUp, Loader2, Heart, Repeat, MessageCircle } from 'lucide-react';
+
+const XIcon = ({ size = 12, style }) => (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style}>
+        <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+    </svg>
+);
+
 import { Link } from 'react-router-dom';
 import { useNostrFeed } from '../hooks/useNostr';
 import NostrIcon from '../components/NostrIcon';
@@ -192,7 +199,7 @@ const News = () => {
                                             </div>
                                             <div className="u-info">
                                                 <span className="u-name">{tweet.authorName}</span>
-                                                <Twitter size={12} style={{ color: '#1d9bf0', marginLeft: 4 }} />
+                                                <XIcon size={12} style={{ color: '#1d9bf0', marginLeft: 4 }} />
                                             </div>
                                             <span className="tweet-time">{timeAgo(tweet.createdAt)}</span>
                                         </div>
@@ -255,10 +262,10 @@ const News = () => {
         }
 
         .tweet-card {
-          background: white;
+          background: var(--color-surface, #fff);
           padding: 1rem;
           border-radius: var(--radius-md);
-          border: 1px solid var(--color-gray-200);
+          border: 1px solid var(--color-border, var(--color-gray-200));
           margin-bottom: 1rem;
           transition: transform 0.2s;
         }
@@ -271,15 +278,16 @@ const News = () => {
           display: flex; align-items: center; justify-content: center;
           overflow: hidden; flex-shrink: 0;
         }
-        .u-info { font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; }
-        .tweet-time { margin-left: auto; font-size: 0.75rem; color: var(--color-gray-400); }
-        .tweet-card p { font-size: 0.9rem; line-height: 1.4; }
+        .u-info { font-size: 0.85rem; font-weight: 600; display: flex; align-items: center; flex: 1; min-width: 0; }
+        .u-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .tweet-time { flex-shrink: 0; margin-left: auto; font-size: 0.75rem; color: var(--color-gray-400); }
+        .tweet-card p { font-size: 0.9rem; line-height: 1.4; word-wrap: break-word; overflow-wrap: break-word; color: var(--color-text, inherit); }
         .tweet-metrics {
           display: flex;
           gap: 1rem;
           margin-top: 0.5rem;
           padding-top: 0.5rem;
-          border-top: 1px solid var(--color-gray-100);
+          border-top: 1px solid var(--color-gray-200);
           font-size: 0.75rem;
           color: var(--color-gray-400);
         }
@@ -287,11 +295,11 @@ const News = () => {
 
         .news-item-link { text-decoration: none; color: inherit; display: block; }
         .news-item {
-          background: white;
+          background: var(--color-surface, #fff);
           border-radius: var(--radius-md);
           overflow: hidden;
           margin-bottom: 1.5rem;
-          border: 1px solid var(--color-gray-200);
+          border: 1px solid var(--color-border, var(--color-gray-200));
           transition: transform 0.2s;
         }
         .news-item:hover { transform: translateY(-2px); box-shadow: var(--shadow-sm); }

@@ -1,9 +1,11 @@
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { config } from '../config';
-import { cache, TTL, cacheKey } from './redis.service';
+import prisma from '../lib/prisma';
 
 const execFileAsync = promisify(execFile);
+
+const REFRESH_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
 interface Tweet {
     id: string;
@@ -19,7 +21,9 @@ interface Tweet {
     };
 }
 
-let warnedOnce = false;
+// In-memory store — always available, never expires on its own
+let cachedTweets: Tweet[] = [];
+let refreshing = false;
 
 async function fetchPostsForHandle(handle: string): Promise<Tweet[]> {
     const args = [
@@ -75,33 +79,57 @@ async function fetchPostsForHandle(handle: string): Promise<Tweet[]> {
     }
 }
 
-export async function fetchTweetsByHandles(handles: string[]): Promise<Tweet[]> {
-    if (!config.twitterCookiesPath) {
-        if (!warnedOnce) {
-            console.warn('[Twitter] TWITTER_COOKIES_PATH not set — X feed disabled');
-            warnedOnce = true;
-        }
+async function getHandles(): Promise<string[]> {
+    try {
+        const settings = await prisma.siteSettings.findUnique({ where: { id: 'default' } });
+        return settings ? JSON.parse(settings.twitterHandles || '[]') : [];
+    } catch {
         return [];
     }
+}
 
-    if (handles.length === 0) return [];
-
-    // Check cache first
-    const cached = await cache.getJson<Tweet[]>(cacheKey.twitterFeed());
-    if (cached && cached.length > 0) return cached;
-
+async function refreshFeed(): Promise<void> {
+    if (refreshing || !config.twitterCookiesPath) return;
+    refreshing = true;
     try {
-        // Fetch all handles in parallel
+        const handles = await getHandles();
+        if (handles.length === 0) return;
+
+        console.log(`[Twitter] Refreshing feed for ${handles.length} handles...`);
         const results = await Promise.all(handles.map(h => fetchPostsForHandle(h)));
         const allTweets = results
             .flat()
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
             .slice(0, 30);
 
-        await cache.setJson(cacheKey.twitterFeed(), allTweets, TTL.TWITTER_FEED);
-        return allTweets;
+        // Only update cache if we got results — keep stale data otherwise
+        if (allTweets.length > 0) {
+            cachedTweets = allTweets;
+            console.log(`[Twitter] Cached ${allTweets.length} tweets`);
+        }
     } catch (err: any) {
-        console.error('[Twitter] Fetch error:', err.message);
-        return [];
+        console.error('[Twitter] Refresh error:', err.message);
+    } finally {
+        refreshing = false;
     }
+}
+
+/** Returns cached tweets instantly — never blocks on gallery-dl */
+export async function fetchTweetsByHandles(_handles: string[]): Promise<Tweet[]> {
+    return cachedTweets;
+}
+
+/** Start background refresh loop — call once at server startup */
+export function startTwitterRefreshLoop(): void {
+    if (!config.twitterCookiesPath) {
+        console.warn('[Twitter] TWITTER_COOKIES_PATH not set — X feed disabled');
+        return;
+    }
+
+    // First fetch 10s after startup (let DB initialize)
+    setTimeout(() => refreshFeed(), 10_000);
+
+    // Then refresh every 15 minutes
+    setInterval(() => refreshFeed(), REFRESH_INTERVAL);
+    console.log(`[Twitter] Background refresh scheduled every ${REFRESH_INTERVAL / 60000} min`);
 }
