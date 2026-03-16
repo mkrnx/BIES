@@ -6,7 +6,7 @@ services:
       - "7777:7777"
     volumes:
       - relay-dev-data:/app/strfry-db
-      - relay-dev-whitelist:/app/data
+      - ./relay/dev-whitelist:/app/data
     deploy:
       resources:
         limits:
@@ -14,4 +14,3 @@ services:
 
 volumes:
   relay-dev-data:
-  relay-dev-whitelist:

@@ -43,6 +43,19 @@ class NostrService {
         this.biesRelay = BIES_RELAY;
         this.publicRelays = PUBLIC_RELAYS;
         this.dmRelays = DM_RELAYS;
+
+        // Enable NIP-42 automatic auth for the BIES private relay.
+        // When the relay (or auth proxy) sends an AUTH challenge on connect,
+        // the pool will sign and respond automatically using the user's key.
+        this.pool.automaticallyAuth = (relayUrl) => {
+            // Only auto-auth for the BIES relay, not public relays
+            const normalized = relayUrl.replace(/\/+$/, '');
+            const biesNorm = this.biesRelay.replace(/\/+$/, '');
+            if (normalized === biesNorm) {
+                return (evt) => nostrSigner.signEvent(evt);
+            }
+            return undefined;
+        };
     }
 
     async connect() {
