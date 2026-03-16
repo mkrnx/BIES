@@ -52,7 +52,17 @@ class NostrService {
             const normalized = relayUrl.replace(/\/+$/, '');
             const biesNorm = this.biesRelay.replace(/\/+$/, '');
             if (normalized === biesNorm) {
-                return (evt) => nostrSigner.signEvent(evt);
+                return async (evt) => {
+                    console.log('[Nostr] AUTH challenge received for BIES relay, signing...');
+                    try {
+                        const signed = await nostrSigner.signEvent(evt);
+                        console.log('[Nostr] AUTH event signed successfully');
+                        return signed;
+                    } catch (err) {
+                        console.error('[Nostr] AUTH signing failed:', err);
+                        throw err;
+                    }
+                };
             }
             return undefined;
         };
@@ -329,7 +339,18 @@ class NostrService {
      */
     async publishToBiesRelay(event) {
         const signedEvent = await nostrSigner.signEvent(event);
-        return Promise.any(this.pool.publish([this.biesRelay], signedEvent, { onauth: handleRelayAuth }));
+        console.log('[Nostr] Publishing to BIES relay:', this.biesRelay);
+        try {
+            return await Promise.any(this.pool.publish([this.biesRelay], signedEvent, { onauth: handleRelayAuth }));
+        } catch (err) {
+            // Promise.any wraps rejections in AggregateError — unwrap for clarity
+            if (err?.errors?.length) {
+                const inner = err.errors[0];
+                console.error('[Nostr] BIES relay publish rejected:', inner?.message || inner);
+                throw typeof inner === 'string' ? new Error(inner) : inner;
+            }
+            throw err;
+        }
     }
 
     /**
