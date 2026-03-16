@@ -1,7 +1,7 @@
-const { WebSocketServer, WebSocket } = require('ws');
-const crypto = require('crypto');
-const fs = require('fs');
-const { verifyEvent } = require('nostr-tools/pure');
+import { WebSocketServer, WebSocket } from 'ws';
+import crypto from 'crypto';
+import fs from 'fs';
+import { verifyEvent } from 'nostr-tools/pure';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 const LISTEN_PORT    = parseInt(process.env.PROXY_PORT || '7778', 10);
