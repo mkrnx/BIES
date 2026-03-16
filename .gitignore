@@ -5,3 +5,4 @@ dist
 .DS_Store
 DEPLOY.md
 test-results/
+relay/dev-whitelist/whitelist.txt
