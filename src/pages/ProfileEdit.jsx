@@ -36,7 +36,7 @@ const CollapsibleSub = ({ title, icon, open, onToggle, children }) => (
 );
 
 const ProfileEdit = () => {
-    const { user, refreshUser } = useAuth();
+    const { user, refreshUser, updateRole } = useAuth();
     const navigate = useNavigate();
     const searchRef = useRef(null);
 
@@ -49,6 +49,7 @@ const ProfileEdit = () => {
     const [cropImage, setCropImage] = useState(null); // { src, type: 'avatar'|'banner' }
     const [error, setError] = useState('');
     const [hasExistingProfile, setHasExistingProfile] = useState(false);
+    const [memberRole, setMemberRole] = useState('');
 
     // BIES profile form
     const [form, setForm] = useState({
@@ -206,6 +207,7 @@ const ProfileEdit = () => {
             const profile = await profilesApi.me();
             if (profile) {
                 setHasExistingProfile(true);
+                setMemberRole(user?.role || 'BUILDER');
                 setForm(prev => ({
                     ...prev,
                     name: profile.name || '',
@@ -321,6 +323,9 @@ const ProfileEdit = () => {
             // Remove undefined values so Zod doesn't see them
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
             await profilesApi.update(payload);
+            if (memberRole && memberRole !== user?.role) {
+                await updateRole(memberRole);
+            }
             await refreshUser();
             navigate('/profile');
         } catch (err) {
@@ -759,8 +764,29 @@ const ProfileEdit = () => {
                             <input type="text" value={form.name} onChange={handleChange('name')} className="pe-input" placeholder="Your Name" />
                         </div>
                         <div className="pe-field">
-                            <label className="pe-label">Current Role</label>
-                            <input type="text" value={form.title} onChange={handleChange('title')} className="pe-input" placeholder="Role/Title" />
+                            <label className="pe-label">Current Role / Title</label>
+                            <input type="text" value={form.title} onChange={handleChange('title')} className="pe-input" placeholder="e.g. Founder, CTO, Angel Investor" />
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label">Member Type</label>
+                            <div className="role-selector">
+                                {[
+                                    { value: 'BUILDER', label: 'Builder', desc: 'Building a project or startup' },
+                                    { value: 'INVESTOR', label: 'Investor', desc: 'Funding and supporting projects' },
+                                    { value: 'EDUCATOR', label: 'Educator', desc: 'Teaching and sharing knowledge' },
+                                    { value: 'MEMBER', label: 'Member', desc: 'Exploring and connecting with the ecosystem' },
+                                ].map(r => (
+                                    <button
+                                        key={r.value}
+                                        type="button"
+                                        className={`role-option ${memberRole === r.value ? 'active' : ''}`}
+                                        onClick={() => setMemberRole(r.value)}
+                                    >
+                                        <span className="role-option-label">{r.label}</span>
+                                        <span className="role-option-desc">{r.desc}</span>
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div className="pe-field">
                             <label className="pe-label">Company</label>
@@ -1717,6 +1743,46 @@ const ProfileEdit = () => {
                 }
                 .pe-project-name { font-size: 0.8rem; font-weight: 700; color: var(--color-gray-900); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
                 .pe-project-role { font-size: 0.7rem; font-weight: 600; color: var(--color-primary, #0052cc); }
+
+                .role-selector {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                }
+                .role-option {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    padding: 0.75rem 1rem;
+                    border: 2px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
+                    background: var(--color-surface);
+                    cursor: pointer;
+                    text-align: left;
+                    transition: all 0.15s;
+                    width: 100%;
+                }
+                .role-option:hover {
+                    border-color: var(--color-primary);
+                    background: var(--color-blue-tint);
+                }
+                .role-option.active {
+                    border-color: var(--color-primary);
+                    background: var(--color-blue-tint);
+                }
+                .role-option-label {
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    color: var(--color-neutral-dark);
+                }
+                .role-option.active .role-option-label {
+                    color: var(--color-primary);
+                }
+                .role-option-desc {
+                    font-size: 0.78rem;
+                    color: var(--color-gray-500);
+                    margin-top: 2px;
+                }
                 .pe-project-add-btn {
                     padding: 0.3rem 0.6rem;
                     color: var(--color-primary, #0052cc);
