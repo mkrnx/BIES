@@ -1,4 +1,3 @@
-import React from 'react';
 import { MessageCircle, Heart, Repeat, Share } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 

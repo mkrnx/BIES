@@ -118,8 +118,9 @@
 
 /* Dark Mode Overrides */
 [data-theme="dark"] {
-  --color-primary: #00004E;
-  --color-primary-dark: #000038;
+  --color-primary: #5b9cf6;
+  --color-primary-dark: #3b82f6;
+  --color-primary-nav: #00004E;
 
   --color-gray-50: #0F172A;
   /* Pure dark background */
@@ -658,4 +659,89 @@ textarea {
   .app-content {
     background-color: var(--color-gray-50);
   }
+}
+/* Dark mode: Nostr Feed */
+[data-theme="dark"] .nostr-feed > .flex.items-center {
+  border-color: var(--color-border, #2d3748);
+}
+[data-theme="dark"] .nostr-feed h3 {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .nostr-feed span[title="Public Nostr Key"] {
+  background: rgba(139, 92, 246, 0.15);
+  color: #a78bfa;
+  border-color: rgba(139, 92, 246, 0.3);
+}
+[data-theme="dark"] .note-card {
+  background: var(--color-surface, #1e2a3a);
+  border-color: var(--color-border, #2d3748);
+}
+[data-theme="dark"] .note-card:hover {
+  border-color: rgba(139, 92, 246, 0.5);
+}
+[data-theme="dark"] .note-card .font-semibold {
+  color: #f1f5f9;
+}
+[data-theme="dark"] .note-card .text-gray-400 {
+  color: #94a3b8;
+}
+[data-theme="dark"] .note-body {
+  color: #e2e8f0;
+}
+[data-theme="dark"] .note-actions {
+  color: #64748b;
+}
+[data-theme="dark"] .nostr-feed-empty {
+  background: var(--color-surface, #1e2a3a);
+  border-color: var(--color-border, #2d3748);
+}
+[data-theme="dark"] .nostr-feed-empty p {
+  color: #94a3b8;
+}
+
+/* Dark mode: keep button/badge/nav backgrounds Deep Navy, not Cobalt Blue */
+/* Buttons/badges/nav that must stay Deep Navy (#00004E) even when --color-primary is Cobalt Blue */
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .pe-save-btn,
+[data-theme="dark"] .pe-publish-btn,
+[data-theme="dark"] .post-btn,
+[data-theme="dark"] .try-public-btn,
+[data-theme="dark"] .primary-action-btn,
+[data-theme="dark"] .feed-tab.active,
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .unread-badge,
+[data-theme="dark"] .sent,
+[data-theme="dark"] .add-btn,
+[data-theme="dark"] .add-btn-sm,
+[data-theme="dark"] .save-btn,
+[data-theme="dark"] .mode-strip.builder,
+[data-theme="dark"] .tab.active,
+[data-theme="dark"] .cat-item.active,
+[data-theme="dark"] .cat-item:hover,
+[data-theme="dark"] .toggle-btn.active,
+[data-theme="dark"] .pd-btn-express.active,
+[data-theme="dark"] .hide-on-desktop[style*="color-primary"],
+[data-theme="dark"] .navbar,
+[data-theme="dark"] .mobile-drawer {
+  background: #00004E !important;
+}
+
+/* Dark mode: PWA mobile "+" create buttons — Deep Navy with subtle border */
+[data-theme="dark"] .pwa-create-btn,
+[data-theme="dark"] .hide-on-desktop[style*="color-primary"],
+[data-theme="dark"] a.hide-on-desktop {
+  background: #00004E !important;
+  box-shadow: 0 0 0 1px rgba(100, 149, 237, 0.35) !important;
+}
+
+/* Dark mode: subtle border on all Deep Navy (--color-primary) buttons */
+[data-theme="dark"] .btn-primary,
+[data-theme="dark"] .post-btn,
+[data-theme="dark"] .try-public-btn,
+[data-theme="dark"] .feed-tab.active,
+[data-theme="dark"] .sidebar-link.active,
+[data-theme="dark"] .pe-save-btn,
+[data-theme="dark"] .pe-publish-btn,
+[data-theme="dark"] .primary-action-btn {
+  box-shadow: 0 0 0 1px rgba(100, 149, 237, 0.35) !important;
 }

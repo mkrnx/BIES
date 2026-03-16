@@ -92,13 +92,6 @@ const Profile = () => {
                     }}>
                         {/* Action Buttons */}
                         <div style={{ position: 'absolute', bottom: '24px', right: '24px', zIndex: 20, display: 'flex', gap: '1rem' }}>
-                            {user?.nostrPubkey && (
-                                <ZapButton
-                                    recipients={[{ pubkey: user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
-                                    size="md"
-                                    variant="bitcoin"
-                                />
-                            )}
                             <Link
                                 to="/profile/edit"
                                 style={{
@@ -118,6 +111,7 @@ const Profile = () => {
                                     boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
                                     cursor: 'pointer',
                                 }}
+                                className="primary-action-btn"
                             >
                                 <Pencil size={18} />
                                 Edit Profile

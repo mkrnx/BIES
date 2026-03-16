@@ -2,6 +2,7 @@ import React from 'react';
 import { TrendingUp, Search, ArrowUpRight, Loader2, LogOut, LayoutDashboard, Heart, MessageSquare, BarChart2, CalendarDays, Settings } from 'lucide-react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { useApiQuery } from '../../hooks/useApi';
 import { watchlistApi, analyticsApi, projectsApi } from '../../services/api';
 
@@ -17,6 +18,8 @@ const investorTabs = [
 const InvestorDashboard = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
+    const { theme } = useTheme();
+    const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
     const isRoot = location.pathname === '/dashboard/investor';
 
     const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
@@ -83,7 +86,7 @@ const InvestorDashboard = () => {
                                 gap: '4px',
                                 flex: 1,
                                 textDecoration: 'none',
-                                color: active ? 'var(--color-secondary)' : 'var(--color-gray-400)',
+                                color: active ? (isDark ? '#ffffff' : 'var(--color-secondary)') : 'var(--color-gray-400)',
                                 fontSize: '0.65rem',
                                 fontWeight: active ? 700 : 500,
                                 padding: '8px 0',
@@ -97,8 +100,9 @@ const InvestorDashboard = () => {
                                 width: '44px',
                                 height: '44px',
                                 borderRadius: '50%',
-                                background: active ? 'var(--color-orange-tint)' : 'var(--color-gray-100)',
-                                color: active ? 'var(--color-secondary)' : 'var(--color-gray-400)',
+                                background: active ? (isDark ? '#00004E' : 'var(--color-orange-tint)') : 'var(--color-gray-100)',
+                                color: active ? (isDark ? '#ffffff' : 'var(--color-secondary)') : 'var(--color-gray-400)',
+                                border: active && isDark ? '1px solid rgba(100, 149, 237, 0.35)' : 'none',
                                 transition: 'all 0.2s',
                             }}>
                                 <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />

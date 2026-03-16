@@ -1773,7 +1773,7 @@ const ProfileEdit = () => {
                 .role-option-label {
                     font-weight: 700;
                     font-size: 0.9rem;
-                    color: var(--color-neutral-dark);
+                    color: var(--color-gray-700);
                 }
                 .role-option.active .role-option-label {
                     color: var(--color-primary);

@@ -51,7 +51,7 @@ const MobileBottomNav = () => {
         left: 0,
         right: 0,
         width: '100%',
-        background: 'var(--color-primary)',
+        background: 'var(--color-primary-nav, var(--color-primary))',
         borderTop: '3px solid #FF5B00',
         zIndex: 10000,
       }} className="mobile-bottom-nav">
