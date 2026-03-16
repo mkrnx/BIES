@@ -81,10 +81,12 @@ wss.on('connection', (clientWs) => {
         clientWs.send(JSON.stringify(['AUTH', challenge]));
     });
 
-    upstream.on('message', (data) => {
-        // Forward upstream messages to client (only if authenticated)
+    upstream.on('message', (data, isBinary) => {
+        // Forward upstream messages to client (only if authenticated).
+        // Convert Buffers to strings so the browser receives text frames
+        // (nostr-tools expects JSON text, not binary).
         if (authenticated && clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(data);
+            clientWs.send(isBinary ? data : data.toString());
         }
     });
 
@@ -107,15 +109,18 @@ wss.on('connection', (clientWs) => {
         while (pendingMessages.length > 0) {
             const buffered = pendingMessages.shift();
             if (upstream && upstream.readyState === WebSocket.OPEN) {
-                upstream.send(buffered);
+                upstream.send(typeof buffered !== 'string' ? buffered.toString() : buffered);
             }
         }
     }
 
     clientWs.on('message', (data) => {
+        // Ensure we work with a string (ws delivers Buffers by default)
+        const text = typeof data !== 'string' ? data.toString() : data;
+
         let msg;
         try {
-            msg = JSON.parse(data.toString());
+            msg = JSON.parse(text);
         } catch {
             return; // ignore malformed messages
         }
@@ -152,13 +157,13 @@ wss.on('connection', (clientWs) => {
 
         // Before auth, buffer messages instead of dropping them
         if (!authenticated) {
-            pendingMessages.push(data);
+            pendingMessages.push(text);
             return;
         }
 
         // After auth: transparent forwarding to upstream
         if (upstream && upstream.readyState === WebSocket.OPEN) {
-            upstream.send(data);
+            upstream.send(text);
         }
     });
 
