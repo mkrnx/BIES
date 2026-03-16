@@ -467,8 +467,8 @@ export async function logout(req: Request, res: Response): Promise<void> {
 export async function updateRole(req: Request, res: Response): Promise<void> {
     try {
         const { role } = req.body;
-        if (!['BUILDER', 'INVESTOR'].includes(role)) {
-            res.status(400).json({ error: 'Role must be BUILDER or INVESTOR' });
+        if (!['BUILDER', 'INVESTOR', 'EDUCATOR', 'MEMBER'].includes(role)) {
+            res.status(400).json({ error: 'Role must be BUILDER, INVESTOR, EDUCATOR, or MEMBER' });
             return;
         }
 

@@ -16,8 +16,8 @@ export const UserModeProvider = ({ children }) => {
   // Sync mode with authenticated user's role
   useEffect(() => {
     if (isAuthenticated && user?.role) {
-      const roleMode = user.role.toLowerCase(); // 'BUILDER' → 'builder'
-      if (roleMode === 'builder' || roleMode === 'investor') {
+      const roleMode = user.role.toLowerCase();
+      if (['builder', 'investor', 'educator', 'member'].includes(roleMode)) {
         setMode(roleMode);
       }
     }
@@ -43,7 +43,7 @@ export const UserModeProvider = ({ children }) => {
     if (isAuthenticated && updateRole && user?.role !== 'ADMIN' && user?.role !== 'MOD') {
       try {
         // Only BUILDER and INVESTOR are valid roles to update to via this endpoint
-        if (newMode === 'builder' || newMode === 'investor') {
+        if (['builder', 'investor', 'educator', 'member'].includes(newMode)) {
           await updateRole(newMode.toUpperCase());
         }
       } catch { /* ignore - local mode still updated */ }

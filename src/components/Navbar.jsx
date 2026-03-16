@@ -37,8 +37,7 @@ const Navbar = () => {
 
   const navLinks = [
     { label: 'Discover', path: '/discover' },
-    { label: 'Builders', path: '/builders' },
-    { label: 'Investors', path: '/investors' },
+    { label: 'Members', path: '/members' },
     { label: 'Events', path: '/events' },
     { label: 'Media', path: '/media' },
     { label: 'News', path: '/news' },
@@ -54,8 +53,7 @@ const Navbar = () => {
     if (path.startsWith('/discover')) return 'Discover Projects';
     if (path.startsWith('/events')) return 'Ecosystem Events';
     if (path.startsWith('/news')) return 'News';
-    if (path.startsWith('/investors')) return 'Investors';
-    if (path.startsWith('/builders')) return 'Builders';
+    if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return 'Members';
     if (path.startsWith('/media')) return 'Media';
     if (path.startsWith('/about')) return 'About';
     if (path.startsWith('/profile') || path.startsWith('/dashboard')) return 'Dashboard';
@@ -238,6 +236,20 @@ const Navbar = () => {
                     >
                       <div className="dot investor"></div>
                       Investor View
+                    </button>
+                    <button
+                      className={`dropdown-item ${mode === 'educator' ? 'active' : ''}`}
+                      onClick={() => { selectMode('educator'); setIsUserMenuOpen(false); navigate('/dashboard/educator'); }}
+                    >
+                      <div className="dot educator"></div>
+                      Educator View
+                    </button>
+                    <button
+                      className={`dropdown-item ${mode === 'member' ? 'active' : ''}`}
+                      onClick={() => { selectMode('member'); setIsUserMenuOpen(false); navigate('/dashboard/member'); }}
+                    >
+                      <div className="dot member"></div>
+                      Member View
                     </button>
                     {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
                       <button
@@ -556,6 +568,8 @@ const Navbar = () => {
         }
         .dot.builder { background: var(--color-primary); }
         .dot.investor { background: var(--color-secondary); }
+        .dot.educator { background: #16a34a; }
+        .dot.member { background: #7c3aed; }
         .dot.admin { background: var(--color-error); }
 
         .dropdown-divider {
