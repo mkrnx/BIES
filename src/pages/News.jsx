@@ -204,6 +204,18 @@ const News = () => {
                                             <span className="tweet-time">{timeAgo(tweet.createdAt)}</span>
                                         </div>
                                         <p>{tweet.text?.slice(0, 280)}{tweet.text?.length > 280 ? '...' : ''}</p>
+                                        {tweet.images?.length > 0 && (
+                                            <div className="tweet-media">
+                                                {tweet.images.slice(0, 4).map((img, i) => (
+                                                    <img key={i} src={img} alt="" className="tweet-thumb" />
+                                                ))}
+                                            </div>
+                                        )}
+                                        {tweet.videos?.length > 0 && !tweet.images?.length && (
+                                            <div className="tweet-media">
+                                                <video src={tweet.videos[0]} muted loop playsInline className="tweet-thumb tweet-video" onMouseOver={e => e.target.play()} onMouseOut={e => { e.target.pause(); e.target.currentTime = 0; }} />
+                                            </div>
+                                        )}
                                         <div className="tweet-metrics">
                                             <span><MessageCircle size={12} /> {tweet.metrics?.replies || 0}</span>
                                             <span><Repeat size={12} /> {tweet.metrics?.retweets || 0}</span>
@@ -282,6 +294,22 @@ const News = () => {
         .u-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .tweet-time { flex-shrink: 0; margin-left: auto; font-size: 0.75rem; color: var(--color-gray-400); }
         .tweet-card p { font-size: 0.9rem; line-height: 1.4; word-wrap: break-word; overflow-wrap: break-word; color: var(--color-text, inherit); }
+        .tweet-media {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+          gap: 4px;
+          margin-top: 0.5rem;
+          border-radius: 8px;
+          overflow: hidden;
+        }
+        .tweet-thumb {
+          width: 100%;
+          height: 80px;
+          object-fit: cover;
+          border-radius: 4px;
+          display: block;
+        }
+        .tweet-video { cursor: pointer; }
         .tweet-metrics {
           display: flex;
           gap: 1rem;
