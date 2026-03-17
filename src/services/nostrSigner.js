@@ -52,8 +52,11 @@ class NostrSigner {
         localStorage.setItem(LOGIN_METHOD_KEY, 'extension');
     }
 
-    /** Clear stored key (logout) */
+    /** Clear stored key (logout). Zeros secret key bytes as defense-in-depth. */
     clear() {
+        if (this._sk instanceof Uint8Array) {
+            this._sk.fill(0);
+        }
         this._sk = null;
         this._pubkey = null;
         this._mode = null;
