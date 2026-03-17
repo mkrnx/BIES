@@ -119,6 +119,19 @@ export const useNostrDMs = () => {
 
                     setMessages(prev => {
                         if (prev.find(m => m.id === dm.id)) return prev;
+                        // Replace optimistic pending message with the real relay-delivered one
+                        if (dm.isSender) {
+                            const pendingIdx = prev.findIndex(m =>
+                                m.id.startsWith('pending-') &&
+                                m.content === dm.content &&
+                                m.partnerPubkey === dm.partnerPubkey
+                            );
+                            if (pendingIdx !== -1) {
+                                const updated = [...prev];
+                                updated[pendingIdx] = dm;
+                                return updated;
+                            }
+                        }
                         return [...prev, dm].sort((a, b) => a.created_at - b.created_at);
                     });
                 } catch (err) {
