@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft, Download, ShieldCheck } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { passkeyService } from '../services/passkeyService';
@@ -29,6 +29,12 @@ const Login = () => {
     const [pendingRedirect, setPendingRedirect] = useState(null);
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [passkeyUser, setPasskeyUser] = useState(null);
+
+    // Post-login keyfile download state
+    const [dlKeyPassword, setDlKeyPassword] = useState('');
+    const [dlKeyPasswordConfirm, setDlKeyPasswordConfirm] = useState('');
+    const [showDlKeyPassword, setShowDlKeyPassword] = useState(false);
+    const [dlEncrypting, setDlEncrypting] = useState(false);
 
     // Keyfile unlock state
     const [keyfilePayload, setKeyfilePayload] = useState(null);
@@ -215,6 +221,24 @@ const Login = () => {
         window.location.href = '/biestest/feed';
     };
 
+    const handleDownloadKeyfile = async () => {
+        if (!pendingNsec) return;
+        if (dlKeyPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+        if (dlKeyPassword !== dlKeyPasswordConfirm) { setError('Passwords do not match.'); return; }
+        setError('');
+        setDlEncrypting(true);
+        try {
+            await new Promise(r => setTimeout(r, 50));
+            await keyfileService.encryptAndDownload(pendingNsec, dlKeyPassword);
+            setDlKeyPassword('');
+            setDlKeyPasswordConfirm('');
+        } catch (err) {
+            setError(err.message || 'Encryption failed.');
+        } finally {
+            setDlEncrypting(false);
+        }
+    };
+
     const handleSavePasskey = async () => {
         setSavingPasskey(true);
         setError('');
@@ -320,18 +344,18 @@ const Login = () => {
         );
     }
 
-    // ─── Passkey save prompt (shown after successful nsec/seed/file login) ───
+    // ─── Post-login prompt: .nostrkey download + passkey save ───
     if (showPasskeyPrompt) {
         return (
             <div className="login-container">
                 <div className="login-card">
                     <div className="passkey-prompt-icon">
-                        <Fingerprint size={40} />
+                        <ShieldCheck size={40} />
                     </div>
 
-                    <h2 className="text-xl font-bold mb-2">Save with Passkey?</h2>
+                    <h2 className="text-xl font-bold mb-2">Secure Your Key</h2>
                     <p className="text-gray-500 mb-6 text-center text-sm">
-                        Use your fingerprint or device PIN to securely save your key for faster login next time.
+                        Download an encrypted backup file or set up quick login with a passkey.
                     </p>
 
                     {error && (
@@ -341,32 +365,78 @@ const Login = () => {
                         </div>
                     )}
 
-                    <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                        <button
-                            onClick={handleSavePasskey}
-                            disabled={savingPasskey}
-                            className="w-full btn-login flex items-center justify-center gap-2 py-3 rounded-full"
-                        >
-                            {savingPasskey ? (
-                                <Loader2 size={18} className="spin" />
-                            ) : (
-                                <Fingerprint size={18} />
-                            )}
-                            <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
-                        </button>
+                    <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* ── Backup: .nostrkey download ── */}
+                        <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <p className="text-xs font-bold" style={{ color: 'var(--color-gray-500)', marginBottom: 2 }}>
+                                Backup — Encrypted Key File
+                            </p>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                <input
+                                    type={showDlKeyPassword ? 'text' : 'password'}
+                                    value={dlKeyPassword}
+                                    onChange={(e) => setDlKeyPassword(e.target.value)}
+                                    placeholder="Password (min 8 chars)"
+                                    style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: 6, fontSize: '0.8rem' }}
+                                    autoComplete="new-password"
+                                />
+                                <button type="button" onClick={() => setShowDlKeyPassword(!showDlKeyPassword)} style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 2 }}>
+                                    {showDlKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                </button>
+                            </div>
+                            <input
+                                type={showDlKeyPassword ? 'text' : 'password'}
+                                value={dlKeyPasswordConfirm}
+                                onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
+                                placeholder="Confirm password"
+                                style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: 6, fontSize: '0.8rem' }}
+                                autoComplete="new-password"
+                            />
+                            <button
+                                onClick={handleDownloadKeyfile}
+                                disabled={dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm}
+                                className="w-full btn-skip flex items-center justify-center gap-2 py-2 rounded-full"
+                                style={{ opacity: (dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm) ? 0.5 : 1 }}
+                            >
+                                {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
+                            </button>
+                            <p className="text-xs" style={{ color: 'var(--color-gray-400)', lineHeight: 1.3 }}>
+                                This password-protected file is a true backup of your key. Store it somewhere safe.
+                            </p>
+                        </div>
+
+                        {/* ── Quick Login: Passkey ── */}
+                        {passkeyService.isSupported() && (
+                            <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <p className="text-xs font-bold" style={{ color: 'var(--color-gray-500)', marginBottom: 2 }}>
+                                    Quick Login — Passkey (Optional)
+                                </p>
+                                <button
+                                    onClick={handleSavePasskey}
+                                    disabled={savingPasskey}
+                                    className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
+                                >
+                                    {savingPasskey ? (
+                                        <Loader2 size={16} className="spin" />
+                                    ) : (
+                                        <Fingerprint size={16} />
+                                    )}
+                                    <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
+                                </button>
+                                <p className="text-xs" style={{ color: '#f59e0b', lineHeight: 1.3 }}>
+                                    Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup.
+                                </p>
+                            </div>
+                        )}
+
                         <button
                             onClick={handleSkipPasskey}
                             disabled={savingPasskey}
                             className="w-full btn-skip flex items-center justify-center py-3 rounded-full"
                         >
-                            Skip — Continue to Dashboard
+                            Continue to Dashboard
                         </button>
                     </div>
-
-                    <p className="text-xs text-gray-400 mt-4 text-center">
-                        Your key is encrypted and protected by your passkey.
-                        <br />No data is sent to any server.
-                    </p>
                 </div>
 
                 <style jsx>{`
