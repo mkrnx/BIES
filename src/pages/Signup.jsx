@@ -211,8 +211,15 @@ const Signup = () => {
                         )}
 
                         <div className="backup-buttons">
+                            {/* ── Backup section ── */}
+                            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                                <p className="text-sm font-bold text-gray-600" style={{ marginBottom: 4 }}>Backup Your Keys</p>
+                                <p className="text-xs text-gray-400" style={{ marginBottom: '0.75rem' }}>
+                                    Choose one or more ways to back up. Copy the nsec or seed phrase above, or download an encrypted key file:
+                                </p>
+                            </div>
                             <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <p className="text-xs font-bold text-gray-500" style={{ marginBottom: 2 }}>Encrypt & download your key file</p>
+                                <p className="text-xs font-bold text-gray-500" style={{ marginBottom: 2 }}>Encrypted Key File (.nostrkey)</p>
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                     <input
                                         type={showKeyPassword ? 'text' : 'password'}
@@ -240,14 +247,17 @@ const Signup = () => {
                                     className="w-full btn-outline py-2 rounded-full flex items-center justify-center gap-2"
                                     style={{ opacity: (encrypting || keyPassword.length < 8 || keyPassword !== keyPasswordConfirm) ? 0.5 : 1 }}
                                 >
-                                    {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download Encrypted Key File</>}
+                                    {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
                                 </button>
                                 <p className="text-xs text-gray-400" style={{ lineHeight: 1.3 }}>
-                                    This password encrypts your key. You'll need it to log in with this file. There is no recovery if lost.
+                                    This password-protected file is a true backup. Store it somewhere safe. You'll need the password to unlock it.
                                 </p>
                             </div>
+
+                            {/* ── Quick Login section (separate from backup) ── */}
                             {passkeyService.isSupported() && (
-                                <>
+                                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <p className="text-sm font-bold text-gray-600" style={{ marginBottom: 2 }}>Quick Login (Optional)</p>
                                     <button
                                         onClick={handleSavePasskey}
                                         disabled={savingPasskey || passkeySaved}
@@ -261,12 +271,13 @@ const Signup = () => {
                                             <><Fingerprint size={16} /> Save to Passkey</>
                                         )}
                                     </button>
-                                    <p className="text-xs text-center" style={{ color: '#f59e0b' }}>
-                                        Passkey encrypts your key on this device for quick login — it is not a backup. Always save your nsec or seed phrase separately.
+                                    <p className="text-xs" style={{ color: '#f59e0b', lineHeight: 1.3 }}>
+                                        Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup above.
                                     </p>
-                                </>
+                                </div>
                             )}
-                            <button onClick={handleBackupConfirm} className="w-full btn-primary py-3 rounded-full">
+
+                            <button onClick={handleBackupConfirm} className="w-full btn-primary py-3 rounded-full" style={{ marginTop: '0.25rem' }}>
                                 Continue — I've Saved My Keys
                             </button>
                         </div>
