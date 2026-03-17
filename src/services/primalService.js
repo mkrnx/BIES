@@ -18,8 +18,10 @@ const PRIMAL_KIND = {
 
 // Timeframe configs: { label, timeframe, created_after_seconds }
 export const EXPLORE_VIEWS = [
-    { key: 'trending_24h', label: 'Trending', timeframe: 'trending', scope: 'global', createdAfterSec: 86400 },
+    { key: 'trending_24h', label: 'Past 24 Hours', timeframe: 'trending', scope: 'global', createdAfterSec: 86400 },
     { key: 'trending_4h', label: 'Trending 4h', timeframe: 'trending', scope: 'global', createdAfterSec: 14400 },
+    { key: 'trending_48h', label: 'Past 48 Hours', timeframe: 'trending', scope: 'global', createdAfterSec: 172800 },
+    { key: 'trending_7d', label: 'Past 7 Days', timeframe: 'trending', scope: 'global', createdAfterSec: 604800 },
     { key: 'mostzapped', label: 'Most Zapped', timeframe: 'mostzapped', scope: 'global', createdAfterSec: 86400 },
     { key: 'popular', label: 'Popular', timeframe: 'popular', scope: 'global', createdAfterSec: null },
     { key: 'latest', label: 'Latest', timeframe: 'latest', scope: 'global', createdAfterSec: null },
