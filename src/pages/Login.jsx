@@ -6,6 +6,7 @@ import { nip19 } from 'nostr-tools';
 import { privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { passkeyService } from '../services/passkeyService';
 import { keyfileService } from '../services/keyfileService';
+import { PASSKEY_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
@@ -22,8 +23,8 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey state — only show button if user has a stored encrypted key
-    const [hasPasskey] = useState(() => passkeyService.isSupported() && passkeyService.hasCredential());
+    // Passkey state — only show button if feature is enabled and user has a stored encrypted key
+    const [hasPasskey] = useState(() => PASSKEY_ENABLED && passkeyService.isSupported() && passkeyService.hasCredential());
     const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
     const [pendingNsec, setPendingNsec] = useState(null);
     const [pendingRedirect, setPendingRedirect] = useState(null);
@@ -74,7 +75,7 @@ const Login = () => {
 
             // Offer passkey save if: we have the nsec, passkeys are supported,
             // and user doesn't already have one for this account
-            if (nsec && passkeyService.isSupported() && !passkeyService.hasCredential(result.user?.nostrPubkey)) {
+            if (PASSKEY_ENABLED && nsec && passkeyService.isSupported() && !passkeyService.hasCredential(result.user?.nostrPubkey)) {
                 setPendingNsec(nsec);
                 setPendingRedirect(target);
                 setPasskeyUser(result.user);
@@ -406,7 +407,7 @@ const Login = () => {
                         </div>
 
                         {/* ── Quick Login: Passkey ── */}
-                        {passkeyService.isSupported() && (
+                        {PASSKEY_ENABLED && passkeyService.isSupported() && (
                             <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 <p className="text-xs font-bold" style={{ color: 'var(--color-gray-500)', marginBottom: 2 }}>
                                     Quick Login — Passkey (Optional)

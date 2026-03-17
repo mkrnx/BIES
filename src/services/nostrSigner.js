@@ -182,6 +182,9 @@ class NostrSigner {
         if (this._sk) return true; // already have it
         if (this.storedMethod !== 'nsec') return false;
 
+        const { PASSKEY_ENABLED } = await import('../config/featureFlags.js');
+        if (!PASSKEY_ENABLED) return false;
+
         try {
             const { passkeyService } = await import('./passkeyService.js');
             if (!passkeyService.hasCredential()) return false;
