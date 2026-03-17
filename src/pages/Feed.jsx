@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
 import { useAuth } from '../context/AuthContext';
 import NostrIcon from '../components/NostrIcon';
+import ZapModal from '../components/ZapModal';
 import { nip19 } from 'nostr-tools';
 
 const EXPLORE_ICONS = {
     trending_24h: TrendingUp,
     trending_4h: Flame,
+    trending_48h: Calendar,
+    trending_7d: TrendingUp,
     mostzapped: Zap,
     popular: Heart,
     latest: Clock,
@@ -46,6 +49,14 @@ const Feed = () => {
     const [broadcastPublic, setBroadcastPublic] = useState(false);
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState('');
+
+    // Interaction state
+    const [likedNotes, setLikedNotes] = useState(new Set());
+    const [repostedNotes, setRepostedNotes] = useState(new Set());
+    const [replyTarget, setReplyTarget] = useState(null);
+    const [replyText, setReplyText] = useState('');
+    const [replyPosting, setReplyPosting] = useState(false);
+    const [zapTarget, setZapTarget] = useState(null);
 
     const currentView = EXPLORE_VIEWS.find(v => v.key === exploreView) || EXPLORE_VIEWS[0];
 
@@ -205,6 +216,101 @@ const Feed = () => {
         }
     };
 
+    // Like a note (kind:7 reaction)
+    const handleLike = async (post) => {
+        if (likedNotes.has(post.id)) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+
+        try {
+            const event = {
+                kind: 7,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['e', post.id],
+                    ['p', post.pubkey],
+                ],
+                content: '+',
+            };
+            await nostrService.publishEvent(event);
+            setLikedNotes(prev => new Set(prev).add(post.id));
+            setNoteStats(prev => ({
+                ...prev,
+                [post.id]: { ...prev[post.id], likes: (prev[post.id]?.likes || 0) + 1 },
+            }));
+        } catch (err) {
+            console.error('[Feed] Like failed:', err);
+        }
+    };
+
+    // Repost a note (kind:6)
+    const handleRepost = async (post) => {
+        if (repostedNotes.has(post.id)) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+
+        try {
+            const event = {
+                kind: 6,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['e', post.id, ''],
+                    ['p', post.pubkey],
+                ],
+                content: JSON.stringify(post),
+            };
+            await nostrService.publishEvent(event);
+            setRepostedNotes(prev => new Set(prev).add(post.id));
+            setNoteStats(prev => ({
+                ...prev,
+                [post.id]: { ...prev[post.id], reposts: (prev[post.id]?.reposts || 0) + 1 },
+            }));
+        } catch (err) {
+            console.error('[Feed] Repost failed:', err);
+        }
+    };
+
+    // Reply to a note (kind:1 with e/p tags)
+    const handleReply = async (post) => {
+        if (!replyText.trim() || replyPosting) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+
+        setReplyPosting(true);
+        try {
+            const event = {
+                kind: 1,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['e', post.id, '', 'root'],
+                    ['p', post.pubkey],
+                ],
+                content: replyText.trim(),
+            };
+            await nostrService.publishEvent(event);
+            setReplyText('');
+            setReplyTarget(null);
+            setNoteStats(prev => ({
+                ...prev,
+                [post.id]: { ...prev[post.id], replies: (prev[post.id]?.replies || 0) + 1 },
+            }));
+        } catch (err) {
+            console.error('[Feed] Reply failed:', err);
+        } finally {
+            setReplyPosting(false);
+        }
+    };
+
+    // Share a note
+    const handleShare = async (post) => {
+        const noteId = nip19.noteEncode(post.id);
+        const url = `https://njump.me/${noteId}`;
+        if (navigator.share) {
+            try {
+                await navigator.share({ url });
+            } catch { /* cancelled */ }
+        } else {
+            await navigator.clipboard.writeText(url);
+        }
+    };
+
     const formatTime = (timestamp) => {
         const diff = Math.floor(Date.now() / 1000) - timestamp;
         if (diff < 60) return 'just now';
@@ -236,6 +342,70 @@ const Feed = () => {
     };
 
     const getStats = (noteId) => noteStats[noteId] || {};
+
+    // Parse note content: extract media URLs and render text + embeds
+    const renderContent = (content) => {
+        const urlRegex = /(https?:\/\/[^\s<]+)/g;
+        const parts = content.split(urlRegex);
+        const mediaUrls = [];
+        const textParts = [];
+
+        for (const part of parts) {
+            if (/^https?:\/\//i.test(part)) {
+                const lower = part.toLowerCase();
+                if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(lower)) {
+                    mediaUrls.push({ type: 'image', url: part });
+                } else if (/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(lower)) {
+                    mediaUrls.push({ type: 'video', url: part });
+                } else if (/\.(mp3|wav|flac|aac|m4a)(\?.*)?$/i.test(lower)) {
+                    mediaUrls.push({ type: 'audio', url: part });
+                } else if (/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/i.test(part)) {
+                    const match = part.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/i);
+                    if (match) mediaUrls.push({ type: 'youtube', id: match[1], url: part });
+                    else textParts.push(part);
+                } else {
+                    textParts.push(part);
+                }
+            } else {
+                textParts.push(part);
+            }
+        }
+
+        return (
+            <>
+                <span>{textParts.join('')}</span>
+                {mediaUrls.length > 0 && (
+                    <div className="note-media">
+                        {mediaUrls.map((m, i) => {
+                            if (m.type === 'image') {
+                                return <img key={i} src={m.url} alt="" className="note-media-img" loading="lazy" />;
+                            }
+                            if (m.type === 'video') {
+                                return <video key={i} src={m.url} controls className="note-media-video" preload="metadata" />;
+                            }
+                            if (m.type === 'audio') {
+                                return <audio key={i} src={m.url} controls className="note-media-audio" preload="metadata" />;
+                            }
+                            if (m.type === 'youtube') {
+                                return (
+                                    <iframe
+                                        key={i}
+                                        className="note-media-video"
+                                        src={`https://www.youtube-nocookie.com/embed/${m.id}`}
+                                        title="YouTube video"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                        allowFullScreen
+                                        loading="lazy"
+                                    />
+                                );
+                            }
+                            return null;
+                        })}
+                    </div>
+                )}
+            </>
+        );
+    };
 
     return (
         <div className="feed-page">
@@ -353,6 +523,9 @@ const Feed = () => {
                     <div className="feed-list" data-testid="feed-list">
                         {posts.map(post => {
                             const stats = getStats(post.id);
+                            const isLiked = likedNotes.has(post.id);
+                            const isReposted = repostedNotes.has(post.id);
+                            const isReplying = replyTarget?.id === post.id;
                             return (
                                 <div key={post.id} className="feed-note" data-testid="feed-note">
                                     <div className="note-header">
@@ -368,28 +541,84 @@ const Feed = () => {
                                             <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
                                         </div>
                                     </div>
-                                    <div className="note-content">{post.content}</div>
+                                    <div className="note-content">{renderContent(post.content)}</div>
                                     <div className="note-actions">
-                                        <button className="action-btn" title="Replies">
+                                        <button
+                                            className={`action-btn ${isReplying ? 'active-reply' : ''}`}
+                                            title="Reply"
+                                            onClick={() => setReplyTarget(isReplying ? null : { id: post.id, pubkey: post.pubkey })}
+                                        >
                                             <MessageCircle size={15} />
                                             <span>{formatCount(stats.replies)}</span>
                                         </button>
-                                        <button className="action-btn" title="Reposts">
+                                        <button
+                                            className={`action-btn ${isReposted ? 'active-repost' : ''}`}
+                                            title="Repost"
+                                            onClick={() => handleRepost(post)}
+                                        >
                                             <Repeat size={15} />
                                             <span>{formatCount(stats.reposts)}</span>
                                         </button>
-                                        <button className="action-btn" title="Likes">
-                                            <Heart size={15} />
+                                        <button
+                                            className={`action-btn ${isLiked ? 'active-like' : ''}`}
+                                            title="Like"
+                                            onClick={() => handleLike(post)}
+                                        >
+                                            <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
                                             <span>{formatCount(stats.likes)}</span>
                                         </button>
-                                        <button className="action-btn action-zap" title="Zaps">
+                                        <button
+                                            className="action-btn action-zap"
+                                            title="Zap"
+                                            onClick={() => setZapTarget({
+                                                pubkey: post.pubkey,
+                                                name: getDisplayName(post.pubkey),
+                                                avatar: getAvatar(post.pubkey),
+                                                eventId: post.id,
+                                            })}
+                                        >
                                             <Zap size={15} />
                                             <span>{formatSats(stats.satszapped)}</span>
                                         </button>
-                                        <button className="action-btn action-share" title="Share">
+                                        <button
+                                            className="action-btn action-share"
+                                            title="Share"
+                                            onClick={() => handleShare(post)}
+                                        >
                                             <Share size={15} />
                                         </button>
                                     </div>
+
+                                    {/* Inline Reply */}
+                                    {isReplying && (
+                                        <div className="reply-box">
+                                            <textarea
+                                                className="reply-input"
+                                                placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
+                                                value={replyText}
+                                                onChange={(e) => setReplyText(e.target.value)}
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
+                                                    if (e.key === 'Escape') { setReplyTarget(null); setReplyText(''); }
+                                                }}
+                                                rows={2}
+                                                autoFocus
+                                            />
+                                            <div className="reply-actions">
+                                                <button className="reply-cancel" onClick={() => { setReplyTarget(null); setReplyText(''); }}>
+                                                    <X size={14} /> Cancel
+                                                </button>
+                                                <button
+                                                    className="reply-send"
+                                                    onClick={() => handleReply(post)}
+                                                    disabled={!replyText.trim() || replyPosting}
+                                                >
+                                                    {replyPosting ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                                                    Reply
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
@@ -409,6 +638,15 @@ const Feed = () => {
                             </button>
                         )}
                     </div>
+                )}
+
+                {/* Zap Modal */}
+                {zapTarget && (
+                    <ZapModal
+                        recipients={[{ pubkey: zapTarget.pubkey, name: zapTarget.name, avatar: zapTarget.avatar }]}
+                        eventId={zapTarget.eventId}
+                        onClose={() => setZapTarget(null)}
+                    />
                 )}
             </div>
 
@@ -748,8 +986,90 @@ const Feed = () => {
                     padding: 0;
                 }
                 .action-btn:hover { color: #7c3aed; }
+                .action-btn.active-like { color: #ef4444; }
+                .action-btn.active-repost { color: #22c55e; }
+                .action-btn.active-reply { color: #7c3aed; }
                 .action-zap:hover { color: #f59e0b; }
                 .action-share { margin-left: auto; }
+
+                /* Media in notes */
+                .note-media {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    margin-top: 0.75rem;
+                }
+                .note-media-img {
+                    max-width: 100%;
+                    max-height: 500px;
+                    border-radius: 12px;
+                    object-fit: contain;
+                }
+                .note-media-video {
+                    max-width: 100%;
+                    max-height: 500px;
+                    border-radius: 12px;
+                    aspect-ratio: 16/9;
+                    border: none;
+                }
+                .note-media-audio {
+                    width: 100%;
+                    border-radius: 8px;
+                }
+
+                /* Reply box */
+                .reply-box {
+                    margin-top: 0.75rem;
+                    padding: 0.75rem;
+                    padding-left: 52px;
+                    background: rgba(124, 58, 237, 0.04);
+                    border-radius: 0 0 12px 12px;
+                    border-top: 1px solid #ede9fe;
+                }
+                .reply-input {
+                    width: 100%;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    padding: 0.5rem 0.75rem;
+                    font-size: 0.875rem;
+                    font-family: inherit;
+                    resize: none;
+                    outline: none;
+                    background: var(--color-surface, white);
+                    color: inherit;
+                    box-sizing: border-box;
+                }
+                .reply-input:focus {
+                    border-color: #7c3aed;
+                }
+                .reply-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.5rem;
+                    margin-top: 0.5rem;
+                }
+                .reply-cancel, .reply-send {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 8px;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    border: none;
+                }
+                .reply-cancel {
+                    background: transparent;
+                    color: #9ca3af;
+                }
+                .reply-cancel:hover { color: #6b7280; }
+                .reply-send {
+                    background: #7c3aed;
+                    color: white;
+                }
+                .reply-send:hover { opacity: 0.9; }
+                .reply-send:disabled { opacity: 0.5; cursor: not-allowed; }
 
                 /* Load More */
                 .load-more-btn {
@@ -864,6 +1184,18 @@ const Feed = () => {
                     background: #1e2a3a;
                     border-color: #475569;
                     color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .reply-box {
+                    background: rgba(124, 58, 237, 0.08);
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .reply-input {
+                    background: #0f172a;
+                    border-color: #2d3748;
+                    color: #f1f5f9;
+                }
+                :global([data-theme="dark"]) .reply-input:focus {
+                    border-color: #7c3aed;
                 }
             `}</style>
         </div>
