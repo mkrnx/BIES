@@ -1,23 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft, Download, ShieldCheck } from 'lucide-react';
+import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft, Download, ShieldCheck, Smartphone } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import { privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { passkeyService } from '../services/passkeyService';
 import { keyfileService } from '../services/keyfileService';
-import { PASSKEY_ENABLED } from '../config/featureFlags';
+import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
-    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
+    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithBunkerAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
     const [nsecInput, setNsecInput] = useState('');
     const [seedInput, setSeedInput] = useState('');
-    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', or 'file'
+    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', 'file', or 'bunker'
+    const [bunkerInput, setBunkerInput] = useState('');
     const [keyFileName, setKeyFileName] = useState('');
     const [hasNostrExtension, setHasNostrExtension] = useState(
         typeof window !== 'undefined' && !!window.nostr
@@ -147,6 +148,21 @@ const Login = () => {
             handleResult(result, nsec);
         } catch (err) {
             setError(err.message || 'Invalid seed phrase or login failed.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleBunkerLogin = async (e) => {
+        e.preventDefault();
+        if (!bunkerInput.trim()) return;
+        setError('');
+        setLoading(true);
+        try {
+            const result = await loginWithBunkerAndCheckNew(bunkerInput);
+            handleResult(result);
+        } catch (err) {
+            setError(err.message || 'Failed to connect to remote signer.');
         } finally {
             setLoading(false);
         }
@@ -594,6 +610,14 @@ const Login = () => {
                     >
                         <Upload size={14} /> Key File
                     </button>
+                    {NIP46_ENABLED && (
+                        <button
+                            className={`mode-tab ${loginMode === 'bunker' ? 'active' : ''}`}
+                            onClick={() => { setLoginMode('bunker'); setError(''); }}
+                        >
+                            <Smartphone size={14} /> Remote
+                        </button>
+                    )}
                 </div>
 
                 {/* Login with nsec */}
@@ -689,6 +713,38 @@ const Login = () => {
                             )}
                         </label>
                     </div>
+                )}
+
+                {/* Login with remote signer (NIP-46) */}
+                {loginMode === 'bunker' && (
+                    <form onSubmit={handleBunkerLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <div className="key-input-wrapper">
+                            <Smartphone size={16} className="key-input-icon" />
+                            <input
+                                type="text"
+                                placeholder="bunker://... or name@domain.com"
+                                value={bunkerInput}
+                                onChange={(e) => setBunkerInput(e.target.value)}
+                                className="key-input"
+                                autoComplete="off"
+                            />
+                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading || !bunkerInput.trim()}
+                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
+                        >
+                            {loading && bunkerInput.trim() ? (
+                                <Loader2 size={20} className="spin" />
+                            ) : (
+                                <NostrIcon size={20} color="#8b5cf6" />
+                            )}
+                            <span>{loading && bunkerInput.trim() ? 'Connecting to signer...' : 'Login with Remote Signer'}</span>
+                        </button>
+                        <p className="text-xs text-center" style={{ color: 'var(--color-gray-400)' }}>
+                            Works with Amber, nsecBunker, and other NIP-46 signers
+                        </p>
+                    </form>
                 )}
 
                 {/* Create Account */}
