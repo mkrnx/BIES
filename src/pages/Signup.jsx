@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff } from 'lucide-react';
 import { passkeyService } from '../services/passkeyService';
+import { PASSKEY_ENABLED } from '../config/featureFlags';
 import { keyfileService } from '../services/keyfileService';
 
 const Signup = () => {
@@ -255,7 +256,7 @@ const Signup = () => {
                             </div>
 
                             {/* ── Quick Login section (separate from backup) ── */}
-                            {passkeyService.isSupported() && (
+                            {PASSKEY_ENABLED && passkeyService.isSupported() && (
                                 <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <p className="text-sm font-bold text-gray-600" style={{ marginBottom: 2 }}>Quick Login (Optional)</p>
                                     <button
