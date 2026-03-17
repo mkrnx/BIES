@@ -203,19 +203,24 @@ const Signup = () => {
                                 <Download size={16} /> Download Key File
                             </button>
                             {passkeyService.isSupported() && (
-                                <button
-                                    onClick={handleSavePasskey}
-                                    disabled={savingPasskey || passkeySaved}
-                                    className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2"
-                                >
-                                    {passkeySaved ? (
-                                        <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Passkey Saved</>
-                                    ) : savingPasskey ? (
-                                        <><Loader2 size={16} className="spin" /> Saving...</>
-                                    ) : (
-                                        <><Fingerprint size={16} /> Save to Passkey</>
-                                    )}
-                                </button>
+                                <>
+                                    <button
+                                        onClick={handleSavePasskey}
+                                        disabled={savingPasskey || passkeySaved}
+                                        className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2"
+                                    >
+                                        {passkeySaved ? (
+                                            <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Passkey Saved</>
+                                        ) : savingPasskey ? (
+                                            <><Loader2 size={16} className="spin" /> Saving...</>
+                                        ) : (
+                                            <><Fingerprint size={16} /> Save to Passkey</>
+                                        )}
+                                    </button>
+                                    <p className="text-xs text-center" style={{ color: '#f59e0b' }}>
+                                        Passkey encrypts your key on this device for quick login — it is not a backup. Always save your nsec or seed phrase separately.
+                                    </p>
+                                </>
                             )}
                             <button onClick={handleBackupConfirm} className="w-full btn-primary py-3 rounded-full">
                                 Continue — I've Saved My Keys
