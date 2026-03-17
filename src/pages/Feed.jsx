@@ -1,17 +1,44 @@
-import { useState, useEffect, useRef } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock } from 'lucide-react';
-import { nostrService, BIES_RELAY, PUBLIC_RELAYS } from '../services/nostrService';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown } from 'lucide-react';
+import { nostrService, BIES_RELAY } from '../services/nostrService';
+import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
 import { useAuth } from '../context/AuthContext';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 
+const EXPLORE_ICONS = {
+    trending_24h: TrendingUp,
+    trending_4h: Flame,
+    mostzapped: Zap,
+    popular: Heart,
+    latest: Clock,
+};
+
+function formatCount(n) {
+    if (!n) return '0';
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(n);
+}
+
+function formatSats(n) {
+    if (!n) return '0';
+    if (n >= 100000000) return (n / 100000000).toFixed(2).replace(/\.?0+$/, '') + ' BTC';
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+    return String(n);
+}
+
 const Feed = () => {
     const { user } = useAuth();
     const [posts, setPosts] = useState([]);
     const [profiles, setProfiles] = useState({});
+    const [noteStats, setNoteStats] = useState({});
     const [loading, setLoading] = useState(true);
-    const [feedMode, setFeedMode] = useState('private'); // 'private' | 'public'
+    const [loadingMore, setLoadingMore] = useState(false);
+    const [feedMode, setFeedMode] = useState('private'); // 'private' | 'explore'
+    const [exploreView, setExploreView] = useState('trending_24h');
     const fetchedProfiles = useRef(new Set());
 
     // Compose state
@@ -20,23 +47,43 @@ const Feed = () => {
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState('');
 
-    // Subscribe to feed based on selected mode
+    const currentView = EXPLORE_VIEWS.find(v => v.key === exploreView) || EXPLORE_VIEWS[0];
+
+    // Sort notes based on the current explore view
+    const sortNotes = useCallback((notes, stats, viewKey) => {
+        const view = EXPLORE_VIEWS.find(v => v.key === viewKey);
+        if (!view) return notes;
+
+        return [...notes].sort((a, b) => {
+            const sa = stats[a.id] || {};
+            const sb = stats[b.id] || {};
+
+            if (view.timeframe === 'trending') {
+                return (sb.score24h || 0) - (sa.score24h || 0);
+            } else if (view.timeframe === 'popular') {
+                return (sb.score || 0) - (sa.score || 0);
+            } else if (view.timeframe === 'mostzapped') {
+                return (sb.satszapped || 0) - (sa.satszapped || 0);
+            }
+            return b.created_at - a.created_at;
+        });
+    }, []);
+
+    // Subscribe to private relay feed
     useEffect(() => {
+        if (feedMode !== 'private') return;
+
         setPosts([]);
+        setProfiles({});
+        setNoteStats({});
         setLoading(true);
         fetchedProfiles.current.clear();
-
-        const relays = feedMode === 'private' ? [BIES_RELAY] : PUBLIC_RELAYS;
-        const since = Math.floor(Date.now() / 1000) - 86400; // last 24h
-        const filter = feedMode === 'private'
-            ? { kinds: [1], limit: 50 }
-            : { kinds: [1], limit: 50, since };
 
         const timeout = setTimeout(() => setLoading(false), 15000);
 
         const sub = nostrService.pool.subscribeMany(
-            relays,
-            filter,
+            [BIES_RELAY],
+            { kinds: [1], limit: 50 },
             {
                 onevent: async (event) => {
                     if (!fetchedProfiles.current.has(event.pubkey)) {
@@ -55,10 +102,7 @@ const Feed = () => {
                     setLoading(false);
                 },
                 oneose: () => setLoading(false),
-                onclose: (reasons) => {
-                    console.warn('[Feed] Subscription closed:', reasons);
-                    setLoading(false);
-                },
+                onclose: () => setLoading(false),
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
         );
@@ -69,10 +113,60 @@ const Feed = () => {
         };
     }, [feedMode]);
 
+    // Fetch explore feed from Primal
+    useEffect(() => {
+        if (feedMode !== 'explore') return;
+
+        let cancelled = false;
+        setPosts([]);
+        setProfiles({});
+        setNoteStats({});
+        setLoading(true);
+
+        (async () => {
+            try {
+                const result = await primalService.fetchExploreFeed(currentView, { limit: 30 });
+                if (cancelled) return;
+
+                setProfiles(result.profiles);
+                setNoteStats(result.stats);
+                setPosts(sortNotes(result.notes, result.stats, exploreView));
+            } catch (err) {
+                console.error('[Feed] Primal fetch failed:', err);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [feedMode, exploreView, currentView, sortNotes]);
+
+    // Load more for explore feed
+    const handleLoadMore = async () => {
+        if (loadingMore || feedMode !== 'explore' || posts.length === 0) return;
+        setLoadingMore(true);
+        try {
+            const result = await primalService.loadMore(currentView, posts, noteStats, { limit: 20 });
+            if (result.notes.length > 0) {
+                setProfiles(prev => ({ ...prev, ...result.profiles }));
+                setNoteStats(prev => {
+                    const merged = { ...prev, ...result.stats };
+                    const allNotes = [...posts, ...result.notes];
+                    const deduped = allNotes.filter((n, i, arr) => arr.findIndex(x => x.id === n.id) === i);
+                    setPosts(sortNotes(deduped, merged, exploreView));
+                    return merged;
+                });
+            }
+        } catch (err) {
+            console.error('[Feed] Load more failed:', err);
+        } finally {
+            setLoadingMore(false);
+        }
+    };
+
     const handlePost = async () => {
         if (!composeText.trim() || posting) return;
 
-        // Check signing capability before attempting to post
         if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) {
             setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
             return;
@@ -141,6 +235,8 @@ const Feed = () => {
         return profiles[pubkey]?.picture || null;
     };
 
+    const getStats = (noteId) => noteStats[noteId] || {};
+
     return (
         <div className="feed-page">
             <div className="feed-container">
@@ -161,14 +257,34 @@ const Feed = () => {
                         <span>Private Relay</span>
                     </button>
                     <button
-                        className={`feed-tab ${feedMode === 'public' ? 'active' : ''}`}
-                        onClick={() => setFeedMode('public')}
-                        data-testid="tab-public"
+                        className={`feed-tab ${feedMode === 'explore' ? 'active' : ''}`}
+                        onClick={() => setFeedMode('explore')}
+                        data-testid="tab-explore"
                     >
                         <Globe size={14} />
-                        <span>Public Feed</span>
+                        <span>Explore</span>
                     </button>
                 </div>
+
+                {/* Explore View Sub-Tabs */}
+                {feedMode === 'explore' && (
+                    <div className="explore-tabs" data-testid="explore-tabs">
+                        {EXPLORE_VIEWS.map(view => {
+                            const Icon = EXPLORE_ICONS[view.key];
+                            return (
+                                <button
+                                    key={view.key}
+                                    className={`explore-tab ${exploreView === view.key ? 'active' : ''}`}
+                                    onClick={() => setExploreView(view.key)}
+                                    data-testid={`explore-${view.key}`}
+                                >
+                                    <Icon size={13} />
+                                    <span>{view.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {/* Compose Box */}
                 <div className="compose-box">
@@ -216,7 +332,7 @@ const Feed = () => {
                 {loading && posts.length === 0 ? (
                     <div className="feed-loading" data-testid="feed-loading">
                         <Loader2 size={24} className="spin" />
-                        <p>Connecting to {feedMode === 'private' ? 'BIES relay' : 'public relays'}...</p>
+                        <p>{feedMode === 'private' ? 'Connecting to BIES relay...' : 'Loading trending notes...'}</p>
                     </div>
                 ) : posts.length === 0 ? (
                     <div className="feed-empty" data-testid="feed-empty">
@@ -225,40 +341,73 @@ const Feed = () => {
                         <p>
                             {feedMode === 'private'
                                 ? 'Be the first to post on the BIES private relay!'
-                                : 'No posts found on public relays. Try again in a moment.'}
+                                : 'No trending posts found. Try a different view.'}
                         </p>
                         {feedMode === 'private' && (
-                            <button className="try-public-btn" onClick={() => setFeedMode('public')}>
-                                <Globe size={14} /> Try Public Feed
+                            <button className="try-public-btn" onClick={() => setFeedMode('explore')}>
+                                <Globe size={14} /> Explore Nostr
                             </button>
                         )}
                     </div>
                 ) : (
                     <div className="feed-list" data-testid="feed-list">
-                        {posts.map(post => (
-                            <div key={post.id} className="feed-note" data-testid="feed-note">
-                                <div className="note-header">
-                                    <div className="note-avatar">
-                                        {getAvatar(post.pubkey) ? (
-                                            <img src={getAvatar(post.pubkey)} alt="" />
-                                        ) : (
-                                            <NostrIcon size={18} />
-                                        )}
+                        {posts.map(post => {
+                            const stats = getStats(post.id);
+                            return (
+                                <div key={post.id} className="feed-note" data-testid="feed-note">
+                                    <div className="note-header">
+                                        <div className="note-avatar">
+                                            {getAvatar(post.pubkey) ? (
+                                                <img src={getAvatar(post.pubkey)} alt="" />
+                                            ) : (
+                                                <NostrIcon size={18} />
+                                            )}
+                                        </div>
+                                        <div className="note-meta">
+                                            <span className="note-name">{getDisplayName(post.pubkey)}</span>
+                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
+                                        </div>
                                     </div>
-                                    <div className="note-meta">
-                                        <span className="note-name">{getDisplayName(post.pubkey)}</span>
-                                        <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
+                                    <div className="note-content">{post.content}</div>
+                                    <div className="note-actions">
+                                        <button className="action-btn" title="Replies">
+                                            <MessageCircle size={15} />
+                                            <span>{formatCount(stats.replies)}</span>
+                                        </button>
+                                        <button className="action-btn" title="Reposts">
+                                            <Repeat size={15} />
+                                            <span>{formatCount(stats.reposts)}</span>
+                                        </button>
+                                        <button className="action-btn" title="Likes">
+                                            <Heart size={15} />
+                                            <span>{formatCount(stats.likes)}</span>
+                                        </button>
+                                        <button className="action-btn action-zap" title="Zaps">
+                                            <Zap size={15} />
+                                            <span>{formatSats(stats.satszapped)}</span>
+                                        </button>
+                                        <button className="action-btn action-share" title="Share">
+                                            <Share size={15} />
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="note-content">{post.content}</div>
-                                <div className="note-actions">
-                                    <button className="action-btn"><MessageCircle size={15} /> <span>0</span></button>
-                                    <button className="action-btn"><Repeat size={15} /> <span>0</span></button>
-                                    <button className="action-btn"><Heart size={15} /> <span>0</span></button>
-                                    <button className="action-btn action-share"><Share size={15} /></button>
-                                </div>
-                            </div>
-                        ))}
+                            );
+                        })}
+
+                        {/* Load More */}
+                        {feedMode === 'explore' && posts.length >= 10 && (
+                            <button
+                                className="load-more-btn"
+                                onClick={handleLoadMore}
+                                disabled={loadingMore}
+                            >
+                                {loadingMore ? (
+                                    <><Loader2 size={16} className="spin" /> Loading...</>
+                                ) : (
+                                    <><ChevronDown size={16} /> Load More</>
+                                )}
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -297,13 +446,13 @@ const Feed = () => {
                 .feed-tabs {
                     display: flex;
                     gap: 0.5rem;
-                    margin-bottom: 1.5rem;
+                    margin-bottom: 0.75rem;
                     background: var(--color-gray-100);
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 0.25rem;
                 }
-                
+
                 @media (max-width: 768px) {
                     .page-header { display: none !important; }
                 }
@@ -334,6 +483,45 @@ const Feed = () => {
                 }
                 .feed-tab.active:nth-child(2) {
                     background: #2563eb;
+                    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+                }
+
+                /* Explore Sub-Tabs */
+                .explore-tabs {
+                    display: flex;
+                    gap: 0.375rem;
+                    margin-bottom: 1.25rem;
+                    overflow-x: auto;
+                    -webkit-overflow-scrolling: touch;
+                    scrollbar-width: none;
+                    padding-bottom: 2px;
+                }
+                .explore-tabs::-webkit-scrollbar { display: none; }
+                .explore-tab {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    padding: 0.4rem 0.75rem;
+                    border-radius: 9999px;
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    border: 1px solid #e5e7eb;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    background: transparent;
+                    color: #9ca3af;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+                .explore-tab:hover {
+                    color: #6b7280;
+                    border-color: #d1d5db;
+                    background: #f9fafb;
+                }
+                .explore-tab.active {
+                    background: #2563eb;
+                    color: white;
+                    border-color: #2563eb;
                     box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
                 }
 
@@ -542,6 +730,63 @@ const Feed = () => {
                     white-space: pre-wrap;
                     word-break: break-word;
                 }
+                .note-actions {
+                    display: flex;
+                    gap: 1.25rem;
+                    padding-left: 52px;
+                }
+                .action-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    color: #9ca3af;
+                    font-size: 0.8rem;
+                    transition: color 0.2s;
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    padding: 0;
+                }
+                .action-btn:hover { color: #7c3aed; }
+                .action-zap:hover { color: #f59e0b; }
+                .action-share { margin-left: auto; }
+
+                /* Load More */
+                .load-more-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.375rem;
+                    width: 100%;
+                    padding: 0.75rem;
+                    background: transparent;
+                    border: 1px solid #e5e7eb;
+                    border-radius: var(--radius-xl, 12px);
+                    color: #6b7280;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .load-more-btn:hover {
+                    background: var(--color-gray-100);
+                    border-color: #d1d5db;
+                    color: #374151;
+                }
+                .load-more-btn:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+
+                /* Dark mode */
                 :global([data-theme="dark"]) .feed-note {
                     background: #1e2a3a;
                     border-color: #2d3748;
@@ -585,6 +830,19 @@ const Feed = () => {
                 :global([data-theme="dark"]) .feed-tab.active {
                     color: #ffffff;
                 }
+                :global([data-theme="dark"]) .explore-tab {
+                    color: #94a3b8;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .explore-tab:hover {
+                    background: #2d3748;
+                    color: #e2e8f0;
+                    border-color: #475569;
+                }
+                :global([data-theme="dark"]) .explore-tab.active {
+                    color: #ffffff;
+                    border-color: #2563eb;
+                }
                 :global([data-theme="dark"]) .relay-toggle.private {
                     color: #c4b5fd;
                     border-color: #4c3a7a;
@@ -598,31 +856,14 @@ const Feed = () => {
                 :global([data-theme="dark"]) .post-btn {
                     color: #ffffff;
                 }
-                .note-actions {
-                    display: flex;
-                    gap: 1.5rem;
-                    padding-left: 52px;
+                :global([data-theme="dark"]) .load-more-btn {
+                    border-color: #2d3748;
+                    color: #94a3b8;
                 }
-                .action-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.375rem;
-                    color: #9ca3af;
-                    font-size: 0.8rem;
-                    transition: color 0.2s;
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    padding: 0;
-                }
-                .action-btn:hover { color: #7c3aed; }
-                .action-share { margin-left: auto; }
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
+                :global([data-theme="dark"]) .load-more-btn:hover {
+                    background: #1e2a3a;
+                    border-color: #475569;
+                    color: #e2e8f0;
                 }
             `}</style>
         </div>
