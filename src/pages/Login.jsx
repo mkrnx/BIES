@@ -21,8 +21,8 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey state — always show button if browser supports WebAuthn
-    const [hasPasskey] = useState(() => passkeyService.isSupported());
+    // Passkey state — only show button if user has a stored encrypted key
+    const [hasPasskey] = useState(() => passkeyService.isSupported() && passkeyService.hasCredential());
     const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
     const [pendingNsec, setPendingNsec] = useState(null);
     const [pendingRedirect, setPendingRedirect] = useState(null);
