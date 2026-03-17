@@ -187,6 +187,35 @@ export const authService = {
         return authService.loginWithNsec(nsec);
     },
 
+    // ─── Bunker login (NIP-46 remote signer) ───────────────────────────────
+
+    /**
+     * Login using a NIP-46 remote signer (Amber, nsecBunker, etc.).
+     * Connects via bunker:// URI or name@domain, then does the same
+     * challenge-response flow — signing happens on the remote device.
+     */
+    loginWithBunker: async (bunkerInput) => {
+        const { nostrConnectService } = await import('./nostrConnectService.js');
+        const bunkerSigner = await nostrConnectService.connect(bunkerInput);
+
+        const pubkey = await bunkerSigner.getPublicKey();
+        const { challenge } = await authApi.nostrChallenge(pubkey);
+
+        const signedEvent = await bunkerSigner.signEvent({
+            kind: 27235,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [],
+            content: challenge,
+        });
+
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+
+        authService.setToken(token);
+        authService.setCachedUser(user);
+        nostrSigner.setBunkerMode(pubkey);
+        return user;
+    },
+
     // ─── Demo login (temporary — TODO: remove before production) ───────────
 
     loginWithDemo: async () => {

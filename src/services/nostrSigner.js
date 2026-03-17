@@ -16,13 +16,13 @@
 import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 
-const LOGIN_METHOD_KEY = 'bies_login_method'; // 'extension' | 'nsec'
+const LOGIN_METHOD_KEY = 'bies_login_method'; // 'extension' | 'nsec' | 'bunker'
 
 class NostrSigner {
     constructor() {
         this._sk = null;      // Uint8Array secret key (in-memory only)
         this._pubkey = null;   // hex public key
-        this._mode = null;     // 'extension' | 'nsec' | null
+        this._mode = null;     // 'extension' | 'nsec' | 'bunker' | null
     }
 
     // ─── Configuration ──────────────────────────────────────────────────────
@@ -52,6 +52,14 @@ class NostrSigner {
         localStorage.setItem(LOGIN_METHOD_KEY, 'extension');
     }
 
+    /** Configure signer to use a NIP-46 remote signer (bunker) */
+    setBunkerMode(pubkey) {
+        this._sk = null;
+        this._pubkey = pubkey;
+        this._mode = 'bunker';
+        localStorage.setItem(LOGIN_METHOD_KEY, 'bunker');
+    }
+
     /** Clear stored key (logout). Zeros secret key bytes as defense-in-depth. */
     clear() {
         if (this._sk instanceof Uint8Array) {
@@ -61,6 +69,10 @@ class NostrSigner {
         this._pubkey = null;
         this._mode = null;
         localStorage.removeItem(LOGIN_METHOD_KEY);
+        // Disconnect bunker if active
+        import('./nostrConnectService.js').then(({ nostrConnectService }) => {
+            nostrConnectService.disconnect();
+        }).catch(() => {});
     }
 
     /** Current mode: 'extension' | 'nsec' | null */
@@ -80,6 +92,12 @@ class NostrSigner {
         // Prefer in-memory key
         if (this._sk) return this._pubkey;
 
+        // Bunker mode — delegate to remote signer
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
+            const signer = await this._getBunkerSigner();
+            return signer.getPublicKey();
+        }
+
         // Extension mode
         if (this._mode === 'extension' && window.nostr) {
             return window.nostr.getPublicKey();
@@ -97,6 +115,12 @@ class NostrSigner {
     async signEvent(event) {
         // Prefer in-memory key
         if (this._sk) return finalizeEvent(event, this._sk);
+
+        // Bunker mode — delegate to remote signer
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
+            const signer = await this._getBunkerSigner();
+            return signer.signEvent(event);
+        }
 
         // Extension mode
         if (this._mode === 'extension' && window.nostr) {
@@ -123,6 +147,7 @@ class NostrSigner {
     /** Whether NIP-44 operations are available */
     get hasNip44() {
         if (this._sk) return true;
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') return true;
         if (this._mode === 'extension' && window.nostr?.nip44) return true;
         if (this.storedMethod === 'nsec') return true; // can re-acquire
         return !!window.nostr?.nip44;
@@ -134,6 +159,11 @@ class NostrSigner {
         if (this._sk) {
             const ck = nip44.v2.utils.getConversationKey(this._sk, pubkey);
             return nip44.v2.encrypt(plaintext, ck);
+        }
+
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
+            const signer = await this._getBunkerSigner();
+            return signer.nip44Encrypt(pubkey, plaintext);
         }
 
         if (this._mode === 'extension' && window.nostr?.nip44) {
@@ -156,6 +186,11 @@ class NostrSigner {
             return nip44.v2.decrypt(ciphertext, ck);
         }
 
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
+            const signer = await this._getBunkerSigner();
+            return signer.nip44Decrypt(pubkey, ciphertext);
+        }
+
         if (this._mode === 'extension' && window.nostr?.nip44) {
             return window.nostr.nip44.decrypt(pubkey, ciphertext);
         }
@@ -168,6 +203,28 @@ class NostrSigner {
         if (window.nostr?.nip44) return window.nostr.nip44.decrypt(pubkey, ciphertext);
 
         throw new Error('NIP-44 decryption not available. Please log in again.');
+    }
+
+    // ─── Bunker reconnection ─────────────────────────────────────────────────
+
+    /**
+     * Get the active BunkerSigner, reconnecting if needed (page refresh).
+     * Throws if the signer can't be reached.
+     */
+    async _getBunkerSigner() {
+        const { nostrConnectService } = await import('./nostrConnectService.js');
+        const existing = nostrConnectService.getSigner();
+        if (existing) return existing;
+
+        if (nostrConnectService.hasStoredConnection()) {
+            const signer = await nostrConnectService.reconnect();
+            if (signer) {
+                this._mode = 'bunker';
+                return signer;
+            }
+        }
+
+        throw new Error('Remote signer disconnected. Please log in again.');
     }
 
     // ─── Key re-acquisition ─────────────────────────────────────────────────

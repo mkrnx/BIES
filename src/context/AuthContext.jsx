@@ -123,6 +123,28 @@ export const AuthProvider = ({ children }) => {
         return { ...result, needsProfileSetup: isNew };
     };
 
+    const loginWithBunker = async (bunkerInput) => {
+        try {
+            const user = await authService.loginWithBunker(bunkerInput);
+            setUser(user);
+            initWebSocket(user);
+            return { success: true, user };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
+    const loginWithBunkerAndCheckNew = async (bunkerInput) => {
+        const result = await loginWithBunker(bunkerInput);
+        if (!result.success) return result;
+
+        const isNew = result.user?.profile?.name?.startsWith('nostr:');
+        if (isNew && result.user?.nostrPubkey) {
+            seedProfileFromNostr(result.user.nostrPubkey).catch(() => {});
+        }
+        return { ...result, needsProfileSetup: isNew };
+    };
+
     const loginWithPasskey = async () => {
         try {
             const user = await authService.loginWithPasskey();
@@ -275,6 +297,8 @@ export const AuthProvider = ({ children }) => {
             loginWithNsecAndCheckNew,
             loginWithSeedPhrase,
             loginWithSeedPhraseAndCheckNew,
+            loginWithBunker,
+            loginWithBunkerAndCheckNew,
             loginWithPasskey,
             loginWithPasskeyAndCheckNew,
             loginWithEmail,
