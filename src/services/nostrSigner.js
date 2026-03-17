@@ -52,8 +52,11 @@ class NostrSigner {
         localStorage.setItem(LOGIN_METHOD_KEY, 'extension');
     }
 
-    /** Clear stored key (logout) */
+    /** Clear stored key (logout). Zeros secret key bytes as defense-in-depth. */
     clear() {
+        if (this._sk instanceof Uint8Array) {
+            this._sk.fill(0);
+        }
         this._sk = null;
         this._pubkey = null;
         this._mode = null;
@@ -193,3 +196,14 @@ class NostrSigner {
 }
 
 export const nostrSigner = new NostrSigner();
+
+// E2E test hook: allow injecting a secret key via window global.
+// This runs at module load time so the singleton picks up the key
+// before any React component checks nostrSigner.hasKey.
+if (typeof window !== 'undefined' && window.__TEST_NSEC_HEX) {
+    try {
+        const hex = window.__TEST_NSEC_HEX;
+        const sk = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+        nostrSigner.setNsec(sk);
+    } catch { /* ignore in production */ }
+}
