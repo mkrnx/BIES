@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
+import { blossomService } from '../services/blossomService';
 import { useAuth } from '../context/AuthContext';
 import NostrIcon from '../components/NostrIcon';
 import ZapModal from '../components/ZapModal';
@@ -49,6 +50,9 @@ const Feed = () => {
     const [broadcastPublic, setBroadcastPublic] = useState(false);
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState('');
+    const [attachedFiles, setAttachedFiles] = useState([]); // { file, previewUrl, type, dimensions }
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     // Interaction state
     const [likedNotes, setLikedNotes] = useState(new Set());
@@ -175,8 +179,43 @@ const Feed = () => {
         }
     };
 
+    const handleFileSelect = async (e) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = '';
+        setPostError('');
+
+        const newAttachments = [];
+        for (const file of files) {
+            const err = blossomService.validateFile(file, attachedFiles.length + newAttachments.length);
+            if (err) {
+                setPostError(err);
+                break;
+            }
+            const dimensions = await blossomService.getImageDimensions(file);
+            newAttachments.push({
+                file,
+                previewUrl: URL.createObjectURL(file),
+                type: file.type,
+                dimensions,
+            });
+        }
+
+        if (newAttachments.length > 0) {
+            setAttachedFiles(prev => [...prev, ...newAttachments]);
+        }
+    };
+
+    const removeAttachment = (index) => {
+        setAttachedFiles(prev => {
+            const updated = [...prev];
+            URL.revokeObjectURL(updated[index].previewUrl);
+            updated.splice(index, 1);
+            return updated;
+        });
+    };
+
     const handlePost = async () => {
-        if (!composeText.trim() || posting) return;
+        if ((!composeText.trim() && attachedFiles.length === 0) || posting || uploading) return;
 
         if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) {
             setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
@@ -187,11 +226,29 @@ const Feed = () => {
         setPostError('');
 
         try {
+            let content = composeText.trim();
+            const tags = [['t', 'bies']];
+
+            if (attachedFiles.length > 0) {
+                setUploading(true);
+                const uploadResults = await Promise.all(
+                    attachedFiles.map(a => blossomService.uploadFile(a.file))
+                );
+
+                const urls = uploadResults.map(r => r.url);
+                if (content) content += '\n';
+                content += urls.join('\n');
+
+                uploadResults.forEach((result, i) => {
+                    tags.push(blossomService.buildImetaTag(result, attachedFiles[i].file, attachedFiles[i].dimensions));
+                });
+            }
+
             const event = {
                 kind: 1,
                 created_at: Math.floor(Date.now() / 1000),
-                tags: [['t', 'bies']],
-                content: composeText.trim(),
+                tags,
+                content,
             };
 
             if (broadcastPublic) {
@@ -201,12 +258,15 @@ const Feed = () => {
             }
 
             setComposeText('');
+            attachedFiles.forEach(a => URL.revokeObjectURL(a.previewUrl));
+            setAttachedFiles([]);
         } catch (err) {
             console.error('[Feed] Post failed:', err);
             const msg = err?.errors?.[0]?.message || err?.message || String(err);
             setPostError(`Post failed: ${msg}`);
         } finally {
             setPosting(false);
+            setUploading(false);
         }
     };
 
@@ -476,24 +536,58 @@ const Feed = () => {
                             data-testid="compose-input"
                         />
                     </div>
+                    {attachedFiles.length > 0 && (
+                        <div className="compose-media-preview">
+                            {attachedFiles.map((item, i) => (
+                                <div key={i} className="media-preview-item">
+                                    {item.type.startsWith('image/') ? (
+                                        <img src={item.previewUrl} alt="" />
+                                    ) : (
+                                        <video src={item.previewUrl} muted />
+                                    )}
+                                    <button className="media-remove-btn" onClick={() => removeAttachment(i)}>
+                                        <X size={12} />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                     {postError && <div className="compose-error">{postError}</div>}
                     <div className="compose-bottom">
-                        <button
-                            className={`relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
-                            onClick={() => setBroadcastPublic(!broadcastPublic)}
-                            title={broadcastPublic ? 'Broadcasting to all relays' : 'Private relay only'}
-                        >
-                            {broadcastPublic ? <Globe size={14} /> : <Lock size={14} />}
-                            <span>{broadcastPublic ? 'Public' : 'Private'}</span>
-                        </button>
+                        <div className="compose-actions-left">
+                            <button
+                                className={`relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
+                                onClick={() => setBroadcastPublic(!broadcastPublic)}
+                                title={broadcastPublic ? 'Broadcasting to all relays' : 'Private relay only'}
+                            >
+                                {broadcastPublic ? <Globe size={14} /> : <Lock size={14} />}
+                                <span>{broadcastPublic ? 'Public' : 'Private'}</span>
+                            </button>
+                            <button
+                                className="media-attach-btn"
+                                onClick={() => fileInputRef.current?.click()}
+                                title="Attach image or video"
+                                disabled={attachedFiles.length >= blossomService.MAX_ATTACHMENTS || posting || uploading}
+                            >
+                                <ImagePlus size={16} />
+                            </button>
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*,video/*"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={handleFileSelect}
+                            />
+                        </div>
                         <button
                             className="post-btn"
                             onClick={handlePost}
-                            disabled={!composeText.trim() || posting}
+                            disabled={(!composeText.trim() && attachedFiles.length === 0) || posting || uploading}
                             data-testid="post-btn"
                         >
-                            {posting ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-                            <span>{posting ? 'Posting...' : 'Post'}</span>
+                            {(posting || uploading) ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+                            <span>{uploading ? 'Uploading...' : posting ? 'Posting...' : 'Post'}</span>
                         </button>
                     </div>
                 </div>
@@ -811,6 +905,73 @@ const Feed = () => {
                     color: var(--color-error, #ef4444);
                     font-size: 0.8rem;
                     padding: 0.25rem 0 0.25rem 52px;
+                }
+                .compose-media-preview {
+                    display: flex;
+                    gap: 0.5rem;
+                    padding: 0.75rem 0 0.25rem 52px;
+                    overflow-x: auto;
+                }
+                .media-preview-item {
+                    position: relative;
+                    width: 80px;
+                    height: 80px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                    border: 1px solid #e5e7eb;
+                }
+                .media-preview-item img,
+                .media-preview-item video {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .media-remove-btn {
+                    position: absolute;
+                    top: 4px;
+                    right: 4px;
+                    width: 20px;
+                    height: 20px;
+                    border-radius: 50%;
+                    background: rgba(0, 0, 0, 0.6);
+                    color: white;
+                    border: none;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 0;
+                }
+                .media-remove-btn:hover {
+                    background: rgba(0, 0, 0, 0.8);
+                }
+                .compose-actions-left {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .media-attach-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
+                    border: 1px solid #e5e7eb;
+                    background: transparent;
+                    color: #6b7280;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .media-attach-btn:hover {
+                    background: #f3f4f6;
+                    color: #4b5563;
+                    border-color: #d1d5db;
+                }
+                .media-attach-btn:disabled {
+                    opacity: 0.4;
+                    cursor: not-allowed;
                 }
                 .compose-bottom {
                     display: flex;
@@ -1135,6 +1296,18 @@ const Feed = () => {
                 }
                 :global([data-theme="dark"]) .compose-input {
                     color: #f1f5f9;
+                }
+                :global([data-theme="dark"]) .media-preview-item {
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .media-attach-btn {
+                    border-color: #2d3748;
+                    color: #94a3b8;
+                }
+                :global([data-theme="dark"]) .media-attach-btn:hover {
+                    background: #2d3748;
+                    color: #e2e8f0;
+                    border-color: #4a5568;
                 }
                 :global([data-theme="dark"]) .feed-tabs {
                     background: #1e2a3a;
