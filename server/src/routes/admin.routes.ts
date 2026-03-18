@@ -6,6 +6,9 @@ import {
     setUserRole,
     verifyUser,
     deleteUser,
+    listTrashedUsers,
+    restoreUser,
+    purgeUser,
     syncAccounts,
     featureProject,
     hardDeleteProject,
@@ -25,11 +28,14 @@ router.use(authenticate, requireRole('ADMIN', 'MOD'));
 
 // Users
 router.get('/users', listUsers);
+router.get('/users/trash', listTrashedUsers);           // ADMIN only (enforced in controller)
 router.put('/users/:id/ban', banUser);
 router.put('/users/:id/role', setUserRole);
 router.put('/users/:id/verify', verifyUser);
-router.delete('/users/:id', deleteUser);        // ADMIN only (enforced in controller)
-router.post('/users/sync', syncAccounts);        // ADMIN only (enforced in controller)
+router.put('/users/:id/restore', restoreUser);          // ADMIN only (enforced in controller)
+router.delete('/users/:id', deleteUser);                // ADMIN only (enforced in controller)
+router.delete('/users/:id/purge', purgeUser);           // ADMIN only (enforced in controller)
+router.post('/users/sync', syncAccounts);               // ADMIN only (enforced in controller)
 
 // Projects
 router.get('/projects', listAdminProjects);
