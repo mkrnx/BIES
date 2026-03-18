@@ -81,6 +81,9 @@ class NostrSigner {
     /** Whether we have the nsec in memory */
     get hasKey() { return !!this._sk; }
 
+    /** Current public key (hex). Null if not yet signed in or key not in memory. */
+    get pubkey() { return this._pubkey; }
+
     /** What login method was used (persists across refreshes) */
     get storedMethod() {
         return localStorage.getItem(LOGIN_METHOD_KEY);
