@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, Loader2, Heart, Repeat, MessageCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Loader2, Heart, Repeat, MessageCircle } from 'lucide-react';
 
 const XIcon = ({ size = 12, style }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style}>
@@ -7,42 +7,17 @@ const XIcon = ({ size = 12, style }) => (
     </svg>
 );
 
-import { Link } from 'react-router-dom';
-import { useNostrFeed } from '../hooks/useNostr';
-import NostrIcon from '../components/NostrIcon';
-import ZapButton from '../components/ZapButton';
-import { contentApi, newsApi } from '../services/api';
+import { newsApi } from '../services/api';
 
 const News = () => {
-    // Dynamic npubs from admin settings
-    const [npubs, setNpubs] = useState([]);
-    const { posts, loading: feedLoading, profiles } = useNostrFeed(npubs);
-
-    const [articles, setArticles] = useState([]);
-    const [articlesLoading, setArticlesLoading] = useState(true);
-
     const [tweets, setTweets] = useState([]);
     const [tweetsLoading, setTweetsLoading] = useState(true);
 
-    // Fetch admin-configured settings (npubs + handles)
-    useEffect(() => {
-        newsApi.settings()
-            .then(res => {
-                setNpubs(res?.nostrNpubs || []);
-            })
-            .catch(() => setNpubs([]));
-    }, []);
+    const [liveNews, setLiveNews] = useState([]);
+    const [liveNewsLoading, setLiveNewsLoading] = useState(true);
+    const [newsKeyword, setNewsKeyword] = useState('');
 
-    // Fetch articles from content API
-    useEffect(() => {
-        contentApi.articles({ limit: 10 })
-            .then(result => {
-                const list = result?.data || result || [];
-                setArticles(Array.isArray(list) ? list : []);
-            })
-            .catch(() => setArticles([]))
-            .finally(() => setArticlesLoading(false));
-    }, []);
+    const [mobileTab, setMobileTab] = useState('news'); // 'news' | 'twitter'
 
     // Fetch Twitter/X feed
     useEffect(() => {
@@ -52,12 +27,14 @@ const News = () => {
             .finally(() => setTweetsLoading(false));
     }, []);
 
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        try {
-            return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-        } catch { return dateStr; }
-    };
+    // Fetch live news from gnews.io + RSS (El Salvador)
+    useEffect(() => {
+        setLiveNewsLoading(true);
+        newsApi.liveFeed(newsKeyword)
+            .then(res => setLiveNews(res?.data || []))
+            .catch(() => setLiveNews([]))
+            .finally(() => setLiveNewsLoading(false));
+    }, [newsKeyword]);
 
     const timeAgo = (dateStr) => {
         if (!dateStr) return '';
@@ -74,100 +51,92 @@ const News = () => {
 
     return (
         <div className="news-page container py-8">
+
+            {/* Mobile-only tabs */}
+            <div className="mobile-feed-tabs">
+                <button
+                    className={`feed-tab ${mobileTab === 'news' ? 'active' : ''}`}
+                    onClick={() => setMobileTab('news')}
+                >
+                    El Salvador News
+                </button>
+                <button
+                    className={`feed-tab ${mobileTab === 'twitter' ? 'active' : ''}`}
+                    onClick={() => setMobileTab('twitter')}
+                >
+                    X / Twitter
+                </button>
+            </div>
+
             <div className="grid news-layout">
 
-                {/* Left Column: Social Pulse (Nostr) */}
-                <aside className="news-col sidebar-col">
-                    <div className="col-header">
-                        <h3>Social Pulse</h3>
-                        {npubs.length > 0 && <span className="live-badge">LIVE</span>}
-                    </div>
-                    <div className="social-feed">
-                        {npubs.length === 0 && !feedLoading ? (
-                            <p className="empty-text">No Nostr accounts configured.</p>
-                        ) : feedLoading ? (
-                            <div style={{ textAlign: 'center', padding: '2rem' }}>
-                                <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-                            </div>
-                        ) : posts.length === 0 ? (
-                            <p className="empty-text">No posts from the Nostr relay yet.</p>
-                        ) : (
-                            posts.slice(0, 10).map(post => {
-                                const profile = profiles[post.pubkey] || {};
-                                return (
-                                    <div key={post.id} className="tweet-card">
-                                        <div className="tweet-header">
-                                            <div className="avatar">
-                                                {profile.picture ? (
-                                                    <img src={profile.picture} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    (profile.name || 'N')[0].toUpperCase()
-                                                )}
-                                            </div>
-                                            <div className="u-info">
-                                                <span className="u-name">{profile.name || post.pubkey.slice(0, 8)}</span>
-                                                <NostrIcon size={12} style={{ color: '#a855f7', marginLeft: 4 }} />
-                                            </div>
-                                        </div>
-                                        <p>{post.content?.slice(0, 280)}{post.content?.length > 280 ? '...' : ''}</p>
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                                            <ZapButton
-                                                recipients={[{ pubkey: post.pubkey, name: profile.name || post.pubkey.slice(0, 8), avatar: profile.picture || '' }]}
-                                                eventId={post.id}
-                                                size="sm"
-                                            />
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        )}
-                    </div>
-                </aside>
-
-                {/* Middle Column: Top Stories from API */}
-                <main className="news-col main-col">
+                {/* Left/Main Column: El Salvador News */}
+                <main className={`news-col main-col ${mobileTab !== 'news' ? 'mobile-hidden' : ''}`}>
                     <div className="col-header page-header">
-                        <h3>Top Stories</h3>
+                        <h3>El Salvador News</h3>
+                        {liveNews.length > 0 && <span className="live-badge">LIVE</span>}
+                    </div>
+                    <div style={{ marginBottom: '1rem' }}>
+                        <input
+                            type="text"
+                            placeholder="Filter news..."
+                            value={newsKeyword}
+                            onChange={(e) => setNewsKeyword(e.target.value)}
+                            style={{
+                                width: '100%',
+                                padding: '0.5rem',
+                                border: '1px solid var(--color-border)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.9rem',
+                            }}
+                        />
                     </div>
 
-                    {articlesLoading ? (
+                    {liveNewsLoading ? (
                         <div style={{ textAlign: 'center', padding: '3rem' }}>
                             <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
                         </div>
-                    ) : articles.length === 0 ? (
+                    ) : liveNews.length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                            No news articles yet.
+                            No El Salvador news found.
                         </div>
                     ) : (
-                        articles.map((article, i) => (
-                            <Link to={`/news/${article.slug || article.id}`} key={article.id} className="news-item-link">
+                        liveNews.slice(0, 15).map((article, i) => (
+                            <a
+                                key={article.id}
+                                href={article.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="news-item-link"
+                            >
                                 <div className={`news-item ${i === 0 ? 'featured' : ''}`}>
-                                    {i === 0 && (article.image || article.coverImage || article.thumbnail) && (
-                                        <div className="news-img" style={{ backgroundImage: `url(${article.image || article.coverImage || article.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                                    {i === 0 && article.image && (
+                                        <div className="news-img" style={{ backgroundImage: `url(${article.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                                     )}
                                     <div className="news-content">
-                                        {article.category && <span className="tag">{article.category}</span>}
+                                        <span className="tag">{article.source}</span>
                                         {i === 0 ? (
                                             <>
                                                 <h2>{article.title}</h2>
-                                                <p className="excerpt">{article.description || article.excerpt}</p>
-                                                <span className="date">{formatDate(article.date || article.createdAt)}</span>
+                                                <p className="excerpt">{article.description?.slice(0, 200)}{article.description?.length > 200 ? '...' : ''}</p>
+                                                <span className="date">{timeAgo(article.publishedAt)}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <h3>{article.title}</h3>
-                                                <span className="date">{formatDate(article.date || article.createdAt)}</span>
+                                                <p className="excerpt">{article.description?.slice(0, 120)}{article.description?.length > 120 ? '...' : ''}</p>
+                                                <span className="date">{timeAgo(article.publishedAt)}</span>
                                             </>
                                         )}
                                     </div>
                                 </div>
-                            </Link>
+                            </a>
                         ))
                     )}
                 </main>
 
                 {/* Right Column: X/Twitter Feed */}
-                <aside className="news-col sidebar-col">
+                <aside className={`news-col sidebar-col ${mobileTab !== 'twitter' ? 'mobile-hidden' : ''}`}>
                     <div className="col-header">
                         <h3>X / Twitter</h3>
                         {tweets.length > 0 && <span className="live-badge">LIVE</span>}
@@ -235,7 +204,7 @@ const News = () => {
 
         .news-layout {
           display: grid;
-          grid-template-columns: 300px 1fr 300px;
+          grid-template-columns: 1fr 300px;
           gap: 2rem;
         }
 
@@ -342,12 +311,70 @@ const News = () => {
         .excerpt { color: var(--color-gray-500); font-size: 1rem; margin-bottom: 0.5rem; }
         .date { color: var(--color-gray-400); font-size: 0.8rem; }
 
+        /* Mobile tabs - hidden on desktop */
+        .mobile-feed-tabs {
+          display: none;
+        }
+
         @media (max-width: 1024px) {
           .news-layout { grid-template-columns: 1fr; }
+
+          .mobile-feed-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
+            background: var(--color-gray-100);
+            border: 1px solid #e5e7eb;
+            border-radius: var(--radius-xl, 12px);
+            padding: 0.25rem;
+          }
+
+          .feed-tab {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.375rem;
+            padding: 0.625rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: transparent;
+            color: #9ca3af;
+          }
+          .feed-tab:hover {
+            color: #6b7280;
+            background: #f9fafb;
+          }
+          .feed-tab.active {
+            background: #2563eb;
+            color: white;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+          }
+          .feed-tab.active:first-child {
+            background: #7c3aed;
+            box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+          }
+
+          .mobile-hidden {
+            display: none !important;
+          }
+
+          /* Hide per-column headers on mobile since tabs handle it */
+          .col-header {
+            display: none;
+          }
         }
 
         @media (max-width: 768px) {
           .page-header { display: none !important; }
+        }
+        :global([data-theme="dark"]) .mobile-feed-tabs {
+          background: #1e2a3a;
+          border-color: #2d3748;
         }
       `}</style>
         </div>

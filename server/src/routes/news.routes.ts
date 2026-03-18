@@ -7,6 +7,7 @@ import {
     updateSiteSettings,
     updateSiteSettingsSchema,
     getTwitterFeed,
+    getLiveNews,
 } from '../controllers/siteSettings.controller';
 
 const router = Router();
@@ -21,5 +22,8 @@ router.put('/settings', authenticate, requireRole('ADMIN'), validate(updateSiteS
 
 // Twitter feed proxy (public)
 router.get('/twitter-feed', getTwitterFeed);
+
+// Live news feed from gnews.io + RSS (public)
+router.get('/live-feed', getLiveNews);
 
 export default router;
