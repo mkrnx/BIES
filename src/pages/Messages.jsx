@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, Users, ArrowLeft } from 'lucide-react';
+import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
 import { searchApi } from '../services/api';
@@ -21,13 +21,13 @@ const Messages = () => {
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [newChatInput, setNewChatInput] = useState('');
-    const [showNewChat, setShowNewChat] = useState(false);
     const [userSearchResults, setUserSearchResults] = useState([]);
     const [searchingUsers, setSearchingUsers] = useState(false);
+    const [searchFocused, setSearchFocused] = useState(false);
     const [mobileView, setMobileView] = useState('sidebar'); // 'sidebar' | 'chat'
     const chatEndRef = useRef(null);
     const searchTimerRef = useRef(null);
+    const messageInputRef = useRef(null);
 
     // Auto-connect on mount
     useEffect(() => {
@@ -48,6 +48,7 @@ const Messages = () => {
         try {
             await sendMessage(activeChatPubkey, newMessage.trim());
             setNewMessage('');
+            if (messageInputRef.current) messageInputRef.current.style.height = 'auto';
         } catch (err) {
             console.error('Failed to send message:', err);
         } finally {
@@ -55,13 +56,13 @@ const Messages = () => {
         }
     };
 
-    // Search users by name (BIES + Nostr) with debounce
-    const handleUserSearch = useCallback((query) => {
-        setNewChatInput(query);
+    // Unified search: filters existing convos + searches for new users
+    const handleSearch = useCallback((query) => {
+        setSearchQuery(query);
 
         if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
 
-        // If it looks like an npub or hex pubkey, don't search by name
+        // If it looks like an npub or hex pubkey, or too short, skip user search
         if (!query.trim() || query.trim().length < 2 || query.startsWith('npub') || /^[0-9a-f]{10,}$/i.test(query)) {
             setUserSearchResults([]);
             setSearchingUsers(false);
@@ -78,11 +79,12 @@ const Messages = () => {
 
                 const results = [];
                 const seen = new Set();
+                // Exclude pubkeys already in conversations
+                const existingPubkeys = new Set(Object.keys(conversations));
 
-                // Add BIES profiles first
                 if (biesRes.status === 'fulfilled' && biesRes.value?.profiles) {
                     for (const p of biesRes.value.profiles) {
-                        if (p.user?.nostrPubkey && !seen.has(p.user.nostrPubkey)) {
+                        if (p.user?.nostrPubkey && !seen.has(p.user.nostrPubkey) && !existingPubkeys.has(p.user.nostrPubkey)) {
                             seen.add(p.user.nostrPubkey);
                             results.push({
                                 pubkey: p.user.nostrPubkey,
@@ -94,10 +96,9 @@ const Messages = () => {
                     }
                 }
 
-                // Add Nostr profiles (dedup by pubkey)
                 if (nostrResults.status === 'fulfilled') {
                     for (const p of nostrResults.value) {
-                        if (p.pubkey && !seen.has(p.pubkey)) {
+                        if (p.pubkey && !seen.has(p.pubkey) && !existingPubkeys.has(p.pubkey)) {
                             seen.add(p.pubkey);
                             results.push({
                                 pubkey: p.pubkey,
@@ -117,21 +118,22 @@ const Messages = () => {
                 setSearchingUsers(false);
             }
         }, 300);
-    }, []);
+    }, [conversations]);
 
     const handleSelectUser = (pubkey) => {
         setActiveChatPubkey(pubkey);
-        setShowNewChat(false);
-        setNewChatInput('');
+        setSearchQuery('');
         setUserSearchResults([]);
+        setSearchFocused(false);
         setMobileView('chat');
     };
 
-    const handleStartNewChat = () => {
-        let input = newChatInput.trim();
+    const handleSearchKeyDown = (e) => {
+        if (e.key !== 'Enter') return;
+        const input = searchQuery.trim();
         if (!input) return;
 
-        // Try as npub or hex pubkey
+        // Try as npub or hex pubkey to start a new chat
         let pubkey = input;
         try {
             if (input.startsWith('npub')) {
@@ -141,7 +143,6 @@ const Messages = () => {
             return;
         }
 
-        // Validate hex pubkey format (64 hex chars)
         if (/^[0-9a-f]{64}$/i.test(pubkey)) {
             handleSelectUser(pubkey);
         }
@@ -237,72 +238,68 @@ const Messages = () => {
                 <div className={`messages-sidebar${mobileView === 'chat' ? ' mobile-hidden' : ''}`}>
                     <div className="sidebar-header">
                         <h2>Messages</h2>
-                        <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New conversation">
-                            <MessageCircle size={20} />
-                        </button>
                     </div>
 
-                    {showNewChat && (
-                        <div className="new-chat-panel">
-                            <div className="new-chat-header">
-                                <Users size={16} />
-                                <span>New conversation</span>
-                                <button className="icon-btn" onClick={() => { setShowNewChat(false); setNewChatInput(''); setUserSearchResults([]); }} style={{ marginLeft: 'auto' }}>
-                                    <X size={16} />
-                                </button>
-                            </div>
-                            <div className="new-chat-box">
-                                <input
-                                    type="text"
-                                    placeholder="Search by name, npub, or pubkey..."
-                                    value={newChatInput}
-                                    onChange={e => handleUserSearch(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleStartNewChat()}
-                                    autoFocus
-                                />
-                            </div>
+                    <div className="search-box">
+                        <Search size={16} className="search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search or start a new chat..."
+                            value={searchQuery}
+                            onChange={e => handleSearch(e.target.value)}
+                            onKeyDown={handleSearchKeyDown}
+                            onFocus={() => setSearchFocused(true)}
+                            onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
+                        />
+                        {searchQuery && (
+                            <button className="search-clear" onClick={() => { setSearchQuery(''); setUserSearchResults([]); }}>
+                                <X size={14} />
+                            </button>
+                        )}
+                    </div>
+
+                    {searchFocused && searchQuery.trim().length >= 2 && (
+                        <div className="search-results-panel">
                             {searchingUsers && (
                                 <div className="search-status">
                                     <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
-                                    <span>Searching...</span>
+                                    <span>Searching users...</span>
                                 </div>
                             )}
                             {userSearchResults.length > 0 && (
-                                <div className="user-search-results">
-                                    {userSearchResults.map(user => (
-                                        <div
-                                            key={user.pubkey}
-                                            className="user-result-item"
-                                            onClick={() => handleSelectUser(user.pubkey)}
-                                        >
-                                            <div className="chat-avatar small">
-                                                {user.avatar ? (
-                                                    <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    (user.name || '??').substring(0, 2).toUpperCase()
-                                                )}
+                                <>
+                                    <div className="search-section-label">Start new conversation</div>
+                                    <div className="user-search-results">
+                                        {userSearchResults.map(user => (
+                                            <div
+                                                key={user.pubkey}
+                                                className="user-result-item"
+                                                onClick={() => handleSelectUser(user.pubkey)}
+                                            >
+                                                <div className="chat-avatar small">
+                                                    {user.avatar ? (
+                                                        <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        (user.name || '??').substring(0, 2).toUpperCase()
+                                                    )}
+                                                </div>
+                                                <div className="user-result-info">
+                                                    <span className="user-result-name">{user.name || nip19.npubEncode(user.pubkey).substring(0, 16) + '...'}</span>
+                                                    {user.nip05 && <span className="user-result-nip05">{user.nip05}</span>}
+                                                </div>
+                                                <span className={`source-badge ${user.source.toLowerCase()}`}>{user.source}</span>
                                             </div>
-                                            <div className="user-result-info">
-                                                <span className="user-result-name">{user.name || nip19.npubEncode(user.pubkey).substring(0, 16) + '...'}</span>
-                                                {user.nip05 && <span className="user-result-nip05">{user.nip05}</span>}
-                                            </div>
-                                            <span className={`source-badge ${user.source.toLowerCase()}`}>{user.source}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                </>
                             )}
-                            {!searchingUsers && newChatInput.trim().length >= 2 && userSearchResults.length === 0 && !newChatInput.startsWith('npub') && !/^[0-9a-f]{10,}$/i.test(newChatInput) && (
+                            {!searchingUsers && userSearchResults.length === 0 && !searchQuery.startsWith('npub') && !/^[0-9a-f]{10,}$/i.test(searchQuery) && (
                                 <div className="search-status" style={{ color: 'var(--color-gray-400)' }}>
-                                    No users found
+                                    No new users found — try an npub to message directly
                                 </div>
                             )}
                         </div>
                     )}
-
-                    <div className="search-box">
-                        <Search size={16} className="text-gray-400" />
-                        <input type="text" placeholder="Search chats..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-                    </div>
 
                     <div className="conversation-list">
                         {sortedConversations.length === 0 ? (
@@ -386,13 +383,23 @@ const Messages = () => {
                             </div>
 
                             <div className="chat-input-area">
-                                <input
-                                    type="text"
+                                <textarea
+                                    ref={messageInputRef}
                                     placeholder="Type a message..."
                                     value={newMessage}
-                                    onChange={(e) => setNewMessage(e.target.value)}
-                                    onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
+                                    onChange={(e) => {
+                                        setNewMessage(e.target.value);
+                                        e.target.style.height = 'auto';
+                                        e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
+                                    }}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && !e.shiftKey) {
+                                            e.preventDefault();
+                                            handleSendMessage();
+                                        }
+                                    }}
                                     disabled={sending}
+                                    rows={1}
                                 />
                                 <button className="btn btn-primary send-btn" onClick={handleSendMessage} disabled={sending || !newMessage.trim()}>
                                     {sending ? <Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> : <Send size={18} />}
@@ -424,7 +431,6 @@ const sharedStyles = `
         margin: 0 auto;
         padding: 1.5rem var(--spacing-md) 0;
         box-sizing: border-box;
-        /* Fill viewport: subtract top navbar (73px) */
         height: calc(100vh - 73px);
         display: flex;
         flex-direction: column;
@@ -478,12 +484,17 @@ const sharedStyles = `
     .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; }
     .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-    .new-chat-panel { border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); flex-shrink: 0; }
-    .new-chat-header { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); }
-    .new-chat-box { padding: 0.5rem 0.75rem; display: flex; gap: 0.5rem; }
-    .new-chat-box input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); font-size: 0.85rem; outline: none; background: var(--color-surface); color: var(--color-text); }
-    .new-chat-box input:focus { border-color: var(--color-primary); }
+    /* ── Unified search box ── */
+    .search-box { margin: 0.75rem; padding: 0.5rem 0.75rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; border: 1px solid transparent; transition: border-color 0.2s, background 0.2s; }
+    .search-box:focus-within { border-color: var(--color-primary); background: var(--color-surface); }
+    .search-box input { background: transparent; border: none; outline: none; font-size: 0.9rem; flex: 1; color: var(--color-text); cursor: text; }
+    .search-icon { color: var(--color-gray-400); flex-shrink: 0; }
+    .search-clear { background: none; border: none; cursor: pointer; padding: 2px; border-radius: 50%; color: var(--color-gray-400); display: flex; align-items: center; }
+    .search-clear:hover { background: var(--color-gray-200); color: var(--color-gray-600); }
 
+    /* ── Search results dropdown ── */
+    .search-results-panel { border-bottom: 1px solid var(--color-gray-200); background: var(--color-surface); flex-shrink: 0; }
+    .search-section-label { padding: 0.4rem 0.75rem; font-size: 0.7rem; font-weight: 600; color: var(--color-gray-400); text-transform: uppercase; letter-spacing: 0.05em; }
     .search-status { padding: 0.5rem 0.75rem; font-size: 0.8rem; color: var(--color-gray-500); display: flex; align-items: center; gap: 0.5rem; }
 
     .user-search-results { max-height: 240px; overflow-y: auto; }
@@ -495,11 +506,6 @@ const sharedStyles = `
     .source-badge { font-size: 0.65rem; padding: 1px 6px; border-radius: 99px; font-weight: 600; flex-shrink: 0; }
     .source-badge.bies { background: var(--color-blue-tint); color: #1E40AF; }
     .source-badge.nostr { background: #F3E8FF; color: #7C3AED; }
-
-    .btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 600; }
-
-    .search-box { margin: 1rem; padding: 0.5rem 1rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-    .search-box input { background: transparent; border: none; outline: none; font-size: 0.9rem; flex: 1; color: var(--color-text); }
 
     .conversation-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .chat-item { padding: 1rem; display: flex; gap: 1rem; cursor: pointer; border-bottom: 1px solid var(--color-gray-50); transition: background 0.2s; position: relative; }
@@ -529,18 +535,20 @@ const sharedStyles = `
     .msg.sent { background: var(--color-primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
     .msg-time { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
 
+    /* ── Message compose textarea ── */
     .chat-input-area {
         padding: 0.75rem 1rem;
         background: var(--color-surface);
         border-top: 1px solid var(--color-gray-200);
         display: flex;
         gap: 0.75rem;
+        align-items: flex-end;
         flex-shrink: 0;
         padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
     }
-    .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; cursor: text; font-size: 1rem; background: var(--color-surface); color: var(--color-text); }
-    .chat-input-area input:focus { border-color: var(--color-primary); }
-    .chat-input-area input:disabled { opacity: 0.5; }
+    .chat-input-area textarea { flex: 1; padding: 0.6rem 1rem; border: 1px solid var(--color-gray-300); border-radius: 20px; outline: none; resize: none; font-family: inherit; font-size: 0.95rem; line-height: 1.4; max-height: 120px; overflow-y: auto; cursor: text; background: var(--color-surface); color: var(--color-text); }
+    .chat-input-area textarea:focus { border-color: var(--color-primary); }
+    .chat-input-area textarea:disabled { opacity: 0.5; }
     .send-btn { border-radius: 50%; width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; }
 
     /* ── Utility ── */
@@ -566,7 +574,6 @@ const sharedStyles = `
     /* ── Mobile ── */
     @media (max-width: 768px) {
         .messages-page {
-            /* subtract top nav (73px) + bottom nav (72px) + safe area */
             height: calc(100vh - 73px - 72px - env(safe-area-inset-bottom, 0px));
             padding: 0;
             max-width: 100%;
