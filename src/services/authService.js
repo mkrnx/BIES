@@ -14,6 +14,7 @@ import { authApi } from './api.js';
 import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { privateKeyFromSeedWords, validateWords } from 'nostr-tools/nip06';
 import { nostrSigner } from './nostrSigner.js';
+import { fingerprintService } from './fingerprintService.js';
 
 const TOKEN_KEY = 'bies_token';
 const USER_KEY = 'bies_user';
@@ -83,13 +84,9 @@ export const authService = {
             throw new Error('No Nostr extension found. Please install Alby or nos2x.');
         }
 
-        // Step 1: Get pubkey from browser extension
         const pubkey = await window.nostr.getPublicKey();
-
-        // Step 2: Get challenge from backend
         const { challenge } = await authApi.nostrChallenge(pubkey);
 
-        // Step 3: Sign a kind:27235 event with the challenge as content
         const signedEvent = await window.nostr.signEvent({
             kind: 27235,
             pubkey,
@@ -98,8 +95,8 @@ export const authService = {
             content: challenge,
         });
 
-        // Step 4: Send signed event to backend for verification
-        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent, fingerprint);
 
         authService.setToken(token);
         authService.setCachedUser(user);
@@ -133,7 +130,8 @@ export const authService = {
             content: challenge,
         }, sk);
 
-        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent, fingerprint);
 
         authService.setToken(token);
         authService.setCachedUser(user);
@@ -166,7 +164,8 @@ export const authService = {
             content: challenge,
         }, sk);
 
-        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent, fingerprint);
 
         authService.setToken(token);
         authService.setCachedUser(user);
@@ -208,7 +207,8 @@ export const authService = {
             content: challenge,
         });
 
-        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.nostrLogin(pubkey, signedEvent, fingerprint);
 
         authService.setToken(token);
         authService.setCachedUser(user);
@@ -228,7 +228,8 @@ export const authService = {
     // ─── Email/password login ───────────────────────────────────────────────
 
     loginWithEmail: async (email, password) => {
-        const { user, token } = await authApi.login(email, password);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.login(email, password, fingerprint);
         authService.setToken(token);
         authService.setCachedUser(user);
         return user;
@@ -237,7 +238,8 @@ export const authService = {
     // ─── Registration ────────────────────────────────────────────────────────
 
     register: async (email, password, role, name) => {
-        const { user, token } = await authApi.register(email, password, role, name);
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.register(email, password, role, name, fingerprint);
         authService.setToken(token);
         authService.setCachedUser(user);
         return user;

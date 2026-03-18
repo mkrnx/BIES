@@ -44,6 +44,7 @@ model User {
   deckRequests     DeckRequest[]
   eventRSVPs      EventAttendee[]
   settings         UserSettings?
+  fingerprints     BrowserFingerprint[]
 
   @@map("users")
 }
@@ -531,4 +532,23 @@ model ZapReceipt {
   @@index([projectId])
   @@index([senderPubkey])
   @@map("zap_receipts")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Browser Fingerprints (ban evasion detection)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model BrowserFingerprint {
+  id              String   @id @default(cuid())
+  fingerprintHash String   @map("fingerprint_hash")
+  userId          String   @map("user_id")
+  ipAddress       String?  @map("ip_address")
+  userAgent       String?  @map("user_agent")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([fingerprintHash])
+  @@index([userId])
+  @@map("browser_fingerprints")
 }

@@ -84,17 +84,17 @@ async function uploadFile(path, formData) {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authApi = {
-    register: (email, password, role, name) =>
-        post('/auth/register', { email, password, role, name }),
+    register: (email, password, role, name, fingerprint) =>
+        post('/auth/register', { email, password, role, name, fingerprint }),
 
-    login: (email, password) =>
-        post('/auth/login', { email, password }),
+    login: (email, password, fingerprint) =>
+        post('/auth/login', { email, password, fingerprint }),
 
     nostrChallenge: (pubkey) =>
         get('/auth/nostr-challenge', { pubkey }),
 
-    nostrLogin: (pubkey, signedEvent) =>
-        post('/auth/nostr-login', { pubkey, signedEvent }),
+    nostrLogin: (pubkey, signedEvent, fingerprint) =>
+        post('/auth/nostr-login', { pubkey, signedEvent, fingerprint }),
 
     demoLogin: () => post('/auth/demo-login'), // TODO: Remove before production
 
