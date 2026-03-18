@@ -4,6 +4,7 @@ set -euo pipefail
 REPO_DIR="/home/debian/Websites/BIES"
 LOG_FILE="/home/debian/Websites/BIES/deploy/deploy.log"
 DEPLOYED_FILE="/home/debian/Websites/BIES/deploy/.deployed-commit"
+LOCK_FILE="/home/debian/Websites/BIES/deploy/.deploy-lock"
 BRANCH="main"
 MAX_LOG_LINES=500
 
@@ -17,6 +18,13 @@ if [ -f "$LOG_FILE" ] && [ "$(wc -l < "$LOG_FILE")" -gt "$MAX_LOG_LINES" ]; then
 fi
 
 cd "$REPO_DIR"
+
+# Prevent concurrent deploys
+if ! mkdir "$LOCK_FILE" 2>/dev/null; then
+  log "Deploy already in progress, skipping."
+  exit 0
+fi
+trap 'rm -rf "$LOCK_FILE"' EXIT
 
 # Fetch latest from remote
 git fetch origin "$BRANCH" --quiet 2>>"$LOG_FILE"
