@@ -37,6 +37,7 @@ const Login = () => {
     const [dlKeyPasswordConfirm, setDlKeyPasswordConfirm] = useState('');
     const [showDlKeyPassword, setShowDlKeyPassword] = useState(false);
     const [dlEncrypting, setDlEncrypting] = useState(false);
+    const [keyDownloaded, setKeyDownloaded] = useState(false);
 
     // Keyfile unlock state
     const [keyfilePayload, setKeyfilePayload] = useState(null);
@@ -70,16 +71,18 @@ const Login = () => {
         }
     }, [authLoading, authedUser, showPasskeyPrompt, navigate]);
 
-    const handleResult = (result, nsec) => {
+    const handleResult = (result, nsec, { skipSavePrompt = false } = {}) => {
         if (result.success) {
             const target = result.needsProfileSetup ? '/profile-setup' : '/feed';
 
-            // Offer passkey save if: we have the nsec, passkeys are supported,
-            // and user doesn't already have one for this account
-            if (PASSKEY_ENABLED && nsec && passkeyService.isSupported() && !passkeyService.hasCredential(result.user?.nostrPubkey)) {
+            // Always show key-save prompt after nsec/seed login so the user
+            // is forced to download an encrypted backup before continuing.
+            // File-based logins (skipSavePrompt=true) already have a key file.
+            if (nsec && !skipSavePrompt) {
                 setPendingNsec(nsec);
                 setPendingRedirect(target);
                 setPasskeyUser(result.user);
+                setKeyDownloaded(false);
                 setShowPasskeyPrompt(true);
             } else {
                 navigate(target);
@@ -185,7 +188,7 @@ const Login = () => {
                 setKeyFileName(file.name);
                 setLoading(true);
                 const result = await loginWithNsecAndCheckNew(parsed.legacyNsec);
-                handleResult(result, parsed.legacyNsec);
+                handleResult(result, parsed.legacyNsec, { skipSavePrompt: true });
                 setLoading(false);
                 return;
             }
@@ -209,7 +212,7 @@ const Login = () => {
             const { nsec } = keyfileService.decrypt(keyfilePayload.ncryptsec, unlockPassword, keyfilePayload.npub);
             setUnlockPassword('');
             const result = await loginWithNsecAndCheckNew(nsec);
-            handleResult(result, nsec);
+            handleResult(result, nsec, { skipSavePrompt: true });
         } catch (err) {
             setError(err.message || 'Wrong password or corrupted file.');
         } finally {
@@ -249,6 +252,7 @@ const Login = () => {
             await keyfileService.encryptAndDownload(pendingNsec, dlKeyPassword);
             setDlKeyPassword('');
             setDlKeyPasswordConfirm('');
+            setKeyDownloaded(true);
         } catch (err) {
             setError(err.message || 'Encryption failed.');
         } finally {
@@ -369,13 +373,13 @@ const Login = () => {
         return (
             <div className="login-container">
                 <div className="login-card">
-                    <div className="passkey-prompt-icon">
-                        <ShieldCheck size={40} />
+                    <div className="passkey-prompt-icon" style={keyDownloaded ? { background: 'var(--color-green-tint, #dcfce7)', color: 'var(--color-success, #16a34a)' } : {}}>
+                        {keyDownloaded ? <CheckCircle size={40} /> : <ShieldCheck size={40} />}
                     </div>
 
-                    <h2 className="login-heading">Secure Your Key</h2>
+                    <h2 className="login-heading">Save Your Nostr Key</h2>
                     <p className="login-subtext" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                        Download an encrypted backup file or set up quick login with a passkey.
+                        Download an encrypted backup of your key before continuing. This is the only copy — if you lose it, your account cannot be recovered.
                     </p>
 
                     {error && (
@@ -386,47 +390,58 @@ const Login = () => {
                     )}
 
                     <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {/* ── Backup: .nostrkey download ── */}
-                        <div className="login-section-box">
-                            <p className="login-section-title">
-                                Backup — Encrypted Key File
+                        {/* ── Required: .nostrkey download ── */}
+                        <div className="login-section-box" style={keyDownloaded ? { borderColor: 'var(--color-success, #16a34a)' } : {}}>
+                            <p className="login-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                {keyDownloaded
+                                    ? <><CheckCircle size={13} style={{ color: 'var(--color-success, #16a34a)' }} /> Key File Saved</>
+                                    : 'Save Key File (Required)'}
                             </p>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <input
-                                    type={showDlKeyPassword ? 'text' : 'password'}
-                                    value={dlKeyPassword}
-                                    onChange={(e) => setDlKeyPassword(e.target.value)}
-                                    placeholder="Password (min 8 chars)"
-                                    className="login-input-sm"
-                                    style={{ paddingRight: '2.25rem' }}
-                                    autoComplete="new-password"
-                                />
-                                <button type="button" onClick={() => setShowDlKeyPassword(!showDlKeyPassword)} className="login-eye-btn" style={{ right: 6 }}>
-                                    {showDlKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                                </button>
-                            </div>
-                            <input
-                                type={showDlKeyPassword ? 'text' : 'password'}
-                                value={dlKeyPasswordConfirm}
-                                onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
-                                placeholder="Confirm password"
-                                className="login-input-sm"
-                                autoComplete="new-password"
-                            />
-                            <button
-                                onClick={handleDownloadKeyfile}
-                                disabled={dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm}
-                                className="w-full btn-skip flex items-center justify-center gap-2 py-2 rounded-full"
-                            >
-                                {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
-                            </button>
-                            <p className="login-hint" style={{ lineHeight: 1.3 }}>
-                                This password-protected file is a true backup of your key. Store it somewhere safe.
-                            </p>
+                            {!keyDownloaded && (
+                                <>
+                                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <input
+                                            type={showDlKeyPassword ? 'text' : 'password'}
+                                            value={dlKeyPassword}
+                                            onChange={(e) => setDlKeyPassword(e.target.value)}
+                                            placeholder="Password (min 8 chars)"
+                                            className="login-input-sm"
+                                            style={{ paddingRight: '2.25rem' }}
+                                            autoComplete="new-password"
+                                        />
+                                        <button type="button" onClick={() => setShowDlKeyPassword(!showDlKeyPassword)} className="login-eye-btn" style={{ right: 6 }}>
+                                            {showDlKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                                        </button>
+                                    </div>
+                                    <input
+                                        type={showDlKeyPassword ? 'text' : 'password'}
+                                        value={dlKeyPasswordConfirm}
+                                        onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
+                                        placeholder="Confirm password"
+                                        className="login-input-sm"
+                                        autoComplete="new-password"
+                                    />
+                                    <button
+                                        onClick={handleDownloadKeyfile}
+                                        disabled={dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm}
+                                        className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
+                                    >
+                                        {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
+                                    </button>
+                                    <p className="login-hint" style={{ lineHeight: 1.3 }}>
+                                        Set a password to encrypt your key file. Store it somewhere safe — it is your only backup.
+                                    </p>
+                                </>
+                            )}
+                            {keyDownloaded && (
+                                <p className="login-hint" style={{ color: 'var(--color-success, #16a34a)', lineHeight: 1.3 }}>
+                                    Your encrypted key file has been downloaded. Keep it safe.
+                                </p>
+                            )}
                         </div>
 
-                        {/* ── Quick Login: Passkey ── */}
-                        {PASSKEY_ENABLED && passkeyService.isSupported() && (
+                        {/* ── Quick Login: Passkey (optional) ── */}
+                        {PASSKEY_ENABLED && passkeyService.isSupported() && keyDownloaded && (
                             <div className="login-section-box">
                                 <p className="login-section-title">
                                     Quick Login — Passkey (Optional)
@@ -444,17 +459,18 @@ const Login = () => {
                                     <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
                                 </button>
                                 <p className="login-hint" style={{ color: 'var(--color-warning)', lineHeight: 1.3 }}>
-                                    Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup.
+                                    Passkey does NOT replace your key file. It encrypts your key on this device for quick login only. If you lose this device, the passkey is gone.
                                 </p>
                             </div>
                         )}
 
                         <button
                             onClick={handleSkipPasskey}
-                            disabled={savingPasskey}
+                            disabled={savingPasskey || !keyDownloaded}
                             className="w-full btn-skip flex items-center justify-center py-3 rounded-full"
+                            title={!keyDownloaded ? 'Download your key file first' : ''}
                         >
-                            Continue to Dashboard
+                            {keyDownloaded ? 'Continue to Dashboard' : 'Download your key file to continue'}
                         </button>
                     </div>
                 </div>
