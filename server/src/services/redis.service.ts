@@ -224,5 +224,6 @@ export const cacheKey = {
     matches: (projectId: string) => `matches:${projectId}`,
     investorRecs: (userId: string) => `investor_recs:${userId}`,
     twitterFeed: () => 'twitter:feed',
+    liveNewsFeed: () => 'newsfeed:live',
     siteSettings: () => 'site_settings:default',
 };

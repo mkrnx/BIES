@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { cache, TTL, cacheKey } from '../services/redis.service';
 import { fetchTweetsByHandles } from '../services/twitter.service';
+import { getLiveNewsFeed, filterByKeyword } from '../services/newsfeed.service';
 
 // ─── Validation ──────────────────────────────────────────────────────────────
 
@@ -83,5 +84,24 @@ export async function getTwitterFeed(req: Request, res: Response): Promise<void>
     } catch (error) {
         console.error('Twitter feed error:', error);
         res.status(500).json({ error: 'Failed to get Twitter feed' });
+    }
+}
+
+// ─── GET /news/live-feed (public) ────────────────────────────────────────────
+
+export async function getLiveNews(req: Request, res: Response): Promise<void> {
+    try {
+        const { keyword } = req.query;
+        let articles = await getLiveNewsFeed();
+
+        // Filter by keyword if provided
+        if (keyword && typeof keyword === 'string') {
+            articles = filterByKeyword(articles, keyword);
+        }
+
+        res.json({ data: articles });
+    } catch (error) {
+        console.error('Live news feed error:', error);
+        res.status(500).json({ error: 'Failed to get live news feed' });
     }
 }

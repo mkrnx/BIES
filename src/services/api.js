@@ -339,6 +339,7 @@ export const contentApi = {
 export const newsApi = {
     settings: () => get('/news/settings'),
     twitterFeed: () => get('/news/twitter-feed'),
+    liveFeed: (keyword) => get('/news/live-feed', keyword ? { keyword } : {}),
     updateSettings: (data) => put('/news/settings', data),
 };
 

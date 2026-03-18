@@ -53,6 +53,9 @@ export const config = {
     // ─── Twitter/X (gallery-dl + browser cookies) ──────────────────────────
     twitterCookiesPath: process.env.TWITTER_COOKIES_PATH || '',
 
+    // ─── News Feed (gnews.io API) ───────────────────────────────────────────
+    gnewsApiKey: process.env.GNEWS_API_KEY || '',
+
     // ─── Email (optional, for notification emails) ───────────────────────────
     smtp: {
         host: process.env.SMTP_HOST || '',
