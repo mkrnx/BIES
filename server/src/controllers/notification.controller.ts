@@ -5,6 +5,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey } from '../services/redis.service';
+import { notifyFeedInteraction } from '../services/notification.service';
 
 /**
  * GET /notifications
@@ -150,5 +151,43 @@ export async function deleteNotification(req: Request, res: Response): Promise<v
     } catch (error) {
         console.error('Delete notification error:', error);
         res.status(500).json({ error: 'Failed to delete notification' });
+    }
+}
+
+/**
+ * POST /notifications/feed-interaction
+ * Create a notification for a feed interaction (comment, like, reply).
+ * The authenticated user is the actor; targetPubkey is the recipient.
+ */
+const VALID_FEED_TYPES = ['POST_COMMENT', 'POST_LIKE', 'COMMENT_LIKE', 'COMMENT_REPLY'] as const;
+
+export async function feedInteraction(req: Request, res: Response): Promise<void> {
+    try {
+        const { type, targetPubkey, actorName, eventId, contentPreview } = req.body;
+        const actorPubkey = req.user!.nostrPubkey;
+
+        if (!type || !VALID_FEED_TYPES.includes(type)) {
+            res.status(400).json({ error: 'Invalid interaction type' });
+            return;
+        }
+
+        if (!targetPubkey || typeof targetPubkey !== 'string') {
+            res.status(400).json({ error: 'targetPubkey is required' });
+            return;
+        }
+
+        await notifyFeedInteraction({
+            actorPubkey,
+            targetPubkey,
+            type,
+            actorName: actorName || 'Someone',
+            eventId,
+            contentPreview,
+        });
+
+        res.json({ message: 'ok' });
+    } catch (error) {
+        console.error('Feed interaction notification error:', error);
+        res.status(500).json({ error: 'Failed to create notification' });
     }
 }
