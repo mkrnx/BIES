@@ -253,6 +253,7 @@ const Signup = () => {
                             </div>
                             <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--color-surface)' }}>
                                 <p className="text-xs font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-500)' }}>Encrypted Key File (.nostrkey)</p>
+                                <form onSubmit={(e) => { e.preventDefault(); downloadKeys(); }} style={{ display: 'contents' }}>
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                     <input
                                         type={showKeyPassword ? 'text' : 'password'}
@@ -279,13 +280,14 @@ const Signup = () => {
                                     autoComplete="new-password"
                                 />
                                 <button
-                                    onClick={downloadKeys}
+                                    type="submit"
                                     disabled={encrypting || !isKeyPasswordValid(keyPassword) || keyPassword !== keyPasswordConfirm}
                                     className="w-full btn-outline py-2 rounded-full flex items-center justify-center gap-2"
                                     style={{ opacity: (encrypting || !isKeyPasswordValid(keyPassword) || keyPassword !== keyPasswordConfirm) ? 0.5 : 1 }}
                                 >
                                     {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : keyfileDownloaded ? <><CheckCircle size={14} style={{ color: 'var(--color-success)' }} /> Downloaded — Download Again</> : <><Download size={14} /> Download .nostrkey File</>}
                                 </button>
+                                </form>
                                 <p className="text-xs" style={{ lineHeight: 1.3, color: 'var(--color-gray-400)' }}>
                                     Password must be <strong>at least 16 characters</strong> and include both <strong>letters and numbers</strong>. All other characters are welcome too. Store the file somewhere safe — you'll need this password to unlock it.
                                 </p>
