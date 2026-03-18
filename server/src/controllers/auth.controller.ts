@@ -70,6 +70,63 @@ export function removeFromRelayWhitelist(pubkey: string): void {
     }
 }
 
+// ─── Fingerprint helpers (ban evasion detection) ───
+
+/**
+ * Store a browser fingerprint for a user.
+ * Called on every login/signup so we build a fingerprint history.
+ */
+async function storeFingerprint(
+    userId: string,
+    fingerprintHash: string | null | undefined,
+    req: Request,
+): Promise<void> {
+    if (!fingerprintHash || typeof fingerprintHash !== 'string' || fingerprintHash.length < 16) return;
+
+    try {
+        // Avoid duplicates: only store if this exact user+fingerprint combo doesn't exist
+        const existing = await prisma.browserFingerprint.findFirst({
+            where: { userId, fingerprintHash },
+        });
+        if (existing) return;
+
+        await prisma.browserFingerprint.create({
+            data: {
+                userId,
+                fingerprintHash,
+                ipAddress: req.ip || null,
+                userAgent: req.headers['user-agent'] || null,
+            },
+        });
+    } catch (err) {
+        console.error('[Fingerprint] Failed to store:', err);
+    }
+}
+
+/**
+ * Check if a fingerprint hash matches any banned user's fingerprints.
+ * Returns the banned user IDs if a match is found.
+ */
+async function checkBanEvasion(
+    fingerprintHash: string | null | undefined,
+): Promise<string[]> {
+    if (!fingerprintHash || typeof fingerprintHash !== 'string' || fingerprintHash.length < 16) return [];
+
+    try {
+        const matches = await prisma.browserFingerprint.findMany({
+            where: {
+                fingerprintHash,
+                user: { isBanned: true },
+            },
+            select: { userId: true },
+        });
+        return [...new Set(matches.map((m) => m.userId))];
+    } catch (err) {
+        console.error('[Fingerprint] Ban evasion check failed:', err);
+        return [];
+    }
+}
+
 // ─── Validation Schemas ───
 
 export const registerSchema = z.object({
@@ -119,7 +176,7 @@ async function generateNip05Name(baseName: string): Promise<string | null> {
  */
 export async function register(req: Request, res: Response): Promise<void> {
     try {
-        const { email, password, role, name } = req.body;
+        const { email, password, role, name, fingerprint } = req.body;
 
         // Check if email already exists
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -127,6 +184,9 @@ export async function register(req: Request, res: Response): Promise<void> {
             res.status(409).json({ error: 'Email already registered' });
             return;
         }
+
+        // Check for ban evasion via browser fingerprint
+        const bannedUserIds = await checkBanEvasion(fingerprint);
 
         // Hash password
         const passwordHash = await bcrypt.hash(password, 12);
@@ -146,6 +206,7 @@ export async function register(req: Request, res: Response): Promise<void> {
                 nostrPubkey,
                 encryptedPrivkey,
                 role,
+                isBanned: bannedUserIds.length > 0,
                 profile: {
                     create: {
                         name: name || email.split('@')[0],
@@ -156,6 +217,29 @@ export async function register(req: Request, res: Response): Promise<void> {
                 profile: true,
             },
         });
+
+        // Store fingerprint for this new account
+        await storeFingerprint(user.id, fingerprint, req);
+
+        // If ban evasion detected, log it and block
+        if (bannedUserIds.length > 0) {
+            await prisma.auditLog.create({
+                data: {
+                    userId: user.id,
+                    action: 'BAN_EVASION_DETECTED',
+                    resource: `user:${user.id}`,
+                    ipAddress: req.ip || null,
+                    userAgent: req.headers['user-agent'] || null,
+                    metadata: JSON.stringify({
+                        matchedBannedUsers: bannedUserIds,
+                        fingerprintHash: fingerprint,
+                    }),
+                },
+            });
+            console.log(`[Auth] Ban evasion detected: new user ${user.id} matches banned users ${bannedUserIds.join(', ')}`);
+            res.status(403).json({ error: 'Your account has been suspended' });
+            return;
+        }
 
         // Add custodial pubkey to relay whitelist so email users can access the private relay
         addToRelayWhitelist(nostrPubkey);
@@ -199,7 +283,7 @@ export async function register(req: Request, res: Response): Promise<void> {
  */
 export async function login(req: Request, res: Response): Promise<void> {
     try {
-        const { email, password } = req.body;
+        const { email, password, fingerprint } = req.body;
 
         const user = await prisma.user.findUnique({
             where: { email },
@@ -216,6 +300,9 @@ export async function login(req: Request, res: Response): Promise<void> {
             res.status(401).json({ error: 'Invalid email or password' });
             return;
         }
+
+        // Store fingerprint (even for banned users — builds the fingerprint database)
+        await storeFingerprint(user.id, fingerprint, req);
 
         if (user.isBanned) {
             res.status(403).json({ error: 'Your account has been suspended' });
@@ -268,7 +355,7 @@ export async function getNostrChallenge(req: Request, res: Response): Promise<vo
  */
 export async function nostrLogin(req: Request, res: Response): Promise<void> {
     try {
-        const { pubkey, signedEvent } = req.body;
+        const { pubkey, signedEvent, fingerprint } = req.body;
 
         if (!pubkey || !HEX_PUBKEY_RE.test(pubkey)) {
             res.status(400).json({ error: 'Valid hex pubkey required' });
@@ -335,11 +422,15 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
         const isEnvAdmin = isAdminPubkey(pubkey);
 
         if (!user) {
+            // Check for ban evasion before creating the new account
+            const bannedUserIds = await checkBanEvasion(fingerprint);
+
             // Auto-create user for Nostr login (no custodial key needed — they manage their own)
             user = await prisma.user.create({
                 data: {
                     nostrPubkey: pubkey,
                     role: isEnvAdmin ? 'ADMIN' : 'BUILDER',
+                    isBanned: bannedUserIds.length > 0,
                     profile: {
                         create: {
                             name: `nostr:${pubkey.substring(0, 8)}`,
@@ -349,8 +440,30 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 include: { profile: true },
             });
 
-            // Publish NIP-65 relay list for the new custodial user
-            // (Nostr-native users will be prompted client-side instead)
+            // Store fingerprint for the new account
+            await storeFingerprint(user.id, fingerprint, req);
+
+            // If ban evasion detected, log it and block
+            if (bannedUserIds.length > 0) {
+                await prisma.auditLog.create({
+                    data: {
+                        userId: user.id,
+                        action: 'BAN_EVASION_DETECTED',
+                        resource: `user:${user.id}`,
+                        ipAddress: req.ip || null,
+                        userAgent: req.headers['user-agent'] || null,
+                        metadata: JSON.stringify({
+                            matchedBannedUsers: bannedUserIds,
+                            fingerprintHash: fingerprint,
+                        }),
+                    },
+                });
+                console.log(`[Auth] Ban evasion detected: new user ${user.id} matches banned users ${bannedUserIds.join(', ')}`);
+                res.status(403).json({ error: 'Your account has been suspended' });
+                return;
+            }
+
+            // Publish NIP-65 relay list for the new user
             publishRelayList(user.id).catch((err) =>
                 console.error('[Nostr] Relay list publish failed:', err)
             );
@@ -372,6 +485,9 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 include: { profile: true },
             });
         }
+
+        // Store fingerprint for existing users (builds fingerprint database)
+        await storeFingerprint(user.id, fingerprint, req);
 
         // Block banned users from logging in and re-whitelisting
         if (user.isBanned) {
