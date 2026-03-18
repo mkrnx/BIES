@@ -13,25 +13,73 @@ import { useSectionDrag, reorderArray } from '../hooks/useSectionDrag';
 
 // Defined outside component to prevent re-mount on every render (which causes input focus loss)
 const SectionHeader = ({ icon, title, children }) => (
-    <div className="pe-section-header">
-        <div className="pe-section-title">
+    <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: '1rem',
+        paddingBottom: '0.75rem',
+        borderBottom: '1px solid var(--color-gray-200, #e5e7eb)',
+    }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {icon}
-            <h3>{title}</h3>
+            <h3 style={{
+                fontSize: '1.05rem',
+                fontWeight: 700,
+                fontFamily: 'var(--font-display)',
+                margin: 0,
+                color: 'var(--color-gray-900, #1f2937)',
+            }}>{title}</h3>
         </div>
         {children}
     </div>
 );
 
 const CollapsibleSub = ({ title, icon, open, onToggle, children }) => (
-    <div className="pe-collapsible">
-        <button type="button" className="pe-collapsible-trigger" onClick={onToggle}>
-            <div className="pe-collapsible-label">
+    <div style={{
+        border: '1px solid var(--color-gray-200, #e5e7eb)',
+        borderRadius: 'var(--radius-md, 6px)',
+        marginBottom: '0.5rem',
+        overflow: 'hidden',
+    }}>
+        <button
+            type="button"
+            onClick={onToggle}
+            style={{
+                width: '100%',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '0.75rem 0.875rem',
+                background: 'var(--color-surface-raised, #fafbfc)',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                color: 'var(--color-gray-800, #1f2937)',
+                transition: 'background 0.15s',
+            }}
+        >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 {icon}
                 <span>{title}</span>
             </div>
-            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            {open
+                ? <ChevronUp size={16} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
+                : <ChevronDown size={16} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
+            }
         </button>
-        {open && <div className="pe-collapsible-body">{children}</div>}
+        {open && (
+            <div style={{
+                padding: '0.875rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.75rem',
+                borderTop: '1px solid var(--color-gray-200, #e5e7eb)',
+            }}>
+                {children}
+            </div>
+        )}
     </div>
 );
 
@@ -528,7 +576,7 @@ const ProfileEdit = () => {
         const typeConfig = {
             TEXT:     { icon: <AlignLeftIcon size={12} />,  label: 'Text',     color: '#2563eb', bg: 'var(--color-blue-tint)', border: '#bfdbfe' },
             PHOTO:    { icon: <ImageIcon size={12} />,       label: 'Photo',    color: '#16a34a', bg: 'var(--color-green-tint)', border: '#bbf7d0' },
-            CAROUSEL: { icon: <LayoutIcon size={12} />,      label: 'Carousel', color: '#7c3aed', bg: '#f5f3ff', border: '#ddd6fe' },
+            CAROUSEL: { icon: <LayoutIcon size={12} />,      label: 'Carousel', color: '#a78bfa', bg: 'var(--color-surface-raised, #f5f3ff)', border: 'var(--color-gray-200, #ddd6fe)' },
             GRAPH:    { icon: <LineChartIcon size={12} />,   label: 'Graph',    color: '#ea580c', bg: 'var(--color-orange-tint)', border: '#fed7aa' },
         }[stype] || { icon: null, label: stype, color: 'var(--color-gray-500)', bg: 'var(--color-gray-100)', border: 'var(--color-gray-200)' };
 
@@ -560,7 +608,7 @@ const ProfileEdit = () => {
                               </div>
                             : <label style={{ border: '2px dashed var(--color-gray-300)', borderRadius: '12px', padding: '2rem 1rem', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--color-gray-50)' }}>
                                 <Upload size={24} style={{ color: 'var(--color-gray-400)', marginBottom: '0.4rem' }} />
-                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#16a34a', margin: '0 0 0.2rem' }}>Upload Photo</p>
+                                <p style={{ fontSize: '0.85rem', fontWeight: 600, color: '#22c55e', margin: '0 0 0.2rem' }}>Upload Photo</p>
                                 <p style={{ fontSize: '0.72rem', color: 'var(--color-gray-400)', margin: 0 }}>JPG, PNG, WebP</p>
                                 <input type="file" accept="image/*" onChange={e => handleSectionImageUpload(idx, e.target.files?.[0])} style={{ display: 'none' }} />
                               </label>
@@ -699,10 +747,6 @@ const ProfileEdit = () => {
                 {/* Top bar */}
                 <div className="pe-topbar">
                     <h1 className="pe-page-title">Edit Profile</h1>
-                    <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn">
-                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
-                        {saving ? 'Saving...' : 'Save'}
-                    </button>
                 </div>
 
                 {error && (
@@ -729,6 +773,10 @@ const ProfileEdit = () => {
                             <span className="pe-banner-edit-text">Edit</span>
                             <input type="file" accept="image/*" onChange={handleBannerSelect} style={{ display: 'none' }} />
                         </label>
+                        <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn pe-banner-save">
+                            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
+                            {saving ? 'Saving...' : 'Save'}
+                        </button>
                     </div>
 
                     <div className="pe-avatar-row">
@@ -748,15 +796,20 @@ const ProfileEdit = () => {
                                 </div>
                             )}
                             <label className="pe-avatar-edit">
-                                <Camera size={14} style={{ color: '#374151' }} />
+                                <Camera size={14} style={{ color: 'var(--color-gray-700)' }} />
                                 <input type="file" accept="image/*" onChange={handleAvatarSelect} style={{ display: 'none' }} />
                             </label>
                         </div>
                     </div>
                 </div>
 
-                {/* Basic Info */}
-                <div className="pe-card">
+                {/* Two-Column Grid - Main + Sidebar */}
+                <div className="pe-grid">
+                    {/* LEFT COLUMN - Main */}
+                    <div className="pe-main-col">
+
+                        {/* Basic Info */}
+                        <div className="pe-card">
                     <SectionHeader icon={<User size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Basic Info" />
                     <div className="pe-field-grid">
                         <div className="pe-field">
@@ -949,7 +1002,115 @@ const ProfileEdit = () => {
                             <button type="button" onClick={() => addSection('GRAPH', 'LEFT')} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', padding: '0.35rem 0.65rem', borderRadius: '6px', border: '2px dashed var(--color-gray-300)', background: 'none', color: 'var(--color-primary)', fontWeight: 600, fontSize: '0.76rem', cursor: 'pointer' }}><LineChartIcon size={13} /> + Graph</button>
                         </div>
                     </div>
-                </div>
+                        </div>
+
+                    </div>
+                    {/* END LEFT COLUMN */}
+
+                    {/* RIGHT COLUMN - Sidebar */}
+                    <div className="pe-sidebar-col">
+
+                        {/* Projects */}
+                        <div className="pe-card">
+                            <SectionHeader icon={<Hash size={18} style={{ color: 'var(--color-gray-400)' }} />} title={projectsTitle} />
+
+                            {autoProjects.length > 0 && (
+                                <div style={{ marginBottom: '1rem' }}>
+                                    <p className="pe-hint" style={{ marginBottom: '0.75rem' }}>Your projects (auto-detected):</p>
+                                    <div className="pe-project-grid">
+                                        {autoProjects.map(project => {
+                                            const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
+                                            return (
+                                                <div key={project.id} className={`pe-project-item ${alreadyAdded ? 'pe-project-added' : ''}`}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                                        {project.image ? (
+                                                            <img src={project.image} alt="" className="pe-project-img" />
+                                                        ) : (
+                                                            <div className="pe-project-img pe-project-img-placeholder">{project.name.charAt(0)}</div>
+                                                        )}
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <p className="pe-project-name">{project.name}</p>
+                                                            <p className="pe-project-role">{project.role}</p>
+                                                        </div>
+                                                    </div>
+                                                    {!alreadyAdded ? (
+                                                        <button onClick={() => handleAddProject({ ...project, coverImage: project.image })} className="pe-project-add-btn">+ Add</button>
+                                                    ) : (
+                                                        <span className="pe-project-added-label">Added</span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="pe-field">
+                                <label className="pe-label">Add Other Projects</label>
+                                <input type="text" placeholder="Your Role / Contribution" className="pe-input pe-input-sm" value={newProjectRole} onChange={(e) => setNewProjectRole(e.target.value)} />
+                                <div ref={searchRef} style={{ position: 'relative', marginTop: '0.5rem' }}>
+                                    <div className="pe-input-icon">
+                                        <Search size={16} className="pe-icon" />
+                                        <input
+                                            type="text"
+                                            className="pe-input pe-input-with-icon"
+                                            placeholder="Search projects..."
+                                            value={projectSearch}
+                                            onChange={(e) => { setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
+                                            onFocus={() => setShowProjectDropdown(true)}
+                                        />
+                                        {projectSearch && (
+                                            <button onClick={() => setProjectSearch('')} type="button" style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <X size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {showProjectDropdown && projectSearch.length > 0 && (
+                                        <div className="pe-dropdown">
+                                            {projectResults.filter(p =>
+                                                (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
+                                                !form.biesProjects.some(bp => bp.id === p.id)
+                                            ).map(project => (
+                                                <button
+                                                    key={project.id}
+                                                    className="pe-dropdown-item"
+                                                    onClick={() => handleAddProject({ ...project, name: project.name || project.title })}
+                                                >
+                                                    {(project.image || project.thumbnail) && <img src={project.image || project.thumbnail} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />}
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name || project.title}</p>
+                                                        <p style={{ fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>{project.status || project.stage}</p>
+                                                    </div>
+                                                </button>
+                                            ))}
+                                            {projectResults.filter(p => (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
+                                                <div className="pe-dropdown-empty">No projects found</div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {form.biesProjects.length > 0 && (
+                                <div className="pe-project-grid" style={{ marginTop: '1rem' }}>
+                                    {form.biesProjects.map(project => (
+                                        <div key={project.id} className="pe-project-item">
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
+                                                {project.image && <img src={project.image} alt="" className="pe-project-img" />}
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p className="pe-project-name">{project.name}</p>
+                                                    <p className="pe-project-role">{project.role}</p>
+                                                </div>
+                                            </div>
+                                            <button onClick={() => handleRemoveProject(project.id)} type="button" style={{ padding: '0.25rem', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
                 {/* Nostr */}
                 <div className="pe-card pe-nostr-card">
@@ -976,43 +1137,43 @@ const ProfileEdit = () => {
                                 />
                             </div>
                         )}
-                        <div className="pe-field-grid">
+                        <div className="pe-nostr-fields">
                             <div className="pe-field">
-                                <label className="pe-label">BIES Identity (NIP-05)</label>
+                                <label className="pe-label">NIP-05 Identity</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                                     <div className="pe-input-icon" style={{ flex: 1 }}>
-                                        <AtSign size={15} className="pe-icon" />
+                                        <AtSign size={14} className="pe-icon" />
                                         <input
                                             type="text"
                                             value={form.nip05Name}
                                             onChange={handleChange('nip05Name')}
-                                            className="pe-input pe-input-with-icon"
+                                            className="pe-input pe-input-with-icon pe-input-sm"
                                             placeholder="alice"
                                         />
                                     </div>
-                                    {nip05Checking && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
-                                    {!nip05Checking && nip05Available === true && <CheckCircle size={16} style={{ color: '#16a34a' }} />}
-                                    {!nip05Checking && nip05Available === false && <X size={16} style={{ color: '#ef4444' }} />}
+                                    {nip05Checking && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
+                                    {!nip05Checking && nip05Available === true && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
+                                    {!nip05Checking && nip05Available === false && <X size={14} style={{ color: '#ef4444' }} />}
                                 </div>
                                 {form.nip05Name && (
                                     <p className="pe-hint" style={{ color: nip05Available === false ? '#ef4444' : undefined }}>
-                                        {nip05Available === false ? 'This name is already taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                        {nip05Available === false ? 'Taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
                                     </p>
                                 )}
                             </div>
                             <div className="pe-field">
-                                <label className="pe-label">Lightning Address</label>
+                                <label className="pe-label">Lightning</label>
                                 <div className="pe-input-icon">
-                                    <Zap size={15} className="pe-icon" />
+                                    <Zap size={14} className="pe-icon" />
                                     <input
                                         type="text"
                                         value={form.lightningAddress}
                                         onChange={handleChange('lightningAddress')}
-                                        className="pe-input pe-input-with-icon"
+                                        className="pe-input pe-input-with-icon pe-input-sm"
                                         placeholder="you@getalby.com"
                                     />
                                 </div>
-                                <p className="pe-hint">For receiving zaps. Works with Alby, WoS, Strike, etc.</p>
+                                <p className="pe-hint">For zaps — Alby, WoS, Strike, etc.</p>
                             </div>
                         </div>
                     </CollapsibleSub>
@@ -1123,7 +1284,7 @@ const ProfileEdit = () => {
                             <div className="pe-feed-toggle">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                                     <span className="pe-label" style={{ padding: 0 }}>Show Nostr feed on profile</span>
-                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} className="pe-help-btn-inline">
+                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} className="pe-help-btn-inline" style={{ borderLeft: 'none', padding: '0.25rem' }}>
                                         <HelpCircle size={14} />
                                     </button>
                                 </div>
@@ -1154,107 +1315,10 @@ const ProfileEdit = () => {
                     </CollapsibleSub>
                 </div>
 
-                {/* Projects */}
-                <div className="pe-card">
-                    <SectionHeader icon={<Hash size={18} style={{ color: 'var(--color-gray-400)' }} />} title={projectsTitle} />
-
-                    {autoProjects.length > 0 && (
-                        <div style={{ marginBottom: '1rem' }}>
-                            <p className="pe-hint" style={{ marginBottom: '0.75rem' }}>Your projects (auto-detected):</p>
-                            <div className="pe-project-grid">
-                                {autoProjects.map(project => {
-                                    const alreadyAdded = form.biesProjects.some(bp => bp.id === project.id);
-                                    return (
-                                        <div key={project.id} className={`pe-project-item ${alreadyAdded ? 'pe-project-added' : ''}`}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                                                {project.image ? (
-                                                    <img src={project.image} alt="" className="pe-project-img" />
-                                                ) : (
-                                                    <div className="pe-project-img pe-project-img-placeholder">{project.name.charAt(0)}</div>
-                                                )}
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p className="pe-project-name">{project.name}</p>
-                                                    <p className="pe-project-role">{project.role}</p>
-                                                </div>
-                                            </div>
-                                            {!alreadyAdded ? (
-                                                <button onClick={() => handleAddProject({ ...project, coverImage: project.image })} className="pe-project-add-btn">+ Add</button>
-                                            ) : (
-                                                <span className="pe-project-added-label">Added</span>
-                                            )}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="pe-field">
-                        <label className="pe-label">Add Other Projects</label>
-                        <input type="text" placeholder="Your Role / Contribution" className="pe-input pe-input-sm" value={newProjectRole} onChange={(e) => setNewProjectRole(e.target.value)} />
-                        <div ref={searchRef} style={{ position: 'relative', marginTop: '0.5rem' }}>
-                            <div className="pe-input-icon">
-                                <Search size={16} className="pe-icon" />
-                                <input
-                                    type="text"
-                                    className="pe-input pe-input-with-icon"
-                                    placeholder="Search projects..."
-                                    value={projectSearch}
-                                    onChange={(e) => { setProjectSearch(e.target.value); setShowProjectDropdown(true); }}
-                                    onFocus={() => setShowProjectDropdown(true)}
-                                />
-                                {projectSearch && (
-                                    <button onClick={() => setProjectSearch('')} type="button" style={{ position: 'absolute', right: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                                        <X size={14} />
-                                    </button>
-                                )}
-                            </div>
-
-                            {showProjectDropdown && projectSearch.length > 0 && (
-                                <div className="pe-dropdown">
-                                    {projectResults.filter(p =>
-                                        (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase()) &&
-                                        !form.biesProjects.some(bp => bp.id === p.id)
-                                    ).map(project => (
-                                        <button
-                                            key={project.id}
-                                            className="pe-dropdown-item"
-                                            onClick={() => handleAddProject({ ...project, name: project.name || project.title })}
-                                        >
-                                            {(project.image || project.thumbnail) && <img src={project.image || project.thumbnail} alt="" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'cover' }} />}
-                                            <div style={{ minWidth: 0 }}>
-                                                <p style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{project.name || project.title}</p>
-                                                <p style={{ fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>{project.status || project.stage}</p>
-                                            </div>
-                                        </button>
-                                    ))}
-                                    {projectResults.filter(p => (p.name || p.title || '').toLowerCase().includes(projectSearch.toLowerCase())).length === 0 && (
-                                        <div className="pe-dropdown-empty">No projects found</div>
-                                    )}
-                                </div>
-                            )}
-                        </div>
                     </div>
-
-                    {form.biesProjects.length > 0 && (
-                        <div className="pe-project-grid" style={{ marginTop: '1rem' }}>
-                            {form.biesProjects.map(project => (
-                                <div key={project.id} className="pe-project-item">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', minWidth: 0 }}>
-                                        {project.image && <img src={project.image} alt="" className="pe-project-img" />}
-                                        <div style={{ minWidth: 0 }}>
-                                            <p className="pe-project-name">{project.name}</p>
-                                            <p className="pe-project-role">{project.role}</p>
-                                        </div>
-                                    </div>
-                                    <button onClick={() => handleRemoveProject(project.id)} type="button" style={{ padding: '0.25rem', color: 'var(--color-gray-400)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                                        <X size={14} />
-                                    </button>
-                                </div>
-                            ))}
-                        </div>
-                    )}
+                    {/* END RIGHT COLUMN */}
                 </div>
+                {/* END GRID */}
 
                 {/* Bottom save */}
                 <div className="pe-bottom-save">
@@ -1276,16 +1340,30 @@ const ProfileEdit = () => {
                 />
             )}
 
-            <style jsx>{`
+            <style jsx global>{`
                 /* ── Page Layout ── */
                 .pe-page { background: var(--color-surface-overlay, #f8fafc); min-height: 100vh; }
                 .pe-container {
-                    max-width: 680px;
+                    max-width: 1100px;
                     margin: 0 auto;
                     padding: 1rem 1rem 3rem;
                     display: flex;
                     flex-direction: column;
                     gap: 1rem;
+                }
+                .pe-grid {
+                    display: grid;
+                    grid-template-columns: 2fr 1fr;
+                    gap: 1.5rem;
+                    align-items: start;
+                }
+                .pe-main-col, .pe-sidebar-col {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                }
+                @media (max-width: 768px) {
+                    .pe-grid { grid-template-columns: 1fr; }
                 }
                 .pe-topbar {
                     display: flex;
@@ -1301,7 +1379,7 @@ const ProfileEdit = () => {
                 }
                 .pe-error {
                     background: var(--color-red-tint, #FEF2F2);
-                    color: #EF4444;
+                    color: var(--badge-error-text, #EF4444);
                     padding: 0.6rem 0.875rem;
                     border-radius: 8px;
                     font-size: 0.8rem;
@@ -1317,6 +1395,10 @@ const ProfileEdit = () => {
                 }
                 .pe-nostr-card {
                     border-left: 3px solid #8b5cf6;
+                    background: var(--color-surface, white);
+                }
+                .pe-nostr-card .pe-section-desc {
+                    color: var(--color-gray-500, #6b7280);
                 }
 
                 /* ── Section Headers ── */
@@ -1411,8 +1493,8 @@ const ProfileEdit = () => {
                     align-items: center;
                     gap: 0.35rem;
                     padding: 0.25rem 0.6rem;
-                    background: #dcfce7;
-                    color: #15803d;
+                    background: var(--color-green-tint, #dcfce7);
+                    color: #22c55e;
                     border-radius: 9999px;
                     font-size: 0.72rem;
                     font-weight: 500;
@@ -1461,6 +1543,13 @@ const ProfileEdit = () => {
                     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
                     border: none;
                 }
+                .pe-banner-save {
+                    position: absolute;
+                    top: 0.75rem;
+                    right: 0.75rem;
+                    z-index: 10;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                }
                 .pe-avatar-row {
                     padding: 0 1.25rem 1rem;
                     position: relative;
@@ -1508,7 +1597,7 @@ const ProfileEdit = () => {
                     height: 30px;
                     background: var(--color-surface, white);
                     border-radius: 50%;
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -1524,7 +1613,7 @@ const ProfileEdit = () => {
                     background: var(--color-primary, #0052cc);
                     color: white;
                     border: none;
-                    border-radius: var(--radius-md, 6px);
+                    border-radius: var(--radius-full, 9999px);
                     height: 36px;
                     padding: 0 1.25rem;
                     font-weight: 600;
@@ -1616,47 +1705,54 @@ const ProfileEdit = () => {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
-                    padding: 0.65rem 0.875rem;
+                    padding: 0.7rem 0.875rem;
                     background: var(--color-surface-raised, #fafbfc);
                     border: none;
                     cursor: pointer;
                     font-size: 0.85rem;
                     font-weight: 600;
                     color: var(--color-gray-700, #374151);
+                    transition: background 0.15s;
                 }
                 .pe-collapsible-trigger:hover { background: var(--color-gray-100, #f5f6f8); }
                 .pe-collapsible-label { display: flex; align-items: center; gap: 0.5rem; }
-                .pe-collapsible-body { padding: 0.875rem; display: flex; flex-direction: column; gap: 0.65rem; }
+                .pe-collapsible-body {
+                    padding: 0.875rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.75rem;
+                    border-top: 1px solid var(--color-gray-200, #e5e7eb);
+                }
 
                 /* ── Nostr Publishing ── */
-                .pe-publish-section { display: flex; flex-direction: column; gap: 0.6rem; }
+                .pe-publish-section { display: flex; flex-direction: column; gap: 0.75rem; }
                 .pe-segmented {
                     display: flex;
                     border-radius: var(--radius-md, 6px);
                     overflow: hidden;
-                    border: 1px solid #e5e7eb;
+                    border: 1px solid var(--color-gray-200, #e5e7eb);
                 }
                 .pe-segmented button {
                     flex: 1;
-                    padding: 0.4rem 0.5rem;
+                    padding: 0.45rem 0.5rem;
                     border: none;
                     cursor: pointer;
                     font-weight: 500;
                     font-size: 0.78rem;
                     background: transparent;
-                    color: #6b7280;
+                    color: var(--color-gray-500, #6b7280);
                     transition: all 0.15s;
                     white-space: nowrap;
                 }
-                .pe-segmented button + button { border-left: 1px solid #e5e7eb; }
+                .pe-segmented button + button { border-left: 1px solid var(--color-gray-200, #e5e7eb); }
                 .pe-segmented button.active { background: #7c3aed; color: white; }
                 .pe-help-btn-inline {
                     flex: 0 0 auto;
                     padding: 0.25rem 0.5rem;
                     background: none;
                     border: none;
-                    border-left: 1px solid #e5e7eb;
-                    color: #9ca3af;
+                    border-left: 1px solid var(--color-gray-200, #e5e7eb);
+                    color: var(--color-gray-400, #9ca3af);
                     cursor: pointer;
                     display: flex;
                     align-items: center;
@@ -1665,27 +1761,30 @@ const ProfileEdit = () => {
                     background: var(--color-gray-100, #f9fafb);
                     border: 1px solid var(--color-gray-200, #e5e7eb);
                     border-radius: var(--radius-md, 6px);
-                    padding: 0.6rem 0.75rem;
+                    padding: 0.65rem 0.85rem;
                     font-size: 0.75rem;
-                    color: #4b5563;
-                    line-height: 1.45;
+                    color: var(--color-gray-600, #4b5563);
+                    line-height: 1.5;
                 }
-                .pe-help-box p { margin: 0 0 0.2rem; }
+                .pe-help-box p { margin: 0 0 0.25rem; }
+                .pe-help-box strong { color: var(--color-gray-800, #1f2937); }
                 .pe-publish-btn {
                     width: 100%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 0.4rem;
-                    padding: 0.6rem 0.75rem;
+                    padding: 0.65rem 0.75rem;
                     background: #7c3aed;
                     color: white;
                     border: none;
-                    border-radius: var(--radius-md, 6px);
+                    border-radius: var(--radius-full, 9999px);
                     font-weight: 600;
                     font-size: 0.85rem;
                     cursor: pointer;
+                    transition: background 0.15s;
                 }
+                .pe-publish-btn:hover { background: #6d28d9; }
                 .pe-publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
                 .pe-action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
                 .pe-action-btn {
@@ -1695,22 +1794,26 @@ const ProfileEdit = () => {
                     align-items: center;
                     justify-content: center;
                     gap: 0.3rem;
-                    padding: 0.45rem 0.5rem;
+                    padding: 0.5rem 0.5rem;
                     border-radius: var(--radius-md, 6px);
                     background: none;
                     cursor: pointer;
                     font-weight: 500;
                     font-size: 0.78rem;
                     white-space: nowrap;
+                    transition: background 0.15s;
                 }
-                .pe-action-purple { border: 1px solid #e9d5ff; color: #7c3aed; }
-                .pe-action-blue { border: 1px solid #bfdbfe; color: #2563eb; }
-                .pe-action-green { border: 1px solid #bbf7d0; color: #16a34a; }
+                .pe-action-purple { border: 1px solid var(--color-gray-200, #e9d5ff); color: #a78bfa; }
+                .pe-action-purple:hover { background: rgba(139, 92, 246, 0.08); }
+                .pe-action-blue { border: 1px solid var(--color-gray-200, #bfdbfe); color: var(--color-primary, #2563eb); }
+                .pe-action-blue:hover { background: rgba(37, 99, 235, 0.08); }
+                .pe-action-green { border: 1px solid var(--color-gray-200, #bbf7d0); color: #22c55e; }
+                .pe-action-green:hover { background: rgba(22, 163, 106, 0.08); }
                 .pe-feed-toggle {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
-                    padding-top: 0.6rem;
+                    padding-top: 0.75rem;
                     border-top: 1px solid var(--color-gray-200, #e5e7eb);
                     margin-top: 0.25rem;
                 }
@@ -1854,6 +1957,77 @@ const ProfileEdit = () => {
                     50% { width: 60%; margin-left: 20%; }
                     100% { width: 0%; margin-left: 100%; }
                 }
+
+                /* ── Nostr sidebar fields ── */
+                .pe-nostr-fields {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 0.5rem;
+                    align-items: start;
+                }
+                .pe-nostr-fields .pe-label {
+                    font-size: 0.72rem;
+                    white-space: nowrap;
+                }
+                .pe-nostr-fields .pe-hint {
+                    font-size: 0.68rem;
+                }
+
+                /* ── Dark Mode Overrides ── */
+                [data-theme="dark"] .pe-page-title { color: #F8FAFC; }
+                [data-theme="dark"] .pe-section-desc { color: #94A3B8; }
+                [data-theme="dark"] .pe-label,
+                [data-theme="dark"] .pe-label-sm { color: #CBD5E1; }
+                [data-theme="dark"] .pe-hint { color: #94A3B8; }
+                [data-theme="dark"] .pe-input {
+                    background: #253349;
+                    border-color: #475569;
+                    color: #F8FAFC;
+                }
+                [data-theme="dark"] .pe-input-readonly {
+                    background: #1E293B;
+                    color: #CBD5E1;
+                }
+                [data-theme="dark"] .pe-card {
+                    background: #1E293B;
+                    border-color: #334155;
+                }
+                [data-theme="dark"] .pe-segmented {
+                    border-color: #475569;
+                }
+                [data-theme="dark"] .pe-segmented button {
+                    color: #94A3B8;
+                }
+                [data-theme="dark"] .pe-segmented button + button {
+                    border-left-color: #475569;
+                }
+                [data-theme="dark"] .pe-help-box {
+                    background: #253349;
+                    border-color: #334155;
+                    color: #CBD5E1;
+                }
+                [data-theme="dark"] .pe-help-box strong { color: #F1F5F9; }
+                [data-theme="dark"] .pe-help-btn-inline {
+                    color: #64748B;
+                    border-left-color: #475569;
+                }
+                [data-theme="dark"] .pe-action-purple { border-color: #4c1d95; color: #a78bfa; }
+                [data-theme="dark"] .pe-action-blue { border-color: #1e3a5f; color: #93C5FD; }
+                [data-theme="dark"] .pe-action-green { border-color: #064E3B; color: #6EE7B7; }
+                [data-theme="dark"] .pe-feed-toggle { border-top-color: #334155; }
+                [data-theme="dark"] .pe-toggle-label { color: #94A3B8; }
+                [data-theme="dark"] .pe-icon { color: #64748B; }
+                [data-theme="dark"] .pe-tag { background: #052E16; color: #6EE7B7; }
+                [data-theme="dark"] .pe-exp-item { border-left-color: #334155; }
+                [data-theme="dark"] .pe-add-btn { border-color: #475569; color: #94A3B8; }
+                [data-theme="dark"] .pe-project-item { border-color: #334155; background: #1E293B; }
+                [data-theme="dark"] .pe-project-name { color: #F8FAFC; }
+                [data-theme="dark"] .pe-dropdown { background: #1E293B; border-color: #334155; }
+                [data-theme="dark"] .pe-dropdown-item:hover { background: #253349; }
+                [data-theme="dark"] .pe-banner-edit { background: #253349; color: #E2E8F0; }
+                [data-theme="dark"] .pe-avatar-edit { background: #253349; border-color: #334155; }
+                [data-theme="dark"] .toggle-slider { background: #475569; border-color: #334155; }
+                [data-theme="dark"] .pe-error { background: #450A0A; }
             `}</style>
         </div>
     );
