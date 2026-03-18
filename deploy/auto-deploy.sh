@@ -3,6 +3,7 @@ set -euo pipefail
 
 REPO_DIR="/home/debian/Websites/BIES"
 LOG_FILE="/home/debian/Websites/BIES/deploy/deploy.log"
+DEPLOYED_FILE="/home/debian/Websites/BIES/deploy/.deployed-commit"
 BRANCH="main"
 MAX_LOG_LINES=500
 
@@ -20,14 +21,14 @@ cd "$REPO_DIR"
 # Fetch latest from remote
 git fetch origin "$BRANCH" --quiet 2>>"$LOG_FILE"
 
-LOCAL=$(git rev-parse HEAD)
+DEPLOYED=$(cat "$DEPLOYED_FILE" 2>/dev/null || echo "none")
 REMOTE=$(git rev-parse "origin/$BRANCH")
 
-if [ "$LOCAL" = "$REMOTE" ]; then
+if [ "$DEPLOYED" = "$REMOTE" ]; then
   exit 0
 fi
 
-log "New commit detected: ${LOCAL:0:7} -> ${REMOTE:0:7}"
+log "New commit detected: ${DEPLOYED:0:7} -> ${REMOTE:0:7}"
 
 git checkout "$BRANCH" >> "$LOG_FILE" 2>&1 || true
 if ! git reset --hard "origin/$BRANCH" >> "$LOG_FILE" 2>&1; then
@@ -47,4 +48,5 @@ if ! docker compose up -d >> "$LOG_FILE" 2>&1; then
   exit 1
 fi
 
+git rev-parse "origin/$BRANCH" > "$DEPLOYED_FILE"
 log "Deploy complete: now at $(git rev-parse --short HEAD)"
