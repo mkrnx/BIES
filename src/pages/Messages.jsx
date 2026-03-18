@@ -502,7 +502,7 @@ const sharedStyles = `
     .msg-time { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
 
     .chat-input-area { padding: 1rem; background: var(--color-surface); border-top: 1px solid var(--color-gray-200); display: flex; gap: 1rem; }
-    .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; }
+    .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; cursor: text; }
     .chat-input-area input:disabled { opacity: 0.5; }
     .send-btn { border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; padding: 0; }
 
