@@ -18,6 +18,7 @@ const Messages = () => {
     } = useNostrDMs();
 
     const [activeChatPubkey, setActiveChatPubkey] = useState(null);
+    const [openChats, setOpenChats] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [sending, setSending] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -120,12 +121,26 @@ const Messages = () => {
         }, 300);
     }, [conversations]);
 
-    const handleSelectUser = (pubkey) => {
+    const openChat = (pubkey) => {
+        setOpenChats(prev => prev.includes(pubkey) ? prev : [...prev, pubkey]);
         setActiveChatPubkey(pubkey);
+        setMobileView('chat');
+    };
+
+    const closeTab = (e, pubkey) => {
+        e.stopPropagation();
+        const remaining = openChats.filter(p => p !== pubkey);
+        setOpenChats(remaining);
+        if (activeChatPubkey === pubkey) {
+            setActiveChatPubkey(remaining[remaining.length - 1] || null);
+        }
+    };
+
+    const handleSelectUser = (pubkey) => {
+        openChat(pubkey);
         setSearchQuery('');
         setUserSearchResults([]);
         setSearchFocused(false);
-        setMobileView('chat');
     };
 
     const handleSearchKeyDown = (e) => {
@@ -313,7 +328,7 @@ const Messages = () => {
                                     <div
                                         key={pubkey}
                                         className={`chat-item ${activeChatPubkey === pubkey ? 'active' : ''}`}
-                                        onClick={() => { setActiveChatPubkey(pubkey); setMobileView('chat'); }}
+                                        onClick={() => openChat(pubkey)}
                                     >
                                         <div className="chat-avatar">
                                             {avatar ? (
@@ -341,6 +356,20 @@ const Messages = () => {
 
                 {/* Chat Area */}
                 <div className={`chat-area${mobileView === 'sidebar' ? ' mobile-hidden' : ''}`}>
+                    {openChats.length > 0 && (
+                        <div className="chat-tabs">
+                            {openChats.map(pk => (
+                                <button
+                                    key={pk}
+                                    className={`chat-tab${activeChatPubkey === pk ? ' active' : ''}`}
+                                    onClick={() => setActiveChatPubkey(pk)}
+                                >
+                                    <span className="chat-tab-name">{getDisplayName(pk)}</span>
+                                    <span className="chat-tab-close" onClick={(e) => closeTab(e, pk)}>×</span>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {activeChatPubkey ? (
                         <>
                             <div className="chat-header">
@@ -426,12 +455,13 @@ const Messages = () => {
 const sharedStyles = `
     /* ── Page wrapper ── */
     .messages-page {
-        width: 100%;
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 1.5rem var(--spacing-md) 0;
+        position: fixed;
+        top: 73px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding: 0.75rem var(--spacing-md);
         box-sizing: border-box;
-        height: calc(100vh - 73px);
         display: flex;
         flex-direction: column;
     }
@@ -524,6 +554,16 @@ const sharedStyles = `
 
     .nip17-badge { font-size: 0.7rem; background: var(--color-green-tint); color: #166534; padding: 1px 6px; border-radius: 99px; }
 
+    /* ── Chat tabs ── */
+    .chat-tabs { display: flex; overflow-x: auto; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); flex-shrink: 0; scrollbar-width: none; }
+    .chat-tabs::-webkit-scrollbar { display: none; }
+    .chat-tab { display: flex; align-items: center; gap: 0.4rem; padding: 0.5rem 0.75rem; border: none; border-bottom: 2px solid transparent; background: none; cursor: pointer; font-size: 0.8rem; color: var(--color-gray-500); white-space: nowrap; flex-shrink: 0; transition: all 0.15s; font-family: inherit; }
+    .chat-tab.active { color: var(--color-primary); border-bottom-color: var(--color-primary); background: var(--color-gray-50); }
+    .chat-tab:hover { background: var(--color-gray-50); color: var(--color-text); }
+    .chat-tab-name { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
+    .chat-tab-close { width: 16px; height: 16px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.85rem; line-height: 1; flex-shrink: 0; }
+    .chat-tab-close:hover { background: var(--color-gray-200); }
+
     /* ── Chat area ── */
     .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; }
     .chat-header { padding: 0.75rem 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
@@ -574,9 +614,9 @@ const sharedStyles = `
     /* ── Mobile ── */
     @media (max-width: 768px) {
         .messages-page {
-            height: calc(100vh - 73px - 72px - env(safe-area-inset-bottom, 0px));
+            top: 73px;
+            bottom: calc(72px + env(safe-area-inset-bottom, 0px));
             padding: 0;
-            max-width: 100%;
         }
         .messages-layout {
             border-radius: 0;
