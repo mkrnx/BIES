@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
 import { blossomService } from '../services/blossomService';
 import { useAuth } from '../context/AuthContext';
+import { notificationsApi } from '../services/api';
 import NostrIcon from '../components/NostrIcon';
 import ZapModal from '../components/ZapModal';
 import { nip19 } from 'nostr-tools';
@@ -62,6 +63,15 @@ const Feed = () => {
     const [replyPosting, setReplyPosting] = useState(false);
     const [zapTarget, setZapTarget] = useState(null);
 
+    // Comment section state
+    const [openComments, setOpenComments] = useState(new Set());
+    const [comments, setComments] = useState({});
+    const [loadingComments, setLoadingComments] = useState({});
+    const [visibleCommentCount, setVisibleCommentCount] = useState({});
+    const [likedComments, setLikedComments] = useState(new Set());
+    const fetchedComments = useRef(new Set());
+    const commentInputRefs = useRef({});
+
     const currentView = EXPLORE_VIEWS.find(v => v.key === exploreView) || EXPLORE_VIEWS[0];
 
     // Sort notes based on the current explore view
@@ -105,6 +115,9 @@ const Feed = () => {
                     const c = (event.content || '').trimStart();
                     if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
 
+                    // Skip replies — events with 'e' tags are replies to other posts, not root posts
+                    if (event.tags.some(t => t[0] === 'e')) return;
+
                     if (!fetchedProfiles.current.has(event.pubkey)) {
                         fetchedProfiles.current.add(event.pubkey);
                         const profile = await nostrService.getProfile(event.pubkey);
@@ -132,6 +145,46 @@ const Feed = () => {
         };
     }, [feedMode]);
 
+    // Fetch user's own reactions for private relay posts so likes/reposts persist across refresh
+    const fetchedReactions = useRef(false);
+    useEffect(() => {
+        if (feedMode !== 'private' || !nostrSigner.pubkey || posts.length === 0 || fetchedReactions.current) return;
+        fetchedReactions.current = true;
+
+        const postIds = posts.map(p => p.id);
+        const sub = nostrService.pool.subscribeMany(
+            nostrService.relays,
+            { kinds: [7, 6], authors: [nostrSigner.pubkey], '#e': postIds, limit: 500 },
+            {
+                onevent: (event) => {
+                    const eTag = event.tags.find(t => t[0] === 'e');
+                    if (!eTag) return;
+                    const targetId = eTag[1];
+                    if (event.kind === 7) {
+                        setLikedNotes(prev => {
+                            if (prev.has(targetId)) return prev;
+                            return new Set(prev).add(targetId);
+                        });
+                    } else if (event.kind === 6) {
+                        setRepostedNotes(prev => {
+                            if (prev.has(targetId)) return prev;
+                            return new Set(prev).add(targetId);
+                        });
+                    }
+                },
+                oneose: () => sub.close(),
+                onauth: async (evt) => nostrSigner.signEvent(evt),
+            }
+        );
+
+        return () => sub.close();
+    }, [feedMode, posts]);
+
+    // Reset reaction cache when switching feed modes
+    useEffect(() => {
+        fetchedReactions.current = false;
+    }, [feedMode]);
+
     // Fetch explore feed from Primal
     useEffect(() => {
         if (feedMode !== 'explore') return;
@@ -144,12 +197,26 @@ const Feed = () => {
 
         (async () => {
             try {
-                const result = await primalService.fetchExploreFeed(currentView, { limit: 30 });
+                const opts = { limit: 30 };
+                if (nostrSigner.pubkey) opts.userPubkey = nostrSigner.pubkey;
+                const result = await primalService.fetchExploreFeed(currentView, opts);
                 if (cancelled) return;
 
                 setProfiles(result.profiles);
                 setNoteStats(result.stats);
                 setPosts(sortNotes(result.notes, result.stats, exploreView));
+
+                // Pre-populate liked/reposted state from Primal actions
+                if (result.actions) {
+                    const liked = new Set();
+                    const reposted = new Set();
+                    for (const [eventId, action] of Object.entries(result.actions)) {
+                        if (action.liked) liked.add(eventId);
+                        if (action.reposted) reposted.add(eventId);
+                    }
+                    if (liked.size) setLikedNotes(prev => new Set([...prev, ...liked]));
+                    if (reposted.size) setRepostedNotes(prev => new Set([...prev, ...reposted]));
+                }
             } catch (err) {
                 console.error('[Feed] Primal fetch failed:', err);
             } finally {
@@ -165,7 +232,9 @@ const Feed = () => {
         if (loadingMore || feedMode !== 'explore' || posts.length === 0) return;
         setLoadingMore(true);
         try {
-            const result = await primalService.loadMore(currentView, posts, noteStats, { limit: 20 });
+            const opts = { limit: 20 };
+            if (nostrSigner.pubkey) opts.userPubkey = nostrSigner.pubkey;
+            const result = await primalService.loadMore(currentView, posts, noteStats, opts);
             if (result.notes.length > 0) {
                 setProfiles(prev => ({ ...prev, ...result.profiles }));
                 setNoteStats(prev => {
@@ -175,6 +244,17 @@ const Feed = () => {
                     setPosts(sortNotes(deduped, merged, exploreView));
                     return merged;
                 });
+                // Pre-populate liked/reposted for new posts
+                if (result.actions) {
+                    const liked = new Set();
+                    const reposted = new Set();
+                    for (const [eventId, action] of Object.entries(result.actions)) {
+                        if (action.liked) liked.add(eventId);
+                        if (action.reposted) reposted.add(eventId);
+                    }
+                    if (liked.size) setLikedNotes(prev => new Set([...prev, ...liked]));
+                    if (reposted.size) setRepostedNotes(prev => new Set([...prev, ...reposted]));
+                }
             }
         } catch (err) {
             console.error('[Feed] Load more failed:', err);
@@ -301,6 +381,15 @@ const Feed = () => {
                 ...prev,
                 [post.id]: { ...prev[post.id], likes: (prev[post.id]?.likes || 0) + 1 },
             }));
+            // Notify the post author (fire-and-forget)
+            if (user) {
+                notificationsApi.feedInteraction({
+                    type: 'POST_LIKE',
+                    targetPubkey: post.pubkey,
+                    actorName: getDisplayName(nostrSigner.pubkey),
+                    eventId: post.id,
+                });
+            }
         } catch (err) {
             console.error('[Feed] Like failed:', err);
         }
@@ -339,27 +428,107 @@ const Feed = () => {
 
         setReplyPosting(true);
         try {
-            const event = {
+            const content = replyText.trim();
+            const unsigned = {
                 kind: 1,
                 created_at: Math.floor(Date.now() / 1000),
                 tags: [
                     ['e', post.id, '', 'root'],
                     ['p', post.pubkey],
                 ],
-                content: replyText.trim(),
+                content,
             };
-            await nostrService.publishEvent(event);
+            const signed = await nostrSigner.signEvent(unsigned);
+            await Promise.any(nostrService.pool.publish(nostrService.relays, signed));
             setReplyText('');
             setReplyTarget(null);
             setNoteStats(prev => ({
                 ...prev,
                 [post.id]: { ...prev[post.id], replies: (prev[post.id]?.replies || 0) + 1 },
             }));
+
+            // Add reply optimistically to local comment cache and open comments
+            setComments(prev => {
+                const existing = prev[post.id] || [];
+                if (existing.find(e => e.id === signed.id)) return prev;
+                return { ...prev, [post.id]: [...existing, signed].sort((a, b) => a.created_at - b.created_at) };
+            });
+            fetchedComments.current.add(post.id);
+            setOpenComments(prev => new Set(prev).add(post.id));
+
+            // Notify the post author (fire-and-forget)
+            if (user) {
+                const actorName = getDisplayName(nostrSigner.pubkey);
+                notificationsApi.feedInteraction({
+                    type: 'POST_COMMENT',
+                    targetPubkey: post.pubkey,
+                    actorName,
+                    eventId: post.id,
+                    contentPreview: content,
+                });
+                // If replying to a specific comment, also notify the comment author
+                if (replyTarget?.pubkey && replyTarget.pubkey !== post.pubkey) {
+                    notificationsApi.feedInteraction({
+                        type: 'COMMENT_REPLY',
+                        targetPubkey: replyTarget.pubkey,
+                        actorName,
+                        eventId: post.id,
+                        contentPreview: content,
+                    });
+                }
+            }
         } catch (err) {
             console.error('[Feed] Reply failed:', err);
         } finally {
             setReplyPosting(false);
         }
+    };
+
+    // Like a comment (kind:7 reaction targeting the comment event)
+    const handleCommentLike = async (comment) => {
+        if (likedComments.has(comment.id)) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+
+        try {
+            const event = {
+                kind: 7,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['e', comment.id],
+                    ['p', comment.pubkey],
+                ],
+                content: '+',
+            };
+            await nostrService.publishEvent(event);
+            setLikedComments(prev => new Set(prev).add(comment.id));
+            // Notify the comment author (fire-and-forget)
+            if (user) {
+                notificationsApi.feedInteraction({
+                    type: 'COMMENT_LIKE',
+                    targetPubkey: comment.pubkey,
+                    actorName: getDisplayName(nostrSigner.pubkey),
+                    eventId: comment.id,
+                });
+            }
+        } catch (err) {
+            console.error('[Feed] Comment like failed:', err);
+        }
+    };
+
+    // Reply to a comment — prefill the textarea with @npub and focus it
+    const handleCommentReply = (postId, comment) => {
+        const npub = nip19.npubEncode(comment.pubkey);
+        const mention = `nostr:${npub} `;
+        setReplyTarget({ id: postId, pubkey: comment.pubkey });
+        setReplyText(mention);
+        // Focus the textarea for this post
+        setTimeout(() => {
+            const el = commentInputRefs.current[postId];
+            if (el) {
+                el.focus();
+                el.setSelectionRange(mention.length, mention.length);
+            }
+        }, 50);
     };
 
     // Share a note
@@ -405,7 +574,63 @@ const Feed = () => {
         return profiles[pubkey]?.picture || null;
     };
 
+    // Only show root posts — filter out replies (events with 'e' tags referencing other events)
+    const rootPosts = useMemo(() => posts.filter(p => !p.tags?.some(t => t[0] === 'e')), [posts]);
+
     const getStats = (noteId) => noteStats[noteId] || {};
+
+    const loadComments = useCallback(async (postId) => {
+        if (fetchedComments.current.has(postId)) return;
+        fetchedComments.current.add(postId);
+        setLoadingComments(prev => ({ ...prev, [postId]: true }));
+
+        try {
+            const result = await primalService.fetchReplies(postId, { limit: 100 });
+
+            // Merge profiles from reply authors
+            if (Object.keys(result.profiles).length > 0) {
+                setProfiles(prev => ({ ...prev, ...result.profiles }));
+                for (const pubkey of Object.keys(result.profiles)) {
+                    fetchedProfiles.current.add(pubkey);
+                }
+            }
+
+            // Set comments sorted by time
+            if (result.notes.length > 0) {
+                const sorted = result.notes.sort((a, b) => a.created_at - b.created_at);
+                setComments(prev => {
+                    const existing = prev[postId] || [];
+                    const merged = [...existing];
+                    for (const note of sorted) {
+                        if (!merged.find(e => e.id === note.id)) {
+                            merged.push(note);
+                        }
+                    }
+                    merged.sort((a, b) => a.created_at - b.created_at);
+                    return { ...prev, [postId]: merged };
+                });
+            }
+        } catch (err) {
+            console.error('[Feed] Failed to load comments via Primal:', err);
+            // Remove from cache so user can retry
+            fetchedComments.current.delete(postId);
+        } finally {
+            setLoadingComments(prev => ({ ...prev, [postId]: false }));
+        }
+    }, []);
+
+    const toggleComments = (postId) => {
+        setOpenComments(prev => {
+            const next = new Set(prev);
+            if (next.has(postId)) {
+                next.delete(postId);
+            } else {
+                next.add(postId);
+                loadComments(postId);
+            }
+            return next;
+        });
+    };
 
     // Lightbox state
     const [lightboxSrc, setLightboxSrc] = useState(null);
@@ -745,12 +970,12 @@ const Feed = () => {
                 </div>
 
                 {/* Feed */}
-                {loading && posts.length === 0 ? (
+                {loading && rootPosts.length === 0 ? (
                     <div className="feed-loading" data-testid="feed-loading">
                         <Loader2 size={24} className="spin" />
                         <p>{feedMode === 'private' ? 'Connecting to BIES relay...' : 'Loading trending notes...'}</p>
                     </div>
-                ) : posts.length === 0 ? (
+                ) : rootPosts.length === 0 ? (
                     <div className="feed-empty" data-testid="feed-empty">
                         <NostrIcon size={40} />
                         <h3>No posts yet</h3>
@@ -767,11 +992,13 @@ const Feed = () => {
                     </div>
                 ) : (
                     <div className="feed-list" data-testid="feed-list">
-                        {posts.map(post => {
+                        {rootPosts.map(post => {
                             const stats = getStats(post.id);
                             const isLiked = likedNotes.has(post.id);
                             const isReposted = repostedNotes.has(post.id);
                             const isReplying = replyTarget?.id === post.id;
+                            const isCommentsOpen = openComments.has(post.id);
+                            const postComments = comments[post.id] || [];
                             const { text, images, otherMedia } = parseNoteContent(post.content);
                             return (
                                 <div key={post.id} className="feed-note" data-testid="feed-note">
@@ -793,9 +1020,9 @@ const Feed = () => {
                                     {renderOtherMedia(otherMedia)}
                                     <div className="note-actions">
                                         <button
-                                            className={`action-btn ${isReplying ? 'active-reply' : ''}`}
-                                            title="Reply"
-                                            onClick={() => setReplyTarget(isReplying ? null : { id: post.id, pubkey: post.pubkey })}
+                                            className={`action-btn ${isCommentsOpen ? 'active-reply' : ''}`}
+                                            title="Comments"
+                                            onClick={() => toggleComments(post.id)}
                                         >
                                             <MessageCircle size={15} />
                                             <span>{formatCount(stats.replies)}</span>
@@ -838,33 +1065,127 @@ const Feed = () => {
                                         </button>
                                     </div>
 
-                                    {/* Inline Reply */}
-                                    {isReplying && (
-                                        <div className="reply-box">
-                                            <textarea
-                                                className="reply-input"
-                                                placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
-                                                value={replyText}
-                                                onChange={(e) => setReplyText(e.target.value)}
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
-                                                    if (e.key === 'Escape') { setReplyTarget(null); setReplyText(''); }
-                                                }}
-                                                rows={2}
-                                                autoFocus
-                                            />
-                                            <div className="reply-actions">
-                                                <button className="reply-cancel" onClick={() => { setReplyTarget(null); setReplyText(''); }}>
-                                                    <X size={14} /> Cancel
-                                                </button>
-                                                <button
-                                                    className="reply-send"
-                                                    onClick={() => handleReply(post)}
-                                                    disabled={!replyText.trim() || replyPosting}
-                                                >
-                                                    {replyPosting ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-                                                    Reply
-                                                </button>
+                                    {/* Comment Section */}
+                                    {isCommentsOpen && (
+                                        <div className="comment-section">
+                                            {loadingComments[post.id] && postComments.length === 0 && (
+                                                <div className="comment-loading">
+                                                    <Loader2 size={14} className="spin" /> Loading comments...
+                                                </div>
+                                            )}
+                                            {(() => {
+                                                const limit = visibleCommentCount[post.id] || 5;
+                                                const latest = postComments.slice(-limit);
+                                                const hiddenCount = postComments.length - limit;
+                                                return (
+                                                    <>
+                                                        {hiddenCount > 0 && (
+                                                            <button
+                                                                className="show-more-comments"
+                                                                onClick={() => setVisibleCommentCount(prev => ({
+                                                                    ...prev,
+                                                                    [post.id]: (prev[post.id] || 5) * 2,
+                                                                }))}
+                                                            >
+                                                                Show {Math.min(hiddenCount, limit)} more {hiddenCount === 1 ? 'comment' : 'comments'}
+                                                            </button>
+                                                        )}
+                                                        {latest.map(comment => {
+                                                            const { text: ct, images: ci, otherMedia: cm } = parseNoteContent(comment.content);
+                                                            return (
+                                                                <div key={comment.id} className="comment-item">
+                                                                    <div className="comment-avatar">
+                                                                        {getAvatar(comment.pubkey) ? (
+                                                                            <img src={getAvatar(comment.pubkey)} alt="" />
+                                                                        ) : (
+                                                                            <NostrIcon size={13} />
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="comment-body">
+                                                                        <div className="comment-meta">
+                                                                            <span className="comment-name">{getDisplayName(comment.pubkey)}</span>
+                                                                            <span className="comment-time">{formatTime(comment.created_at)}</span>
+                                                                        </div>
+                                                                        {ct && <div className="comment-text">{ct}</div>}
+                                                                        {ci.length > 0 && (
+                                                                            <div className="comment-images">
+                                                                                {ci.map((src, i) => (
+                                                                                    <img key={i} src={src} alt="" className="comment-img" onClick={(e) => { e.stopPropagation(); openLightbox(src, ci); }} />
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="comment-actions">
+                                                                            <button
+                                                                                className="comment-action-btn"
+                                                                                onClick={() => handleCommentReply(post.id, comment)}
+                                                                            >
+                                                                                <MessageCircle size={13} />
+                                                                                <span>Reply</span>
+                                                                            </button>
+                                                                            <button
+                                                                                className={`comment-action-btn${likedComments.has(comment.id) ? ' comment-liked' : ''}`}
+                                                                                onClick={() => handleCommentLike(comment)}
+                                                                            >
+                                                                                <Heart size={13} fill={likedComments.has(comment.id) ? 'currentColor' : 'none'} />
+                                                                                <span>Like</span>
+                                                                            </button>
+                                                                            <button
+                                                                                className="comment-action-btn"
+                                                                                onClick={() => setZapTarget({
+                                                                                    pubkey: comment.pubkey,
+                                                                                    name: getDisplayName(comment.pubkey),
+                                                                                    avatar: getAvatar(comment.pubkey),
+                                                                                    eventId: comment.id,
+                                                                                })}
+                                                                            >
+                                                                                <Zap size={13} />
+                                                                                <span>Zap</span>
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </>
+                                                );
+                                            })()}
+                                            {!loadingComments[post.id] && postComments.length === 0 && (
+                                                <div className="comment-empty">No replies yet. Be the first!</div>
+                                            )}
+
+                                            {/* Reply compose */}
+                                            <div className="comment-compose">
+                                                <div className="comment-compose-avatar">
+                                                    {user?.profile?.avatar ? (
+                                                        <img src={user.profile.avatar} alt="" />
+                                                    ) : (
+                                                        <NostrIcon size={13} />
+                                                    )}
+                                                </div>
+                                                <div className="comment-compose-input-row">
+                                                    <textarea
+                                                        ref={el => { commentInputRefs.current[post.id] = el; }}
+                                                        className="comment-input"
+                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
+                                                        value={isReplying ? replyText : ''}
+                                                        onChange={(e) => {
+                                                            setReplyTarget({ id: post.id, pubkey: post.pubkey });
+                                                            setReplyText(e.target.value);
+                                                        }}
+                                                        onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
+                                                        }}
+                                                        rows={1}
+                                                    />
+                                                    <button
+                                                        className="comment-send-btn"
+                                                        onClick={() => handleReply(post)}
+                                                        disabled={!isReplying || !replyText.trim() || replyPosting}
+                                                    >
+                                                        {replyPosting && isReplying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -873,7 +1194,7 @@ const Feed = () => {
                         })}
 
                         {/* Load More */}
-                        {feedMode === 'explore' && posts.length >= 10 && (
+                        {feedMode === 'explore' && rootPosts.length >= 10 && (
                             <button
                                 className="load-more-btn"
                                 onClick={handleLoadMore}
@@ -1357,20 +1678,168 @@ const Feed = () => {
                     border-radius: 8px;
                 }
 
-                /* Reply box */
-                .reply-box {
+                /* Comment section */
+                .comment-section {
                     margin-top: 0.75rem;
-                    padding: 0.75rem;
-                    padding-left: 52px;
-                    background: rgba(124, 58, 237, 0.04);
-                    border-radius: 0 0 12px 12px;
                     border-top: 1px solid #ede9fe;
+                    padding-top: 0.75rem;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
                 }
-                .reply-input {
+                .comment-loading {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 0.8rem;
+                    color: #9ca3af;
+                    padding: 0.25rem 0;
+                }
+                .comment-empty {
+                    font-size: 0.8rem;
+                    color: #9ca3af;
+                    text-align: center;
+                    padding: 0.5rem 0;
+                }
+                .comment-item {
+                    display: flex;
+                    gap: 0.6rem;
+                    align-items: flex-start;
+                    padding-bottom: 0.75rem;
+                    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+                }
+                .comment-item:last-of-type {
+                    border-bottom: none;
+                    padding-bottom: 0;
+                }
+                .comment-avatar {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #7c3aed;
+                    border: 1px solid #ddd6fe;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                }
+                .comment-avatar img {
                     width: 100%;
-                    border: 1px solid #e5e7eb;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .comment-body {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .show-more-comments {
+                    background: none;
+                    border: none;
+                    color: #f97316;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    padding: 0.25rem 0;
+                    text-align: left;
+                }
+                .show-more-comments:hover {
+                    text-decoration: underline;
+                }
+                .comment-meta {
+                    display: flex;
+                    align-items: baseline;
+                    gap: 0.5rem;
+                    margin-bottom: 0.15rem;
+                }
+                .comment-name {
+                    font-weight: 600;
+                    font-size: 0.8rem;
+                    color: #1f2937;
+                }
+                .comment-time {
+                    font-size: 0.72rem;
+                    color: #9ca3af;
+                }
+                .comment-text {
+                    font-size: 0.875rem;
+                    color: #374151;
+                    line-height: 1.5;
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                }
+                .comment-images {
+                    display: flex;
+                    gap: 4px;
+                    margin-top: 0.4rem;
+                    flex-wrap: wrap;
+                }
+                .comment-img {
+                    max-width: 160px;
+                    max-height: 120px;
                     border-radius: 8px;
-                    padding: 0.5rem 0.75rem;
+                    object-fit: cover;
+                    cursor: pointer;
+                }
+                .comment-actions {
+                    display: flex;
+                    gap: 0.75rem;
+                    margin-top: 0.3rem;
+                }
+                .comment-action-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    background: none;
+                    border: none;
+                    color: #9ca3af;
+                    font-size: 0.72rem;
+                    cursor: pointer;
+                    padding: 0;
+                    transition: color 0.15s;
+                }
+                .comment-action-btn:hover {
+                    color: #f97316;
+                }
+                .comment-action-btn.comment-liked {
+                    color: #ef4444;
+                }
+                .comment-compose {
+                    display: flex;
+                    gap: 0.6rem;
+                    align-items: flex-start;
+                    padding-top: 0.25rem;
+                }
+                .comment-compose-avatar {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #7c3aed;
+                    border: 1px solid #ddd6fe;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                }
+                .comment-compose-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                }
+                .comment-compose-input-row {
+                    flex: 1;
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: flex-end;
+                }
+                .comment-input {
+                    flex: 1;
+                    border: 1px solid #e5e7eb;
+                    border-radius: 20px;
+                    padding: 0.45rem 0.85rem;
                     font-size: 0.875rem;
                     font-family: inherit;
                     resize: none;
@@ -1378,38 +1847,27 @@ const Feed = () => {
                     background: var(--color-surface, white);
                     color: inherit;
                     box-sizing: border-box;
+                    line-height: 1.4;
                 }
-                .reply-input:focus {
+                .comment-input:focus {
                     border-color: #7c3aed;
                 }
-                .reply-actions {
-                    display: flex;
-                    justify-content: flex-end;
-                    gap: 0.5rem;
-                    margin-top: 0.5rem;
-                }
-                .reply-cancel, .reply-send {
+                .comment-send-btn {
                     display: flex;
                     align-items: center;
-                    gap: 0.25rem;
-                    padding: 0.35rem 0.75rem;
-                    border-radius: 8px;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    border: none;
-                }
-                .reply-cancel {
-                    background: transparent;
-                    color: #9ca3af;
-                }
-                .reply-cancel:hover { color: #6b7280; }
-                .reply-send {
+                    justify-content: center;
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 50%;
                     background: #7c3aed;
                     color: white;
+                    border: none;
+                    cursor: pointer;
+                    flex-shrink: 0;
+                    transition: opacity 0.2s;
                 }
-                .reply-send:hover { opacity: 0.9; }
-                .reply-send:disabled { opacity: 0.5; cursor: not-allowed; }
+                .comment-send-btn:hover { opacity: 0.85; }
+                .comment-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
                 /* Load More */
                 .load-more-btn {
@@ -1604,16 +2062,30 @@ const Feed = () => {
                     border-color: #475569;
                     color: #e2e8f0;
                 }
-                :global([data-theme="dark"]) .reply-box {
-                    background: rgba(124, 58, 237, 0.08);
+                :global([data-theme="dark"]) .comment-section {
                     border-color: #2d3748;
                 }
-                :global([data-theme="dark"]) .reply-input {
+                :global([data-theme="dark"]) .comment-item {
+                    border-color: rgba(255, 255, 255, 0.08);
+                }
+                :global([data-theme="dark"]) .comment-name {
+                    color: #f1f5f9;
+                }
+                :global([data-theme="dark"]) .comment-text {
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .comment-action-btn {
+                    color: #64748b;
+                }
+                :global([data-theme="dark"]) .comment-action-btn:hover {
+                    color: #f97316;
+                }
+                :global([data-theme="dark"]) .comment-input {
                     background: #0f172a;
                     border-color: #2d3748;
                     color: #f1f5f9;
                 }
-                :global([data-theme="dark"]) .reply-input:focus {
+                :global([data-theme="dark"]) .comment-input:focus {
                     border-color: #7c3aed;
                 }
             `}</style>

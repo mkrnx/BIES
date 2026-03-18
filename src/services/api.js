@@ -243,6 +243,12 @@ export const notificationsApi = {
     markAllRead: () => put('/notifications/read-all', {}),
 
     delete: (id) => del(`/notifications/${id}`),
+
+    /**
+     * Notify a BIES user about a feed interaction (comment, like, reply).
+     * Fire-and-forget — errors are silently ignored.
+     */
+    feedInteraction: (data) => post('/notifications/feed-interaction', data).catch(() => {}),
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────

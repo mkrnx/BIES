@@ -21,6 +21,10 @@ export type NotificationType =
     | 'PROFILE_VIEW'
     | 'ZAP_RECEIVED'
     | 'EVENT_RSVP'
+    | 'POST_COMMENT'
+    | 'POST_LIKE'
+    | 'COMMENT_LIKE'
+    | 'COMMENT_REPLY'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -268,6 +272,67 @@ export async function notifyZapReceived(params: {
             senderPubkey: params.senderPubkey,
             amountSats: params.amountSats,
             ...(params.projectId ? { projectId: params.projectId } : {}),
+        },
+    });
+}
+
+/**
+ * Create a notification for a feed interaction (comment, like, reply, zap).
+ * Looks up the target Nostr pubkey to find the BIES user. Silently skips if
+ * the target is not a BIES user or if actor === target.
+ */
+export async function notifyFeedInteraction(params: {
+    actorPubkey: string;
+    targetPubkey: string;
+    type: 'POST_COMMENT' | 'POST_LIKE' | 'COMMENT_LIKE' | 'COMMENT_REPLY';
+    actorName: string;
+    eventId?: string;
+    contentPreview?: string;
+}): Promise<void> {
+    // Don't notify yourself
+    if (params.actorPubkey === params.targetPubkey) return;
+
+    // Look up target user by Nostr pubkey
+    const targetUser = await prisma.user.findUnique({
+        where: { nostrPubkey: params.targetPubkey },
+        select: { id: true },
+    });
+    if (!targetUser) return; // Not a BIES user
+
+    const typeConfig: Record<string, { title: string; body: string }> = {
+        POST_COMMENT: {
+            title: `${params.actorName} commented on your post`,
+            body: params.contentPreview
+                ? params.contentPreview.substring(0, 120)
+                : 'Someone left a comment on your post.',
+        },
+        POST_LIKE: {
+            title: `${params.actorName} liked your post`,
+            body: 'Your post received a like.',
+        },
+        COMMENT_LIKE: {
+            title: `${params.actorName} liked your comment`,
+            body: 'Your comment received a like.',
+        },
+        COMMENT_REPLY: {
+            title: `${params.actorName} replied to your comment`,
+            body: params.contentPreview
+                ? params.contentPreview.substring(0, 120)
+                : 'Someone replied to your comment.',
+        },
+    };
+
+    const cfg = typeConfig[params.type];
+    if (!cfg) return;
+
+    await createNotification({
+        userId: targetUser.id,
+        type: params.type,
+        title: cfg.title,
+        body: cfg.body,
+        data: {
+            actorPubkey: params.actorPubkey,
+            eventId: params.eventId,
         },
     });
 }

@@ -224,6 +224,55 @@ class PrimalService {
     }
 
     /**
+     * Fetch replies to a specific note using Primal's thread_view cache.
+     *
+     * @param {string} eventId - The note ID to fetch replies for
+     * @param {Object} opts - { limit, userPubkey }
+     * @returns {Promise<{ notes, profiles, stats, actions }>}
+     */
+    async fetchReplies(eventId, opts = {}) {
+        const ws = await this._connect();
+        const subId = nextSubId();
+        const limit = opts.limit || 100;
+
+        const payload = {
+            event_id: eventId,
+            limit,
+        };
+
+        if (opts.userPubkey) {
+            payload.user_pubkey = opts.userPubkey;
+        }
+
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this._pending.delete(subId);
+                reject(new Error('Primal thread request timed out'));
+            }, 15000);
+
+            this._pending.set(subId, {
+                resolve: (result) => {
+                    clearTimeout(timeout);
+                    // Filter to only direct replies (kind:1 events that aren't the root)
+                    const replies = result.notes.filter(n => n.id !== eventId);
+                    resolve({ ...result, notes: replies });
+                },
+                reject: (err) => {
+                    clearTimeout(timeout);
+                    reject(err);
+                },
+                notes: [],
+                profiles: {},
+                stats: {},
+                actions: {},
+            });
+
+            const req = JSON.stringify(['REQ', subId, { cache: ['thread_view', payload] }]);
+            ws.send(req);
+        });
+    }
+
+    /**
      * Close WebSocket connection.
      */
     disconnect() {

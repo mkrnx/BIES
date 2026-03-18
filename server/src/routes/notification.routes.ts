@@ -6,6 +6,7 @@ import {
     markRead,
     markAllRead,
     deleteNotification,
+    feedInteraction,
 } from '../controllers/notification.controller';
 
 const router = Router();
@@ -14,6 +15,7 @@ router.use(authenticate);
 
 router.get('/', listNotifications);
 router.get('/count', getUnreadCount);
+router.post('/feed-interaction', feedInteraction);
 router.put('/read-all', markAllRead);
 router.put('/:id/read', markRead);
 router.delete('/:id', deleteNotification);
