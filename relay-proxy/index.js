@@ -22,8 +22,25 @@ function isWhitelisted(pubkey) {
     }
 }
 
+// ─── Derive the relay URL from the incoming HTTP upgrade request ─────────────
+// Supports both production (TLS nginx sets X-Forwarded-Proto: https) and local
+// access (no X-Forwarded-Proto → fall back to ws://).
+function resolveRelayUrl(req) {
+    const host = req.headers['host'] || new URL(RELAY_URL).host;
+    const proto = req.headers['x-forwarded-proto'];
+    let scheme;
+    if (proto) {
+        scheme = proto.trim().split(',')[0].trim() === 'https' ? 'wss' : 'ws';
+    } else {
+        // No forwarded proto: use wss only when the host matches the canonical URL
+        const canonicalHost = new URL(RELAY_URL).host;
+        scheme = host === canonicalHost ? new URL(RELAY_URL).protocol.replace(':', '') : 'ws';
+    }
+    return `${scheme}://${host}/relay`;
+}
+
 // ─── NIP-42 AUTH verification ────────────────────────────────────────────────
-function verifyAuthEvent(event, challenge) {
+function verifyAuthEvent(event, challenge, expectedRelayUrl) {
     // Must be kind 22242
     if (event.kind !== 22242) return 'invalid event kind';
 
@@ -34,9 +51,10 @@ function verifyAuthEvent(event, challenge) {
     const challengeTag = event.tags.find(t => t[0] === 'challenge');
     if (!challengeTag || challengeTag[1] !== challenge) return 'challenge mismatch';
 
-    // Check relay tag
+    // Check relay tag — normalise trailing slashes before comparing
     const relayTag = event.tags.find(t => t[0] === 'relay');
-    if (!relayTag || relayTag[1] !== RELAY_URL) return 'relay URL mismatch';
+    const normalise = (u) => u.replace(/\/+$/, '');
+    if (!relayTag || normalise(relayTag[1]) !== normalise(expectedRelayUrl)) return 'relay URL mismatch';
 
     // Check created_at is within 10 minutes
     const now = Math.floor(Date.now() / 1000);
@@ -55,7 +73,10 @@ console.log(`[Proxy] NIP-42 auth proxy listening on :${LISTEN_PORT}`);
 console.log(`[Proxy] Upstream relay: ${UPSTREAM_URL}`);
 console.log(`[Proxy] Relay URL for auth: ${RELAY_URL}`);
 
-wss.on('connection', (clientWs) => {
+wss.on('connection', (clientWs, req) => {
+    // Derive the relay URL this connection is arriving on (handles prod TLS + local access)
+    const connectionRelayUrl = resolveRelayUrl(req);
+
     let authenticated = false;
     let upstream = null;
     let authTimer = null;
@@ -130,7 +151,7 @@ wss.on('connection', (clientWs) => {
         // Handle AUTH response
         if (msg[0] === 'AUTH' && !authenticated) {
             const event = msg[1];
-            const error = verifyAuthEvent(event, challenge);
+            const error = verifyAuthEvent(event, challenge, connectionRelayUrl);
 
             if (error) {
                 console.log(`[Proxy] Auth failed: ${error} (pubkey: ${event.pubkey?.substring(0, 8)}...)`);
