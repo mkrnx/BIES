@@ -311,6 +311,9 @@ export const adminApi = {
     listEvents: (params = {}) => get('/admin/events', params),
     featureEvent: (id, featured) => put(`/admin/events/${id}/feature`, { featured }),
     deleteUser: (id) => del(`/admin/users/${id}`),
+    trashedUsers: (params = {}) => get('/admin/users/trash', params),
+    restoreUser: (id) => put(`/admin/users/${id}/restore`, {}),
+    purgeUser: (id) => del(`/admin/users/${id}/purge`),
     syncAccounts: (sourceUserId, targetUserId, deleteSource) =>
         post('/admin/users/sync', { sourceUserId, targetUserId, deleteSource }),
     auditLogs: (params = {}) => get('/admin/audit-logs', params),

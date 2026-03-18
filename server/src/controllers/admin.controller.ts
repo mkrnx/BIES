@@ -22,7 +22,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
         const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
         const take = Math.min(parseInt(limit as string, 10), 100);
 
-        const where: any = {};
+        const where: any = { deletedAt: null };
         if (role && typeof role === 'string') where.role = role.toUpperCase();
         if (banned !== undefined) where.isBanned = banned === 'true';
         if (search && typeof search === 'string') {
@@ -278,7 +278,7 @@ export async function getAuditLogs(req: Request, res: Response): Promise<void> {
 
 /**
  * DELETE /admin/users/:id
- * Hard-delete a user and all related data. ADMIN only.
+ * Soft-delete (trash) a user. ADMIN only.
  */
 export async function deleteUser(req: Request, res: Response): Promise<void> {
     try {
@@ -287,18 +287,19 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
         }
 
         const targetUser = await prisma.user.findUnique({
-            where: { id: req.params.id },
+            where: { id: req.params.id, deletedAt: null },
             select: { id: true, nostrPubkey: true, email: true, role: true, profile: { select: { name: true } } },
         });
         if (!targetUser) {
             res.status(404).json({ error: 'User not found' }); return;
         }
 
-        // Remove from relay whitelist
+        // Remove from relay whitelist and invalidate sessions
         removeFromRelayWhitelist(targetUser.nostrPubkey);
+        await prisma.session.deleteMany({ where: { userId: req.params.id } });
 
-        // Cascade delete handles profile, projects, sessions, messages, etc.
-        await prisma.user.delete({ where: { id: req.params.id } });
+        // Soft-delete: move to trash
+        await prisma.user.update({ where: { id: req.params.id }, data: { deletedAt: new Date() } });
 
         // Clear caches
         await Promise.all([
@@ -310,7 +311,7 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
         await prisma.auditLog.create({
             data: {
                 userId: req.user!.id,
-                action: 'USER_DELETED',
+                action: 'USER_TRASHED',
                 resource: `user:${req.params.id}`,
                 metadata: JSON.stringify({
                     deletedUserName: targetUser.profile?.name || '',
@@ -319,10 +320,151 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
             },
         });
 
-        res.json({ message: 'User permanently deleted' });
+        res.json({ message: 'User moved to trash' });
     } catch (error) {
         console.error('Delete user error:', error);
         res.status(500).json({ error: 'Failed to delete user' });
+    }
+}
+
+// ─── Trash: List / Restore / Purge ───────────────────────────────────────────
+
+/**
+ * GET /admin/users/trash
+ * List soft-deleted users. ADMIN only.
+ */
+export async function listTrashedUsers(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can view trash' }); return;
+        }
+
+        const { search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = { deletedAt: { not: null } };
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { email: { contains: search } },
+                { profile: { name: { contains: search } } },
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            prisma.user.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { deletedAt: 'desc' },
+                select: {
+                    id: true, email: true, nostrPubkey: true, role: true,
+                    isVerified: true, isBanned: true, createdAt: true, deletedAt: true,
+                    profile: { select: { name: true, avatar: true } },
+                    _count: { select: { projects: true } },
+                },
+            }),
+            prisma.user.count({ where }),
+        ]);
+
+        res.json({
+            data: users,
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('List trashed users error:', error);
+        res.status(500).json({ error: 'Failed to list trashed users' });
+    }
+}
+
+/**
+ * PUT /admin/users/:id/restore
+ * Restore a soft-deleted user from trash. ADMIN only.
+ */
+export async function restoreUser(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can restore users' }); return;
+        }
+
+        const targetUser = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, nostrPubkey: true, deletedAt: true, profile: { select: { name: true } } },
+        });
+        if (!targetUser || !targetUser.deletedAt) {
+            res.status(404).json({ error: 'Trashed user not found' }); return;
+        }
+
+        await prisma.user.update({ where: { id: req.params.id }, data: { deletedAt: null } });
+
+        addToRelayWhitelist(targetUser.nostrPubkey);
+
+        await Promise.all([
+            cache.delPattern('profiles:'),
+            cache.delPattern('projects:'),
+        ]);
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'USER_RESTORED',
+                resource: `user:${req.params.id}`,
+                metadata: JSON.stringify({
+                    restoredUserName: targetUser.profile?.name || '',
+                    restoredUserPubkey: targetUser.nostrPubkey,
+                }),
+            },
+        });
+
+        res.json({ message: 'User restored from trash' });
+    } catch (error) {
+        console.error('Restore user error:', error);
+        res.status(500).json({ error: 'Failed to restore user' });
+    }
+}
+
+/**
+ * DELETE /admin/users/:id/purge
+ * Permanently hard-delete a trashed user and all their data. ADMIN only.
+ */
+export async function purgeUser(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can purge users' }); return;
+        }
+
+        const targetUser = await prisma.user.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, nostrPubkey: true, deletedAt: true, profile: { select: { name: true } } },
+        });
+        if (!targetUser || !targetUser.deletedAt) {
+            res.status(404).json({ error: 'Trashed user not found' }); return;
+        }
+
+        await prisma.user.delete({ where: { id: req.params.id } });
+
+        await Promise.all([
+            cache.delPattern('profiles:'),
+            cache.delPattern('projects:'),
+            cache.delPattern('events:'),
+        ]);
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'USER_PURGED',
+                resource: `user:${req.params.id}`,
+                metadata: JSON.stringify({
+                    purgedUserName: targetUser.profile?.name || '',
+                    purgedUserPubkey: targetUser.nostrPubkey,
+                }),
+            },
+        });
+
+        res.json({ message: 'User permanently deleted' });
+    } catch (error) {
+        console.error('Purge user error:', error);
+        res.status(500).json({ error: 'Failed to purge user' });
     }
 }
 
@@ -517,11 +659,12 @@ export async function syncAccounts(req: Request, res: Response): Promise<void> {
             syncResults.push('Following transferred');
         }
 
-        // 9. Optionally delete source account
+        // 9. Optionally soft-delete source account (moves to trash)
         if (deleteSource) {
             removeFromRelayWhitelist(sourceUser.nostrPubkey);
-            await prisma.user.delete({ where: { id: sourceUserId } });
-            syncResults.push('Source account deleted');
+            await prisma.session.deleteMany({ where: { userId: sourceUserId } });
+            await prisma.user.update({ where: { id: sourceUserId }, data: { deletedAt: new Date() } });
+            syncResults.push('Source account moved to trash');
         }
 
         // Clear caches

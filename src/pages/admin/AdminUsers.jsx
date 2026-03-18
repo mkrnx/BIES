@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield, Trash2, RefreshCw, X } from 'lucide-react';
+import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield, Trash2, RefreshCw, X, RotateCcw, AlertTriangle } from 'lucide-react';
 import { adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -349,6 +349,7 @@ const truncatePubkey = (pk) => pk ? `${pk.substring(0, 8)}...${pk.substring(pk.l
 
 const AdminUsers = () => {
     const { isAdmin } = useAuth();
+    const [view, setView] = useState('active'); // 'active' | 'trash'
     const [roleFilter, setRoleFilter] = useState('');
     const [bannedFilter, setBannedFilter] = useState('');
     const [search, setSearch] = useState('');
@@ -357,6 +358,12 @@ const AdminUsers = () => {
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
     const [syncModalOpen, setSyncModalOpen] = useState(false);
+
+    // Trash state
+    const [trashUsers, setTrashUsers] = useState([]);
+    const [trashPagination, setTrashPagination] = useState({ page: 1, total: 0, totalPages: 1 });
+    const [trashSearch, setTrashSearch] = useState('');
+    const [trashLoading, setTrashLoading] = useState(false);
 
     const fetchUsers = useCallback(async (page = 1) => {
         setLoading(true);
@@ -375,7 +382,23 @@ const AdminUsers = () => {
         }
     }, [roleFilter, bannedFilter, search]);
 
+    const fetchTrash = useCallback(async (page = 1) => {
+        setTrashLoading(true);
+        try {
+            const params = { page, limit: 20 };
+            if (trashSearch) params.search = trashSearch;
+            const res = await adminApi.trashedUsers(params);
+            setTrashUsers(res?.data || []);
+            setTrashPagination(res?.pagination || { page: 1, total: 0, totalPages: 1 });
+        } catch (err) {
+            console.error('Failed to fetch trash:', err);
+        } finally {
+            setTrashLoading(false);
+        }
+    }, [trashSearch]);
+
     useEffect(() => { fetchUsers(1); }, [fetchUsers]);
+    useEffect(() => { if (view === 'trash') fetchTrash(1); }, [view, fetchTrash]);
 
     const handleBan = async (id, currentBanned, name) => {
         const action = currentBanned ? 'unban' : 'ban';
@@ -417,14 +440,40 @@ const AdminUsers = () => {
     };
 
     const handleDelete = async (id, name) => {
-        if (!window.confirm(`Are you sure you want to permanently delete "${name || 'this user'}"?\n\nThis will remove their profile, projects, events, messages, and all associated data.\n\nThis action CANNOT be undone.`)) return;
-        if (!window.confirm(`FINAL WARNING: You are about to permanently delete the user "${name || id}". Type "delete" in your mind and click OK to proceed.`)) return;
+        if (!window.confirm(`Move "${name || 'this user'}" to trash?\n\nThey will be signed out and hidden from the platform. You can restore them from the Trash tab or permanently delete them later.`)) return;
         setActionLoading(id);
         try {
             await adminApi.deleteUser(id);
             fetchUsers(pagination.page);
         } catch (err) {
-            alert(err?.response?.data?.error || 'Failed to delete user');
+            alert(err?.response?.data?.error || 'Failed to move user to trash');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handleRestore = async (id, name) => {
+        if (!window.confirm(`Restore "${name || 'this user'}" from trash? Their account will be re-activated.`)) return;
+        setActionLoading(id);
+        try {
+            await adminApi.restoreUser(id);
+            fetchTrash(trashPagination.page);
+        } catch (err) {
+            alert(err?.response?.data?.error || 'Failed to restore user');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const handlePurge = async (id, name) => {
+        if (!window.confirm(`Permanently delete "${name || 'this user'}"?\n\nThis will remove ALL their data (profile, projects, messages, etc.) and cannot be undone.`)) return;
+        if (!window.confirm(`FINAL WARNING: Permanently delete "${name || id}"? This cannot be undone.`)) return;
+        setActionLoading(id);
+        try {
+            await adminApi.purgeUser(id);
+            fetchTrash(trashPagination.page);
+        } catch (err) {
+            alert(err?.response?.data?.error || 'Failed to purge user');
         } finally {
             setActionLoading(null);
         }
@@ -437,157 +486,268 @@ const AdminUsers = () => {
                     <h1>User Management</h1>
                     <p className="subtitle">Manage platform users and access</p>
                 </div>
-                {isAdmin && (
-                    <button className="sync-btn" onClick={() => setSyncModalOpen(true)}>
-                        <RefreshCw size={16} /> Sync Accounts
-                    </button>
-                )}
-            </div>
-
-            <div className="toolbar">
-                <div className="filters">
-                    <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="filter-select">
-                        <option value="">All Roles</option>
-                        {ROLE_OPTIONS.filter(Boolean).map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                    <select value={bannedFilter} onChange={(e) => setBannedFilter(e.target.value)} className="filter-select">
-                        <option value="">All Status</option>
-                        <option value="true">Banned</option>
-                        <option value="false">Active</option>
-                    </select>
-                </div>
-                <div className="search-wrap">
-                    <Search size={16} />
-                    <input
-                        type="text"
-                        placeholder="Search by name or email..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                    />
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {isAdmin && (
+                        <button className="sync-btn" onClick={() => setSyncModalOpen(true)}>
+                            <RefreshCw size={16} /> Sync Accounts
+                        </button>
+                    )}
+                    {isAdmin && (
+                        <button
+                            className={`tab-btn ${view === 'trash' ? 'tab-btn-active' : ''}`}
+                            onClick={() => setView(view === 'trash' ? 'active' : 'trash')}
+                        >
+                            <Trash2 size={16} /> Trash
+                        </button>
+                    )}
                 </div>
             </div>
 
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
-                    <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
-                </div>
-            ) : users.length === 0 ? (
-                <div className="empty-state"><p>No users found.</p></div>
-            ) : (
-                <div className="table-container">
-                    <table className="data-table">
-                        <thead>
-                            <tr>
-                                <th>User</th>
-                                <th>Email</th>
-                                <th>Npub</th>
-                                <th>Role</th>
-                                <th>Projects</th>
-                                <th>Verified</th>
-                                <th>Status</th>
-                                <th>Joined</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {users.map(u => (
-                                <tr key={u.id} className={u.isBanned ? 'row-banned' : ''}>
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            {u.profile?.avatar ? (
-                                                <img src={u.profile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
-                                            ) : (
-                                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>
-                                                    {(u.profile?.name || '?')[0].toUpperCase()}
+            {view === 'active' ? (
+                <>
+                    <div className="toolbar">
+                        <div className="filters">
+                            <select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)} className="filter-select">
+                                <option value="">All Roles</option>
+                                {ROLE_OPTIONS.filter(Boolean).map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                            <select value={bannedFilter} onChange={(e) => setBannedFilter(e.target.value)} className="filter-select">
+                                <option value="">All Status</option>
+                                <option value="true">Banned</option>
+                                <option value="false">Active</option>
+                            </select>
+                        </div>
+                        <div className="search-wrap">
+                            <Search size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search by name or email..."
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+                            <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : users.length === 0 ? (
+                        <div className="empty-state"><p>No users found.</p></div>
+                    ) : (
+                        <div className="table-container">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Email</th>
+                                        <th>Npub</th>
+                                        <th>Role</th>
+                                        <th>Projects</th>
+                                        <th>Verified</th>
+                                        <th>Status</th>
+                                        <th>Joined</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {users.map(u => (
+                                        <tr key={u.id} className={u.isBanned ? 'row-banned' : ''}>
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    {u.profile?.avatar ? (
+                                                        <img src={u.profile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>
+                                                            {(u.profile?.name || '?')[0].toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <span className="font-semibold">{u.profile?.name || '—'}</span>
                                                 </div>
-                                            )}
-                                            <span className="font-semibold">{u.profile?.name || '—'}</span>
-                                        </div>
-                                    </td>
-                                    <td>{u.email || '—'}</td>
-                                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
-                                    <td>
-                                        <select
-                                            value={u.role}
-                                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                            disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
-                                            className="role-select"
-                                            title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can change admin/mod roles' : ''}
-                                        >
-                                            <option value="BUILDER">BUILDER</option>
-                                            <option value="INVESTOR">INVESTOR</option>
-                                            {isAdmin && <option value="MOD">MOD</option>}
-                                            {!isAdmin && u.role === 'MOD' && <option value="MOD">MOD</option>}
-                                            {isAdmin && <option value="ADMIN">ADMIN</option>}
-                                            {!isAdmin && u.role === 'ADMIN' && <option value="ADMIN">ADMIN</option>}
-                                        </select>
-                                    </td>
-                                    <td>{u._count?.projects || 0}</td>
-                                    <td>
-                                        {u.isVerified ? (
-                                            <CheckCircle size={16} style={{ color: '#16a34a' }} />
-                                        ) : (
-                                            <button
-                                                className="icon-btn approve"
-                                                onClick={() => handleVerify(u.id)}
-                                                title="Verify user"
-                                                disabled={actionLoading === u.id}
-                                            >
-                                                <Shield size={16} />
-                                            </button>
-                                        )}
-                                    </td>
-                                    <td>
-                                        <span className={`status-badge ${u.isBanned ? 'banned' : 'active'}`}>
-                                            {u.isBanned ? 'Banned' : 'Active'}
-                                        </span>
-                                    </td>
-                                    <td>{new Date(u.createdAt).toLocaleDateString()}</td>
-                                    <td>
-                                        <div className="action-group">
-                                            {/* Ban / Unban */}
-                                            <button
-                                                className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
-                                                onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
-                                                title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can ban other admins or mods' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
-                                                disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
-                                            >
-                                                <Ban size={16} />
-                                            </button>
-                                            {/* Delete — admin only */}
-                                            {isAdmin && (
-                                                <button
-                                                    className="icon-btn delete"
-                                                    onClick={() => handleDelete(u.id, u.profile?.name)}
-                                                    title="Permanently delete user"
-                                                    disabled={actionLoading === u.id}
+                                            </td>
+                                            <td>{u.email || '—'}</td>
+                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
+                                            <td>
+                                                <select
+                                                    value={u.role}
+                                                    onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                    disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
+                                                    className="role-select"
+                                                    title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can change admin/mod roles' : ''}
                                                 >
-                                                    <Trash2 size={16} />
-                                                </button>
-                                            )}
-                                            {/* View profile */}
-                                            <Link
-                                                to={`/${u.role === 'INVESTOR' ? 'investor' : 'builder'}/${u.id}`}
-                                                className="icon-btn"
-                                                title="View profile"
-                                            >
-                                                <ExternalLink size={16} />
-                                            </Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
+                                                    <option value="BUILDER">BUILDER</option>
+                                                    <option value="INVESTOR">INVESTOR</option>
+                                                    {isAdmin && <option value="MOD">MOD</option>}
+                                                    {!isAdmin && u.role === 'MOD' && <option value="MOD">MOD</option>}
+                                                    {isAdmin && <option value="ADMIN">ADMIN</option>}
+                                                    {!isAdmin && u.role === 'ADMIN' && <option value="ADMIN">ADMIN</option>}
+                                                </select>
+                                            </td>
+                                            <td>{u._count?.projects || 0}</td>
+                                            <td>
+                                                {u.isVerified ? (
+                                                    <CheckCircle size={16} style={{ color: '#16a34a' }} />
+                                                ) : (
+                                                    <button
+                                                        className="icon-btn approve"
+                                                        onClick={() => handleVerify(u.id)}
+                                                        title="Verify user"
+                                                        disabled={actionLoading === u.id}
+                                                    >
+                                                        <Shield size={16} />
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <span className={`status-badge ${u.isBanned ? 'banned' : 'active'}`}>
+                                                    {u.isBanned ? 'Banned' : 'Active'}
+                                                </span>
+                                            </td>
+                                            <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                                            <td>
+                                                <div className="action-group">
+                                                    {/* Ban / Unban */}
+                                                    <button
+                                                        className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
+                                                        onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
+                                                        title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can ban other admins or mods' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
+                                                        disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
+                                                    >
+                                                        <Ban size={16} />
+                                                    </button>
+                                                    {/* Move to trash — admin only */}
+                                                    {isAdmin && (
+                                                        <button
+                                                            className="icon-btn delete"
+                                                            onClick={() => handleDelete(u.id, u.profile?.name)}
+                                                            title="Move to trash"
+                                                            disabled={actionLoading === u.id}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                    {/* View profile */}
+                                                    <Link
+                                                        to={`/${u.role === 'INVESTOR' ? 'investor' : 'builder'}/${u.id}`}
+                                                        className="icon-btn"
+                                                        title="View profile"
+                                                    >
+                                                        <ExternalLink size={16} />
+                                                    </Link>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
 
-            {pagination.totalPages > 1 && (
-                <div className="pagination">
-                    <button disabled={pagination.page <= 1} onClick={() => fetchUsers(pagination.page - 1)}>Previous</button>
-                    <span>Page {pagination.page} of {pagination.totalPages}</span>
-                    <button disabled={pagination.page >= pagination.totalPages} onClick={() => fetchUsers(pagination.page + 1)}>Next</button>
-                </div>
+                    {pagination.totalPages > 1 && (
+                        <div className="pagination">
+                            <button disabled={pagination.page <= 1} onClick={() => fetchUsers(pagination.page - 1)}>Previous</button>
+                            <span>Page {pagination.page} of {pagination.totalPages}</span>
+                            <button disabled={pagination.page >= pagination.totalPages} onClick={() => fetchUsers(pagination.page + 1)}>Next</button>
+                        </div>
+                    )}
+                </>
+            ) : (
+                <>
+                    <div className="trash-banner">
+                        <AlertTriangle size={16} />
+                        <span>Trashed accounts are hidden from the platform. Restore them to re-activate or permanently delete to remove all data.</span>
+                    </div>
+
+                    <div className="toolbar">
+                        <div />
+                        <div className="search-wrap">
+                            <Search size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search trash by name or email..."
+                                value={trashSearch}
+                                onChange={(e) => setTrashSearch(e.target.value)}
+                            />
+                        </div>
+                    </div>
+
+                    {trashLoading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
+                            <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
+                        </div>
+                    ) : trashUsers.length === 0 ? (
+                        <div className="empty-state"><p>Trash is empty.</p></div>
+                    ) : (
+                        <div className="table-container">
+                            <table className="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>User</th>
+                                        <th>Email</th>
+                                        <th>Npub</th>
+                                        <th>Role</th>
+                                        <th>Projects</th>
+                                        <th>Deleted</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {trashUsers.map(u => (
+                                        <tr key={u.id} style={{ opacity: 0.75 }}>
+                                            <td>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    {u.profile?.avatar ? (
+                                                        <img src={u.profile.avatar} alt="" style={{ width: 28, height: 28, borderRadius: '50%', objectFit: 'cover', filter: 'grayscale(1)' }} />
+                                                    ) : (
+                                                        <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--color-gray-200)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', color: 'var(--color-gray-500)' }}>
+                                                            {(u.profile?.name || '?')[0].toUpperCase()}
+                                                        </div>
+                                                    )}
+                                                    <span className="font-semibold">{u.profile?.name || '—'}</span>
+                                                </div>
+                                            </td>
+                                            <td>{u.email || '—'}</td>
+                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
+                                            <td><span style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>{u.role}</span></td>
+                                            <td>{u._count?.projects || 0}</td>
+                                            <td style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+                                                {u.deletedAt ? new Date(u.deletedAt).toLocaleDateString() : '—'}
+                                            </td>
+                                            <td>
+                                                <div className="action-group">
+                                                    <button
+                                                        className="icon-btn approve"
+                                                        onClick={() => handleRestore(u.id, u.profile?.name)}
+                                                        title="Restore account"
+                                                        disabled={actionLoading === u.id}
+                                                    >
+                                                        <RotateCcw size={16} />
+                                                    </button>
+                                                    <button
+                                                        className="icon-btn delete"
+                                                        onClick={() => handlePurge(u.id, u.profile?.name)}
+                                                        title="Permanently delete"
+                                                        disabled={actionLoading === u.id}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+
+                    {trashPagination.totalPages > 1 && (
+                        <div className="pagination">
+                            <button disabled={trashPagination.page <= 1} onClick={() => fetchTrash(trashPagination.page - 1)}>Previous</button>
+                            <span>Page {trashPagination.page} of {trashPagination.totalPages}</span>
+                            <button disabled={trashPagination.page >= trashPagination.totalPages} onClick={() => fetchTrash(trashPagination.page + 1)}>Next</button>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Sync Modal — admin only */}
@@ -614,6 +774,22 @@ const AdminUsers = () => {
                     transition: opacity 0.15s;
                 }
                 .sync-btn:hover { opacity: 0.9; }
+                .tab-btn {
+                    display: inline-flex; align-items: center; gap: 0.4rem;
+                    padding: 0.5rem 1rem; background: var(--color-surface);
+                    color: var(--color-gray-500); border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md); font-size: 0.875rem; font-weight: 500;
+                    cursor: pointer; transition: all 0.15s;
+                }
+                .tab-btn:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
+                .tab-btn-active { background: var(--color-red-tint); color: #dc2626; border-color: #fca5a5; }
+                .tab-btn-active:hover { background: var(--color-red-tint); color: #b91c1c; }
+                .trash-banner {
+                    display: flex; align-items: center; gap: 0.5rem;
+                    background: var(--color-amber-tint); color: #92400E;
+                    border: 1px solid #fcd34d; border-radius: var(--radius-md);
+                    padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.875rem;
+                }
                 .toolbar {
                     display: flex;
                     justify-content: space-between;
