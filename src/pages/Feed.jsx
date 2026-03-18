@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../services/api';
 import NostrIcon from '../components/NostrIcon';
 import ZapModal from '../components/ZapModal';
+import EmojiPicker from '../components/EmojiPicker';
+import NostrGifPicker from '../components/NostrGifPicker';
 import { nip19 } from 'nostr-tools';
 
 const EXPLORE_ICONS = {
@@ -70,6 +72,13 @@ const Feed = () => {
     const [visibleCommentCount, setVisibleCommentCount] = useState({});
     const [likedComments, setLikedComments] = useState(new Set());
     const fetchedComments = useRef(new Set());
+
+    // Emoji & GIF picker state
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const [showGifPicker, setShowGifPicker] = useState(false);
+    const [commentEmojiPicker, setCommentEmojiPicker] = useState(null); // post.id or null
+    const [commentGifPicker, setCommentGifPicker] = useState(null); // post.id or null
+    const composeInputRef = useRef(null);
     const commentInputRefs = useRef({});
 
     const currentView = EXPLORE_VIEWS.find(v => v.key === exploreView) || EXPLORE_VIEWS[0];
@@ -358,6 +367,57 @@ const Feed = () => {
         if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
             handlePost();
         }
+    };
+
+    // Insert emoji at cursor in compose textarea
+    const handleComposeEmoji = (emoji) => {
+        const el = composeInputRef.current;
+        if (el) {
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            const newText = composeText.slice(0, start) + emoji + composeText.slice(end);
+            setComposeText(newText);
+            requestAnimationFrame(() => {
+                el.selectionStart = el.selectionEnd = start + emoji.length;
+                el.focus();
+            });
+        } else {
+            setComposeText(prev => prev + emoji);
+        }
+    };
+
+    // Insert emoji at cursor in comment textarea
+    const handleCommentEmoji = (postId, emoji) => {
+        const el = commentInputRefs.current[postId];
+        if (el) {
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            const current = (replyTarget?.id === postId ? replyText : '');
+            const newText = current.slice(0, start) + emoji + current.slice(end);
+            setReplyTarget({ id: postId, pubkey: replyTarget?.pubkey });
+            setReplyText(newText);
+            requestAnimationFrame(() => {
+                el.selectionStart = el.selectionEnd = start + emoji.length;
+                el.focus();
+            });
+        } else {
+            setReplyTarget({ id: postId, pubkey: replyTarget?.pubkey });
+            setReplyText(prev => prev + emoji);
+        }
+        setCommentEmojiPicker(null);
+    };
+
+    // Insert GIF URL into compose
+    const handleComposeGif = (url) => {
+        setComposeText(prev => prev ? prev + '\n' + url : url);
+        setShowGifPicker(false);
+    };
+
+    // Insert GIF URL into comment
+    const handleCommentGif = (postId, postPubkey, url) => {
+        setReplyTarget({ id: postId, pubkey: postPubkey });
+        setReplyText(prev => prev ? prev + '\n' + url : url);
+        setCommentGifPicker(null);
     };
 
     // Like a note (kind:7 reaction)
@@ -904,6 +964,7 @@ const Feed = () => {
                             )}
                         </div>
                         <textarea
+                            ref={composeInputRef}
                             className="compose-input"
                             placeholder="What's happening on BIES?"
                             value={composeText}
@@ -940,6 +1001,8 @@ const Feed = () => {
                                 {broadcastPublic ? <Globe size={14} /> : <Lock size={14} />}
                                 <span>{broadcastPublic ? 'Public' : 'Private'}</span>
                             </button>
+                        </div>
+                        <div className="compose-actions-right">
                             <button
                                 className="media-attach-btn"
                                 onClick={() => fileInputRef.current?.click()}
@@ -956,16 +1019,46 @@ const Feed = () => {
                                 style={{ display: 'none' }}
                                 onChange={handleFileSelect}
                             />
+                            <div className="picker-anchor">
+                                <button
+                                    className="media-attach-btn"
+                                    onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowGifPicker(false); }}
+                                    title="Emoji"
+                                >
+                                    <Smile size={16} />
+                                </button>
+                                {showEmojiPicker && (
+                                    <EmojiPicker
+                                        onSelect={(emoji) => handleComposeEmoji(emoji)}
+                                        onClose={() => setShowEmojiPicker(false)}
+                                    />
+                                )}
+                            </div>
+                            <div className="picker-anchor">
+                                <button
+                                    className="media-attach-btn"
+                                    onClick={() => { setShowGifPicker(!showGifPicker); setShowEmojiPicker(false); }}
+                                    title="GIF"
+                                >
+                                    <span className="gif-label">GIF</span>
+                                </button>
+                                {showGifPicker && (
+                                    <NostrGifPicker
+                                        onSelect={handleComposeGif}
+                                        onClose={() => setShowGifPicker(false)}
+                                    />
+                                )}
+                            </div>
+                            <button
+                                className="post-btn"
+                                onClick={handlePost}
+                                disabled={(!composeText.trim() && attachedFiles.length === 0) || posting || uploading}
+                                data-testid="post-btn"
+                            >
+                                {(posting || uploading) ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
+                                <span>{uploading ? 'Uploading...' : posting ? 'Posting...' : 'Post'}</span>
+                            </button>
                         </div>
-                        <button
-                            className="post-btn"
-                            onClick={handlePost}
-                            disabled={(!composeText.trim() && attachedFiles.length === 0) || posting || uploading}
-                            data-testid="post-btn"
-                        >
-                            {(posting || uploading) ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-                            <span>{uploading ? 'Uploading...' : posting ? 'Posting...' : 'Post'}</span>
-                        </button>
                     </div>
                 </div>
 
@@ -1068,28 +1161,85 @@ const Feed = () => {
                                     {/* Comment Section */}
                                     {isCommentsOpen && (
                                         <div className="comment-section">
+                                            {/* Reply compose - at top */}
+                                            <div className="comment-compose">
+                                                <div className="comment-compose-avatar">
+                                                    {user?.profile?.avatar ? (
+                                                        <img src={user.profile.avatar} alt="" />
+                                                    ) : (
+                                                        <NostrIcon size={13} />
+                                                    )}
+                                                </div>
+                                                <div className="comment-compose-input-row">
+                                                    <textarea
+                                                        ref={el => { commentInputRefs.current[post.id] = el; }}
+                                                        className="comment-input"
+                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
+                                                        value={isReplying ? replyText : ''}
+                                                        onChange={(e) => {
+                                                            setReplyTarget({ id: post.id, pubkey: post.pubkey });
+                                                            setReplyText(e.target.value);
+                                                        }}
+                                                        onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
+                                                        }}
+                                                        rows={1}
+                                                    />
+                                                    <div className="comment-picker-btns">
+                                                        <div className="picker-anchor">
+                                                            <button
+                                                                className="comment-picker-btn"
+                                                                onClick={() => { setCommentEmojiPicker(commentEmojiPicker === post.id ? null : post.id); setCommentGifPicker(null); }}
+                                                                title="Emoji"
+                                                            >
+                                                                <Smile size={14} />
+                                                            </button>
+                                                            {commentEmojiPicker === post.id && (
+                                                                <EmojiPicker
+                                                                    onSelect={(emoji) => handleCommentEmoji(post.id, emoji)}
+                                                                    onClose={() => setCommentEmojiPicker(null)}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        <div className="picker-anchor">
+                                                            <button
+                                                                className="comment-picker-btn"
+                                                                onClick={() => { setCommentGifPicker(commentGifPicker === post.id ? null : post.id); setCommentEmojiPicker(null); }}
+                                                                title="GIF"
+                                                            >
+                                                                <span className="gif-label-sm">GIF</span>
+                                                            </button>
+                                                            {commentGifPicker === post.id && (
+                                                                <NostrGifPicker
+                                                                    onSelect={(url) => handleCommentGif(post.id, post.pubkey, url)}
+                                                                    onClose={() => setCommentGifPicker(null)}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className="comment-send-btn"
+                                                        onClick={() => handleReply(post)}
+                                                        disabled={!isReplying || !replyText.trim() || replyPosting}
+                                                    >
+                                                        {replyPosting && isReplying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
                                             {loadingComments[post.id] && postComments.length === 0 && (
                                                 <div className="comment-loading">
                                                     <Loader2 size={14} className="spin" /> Loading comments...
                                                 </div>
                                             )}
+
                                             {(() => {
                                                 const limit = visibleCommentCount[post.id] || 5;
-                                                const latest = postComments.slice(-limit);
+                                                const latest = postComments.slice(-limit).reverse();
                                                 const hiddenCount = postComments.length - limit;
                                                 return (
                                                     <>
-                                                        {hiddenCount > 0 && (
-                                                            <button
-                                                                className="show-more-comments"
-                                                                onClick={() => setVisibleCommentCount(prev => ({
-                                                                    ...prev,
-                                                                    [post.id]: (prev[post.id] || 5) * 2,
-                                                                }))}
-                                                            >
-                                                                Show {Math.min(hiddenCount, limit)} more {hiddenCount === 1 ? 'comment' : 'comments'}
-                                                            </button>
-                                                        )}
                                                         {latest.map(comment => {
                                                             const { text: ct, images: ci, otherMedia: cm } = parseNoteContent(comment.content);
                                                             return (
@@ -1146,47 +1296,25 @@ const Feed = () => {
                                                                 </div>
                                                             );
                                                         })}
+
+                                                        {hiddenCount > 0 && (
+                                                            <button
+                                                                className="show-more-comments"
+                                                                onClick={() => setVisibleCommentCount(prev => ({
+                                                                    ...prev,
+                                                                    [post.id]: (prev[post.id] || 5) * 2,
+                                                                }))}
+                                                            >
+                                                                Show {Math.min(hiddenCount, limit)} more {hiddenCount === 1 ? 'comment' : 'comments'}
+                                                            </button>
+                                                        )}
                                                     </>
                                                 );
                                             })()}
+
                                             {!loadingComments[post.id] && postComments.length === 0 && (
                                                 <div className="comment-empty">No replies yet. Be the first!</div>
                                             )}
-
-                                            {/* Reply compose */}
-                                            <div className="comment-compose">
-                                                <div className="comment-compose-avatar">
-                                                    {user?.profile?.avatar ? (
-                                                        <img src={user.profile.avatar} alt="" />
-                                                    ) : (
-                                                        <NostrIcon size={13} />
-                                                    )}
-                                                </div>
-                                                <div className="comment-compose-input-row">
-                                                    <textarea
-                                                        ref={el => { commentInputRefs.current[post.id] = el; }}
-                                                        className="comment-input"
-                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
-                                                        value={isReplying ? replyText : ''}
-                                                        onChange={(e) => {
-                                                            setReplyTarget({ id: post.id, pubkey: post.pubkey });
-                                                            setReplyText(e.target.value);
-                                                        }}
-                                                        onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
-                                                        }}
-                                                        rows={1}
-                                                    />
-                                                    <button
-                                                        className="comment-send-btn"
-                                                        onClick={() => handleReply(post)}
-                                                        disabled={!isReplying || !replyText.trim() || replyPosting}
-                                                    >
-                                                        {replyPosting && isReplying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-                                                    </button>
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -1450,6 +1578,11 @@ const Feed = () => {
                     align-items: center;
                     gap: 0.5rem;
                 }
+                .compose-actions-right {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
                 .media-attach-btn {
                     display: flex;
                     align-items: center;
@@ -1576,7 +1709,7 @@ const Feed = () => {
                     border-radius: var(--radius-xl, 12px);
                     padding: 1.25rem;
                     transition: box-shadow 0.2s, border-color 0.2s;
-                    overflow: hidden;
+                    overflow: visible;
                 }
                 .feed-note:hover {
                     box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1));
@@ -1742,7 +1875,9 @@ const Feed = () => {
                     font-weight: 600;
                     cursor: pointer;
                     padding: 0.25rem 0;
-                    text-align: left;
+                    text-align: center;
+                    display: block;
+                    width: 100%;
                 }
                 .show-more-comments:hover {
                     text-decoration: underline;
@@ -1868,6 +2003,50 @@ const Feed = () => {
                 }
                 .comment-send-btn:hover { opacity: 0.85; }
                 .comment-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+                /* Picker anchor (relative positioning for popups) */
+                .picker-anchor {
+                    position: relative;
+                }
+                .gif-label {
+                    font-size: 0.7rem;
+                    font-weight: 700;
+                    letter-spacing: 0.5px;
+                }
+                .comment-picker-btns {
+                    display: flex;
+                    gap: 0.25rem;
+                    align-items: center;
+                    flex-shrink: 0;
+                }
+                .comment-picker-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 26px;
+                    height: 26px;
+                    border-radius: 50%;
+                    border: none;
+                    background: transparent;
+                    color: #9ca3af;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                    padding: 0;
+                }
+                .comment-picker-btn:hover {
+                    background: #f3f4f6;
+                    color: #6b7280;
+                }
+                .gif-label-sm {
+                    font-size: 0.6rem;
+                    font-weight: 700;
+                    letter-spacing: 0.3px;
+                }
+
+                :global([data-theme="dark"]) .comment-picker-btn:hover {
+                    background: #2d3748;
+                    color: #e2e8f0;
+                }
 
                 /* Load More */
                 .load-more-btn {
