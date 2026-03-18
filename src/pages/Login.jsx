@@ -10,6 +10,8 @@ import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
+const isKeyPasswordValid = (p) => p.length >= 16 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
+
 const Login = () => {
     const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithBunkerAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
     const navigate = useNavigate();
@@ -243,7 +245,7 @@ const Login = () => {
 
     const handleDownloadKeyfile = async () => {
         if (!pendingNsec) return;
-        if (dlKeyPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+        if (!isKeyPasswordValid(dlKeyPassword)) { setError('Password must be at least 16 characters and include both letters and numbers.'); return; }
         if (dlKeyPassword !== dlKeyPasswordConfirm) { setError('Passwords do not match.'); return; }
         setError('');
         setDlEncrypting(true);
@@ -404,7 +406,7 @@ const Login = () => {
                                             type={showDlKeyPassword ? 'text' : 'password'}
                                             value={dlKeyPassword}
                                             onChange={(e) => setDlKeyPassword(e.target.value)}
-                                            placeholder="Password (min 8 chars)"
+                                            placeholder="Password (min 16 chars, letters & numbers)"
                                             className="login-input-sm"
                                             style={{ paddingRight: '2.25rem' }}
                                             autoComplete="new-password"
@@ -423,13 +425,13 @@ const Login = () => {
                                     />
                                     <button
                                         onClick={handleDownloadKeyfile}
-                                        disabled={dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm}
+                                        disabled={dlEncrypting || !isKeyPasswordValid(dlKeyPassword) || dlKeyPassword !== dlKeyPasswordConfirm}
                                         className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
                                     >
                                         {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
                                     </button>
                                     <p className="login-hint" style={{ lineHeight: 1.3 }}>
-                                        Set a password to encrypt your key file. Store it somewhere safe — it is your only backup.
+                                        Password must be at least 16 characters and include both letters and numbers. All other characters are welcome too. Store it somewhere safe — it is your only backup.
                                     </p>
                                 </>
                             )}

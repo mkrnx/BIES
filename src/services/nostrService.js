@@ -111,6 +111,46 @@ class NostrService {
         return sub;
     }
 
+    /**
+     * Batch-fetch profiles for multiple pubkeys in a single relay query.
+     * Returns a Map of pubkey → merged profile object.
+     * Use this after EOSE when you have all the pubkeys you need.
+     */
+    async getProfiles(pubkeys) {
+        const unique = [...new Set(pubkeys)].filter(Boolean);
+        if (unique.length === 0) return new Map();
+
+        try {
+            const allRelays = [this.biesRelay, ...this.publicRelays];
+            const events = await this.pool.querySync(allRelays, { kinds: [0], authors: unique });
+
+            const byPubkey = new Map();
+            for (const evt of events) {
+                if (!byPubkey.has(evt.pubkey)) byPubkey.set(evt.pubkey, []);
+                byPubkey.get(evt.pubkey).push(evt);
+            }
+
+            const result = new Map();
+            for (const [pubkey, evts] of byPubkey) {
+                evts.sort((a, b) => b.created_at - a.created_at);
+                let merged = {};
+                for (const evt of evts) {
+                    try {
+                        const data = JSON.parse(evt.content);
+                        for (const [key, value] of Object.entries(data)) {
+                            if (value && !merged[key]) merged[key] = value;
+                        }
+                    } catch { /* skip malformed */ }
+                }
+                result.set(pubkey, merged);
+            }
+            return result;
+        } catch (error) {
+            console.error('[Nostr] Batch profile fetch failed:', error);
+            return new Map();
+        }
+    }
+
     // Fetch user profile (Kind 0 — NIP-01 + NIP-24 extra metadata fields)
     // Queries BIES relay + public relays and picks the most recent Kind 0 event,
     // then merges any missing fields from older events so we get the

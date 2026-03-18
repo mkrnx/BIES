@@ -64,6 +64,13 @@ const Feed = () => {
     const [replyText, setReplyText] = useState('');
     const [replyPosting, setReplyPosting] = useState(false);
     const [zapTarget, setZapTarget] = useState(null);
+    const [myPubkey, setMyPubkey] = useState(null);
+
+    // Mention autocomplete
+    const [mentionResults, setMentionResults] = useState([]);
+    const [mentionLoading, setMentionLoading] = useState(false);
+    const [mentionAnchor, setMentionAnchor] = useState(null); // { field: 'compose'|'reply', startIndex }
+    const mentionSearchTimer = useRef(null);
 
     // Comment section state
     const [openComments, setOpenComments] = useState(new Set());
@@ -82,6 +89,19 @@ const Feed = () => {
     const commentInputRefs = useRef({});
 
     const currentView = EXPLORE_VIEWS.find(v => v.key === exploreView) || EXPLORE_VIEWS[0];
+
+    // Fetch own pubkey once on mount for reaction persistence and notifications
+    useEffect(() => {
+        nostrSigner.getPublicKey().then(pk => {
+            setMyPubkey(pk);
+            if (pk && !fetchedProfiles.current.has(pk)) {
+                fetchedProfiles.current.add(pk);
+                nostrService.getProfile(pk).then(p => {
+                    if (p) setProfiles(prev => ({ ...prev, [pk]: p }));
+                });
+            }
+        }).catch(() => {});
+    }, []);
 
     // Sort notes based on the current explore view
     const sortNotes = useCallback((notes, stats, viewKey) => {
@@ -110,16 +130,42 @@ const Feed = () => {
         setPosts([]);
         setProfiles({});
         setNoteStats({});
+        setComments({});
+        setOpenComments(new Set());
         setLoading(true);
         fetchedProfiles.current.clear();
+        fetchedComments.current.clear();
 
         const timeout = setTimeout(() => setLoading(false), 15000);
+
+        // Collect pubkeys during streaming, batch-fetch profiles after EOSE.
+        // Post-EOSE live arrivals are debounced (300ms) and batched too.
+        const preEosePubkeys = [];
+        const liveQueue = new Set();
+        let debounceTimer = null;
+        let eoseFired = false;
+
+        const flushLiveProfiles = async () => {
+            if (liveQueue.size === 0) return;
+            const toFetch = [...liveQueue].filter(pk => !fetchedProfiles.current.has(pk));
+            toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+            liveQueue.clear();
+            if (toFetch.length === 0) return;
+            const profileMap = await nostrService.getProfiles(toFetch);
+            if (profileMap.size > 0) {
+                setProfiles(prev => {
+                    const next = { ...prev };
+                    for (const [pk, p] of profileMap) next[pk] = p;
+                    return next;
+                });
+            }
+        };
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
             { kinds: [1], limit: 50 },
             {
-                onevent: async (event) => {
+                onevent: (event) => {
                     // Skip machine-generated events (JSON metadata, protocol messages)
                     const c = (event.content || '').trimStart();
                     if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
@@ -127,22 +173,39 @@ const Feed = () => {
                     // Skip replies — events with 'e' tags are replies to other posts, not root posts
                     if (event.tags.some(t => t[0] === 'e')) return;
 
-                    if (!fetchedProfiles.current.has(event.pubkey)) {
-                        fetchedProfiles.current.add(event.pubkey);
-                        const profile = await nostrService.getProfile(event.pubkey);
-                        if (profile) {
-                            setProfiles(prev => ({ ...prev, [event.pubkey]: profile }));
-                        }
-                    }
-
                     setPosts(prev => {
                         if (prev.find(p => p.id === event.id)) return prev;
                         return [...prev, event].sort((a, b) => b.created_at - a.created_at);
                     });
                     clearTimeout(timeout);
                     setLoading(false);
+
+                    if (!fetchedProfiles.current.has(event.pubkey)) {
+                        if (!eoseFired) {
+                            preEosePubkeys.push(event.pubkey);
+                        } else {
+                            liveQueue.add(event.pubkey);
+                            clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(flushLiveProfiles, 300);
+                        }
+                    }
                 },
-                oneose: () => setLoading(false),
+                oneose: async () => {
+                    eoseFired = true;
+                    setLoading(false);
+                    clearTimeout(debounceTimer);
+                    const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                    toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                    if (toFetch.length === 0) return;
+                    const profileMap = await nostrService.getProfiles(toFetch);
+                    if (profileMap.size > 0) {
+                        setProfiles(prev => {
+                            const next = { ...prev };
+                            for (const [pk, p] of profileMap) next[pk] = p;
+                            return next;
+                        });
+                    }
+                },
                 onclose: () => setLoading(false),
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
@@ -150,6 +213,7 @@ const Feed = () => {
 
         return () => {
             clearTimeout(timeout);
+            clearTimeout(debounceTimer);
             if (sub) sub.close();
         };
     }, [feedMode]);
@@ -157,13 +221,13 @@ const Feed = () => {
     // Fetch user's own reactions for private relay posts so likes/reposts persist across refresh
     const fetchedReactions = useRef(false);
     useEffect(() => {
-        if (feedMode !== 'private' || !nostrSigner.pubkey || posts.length === 0 || fetchedReactions.current) return;
+        if (feedMode !== 'private' || !myPubkey || posts.length === 0 || fetchedReactions.current) return;
         fetchedReactions.current = true;
 
         const postIds = posts.map(p => p.id);
         const sub = nostrService.pool.subscribeMany(
             nostrService.relays,
-            { kinds: [7, 6], authors: [nostrSigner.pubkey], '#e': postIds, limit: 500 },
+            { kinds: [7, 6], authors: [myPubkey], '#e': postIds, limit: 500 },
             {
                 onevent: (event) => {
                     const eTag = event.tags.find(t => t[0] === 'e');
@@ -187,7 +251,7 @@ const Feed = () => {
         );
 
         return () => sub.close();
-    }, [feedMode, posts]);
+    }, [feedMode, posts, myPubkey]);
 
     // Reset reaction cache when switching feed modes
     useEffect(() => {
@@ -202,12 +266,15 @@ const Feed = () => {
         setPosts([]);
         setProfiles({});
         setNoteStats({});
+        setComments({});
+        setOpenComments(new Set());
         setLoading(true);
+        fetchedComments.current.clear();
 
         (async () => {
             try {
                 const opts = { limit: 30 };
-                if (nostrSigner.pubkey) opts.userPubkey = nostrSigner.pubkey;
+                if (myPubkey) opts.userPubkey = myPubkey;
                 const result = await primalService.fetchExploreFeed(currentView, opts);
                 if (cancelled) return;
 
@@ -242,7 +309,7 @@ const Feed = () => {
         setLoadingMore(true);
         try {
             const opts = { limit: 20 };
-            if (nostrSigner.pubkey) opts.userPubkey = nostrSigner.pubkey;
+            if (myPubkey) opts.userPubkey = myPubkey;
             const result = await primalService.loadMore(currentView, posts, noteStats, opts);
             if (result.notes.length > 0) {
                 setProfiles(prev => ({ ...prev, ...result.profiles }));
@@ -310,7 +377,7 @@ const Feed = () => {
     const handlePost = async () => {
         if ((!composeText.trim() && attachedFiles.length === 0) || posting || uploading) return;
 
-        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) {
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) {
             setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
             return;
         }
@@ -423,7 +490,7 @@ const Feed = () => {
     // Like a note (kind:7 reaction)
     const handleLike = async (post) => {
         if (likedNotes.has(post.id)) return;
-        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
 
         try {
             const event = {
@@ -446,7 +513,7 @@ const Feed = () => {
                 notificationsApi.feedInteraction({
                     type: 'POST_LIKE',
                     targetPubkey: post.pubkey,
-                    actorName: getDisplayName(nostrSigner.pubkey),
+                    actorName: myPubkey ? getDisplayName(myPubkey) : '',
                     eventId: post.id,
                 });
             }
@@ -458,7 +525,7 @@ const Feed = () => {
     // Repost a note (kind:6)
     const handleRepost = async (post) => {
         if (repostedNotes.has(post.id)) return;
-        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
 
         try {
             const event = {
@@ -484,7 +551,7 @@ const Feed = () => {
     // Reply to a note (kind:1 with e/p tags)
     const handleReply = async (post) => {
         if (!replyText.trim() || replyPosting) return;
-        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
 
         setReplyPosting(true);
         try {
@@ -518,7 +585,7 @@ const Feed = () => {
 
             // Notify the post author (fire-and-forget)
             if (user) {
-                const actorName = getDisplayName(nostrSigner.pubkey);
+                const actorName = myPubkey ? getDisplayName(myPubkey) : '';
                 notificationsApi.feedInteraction({
                     type: 'POST_COMMENT',
                     targetPubkey: post.pubkey,
@@ -547,7 +614,7 @@ const Feed = () => {
     // Like a comment (kind:7 reaction targeting the comment event)
     const handleCommentLike = async (comment) => {
         if (likedComments.has(comment.id)) return;
-        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !window.nostr) return;
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
 
         try {
             const event = {
@@ -566,7 +633,7 @@ const Feed = () => {
                 notificationsApi.feedInteraction({
                     type: 'COMMENT_LIKE',
                     targetPubkey: comment.pubkey,
-                    actorName: getDisplayName(nostrSigner.pubkey),
+                    actorName: myPubkey ? getDisplayName(myPubkey) : '',
                     eventId: comment.id,
                 });
             }
@@ -634,6 +701,79 @@ const Feed = () => {
         return profiles[pubkey]?.picture || null;
     };
 
+    // Mention autocomplete: detect @query in textarea and search profiles
+    const handleMentionInput = useCallback((text, caretPos, field) => {
+        const before = text.slice(0, caretPos);
+        const match = before.match(/@(\S*)$/);
+        if (match) {
+            const query = match[1];
+            setMentionAnchor({ field, startIndex: caretPos - match[0].length });
+            if (mentionSearchTimer.current) clearTimeout(mentionSearchTimer.current);
+            if (query.length >= 2) {
+                setMentionLoading(true);
+                setMentionResults([]);
+                mentionSearchTimer.current = setTimeout(async () => {
+                    try {
+                        const results = await nostrService.searchProfiles(query, 6);
+                        setMentionResults(results);
+                    } catch {
+                        setMentionResults([]);
+                    } finally {
+                        setMentionLoading(false);
+                    }
+                }, 350);
+            } else {
+                setMentionResults([]);
+                setMentionLoading(false);
+            }
+        } else {
+            setMentionAnchor(null);
+            setMentionResults([]);
+            setMentionLoading(false);
+        }
+    }, []);
+
+    const handleMentionSelect = (profile) => {
+        if (!mentionAnchor) return;
+        const npub = nip19.npubEncode(profile.pubkey);
+        const mention = `nostr:${npub} `;
+        const insertMention = (prev) => {
+            const before = prev.slice(0, mentionAnchor.startIndex);
+            const after = prev.slice(mentionAnchor.startIndex).replace(/^@\S*/, '');
+            return before + mention + after;
+        };
+        if (mentionAnchor.field === 'compose') {
+            setComposeText(insertMention);
+        } else {
+            setReplyText(insertMention);
+        }
+        // Cache the mentioned profile so their name renders inline
+        if (profile.name || profile.display_name) {
+            setProfiles(prev => ({ ...prev, [profile.pubkey]: { ...prev[profile.pubkey], ...profile } }));
+        }
+        setMentionAnchor(null);
+        setMentionResults([]);
+        setMentionLoading(false);
+    };
+
+    // Render note text with nostr:npub mentions as styled @name spans
+    const renderContent = (text) => {
+        if (!text) return null;
+        const parts = text.split(/(nostr:npub[a-z0-9]+)/gi);
+        return parts.map((part, i) => {
+            if (/^nostr:npub[a-z0-9]+$/i.test(part)) {
+                const npubStr = part.slice(6); // strip "nostr:"
+                try {
+                    const decoded = nip19.decode(npubStr);
+                    if (decoded.type === 'npub') {
+                        return <span key={i} className="note-mention">@{getDisplayName(decoded.data)}</span>;
+                    }
+                } catch { /* fall through */ }
+            }
+            return <span key={i}>{part}</span>;
+        });
+    };
+
     // Only show root posts — filter out replies (events with 'e' tags referencing other events)
     const rootPosts = useMemo(() => posts.filter(p => !p.tags?.some(t => t[0] === 'e')), [posts]);
 
@@ -643,6 +783,45 @@ const Feed = () => {
         if (fetchedComments.current.has(postId)) return;
         fetchedComments.current.add(postId);
         setLoadingComments(prev => ({ ...prev, [postId]: true }));
+
+        // For private relay feed, subscribe directly to BIES relay for replies
+        if (feedMode === 'private') {
+            const commentPubkeys = [];
+            const sub = nostrService.pool.subscribeMany(
+                [BIES_RELAY],
+                { kinds: [1], '#e': [postId], limit: 100 },
+                {
+                    onevent: (event) => {
+                        if (!fetchedProfiles.current.has(event.pubkey)) {
+                            commentPubkeys.push(event.pubkey);
+                        }
+                        setComments(prev => {
+                            const existing = prev[postId] || [];
+                            if (existing.find(e => e.id === event.id)) return prev;
+                            return { ...prev, [postId]: [...existing, event].sort((a, b) => a.created_at - b.created_at) };
+                        });
+                    },
+                    oneose: async () => {
+                        sub.close();
+                        setLoadingComments(prev => ({ ...prev, [postId]: false }));
+                        const toFetch = [...new Set(commentPubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                        toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                        if (toFetch.length === 0) return;
+                        const profileMap = await nostrService.getProfiles(toFetch);
+                        if (profileMap.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of profileMap) next[pk] = p;
+                                return next;
+                            });
+                        }
+                    },
+                    onclose: () => setLoadingComments(prev => ({ ...prev, [postId]: false })),
+                    onauth: async (evt) => nostrSigner.signEvent(evt),
+                }
+            );
+            return;
+        }
 
         try {
             const result = await primalService.fetchReplies(postId, { limit: 100 });
@@ -677,7 +856,7 @@ const Feed = () => {
         } finally {
             setLoadingComments(prev => ({ ...prev, [postId]: false }));
         }
-    }, []);
+    }, [feedMode]);
 
     const toggleComments = (postId) => {
         setOpenComments(prev => {
@@ -968,12 +1147,36 @@ const Feed = () => {
                             className="compose-input"
                             placeholder="What's happening on BIES?"
                             value={composeText}
-                            onChange={(e) => setComposeText(e.target.value)}
+                            onChange={(e) => {
+                                setComposeText(e.target.value);
+                                handleMentionInput(e.target.value, e.target.selectionStart, 'compose');
+                            }}
                             onKeyDown={handleKeyDown}
+                            onBlur={() => setTimeout(() => setMentionAnchor(null), 150)}
                             rows={3}
                             data-testid="compose-input"
                         />
                     </div>
+                    {mentionAnchor?.field === 'compose' && (mentionResults.length > 0 || mentionLoading) && (
+                        <div className="mention-dropdown">
+                            {mentionLoading && mentionResults.length === 0 && (
+                                <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
+                            )}
+                            {mentionResults.map(p => (
+                                <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
+                                    {p.picture ? (
+                                        <img src={p.picture} className="mention-avatar" alt="" />
+                                    ) : (
+                                        <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
+                                    )}
+                                    <div className="mention-info">
+                                        <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
+                                        {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    )}
                     {attachedFiles.length > 0 && (
                         <div className="compose-media-preview">
                             {attachedFiles.map((item, i) => (
@@ -1108,7 +1311,7 @@ const Feed = () => {
                                             <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
                                         </div>
                                     </div>
-                                    {text && <div className="note-content">{text}</div>}
+                                    {text && <div className="note-content">{renderContent(text)}</div>}
                                     {renderImageGrid(images)}
                                     {renderOtherMedia(otherMedia)}
                                     <div className="note-actions">
@@ -1131,6 +1334,7 @@ const Feed = () => {
                                         <button
                                             className={`action-btn ${isLiked ? 'active-like' : ''}`}
                                             title="Like"
+                                            data-testid="like-btn"
                                             onClick={() => handleLike(post)}
                                         >
                                             <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
@@ -1256,7 +1460,7 @@ const Feed = () => {
                                                                             <span className="comment-name">{getDisplayName(comment.pubkey)}</span>
                                                                             <span className="comment-time">{formatTime(comment.created_at)}</span>
                                                                         </div>
-                                                                        {ct && <div className="comment-text">{ct}</div>}
+                                                                        {ct && <div className="comment-text">{renderContent(ct)}</div>}
                                                                         {ci.length > 0 && (
                                                                             <div className="comment-images">
                                                                                 {ci.map((src, i) => (
@@ -1314,6 +1518,97 @@ const Feed = () => {
 
                                             {!loadingComments[post.id] && postComments.length === 0 && (
                                                 <div className="comment-empty">No replies yet. Be the first!</div>
+                                            )}
+
+                                            {/* Reply compose - at top */}
+                                            <div className="comment-compose">
+                                                <div className="comment-compose-avatar">
+                                                    {user?.profile?.avatar ? (
+                                                        <img src={user.profile.avatar} alt="" />
+                                                    ) : (
+                                                        <NostrIcon size={13} />
+                                                    )}
+                                                </div>
+                                                <div className="comment-compose-input-row">
+                                                    <textarea
+                                                        ref={el => { commentInputRefs.current[post.id] = el; }}
+                                                        className="comment-input"
+                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
+                                                        value={isReplying ? replyText : ''}
+                                                        onChange={(e) => {
+                                                            setReplyTarget({ id: post.id, pubkey: post.pubkey });
+                                                            setReplyText(e.target.value);
+                                                            handleMentionInput(e.target.value, e.target.selectionStart, 'reply');
+                                                        }}
+                                                        onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
+                                                        onBlur={() => setTimeout(() => setMentionAnchor(null), 150)}
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
+                                                        }}
+                                                        rows={1}
+                                                    />
+                                                    <div className="comment-picker-btns">
+                                                        <div className="picker-anchor">
+                                                            <button
+                                                                className="comment-picker-btn"
+                                                                onClick={() => { setCommentEmojiPicker(commentEmojiPicker === post.id ? null : post.id); setCommentGifPicker(null); }}
+                                                                title="Emoji"
+                                                            >
+                                                                <Smile size={14} />
+                                                            </button>
+                                                            {commentEmojiPicker === post.id && (
+                                                                <EmojiPicker
+                                                                    onSelect={(emoji) => handleCommentEmoji(post.id, emoji)}
+                                                                    onClose={() => setCommentEmojiPicker(null)}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                        <div className="picker-anchor">
+                                                            <button
+                                                                className="comment-picker-btn"
+                                                                onClick={() => { setCommentGifPicker(commentGifPicker === post.id ? null : post.id); setCommentEmojiPicker(null); }}
+                                                                title="GIF"
+                                                            >
+                                                                <span className="gif-label-sm">GIF</span>
+                                                            </button>
+                                                            {commentGifPicker === post.id && (
+                                                                <NostrGifPicker
+                                                                    onSelect={(url) => handleCommentGif(post.id, post.pubkey, url)}
+                                                                    onClose={() => setCommentGifPicker(null)}
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <button
+                                                        className="comment-send-btn"
+                                                        onClick={() => handleReply(post)}
+                                                        disabled={!isReplying || !replyText.trim() || replyPosting}
+                                                    >
+                                                        {replyPosting && isReplying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {/* Mention dropdown for replies */}
+                                            {isReplying && mentionAnchor?.field === 'reply' && (mentionResults.length > 0 || mentionLoading) && (
+                                                <div className="mention-dropdown mention-dropdown-reply">
+                                                    {mentionLoading && mentionResults.length === 0 && (
+                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
+                                                    )}
+                                                    {mentionResults.map(p => (
+                                                        <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
+                                                            {p.picture ? (
+                                                                <img src={p.picture} className="mention-avatar" alt="" />
+                                                            ) : (
+                                                                <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
+                                                            )}
+                                                            <div className="mention-info">
+                                                                <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
+                                                                {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             )}
                                         </div>
                                     )}
@@ -2047,6 +2342,100 @@ const Feed = () => {
                     background: #2d3748;
                     color: #e2e8f0;
                 }
+
+                /* Mention dropdown */
+                .mention-dropdown {
+                    background: var(--color-surface, white);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+                    max-height: 220px;
+                    overflow-y: auto;
+                    margin: 0.25rem 0 0.25rem 52px;
+                }
+                .mention-dropdown-reply {
+                    margin: 0 0 0.25rem 34px;
+                }
+                .mention-loading {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    font-size: 0.78rem;
+                    color: #9ca3af;
+                    padding: 0.5rem 0.75rem;
+                }
+                .mention-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                    width: 100%;
+                    padding: 0.45rem 0.75rem;
+                    background: none;
+                    border: none;
+                    border-bottom: 1px solid #f3f4f6;
+                    cursor: pointer;
+                    text-align: left;
+                    transition: background 0.12s;
+                }
+                .mention-item:last-child { border-bottom: none; }
+                .mention-item:hover, .mention-item:focus { background: #f5f3ff; outline: none; }
+                .mention-avatar {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    object-fit: cover;
+                    flex-shrink: 0;
+                }
+                .mention-avatar-placeholder {
+                    width: 28px;
+                    height: 28px;
+                    border-radius: 50%;
+                    background: #ede9fe;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #7c3aed;
+                    flex-shrink: 0;
+                }
+                .mention-info {
+                    display: flex;
+                    flex-direction: column;
+                    min-width: 0;
+                    overflow: hidden;
+                }
+                .mention-name {
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    color: #1f2937;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .mention-nip05 {
+                    font-size: 0.7rem;
+                    color: #9ca3af;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .note-mention {
+                    color: #7c3aed;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                .note-mention:hover { text-decoration: underline; }
+                :global([data-theme="dark"]) .mention-dropdown {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+                }
+                :global([data-theme="dark"]) .mention-item {
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .mention-item:hover,
+                :global([data-theme="dark"]) .mention-item:focus { background: #2d3748; }
+                :global([data-theme="dark"]) .mention-name { color: #f1f5f9; }
+                :global([data-theme="dark"]) .note-mention { color: #a78bfa; }
 
                 /* Load More */
                 .load-more-btn {
