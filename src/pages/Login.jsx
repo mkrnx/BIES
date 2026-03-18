@@ -315,6 +315,8 @@ const Login = () => {
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                 <input
                                     type={showUnlockPassword ? 'text' : 'password'}
+                                    id="nostrkey-unlock-password"
+                                    name="password"
                                     value={unlockPassword}
                                     onChange={(e) => setUnlockPassword(e.target.value)}
                                     placeholder="Password"
@@ -404,6 +406,8 @@ const Login = () => {
                                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                         <input
                                             type={showDlKeyPassword ? 'text' : 'password'}
+                                            id="nostrkey-download-password"
+                                            name="new-password"
                                             value={dlKeyPassword}
                                             onChange={(e) => setDlKeyPassword(e.target.value)}
                                             placeholder="Password (min 16 chars, letters & numbers)"
@@ -417,6 +421,8 @@ const Login = () => {
                                     </div>
                                     <input
                                         type={showDlKeyPassword ? 'text' : 'password'}
+                                        id="nostrkey-download-password-confirm"
+                                        name="new-password-confirm"
                                         value={dlKeyPasswordConfirm}
                                         onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
                                         placeholder="Confirm password"
