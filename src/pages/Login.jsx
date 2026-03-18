@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft, Download, ShieldCheck, Smartphone } from 'lucide-react';
@@ -35,9 +35,16 @@ const Login = () => {
     const [passkeyUser, setPasskeyUser] = useState(null);
 
     // Post-login keyfile download state
-    const [dlKeyPassword, setDlKeyPassword] = useState('');
-    const [dlKeyPasswordConfirm, setDlKeyPasswordConfirm] = useState('');
     const [showDlKeyPassword, setShowDlKeyPassword] = useState(false);
+    const [dlKeyPasswordValid, setDlKeyPasswordValid] = useState(false);
+    const dlPasswordRef = useRef(null);
+    const dlPasswordConfirmRef = useRef(null);
+
+    const syncDlPasswordValid = () => {
+        const pw = dlPasswordRef.current?.value ?? '';
+        const confirm = dlPasswordConfirmRef.current?.value ?? '';
+        setDlKeyPasswordValid(isKeyPasswordValid(pw) && pw === confirm);
+    };
     const [dlEncrypting, setDlEncrypting] = useState(false);
     const [keyDownloaded, setKeyDownloaded] = useState(false);
 
@@ -245,15 +252,18 @@ const Login = () => {
 
     const handleDownloadKeyfile = async () => {
         if (!pendingNsec) return;
-        if (!isKeyPasswordValid(dlKeyPassword)) { setError('Password must be at least 16 characters and include both letters and numbers.'); return; }
-        if (dlKeyPassword !== dlKeyPasswordConfirm) { setError('Passwords do not match.'); return; }
+        const pw = dlPasswordRef.current?.value ?? '';
+        const confirm = dlPasswordConfirmRef.current?.value ?? '';
+        if (!isKeyPasswordValid(pw)) { setError('Password must be at least 16 characters and include both letters and numbers.'); return; }
+        if (pw !== confirm) { setError('Passwords do not match.'); return; }
         setError('');
         setDlEncrypting(true);
         try {
             await new Promise(r => setTimeout(r, 50));
-            await keyfileService.encryptAndDownload(pendingNsec, dlKeyPassword);
-            setDlKeyPassword('');
-            setDlKeyPasswordConfirm('');
+            await keyfileService.encryptAndDownload(pendingNsec, pw);
+            if (dlPasswordRef.current) dlPasswordRef.current.value = '';
+            if (dlPasswordConfirmRef.current) dlPasswordConfirmRef.current.value = '';
+            setDlKeyPasswordValid(false);
             setKeyDownloaded(true);
         } catch (err) {
             setError(err.message || 'Encryption failed.');
@@ -405,11 +415,12 @@ const Login = () => {
                                 <form onSubmit={(e) => { e.preventDefault(); handleDownloadKeyfile(); }} style={{ display: 'contents' }}>
                                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                         <input
+                                            ref={dlPasswordRef}
                                             type={showDlKeyPassword ? 'text' : 'password'}
                                             id="nostrkey-download-password"
                                             name="new-password"
-                                            value={dlKeyPassword}
-                                            onChange={(e) => setDlKeyPassword(e.target.value)}
+                                            defaultValue=""
+                                            onInput={syncDlPasswordValid}
                                             placeholder="Password (min 16 chars, letters & numbers)"
                                             className="login-input-sm"
                                             style={{ paddingRight: '2.25rem' }}
@@ -420,18 +431,19 @@ const Login = () => {
                                         </button>
                                     </div>
                                     <input
+                                        ref={dlPasswordConfirmRef}
                                         type={showDlKeyPassword ? 'text' : 'password'}
                                         id="nostrkey-download-password-confirm"
-                                        name="new-password-confirm"
-                                        value={dlKeyPasswordConfirm}
-                                        onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
+                                        name="new-password"
+                                        defaultValue=""
+                                        onInput={syncDlPasswordValid}
                                         placeholder="Confirm password"
                                         className="login-input-sm"
                                         autoComplete="new-password"
                                     />
                                     <button
                                         type="submit"
-                                        disabled={dlEncrypting || !isKeyPasswordValid(dlKeyPassword) || dlKeyPassword !== dlKeyPasswordConfirm}
+                                        disabled={dlEncrypting || !dlKeyPasswordValid}
                                         className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
                                     >
                                         {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
