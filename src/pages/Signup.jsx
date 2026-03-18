@@ -26,8 +26,11 @@ const Signup = () => {
     const [showKeyPassword, setShowKeyPassword] = useState(false);
     const [encrypting, setEncrypting] = useState(false);
     const [showSeedPhrase, setShowSeedPhrase] = useState(false);
+    const [keyfileDownloaded, setKeyfileDownloaded] = useState(false);
 
     const truncateKey = (key) => key ? `${key.slice(0, 10)}...${key.slice(-10)}` : '';
+
+    const isKeyPasswordValid = (p) => p.length >= 16 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
 
     const generateKeys = () => {
         const mnemonic = generateSeedWords();
@@ -49,7 +52,7 @@ const Signup = () => {
 
     const downloadKeys = async () => {
         if (!keys) return;
-        if (keyPassword.length < 8) { setError('Password must be at least 8 characters.'); return; }
+        if (!isKeyPasswordValid(keyPassword)) { setError('Password must be at least 16 characters and include both letters and numbers.'); return; }
         if (keyPassword !== keyPasswordConfirm) { setError('Passwords do not match.'); return; }
         setError('');
         setEncrypting(true);
@@ -59,6 +62,7 @@ const Signup = () => {
             keyfileService.triggerDownload(json, filename);
             setKeyPassword('');
             setKeyPasswordConfirm('');
+            setKeyfileDownloaded(true);
         } catch (err) {
             setError(err.message || 'Encryption failed.');
         } finally {
@@ -254,7 +258,7 @@ const Signup = () => {
                                         type={showKeyPassword ? 'text' : 'password'}
                                         value={keyPassword}
                                         onChange={(e) => setKeyPassword(e.target.value)}
-                                        placeholder="Password (min 8 chars)"
+                                        placeholder="Password (min 16 chars, letters & numbers)"
                                         style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: '0.5rem', fontSize: '0.8rem', background: 'var(--color-surface)', color: 'var(--color-text, inherit)' }}
                                         autoComplete="new-password"
                                     />
@@ -272,14 +276,14 @@ const Signup = () => {
                                 />
                                 <button
                                     onClick={downloadKeys}
-                                    disabled={encrypting || keyPassword.length < 8 || keyPassword !== keyPasswordConfirm}
+                                    disabled={encrypting || !isKeyPasswordValid(keyPassword) || keyPassword !== keyPasswordConfirm}
                                     className="w-full btn-outline py-2 rounded-full flex items-center justify-center gap-2"
-                                    style={{ opacity: (encrypting || keyPassword.length < 8 || keyPassword !== keyPasswordConfirm) ? 0.5 : 1 }}
+                                    style={{ opacity: (encrypting || !isKeyPasswordValid(keyPassword) || keyPassword !== keyPasswordConfirm) ? 0.5 : 1 }}
                                 >
-                                    {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
+                                    {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : keyfileDownloaded ? <><CheckCircle size={14} style={{ color: 'var(--color-success)' }} /> Downloaded — Download Again</> : <><Download size={14} /> Download .nostrkey File</>}
                                 </button>
                                 <p className="text-xs" style={{ lineHeight: 1.3, color: 'var(--color-gray-400)' }}>
-                                    This password-protected file is a true backup. Store it somewhere safe. You'll need the password to unlock it.
+                                    Password must be <strong>at least 16 characters</strong> and include both <strong>letters and numbers</strong>. All other characters are welcome too. Store the file somewhere safe — you'll need this password to unlock it.
                                 </p>
                             </div>
 
@@ -306,8 +310,18 @@ const Signup = () => {
                                 </div>
                             )}
 
-                            <button onClick={handleBackupConfirm} className="w-full btn-primary py-3 rounded-full" style={{ marginTop: '0.25rem' }}>
-                                Continue — I've Saved My Keys
+                            {!keyfileDownloaded && (
+                                <p className="text-xs text-center" style={{ color: 'var(--color-warning)', marginTop: '0.25rem' }}>
+                                    You must download your encrypted key file before continuing.
+                                </p>
+                            )}
+                            <button
+                                onClick={handleBackupConfirm}
+                                disabled={!keyfileDownloaded}
+                                className="w-full btn-primary py-3 rounded-full"
+                                style={{ marginTop: '0.25rem', opacity: keyfileDownloaded ? 1 : 0.4, pointerEvents: keyfileDownloaded ? 'auto' : 'none' }}
+                            >
+                                {keyfileDownloaded ? 'Continue — I\'ve Saved My Keys' : 'Download Key File to Continue'}
                             </button>
                         </div>
                     </div>
