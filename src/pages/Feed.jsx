@@ -129,11 +129,34 @@ const Feed = () => {
 
         const timeout = setTimeout(() => setLoading(false), 15000);
 
+        // Collect pubkeys during streaming, batch-fetch profiles after EOSE.
+        // Post-EOSE live arrivals are debounced (300ms) and batched too.
+        const preEosePubkeys = [];
+        const liveQueue = new Set();
+        let debounceTimer = null;
+        let eoseFired = false;
+
+        const flushLiveProfiles = async () => {
+            if (liveQueue.size === 0) return;
+            const toFetch = [...liveQueue].filter(pk => !fetchedProfiles.current.has(pk));
+            toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+            liveQueue.clear();
+            if (toFetch.length === 0) return;
+            const profileMap = await nostrService.getProfiles(toFetch);
+            if (profileMap.size > 0) {
+                setProfiles(prev => {
+                    const next = { ...prev };
+                    for (const [pk, p] of profileMap) next[pk] = p;
+                    return next;
+                });
+            }
+        };
+
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
             { kinds: [1], limit: 50 },
             {
-                onevent: async (event) => {
+                onevent: (event) => {
                     // Skip machine-generated events (JSON metadata, protocol messages)
                     const c = (event.content || '').trimStart();
                     if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
@@ -141,22 +164,39 @@ const Feed = () => {
                     // Skip replies — events with 'e' tags are replies to other posts, not root posts
                     if (event.tags.some(t => t[0] === 'e')) return;
 
-                    if (!fetchedProfiles.current.has(event.pubkey)) {
-                        fetchedProfiles.current.add(event.pubkey);
-                        const profile = await nostrService.getProfile(event.pubkey);
-                        if (profile) {
-                            setProfiles(prev => ({ ...prev, [event.pubkey]: profile }));
-                        }
-                    }
-
                     setPosts(prev => {
                         if (prev.find(p => p.id === event.id)) return prev;
                         return [...prev, event].sort((a, b) => b.created_at - a.created_at);
                     });
                     clearTimeout(timeout);
                     setLoading(false);
+
+                    if (!fetchedProfiles.current.has(event.pubkey)) {
+                        if (!eoseFired) {
+                            preEosePubkeys.push(event.pubkey);
+                        } else {
+                            liveQueue.add(event.pubkey);
+                            clearTimeout(debounceTimer);
+                            debounceTimer = setTimeout(flushLiveProfiles, 300);
+                        }
+                    }
                 },
-                oneose: () => setLoading(false),
+                oneose: async () => {
+                    eoseFired = true;
+                    setLoading(false);
+                    clearTimeout(debounceTimer);
+                    const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                    toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                    if (toFetch.length === 0) return;
+                    const profileMap = await nostrService.getProfiles(toFetch);
+                    if (profileMap.size > 0) {
+                        setProfiles(prev => {
+                            const next = { ...prev };
+                            for (const [pk, p] of profileMap) next[pk] = p;
+                            return next;
+                        });
+                    }
+                },
                 onclose: () => setLoading(false),
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
@@ -164,6 +204,7 @@ const Feed = () => {
 
         return () => {
             clearTimeout(timeout);
+            clearTimeout(debounceTimer);
             if (sub) sub.close();
         };
     }, [feedMode]);
@@ -685,16 +726,14 @@ const Feed = () => {
 
         // For private relay feed, subscribe directly to BIES relay for replies
         if (feedMode === 'private') {
+            const commentPubkeys = [];
             const sub = nostrService.pool.subscribeMany(
                 [BIES_RELAY],
                 { kinds: [1], '#e': [postId], limit: 100 },
                 {
-                    onevent: async (event) => {
+                    onevent: (event) => {
                         if (!fetchedProfiles.current.has(event.pubkey)) {
-                            fetchedProfiles.current.add(event.pubkey);
-                            nostrService.getProfile(event.pubkey).then(p => {
-                                if (p) setProfiles(prev => ({ ...prev, [event.pubkey]: p }));
-                            });
+                            commentPubkeys.push(event.pubkey);
                         }
                         setComments(prev => {
                             const existing = prev[postId] || [];
@@ -702,9 +741,20 @@ const Feed = () => {
                             return { ...prev, [postId]: [...existing, event].sort((a, b) => a.created_at - b.created_at) };
                         });
                     },
-                    oneose: () => {
+                    oneose: async () => {
                         sub.close();
                         setLoadingComments(prev => ({ ...prev, [postId]: false }));
+                        const toFetch = [...new Set(commentPubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                        toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                        if (toFetch.length === 0) return;
+                        const profileMap = await nostrService.getProfiles(toFetch);
+                        if (profileMap.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of profileMap) next[pk] = p;
+                                return next;
+                            });
+                        }
                     },
                     onclose: () => setLoadingComments(prev => ({ ...prev, [postId]: false })),
                     onauth: async (evt) => nostrSigner.signEvent(evt),
