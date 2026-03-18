@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -101,6 +101,10 @@ const Feed = () => {
             { kinds: [1], limit: 50 },
             {
                 onevent: async (event) => {
+                    // Skip machine-generated events (JSON metadata, protocol messages)
+                    const c = (event.content || '').trimStart();
+                    if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
+
                     if (!fetchedProfiles.current.has(event.pubkey)) {
                         fetchedProfiles.current.add(event.pubkey);
                         const profile = await nostrService.getProfile(event.pubkey);
@@ -403,25 +407,50 @@ const Feed = () => {
 
     const getStats = (noteId) => noteStats[noteId] || {};
 
-    // Parse note content: extract media URLs and render text + embeds
-    const renderContent = (content) => {
+    // Lightbox state
+    const [lightboxSrc, setLightboxSrc] = useState(null);
+    const [lightboxGallery, setLightboxGallery] = useState([]);
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+
+    const openLightbox = (src, gallery = []) => {
+        setLightboxSrc(src);
+        setLightboxGallery(gallery);
+        setLightboxIndex(gallery.indexOf(src));
+    };
+    const lightboxPrev = () => {
+        if (lightboxGallery.length < 2) return;
+        const idx = (lightboxIndex - 1 + lightboxGallery.length) % lightboxGallery.length;
+        setLightboxIndex(idx);
+        setLightboxSrc(lightboxGallery[idx]);
+    };
+    const lightboxNext = () => {
+        if (lightboxGallery.length < 2) return;
+        const idx = (lightboxIndex + 1) % lightboxGallery.length;
+        setLightboxIndex(idx);
+        setLightboxSrc(lightboxGallery[idx]);
+    };
+
+    // Parse note content: separate text, images, and other media
+    const parseNoteContent = (content) => {
+        if (!content || typeof content !== 'string') return { text: '', images: [], otherMedia: [] };
         const urlRegex = /(https?:\/\/[^\s<]+)/g;
         const parts = content.split(urlRegex);
-        const mediaUrls = [];
+        const images = [];
+        const otherMedia = [];
         const textParts = [];
 
         for (const part of parts) {
             if (/^https?:\/\//i.test(part)) {
                 const lower = part.toLowerCase();
-                if (/\.(jpg|jpeg|png|gif|webp|svg)(\?.*)?$/i.test(lower)) {
-                    mediaUrls.push({ type: 'image', url: part });
+                if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?.*)?$/i.test(lower)) {
+                    images.push(part);
                 } else if (/\.(mp4|webm|mov|ogg)(\?.*)?$/i.test(lower)) {
-                    mediaUrls.push({ type: 'video', url: part });
+                    otherMedia.push({ type: 'video', url: part });
                 } else if (/\.(mp3|wav|flac|aac|m4a)(\?.*)?$/i.test(lower)) {
-                    mediaUrls.push({ type: 'audio', url: part });
+                    otherMedia.push({ type: 'audio', url: part });
                 } else if (/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/i.test(part)) {
                     const match = part.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]+)/i);
-                    if (match) mediaUrls.push({ type: 'youtube', id: match[1], url: part });
+                    if (match) otherMedia.push({ type: 'youtube', id: match[1], url: part });
                     else textParts.push(part);
                 } else {
                     textParts.push(part);
@@ -431,39 +460,162 @@ const Feed = () => {
             }
         }
 
-        return (
-            <>
-                <span>{textParts.join('')}</span>
-                {mediaUrls.length > 0 && (
-                    <div className="note-media">
-                        {mediaUrls.map((m, i) => {
-                            if (m.type === 'image') {
-                                return <img key={i} src={m.url} alt="" className="note-media-img" loading="lazy" />;
-                            }
-                            if (m.type === 'video') {
-                                return <video key={i} src={m.url} controls className="note-media-video" preload="metadata" />;
-                            }
-                            if (m.type === 'audio') {
-                                return <audio key={i} src={m.url} controls className="note-media-audio" preload="metadata" />;
-                            }
-                            if (m.type === 'youtube') {
-                                return (
-                                    <iframe
-                                        key={i}
-                                        className="note-media-video"
-                                        src={`https://www.youtube-nocookie.com/embed/${m.id}`}
-                                        title="YouTube video"
-                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                        allowFullScreen
-                                        loading="lazy"
-                                    />
-                                );
-                            }
-                            return null;
-                        })}
+        return { text: textParts.join('').trim(), images, otherMedia };
+    };
+
+    // Inline styles for image grid cells
+    const gridCellStyle = {
+        position: 'relative',
+        overflow: 'hidden',
+        cursor: 'pointer',
+    };
+    const gridImgStyle = {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+    };
+
+    const renderImageGrid = (images) => {
+        if (images.length === 0) return null;
+        const maxShow = 5;
+        const displayImages = images.slice(0, maxShow);
+        const extraCount = images.length - maxShow;
+
+        // Single image — scale proportionally, no crop
+        if (images.length === 1) {
+            return (
+                <div style={{ margin: '0.5rem 0 0.75rem', paddingLeft: '52px' }}>
+                    <img
+                        src={images[0]}
+                        alt=""
+                        loading="lazy"
+                        onClick={(e) => { e.stopPropagation(); openLightbox(images[0], images); }}
+                        style={{
+                            display: 'block',
+                            maxWidth: '100%',
+                            width: 'auto',
+                            height: 'auto',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                        }}
+                    />
+                </div>
+            );
+        }
+
+        // 2 images — side by side squares
+        if (images.length === 2) {
+            return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+                    {images.map((src, i) => (
+                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
+                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // 3 images — one large left, two stacked right
+        if (images.length === 3) {
+            return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem', height: '320px' }}>
+                    <div style={{ ...gridCellStyle, gridRow: '1 / 3' }} onClick={(e) => { e.stopPropagation(); openLightbox(images[0], images); }}>
+                        <img src={images[0]} alt="" loading="lazy" style={gridImgStyle} />
                     </div>
-                )}
-            </>
+                    <div style={gridCellStyle} onClick={(e) => { e.stopPropagation(); openLightbox(images[1], images); }}>
+                        <img src={images[1]} alt="" loading="lazy" style={gridImgStyle} />
+                    </div>
+                    <div style={gridCellStyle} onClick={(e) => { e.stopPropagation(); openLightbox(images[2], images); }}>
+                        <img src={images[2]} alt="" loading="lazy" style={gridImgStyle} />
+                    </div>
+                </div>
+            );
+        }
+
+        // 4 images — 2x2 grid
+        if (images.length === 4) {
+            return (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+                    {images.map((src, i) => (
+                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
+                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
+                        </div>
+                    ))}
+                </div>
+            );
+        }
+
+        // 5+ images — top row 2, bottom row 3 (Facebook style)
+        return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
+                    {displayImages.slice(0, 2).map((src, i) => (
+                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '75%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
+                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
+                        </div>
+                    ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '3px' }}>
+                    {displayImages.slice(2, 5).map((src, i) => (
+                        <div
+                            key={i}
+                            style={{ ...gridCellStyle, paddingBottom: '100%' }}
+                            onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}
+                        >
+                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
+                            {i === 2 && extraCount > 0 && (
+                                <div style={{
+                                    position: 'absolute',
+                                    inset: 0,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    color: 'white',
+                                    fontSize: '2rem',
+                                    fontWeight: 700,
+                                    zIndex: 1,
+                                }}>+{extraCount}</div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
+    const renderOtherMedia = (media) => {
+        if (media.length === 0) return null;
+        return (
+            <div className="note-media">
+                {media.map((m, i) => {
+                    if (m.type === 'video') {
+                        return <video key={i} src={m.url} controls className="note-media-video" preload="metadata" />;
+                    }
+                    if (m.type === 'audio') {
+                        return <audio key={i} src={m.url} controls className="note-media-audio" preload="metadata" />;
+                    }
+                    if (m.type === 'youtube') {
+                        return (
+                            <iframe
+                                key={i}
+                                className="note-media-video"
+                                src={`https://www.youtube-nocookie.com/embed/${m.id}`}
+                                title="YouTube video"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                loading="lazy"
+                            />
+                        );
+                    }
+                    return null;
+                })}
+            </div>
         );
     };
 
@@ -620,6 +772,7 @@ const Feed = () => {
                             const isLiked = likedNotes.has(post.id);
                             const isReposted = repostedNotes.has(post.id);
                             const isReplying = replyTarget?.id === post.id;
+                            const { text, images, otherMedia } = parseNoteContent(post.content);
                             return (
                                 <div key={post.id} className="feed-note" data-testid="feed-note">
                                     <div className="note-header">
@@ -635,7 +788,9 @@ const Feed = () => {
                                             <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
                                         </div>
                                     </div>
-                                    <div className="note-content">{renderContent(post.content)}</div>
+                                    {text && <div className="note-content">{text}</div>}
+                                    {renderImageGrid(images)}
+                                    {renderOtherMedia(otherMedia)}
                                     <div className="note-actions">
                                         <button
                                             className={`action-btn ${isReplying ? 'active-reply' : ''}`}
@@ -743,6 +898,29 @@ const Feed = () => {
                     />
                 )}
             </div>
+
+            {/* Lightbox */}
+            {lightboxSrc && (
+                <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
+                    <button className="lightbox-close" onClick={() => setLightboxSrc(null)}>
+                        <X size={24} />
+                    </button>
+                    {lightboxGallery.length > 1 && (
+                        <button className="lightbox-arrow lightbox-prev" onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}>
+                            <ChevronLeft size={32} />
+                        </button>
+                    )}
+                    <img src={lightboxSrc} alt="" className="lightbox-img" onClick={(e) => e.stopPropagation()} />
+                    {lightboxGallery.length > 1 && (
+                        <button className="lightbox-arrow lightbox-next" onClick={(e) => { e.stopPropagation(); lightboxNext(); }}>
+                            <ChevronRight size={32} />
+                        </button>
+                    )}
+                    {lightboxGallery.length > 1 && (
+                        <div className="lightbox-counter">{lightboxIndex + 1} / {lightboxGallery.length}</div>
+                    )}
+                </div>
+            )}
 
             <style jsx>{`
                 .feed-page {
@@ -1077,6 +1255,7 @@ const Feed = () => {
                     border-radius: var(--radius-xl, 12px);
                     padding: 1.25rem;
                     transition: box-shadow 0.2s, border-color 0.2s;
+                    overflow: hidden;
                 }
                 .feed-note:hover {
                     box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1));
@@ -1265,6 +1444,73 @@ const Feed = () => {
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
+                }
+
+                /* Lightbox */
+                .lightbox-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 9999;
+                    background: rgba(0, 0, 0, 0.9);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                }
+                .lightbox-close {
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: rgba(255,255,255,0.15);
+                    border: none;
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    cursor: pointer;
+                    transition: background 0.2s;
+                    z-index: 10001;
+                }
+                .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+                .lightbox-img {
+                    max-width: 90vw;
+                    max-height: 90vh;
+                    object-fit: contain;
+                    border-radius: 8px;
+                    cursor: default;
+                }
+                .lightbox-arrow {
+                    position: fixed;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    background: rgba(0,0,0,0.5);
+                    border: none;
+                    color: white;
+                    padding: 0.5rem;
+                    border-radius: 8px;
+                    cursor: pointer;
+                    z-index: 10001;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .lightbox-arrow:hover { background: rgba(0,0,0,0.7); }
+                .lightbox-prev { left: 1rem; }
+                .lightbox-next { right: 1rem; }
+                .lightbox-counter {
+                    position: fixed;
+                    bottom: 2rem;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    color: white;
+                    background: rgba(0,0,0,0.5);
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 20px;
+                    font-size: 0.85rem;
+                    z-index: 10001;
                 }
 
                 /* Dark mode */

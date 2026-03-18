@@ -69,15 +69,17 @@ async function nostrLogin(request, sk, pk) {
  * The nsecHex is a hex-encoded secret key (not bech32).
  */
 async function injectAuth(page, token, user, nsecHex) {
+    if (nsecHex) {
+        await page.addInitScript(({ nsecHex }) => {
+            window.__TEST_NSEC_HEX = nsecHex;
+        }, { nsecHex });
+    }
     await page.goto('/');
-    await page.evaluate(({ token, user, nsecHex }) => {
+    await page.evaluate(({ token, user }) => {
         localStorage.setItem('bies_token', token);
         localStorage.setItem('bies_user', JSON.stringify(user));
-        // Set the nostr signer login method so it can re-sign
         localStorage.setItem('bies_login_method', 'nsec');
-        // Store nsec hex for the signer to pick up
-        window.__TEST_NSEC_HEX = nsecHex;
-    }, { token, user, nsecHex });
+    }, { token, user });
 }
 
 // ── Tests ────────────────────────────────────────────────────────────
@@ -186,7 +188,7 @@ test.describe('Private Relay Feed - Post and Read', () => {
 
         // Wait for tabs
         const privateTab = page.locator('[data-testid="tab-private"]');
-        const publicTab = page.locator('[data-testid="tab-public"]');
+        const publicTab = page.locator('[data-testid="tab-explore"]');
         await expect(privateTab).toBeVisible({ timeout: 15000 });
 
         // Post a unique message

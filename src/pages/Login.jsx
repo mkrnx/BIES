@@ -283,15 +283,15 @@ const Login = () => {
                         <Lock size={40} />
                     </div>
 
-                    <h2 className="text-xl font-bold mb-2">Unlock Your Key</h2>
+                    <h2 className="login-heading">Unlock Your Key</h2>
 
                     {keyfilePayload.npub && (
-                        <p className="text-sm text-gray-500 mb-1">
+                        <p className="login-subtext" style={{ marginBottom: '0.25rem' }}>
                             Identity: <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{keyfilePayload.npub.slice(0, 16)}...{keyfilePayload.npub.slice(-6)}</span>
                         </p>
                     )}
                     {keyfileFilename && (
-                        <p className="text-xs text-gray-400 mb-4">File: {keyfileFilename}</p>
+                        <p className="login-hint" style={{ marginBottom: '1rem' }}>File: {keyfileFilename}</p>
                     )}
 
                     {error && (
@@ -303,7 +303,7 @@ const Login = () => {
 
                     <form onSubmit={handleUnlockKeyfile} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
-                            <label className="text-sm text-gray-600" style={{ display: 'block', marginBottom: 4 }}>
+                            <label className="login-label">
                                 Enter the password you set when you created this key file
                             </label>
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -312,12 +312,12 @@ const Login = () => {
                                     value={unlockPassword}
                                     onChange={(e) => setUnlockPassword(e.target.value)}
                                     placeholder="Password"
-                                    className="key-input"
+                                    className="login-input"
                                     style={{ paddingLeft: '0.75rem', paddingRight: '2.5rem' }}
                                     autoComplete="current-password"
                                     autoFocus
                                 />
-                                <button type="button" onClick={() => setShowUnlockPassword(!showUnlockPassword)} style={{ position: 'absolute', right: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 4 }}>
+                                <button type="button" onClick={() => setShowUnlockPassword(!showUnlockPassword)} className="login-eye-btn">
                                     {showUnlockPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
                             </div>
@@ -335,25 +335,28 @@ const Login = () => {
                         </button>
                     </form>
 
-                    <button
-                        onClick={resetKeyfileState}
-                        className="mt-3 text-sm text-gray-400 flex items-center gap-1"
-                        style={{ background: 'none', border: 'none', cursor: 'pointer' }}
-                    >
+                    <button onClick={resetKeyfileState} className="login-back-btn">
                         <ArrowLeft size={14} /> Choose a different file
                     </button>
                 </div>
 
                 <style jsx>{`
-                    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--color-gray-50); }
-                    .login-card { background: var(--color-surface); padding: 3rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg); width: 100%; max-width: 450px; display: flex; flex-direction: column; align-items: center; }
+                    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--color-gray-50); padding: 1rem; }
+                    .login-card { background: var(--color-surface); color: var(--color-text, inherit); padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--color-gray-200); width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; }
+                    .login-heading { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text, inherit); }
+                    .login-subtext { font-size: 0.875rem; color: var(--color-gray-500); }
+                    .login-hint { font-size: 0.75rem; color: var(--color-gray-500); }
+                    .login-label { display: block; margin-bottom: 4px; font-size: 0.875rem; color: var(--color-gray-500); }
+                    .login-input { width: 100%; padding: 0.75rem; border: 1px solid var(--color-gray-200); border-radius: 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.2s; background: var(--color-surface); color: var(--color-text, inherit); }
+                    .login-input:focus { border-color: var(--color-primary); }
+                    .login-eye-btn { position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-gray-500); padding: 4px; }
+                    .login-back-btn { margin-top: 0.75rem; font-size: 0.875rem; color: var(--color-gray-500); display: flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; }
+                    .login-back-btn:hover { color: var(--color-primary); }
                     .passkey-prompt-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--color-blue-tint); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
-                    .btn-login { background: var(--color-primary); color: white; font-weight: 600; transition: opacity 0.2s; border: none; cursor: pointer; }
+                    .btn-login { background: var(--color-primary); color: white; font-weight: 600; transition: all 0.2s; border: none; cursor: pointer; border-radius: 9999px; padding: 1rem 1.5rem; }
                     .btn-login:hover { opacity: 0.9; }
-                    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
-                    .key-input { width: 100%; padding: 0.75rem; border: 1px solid var(--color-gray-200); border-radius: 9999px; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
-                    .key-input:focus { border-color: var(--color-primary); }
-                    .error-banner { display: flex; align-items: center; gap: 8px; background: var(--color-red-tint); color: var(--color-error); padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.875rem; width: 100%; margin-bottom: 1rem; border: 1px solid var(--color-red-200, #FECACA); }
+                    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+                    .error-banner { display: flex; align-items: center; gap: 8px; background: var(--color-red-tint); color: var(--color-error); padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; width: 100%; margin-bottom: 1rem; border: 1px solid var(--badge-error-bg); }
                     .spin { animation: spin 1s linear infinite; }
                     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 `}</style>
@@ -370,8 +373,8 @@ const Login = () => {
                         <ShieldCheck size={40} />
                     </div>
 
-                    <h2 className="text-xl font-bold mb-2">Secure Your Key</h2>
-                    <p className="text-gray-500 mb-6 text-center text-sm">
+                    <h2 className="login-heading">Secure Your Key</h2>
+                    <p className="login-subtext" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
                         Download an encrypted backup file or set up quick login with a passkey.
                     </p>
 
@@ -384,8 +387,8 @@ const Login = () => {
 
                     <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         {/* ── Backup: .nostrkey download ── */}
-                        <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                            <p className="text-xs font-bold" style={{ color: 'var(--color-gray-500)', marginBottom: 2 }}>
+                        <div className="login-section-box">
+                            <p className="login-section-title">
                                 Backup — Encrypted Key File
                             </p>
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -394,10 +397,11 @@ const Login = () => {
                                     value={dlKeyPassword}
                                     onChange={(e) => setDlKeyPassword(e.target.value)}
                                     placeholder="Password (min 8 chars)"
-                                    style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: 6, fontSize: '0.8rem' }}
+                                    className="login-input-sm"
+                                    style={{ paddingRight: '2.25rem' }}
                                     autoComplete="new-password"
                                 />
-                                <button type="button" onClick={() => setShowDlKeyPassword(!showDlKeyPassword)} style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 2 }}>
+                                <button type="button" onClick={() => setShowDlKeyPassword(!showDlKeyPassword)} className="login-eye-btn" style={{ right: 6 }}>
                                     {showDlKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                                 </button>
                             </div>
@@ -406,26 +410,25 @@ const Login = () => {
                                 value={dlKeyPasswordConfirm}
                                 onChange={(e) => setDlKeyPasswordConfirm(e.target.value)}
                                 placeholder="Confirm password"
-                                style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: 6, fontSize: '0.8rem' }}
+                                className="login-input-sm"
                                 autoComplete="new-password"
                             />
                             <button
                                 onClick={handleDownloadKeyfile}
                                 disabled={dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm}
                                 className="w-full btn-skip flex items-center justify-center gap-2 py-2 rounded-full"
-                                style={{ opacity: (dlEncrypting || dlKeyPassword.length < 8 || dlKeyPassword !== dlKeyPasswordConfirm) ? 0.5 : 1 }}
                             >
                                 {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
                             </button>
-                            <p className="text-xs" style={{ color: 'var(--color-gray-400)', lineHeight: 1.3 }}>
+                            <p className="login-hint" style={{ lineHeight: 1.3 }}>
                                 This password-protected file is a true backup of your key. Store it somewhere safe.
                             </p>
                         </div>
 
                         {/* ── Quick Login: Passkey ── */}
                         {PASSKEY_ENABLED && passkeyService.isSupported() && (
-                            <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <p className="text-xs font-bold" style={{ color: 'var(--color-gray-500)', marginBottom: 2 }}>
+                            <div className="login-section-box">
+                                <p className="login-section-title">
                                     Quick Login — Passkey (Optional)
                                 </p>
                                 <button
@@ -440,7 +443,7 @@ const Login = () => {
                                     )}
                                     <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
                                 </button>
-                                <p className="text-xs" style={{ color: '#f59e0b', lineHeight: 1.3 }}>
+                                <p className="login-hint" style={{ color: 'var(--color-warning)', lineHeight: 1.3 }}>
                                     Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup.
                                 </p>
                             </div>
@@ -457,75 +460,26 @@ const Login = () => {
                 </div>
 
                 <style jsx>{`
-                    .login-container {
-                        min-height: 100vh;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        background: var(--color-gray-50);
-                    }
-                    .login-card {
-                        background: var(--color-surface);
-                        padding: 3rem;
-                        border-radius: var(--radius-xl);
-                        box-shadow: var(--shadow-lg);
-                        width: 100%;
-                        max-width: 450px;
-                        display: flex;
-                        flex-direction: column;
-                        align-items: center;
-                    }
-                    .passkey-prompt-icon {
-                        width: 72px;
-                        height: 72px;
-                        border-radius: 50%;
-                        background: var(--color-blue-tint);
-                        color: var(--color-primary);
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        margin-bottom: 1.5rem;
-                    }
-                    .btn-login {
-                        background: var(--color-primary);
-                        color: white;
-                        font-weight: 600;
-                        transition: opacity 0.2s;
-                        border: none;
-                        cursor: pointer;
-                    }
+                    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--color-gray-50); padding: 1rem; }
+                    .login-card { background: var(--color-surface); color: var(--color-text, inherit); padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--color-gray-200); width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; }
+                    .login-heading { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text, inherit); }
+                    .login-subtext { font-size: 0.875rem; color: var(--color-gray-500); }
+                    .login-hint { font-size: 0.75rem; color: var(--color-gray-500); }
+                    .login-section-box { border: 1px solid var(--color-gray-200); border-radius: 0.75rem; padding: 0.75rem; display: flex; flex-direction: column; gap: 0.5rem; background: var(--color-surface); }
+                    .login-section-title { font-size: 0.75rem; font-weight: 700; color: var(--color-gray-500); margin-bottom: 2px; }
+                    .login-input-sm { width: 100%; padding: 0.5rem 0.5rem; border: 1px solid var(--color-gray-200); border-radius: 0.5rem; font-size: 0.8rem; background: var(--color-surface); color: var(--color-text, inherit); outline: none; transition: border-color 0.2s; }
+                    .login-input-sm:focus { border-color: var(--color-primary); }
+                    .login-eye-btn { position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-gray-500); padding: 4px; }
+                    .passkey-prompt-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--color-blue-tint); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
+                    .btn-login { background: var(--color-primary); color: white; font-weight: 600; transition: all 0.2s; border: none; cursor: pointer; border-radius: 9999px; padding: 1rem 1.5rem; }
                     .btn-login:hover { opacity: 0.9; }
-                    .btn-login:disabled { opacity: 0.6; cursor: not-allowed; }
-                    .btn-skip {
-                        background: transparent;
-                        border: 1px solid var(--color-gray-200);
-                        color: var(--color-gray-500);
-                        font-weight: 500;
-                        cursor: pointer;
-                        transition: all 0.2s;
-                    }
-                    .btn-skip:hover { background: var(--color-gray-100); }
-                    .btn-skip:disabled { opacity: 0.6; cursor: not-allowed; }
-                    .error-banner {
-                        display: flex;
-                        align-items: center;
-                        gap: 8px;
-                        background: var(--color-red-tint);
-                        color: var(--color-error);
-                        padding: 0.75rem 1rem;
-                        border-radius: var(--radius-md);
-                        font-size: 0.875rem;
-                        width: 100%;
-                        margin-bottom: 1rem;
-                        border: 1px solid var(--color-red-200, #FECACA);
-                    }
-                    .spin {
-                        animation: spin 1s linear infinite;
-                    }
-                    @keyframes spin {
-                        from { transform: rotate(0deg); }
-                        to { transform: rotate(360deg); }
-                    }
+                    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
+                    .btn-skip { background: transparent; border: 1px solid var(--color-gray-200); color: var(--color-gray-500); font-weight: 500; cursor: pointer; transition: all 0.2s; border-radius: 1rem; }
+                    .btn-skip:hover { background: var(--color-gray-100); color: var(--color-gray-900); }
+                    .btn-skip:disabled { opacity: 0.5; cursor: not-allowed; }
+                    .error-banner { display: flex; align-items: center; gap: 8px; background: var(--color-red-tint); color: var(--color-error); padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; width: 100%; margin-bottom: 1rem; border: 1px solid var(--badge-error-bg); }
+                    .spin { animation: spin 1s linear infinite; }
+                    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
                 `}</style>
             </div>
         );
@@ -539,8 +493,8 @@ const Login = () => {
                     <img src={logoIcon} alt="BIES" style={{ height: '64px', width: 'auto' }} />
                 </div>
 
-                <h2 className="text-2xl font-bold mb-2">Welcome Back</h2>
-                <p className="text-gray-500 mb-8 text-center">
+                <h2 className="login-heading" style={{ fontSize: '1.5rem' }}>Welcome Back</h2>
+                <p className="login-subtext" style={{ marginBottom: '2rem', textAlign: 'center' }}>
                     Access the Bitcoin Investment Ecosystem of El Salvador
                 </p>
 
@@ -596,7 +550,7 @@ const Login = () => {
                         className={`mode-tab ${loginMode === 'nsec' ? 'active' : ''}`}
                         onClick={() => { setLoginMode('nsec'); setError(''); }}
                     >
-                        <Key size={14} /> nsec Key
+                        <Key size={14} /> nsec
                     </button>
                     <button
                         className={`mode-tab ${loginMode === 'seed' ? 'active' : ''}`}
@@ -741,48 +695,23 @@ const Login = () => {
                             )}
                             <span>{loading && bunkerInput.trim() ? 'Connecting to signer...' : 'Login with Remote Signer'}</span>
                         </button>
-                        <p className="text-xs text-center" style={{ color: 'var(--color-gray-400)' }}>
+                        <p className="login-hint" style={{ textAlign: 'center' }}>
                             Works with Amber, nsecBunker, and other NIP-46 signers
                         </p>
                     </form>
                 )}
 
                 {/* Create Account */}
-                <div className="mt-6 pt-6 border-t border-gray-100 w-full text-center">
-                    <p className="text-gray-500 mb-4">New to Nostr?</p>
-                    <Link to="/signup" style={{
-                        display: 'block',
-                        width: '100%',
-                        padding: '0.875rem 1.5rem',
-                        background: '#1d4ed8',
-                        color: 'white',
-                        fontSize: '1.125rem',
-                        fontWeight: 700,
-                        textDecoration: 'none',
-                        textAlign: 'center',
-                        borderRadius: '9999px',
-                    }}>
+                <div className="login-footer">
+                    <p className="login-subtext" style={{ marginBottom: '0.5rem' }}>New to Nostr?</p>
+                    <Link to="/signup" className="btn-create-account">
                         Create New Account
                     </Link>
                 </div>
 
                 {/* Demo login — TODO: Remove before production */}
                 <div className="mt-4 w-full">
-                    <button
-                        onClick={handleDemoLogin}
-                        disabled={loading}
-                        style={{
-                            display: 'block',
-                            width: '100%',
-                            padding: '0.75rem 1.5rem',
-                            background: 'transparent',
-                            color: 'var(--color-gray-400)',
-                            border: '1px dashed var(--color-gray-300)',
-                            borderRadius: '9999px',
-                            fontSize: '0.85rem',
-                            cursor: 'pointer',
-                        }}
-                    >
+                    <button onClick={handleDemoLogin} disabled={loading} className="btn-demo">
                         {loading ? 'Logging in...' : 'Demo Login (skip auth)'}
                     </button>
                 </div>
@@ -791,18 +720,18 @@ const Login = () => {
                 {!hasNostrExtension && (
                     <>
                         <div className="divider mt-4"><span>or</span></div>
-                        <p className="text-sm text-gray-400 text-center">
+                        <p className="login-subtext" style={{ textAlign: 'center' }}>
                             Have a Nostr browser extension?{' '}
                             <button
                                 onClick={handleExtensionLogin}
                                 disabled={loading}
-                                className="text-blue-500 hover:underline font-medium"
+                                className="login-link-btn"
                             >
                                 Login with Extension
                             </button>
                         </p>
                         <div className="extension-links">
-                            <p className="text-xs text-gray-400">No extension detected? Install one:</p>
+                            <p className="login-hint">No extension detected? Install one:</p>
                             <div className="flex gap-3 mt-1 justify-center">
                                 <a href="https://chromewebstore.google.com/detail/nos2x/kpgefcfmnafjgpblomihpgcdlhiodkdc" target="_blank" rel="noopener noreferrer" className="extension-link">
                                     Chrome (nos2x)
@@ -819,66 +748,128 @@ const Login = () => {
 
             <style jsx>{`
                 .login-container {
-                    min-height: 100vh;
+                    min-height: calc(100vh - 150px);
+                    min-height: calc(100dvh - 150px);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: var(--color-gray-50);
+                    padding: clamp(1rem, 3vh, 2rem) clamp(0.5rem, 2vh, 1rem);
                 }
                 .login-card {
                     background: var(--color-surface);
-                    padding: 3rem;
-                    border-radius: var(--radius-xl);
-                    box-shadow: var(--shadow-lg);
+                    color: var(--color-text, inherit);
+                    padding: clamp(1rem, 2.5vh, 2rem);
+                    border-radius: 1.5rem;
+                    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+                    border: 1px solid var(--color-gray-200);
                     width: 100%;
-                    max-width: 450px;
+                    max-width: 440px;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
                 }
+                .login-heading {
+                    font-size: clamp(1.25rem, 3vh, 1.5rem);
+                    font-weight: 700;
+                    margin-bottom: clamp(0.25rem, 1vh, 0.5rem);
+                    color: var(--color-text, inherit);
+                }
+                .login-subtext {
+                    font-size: 0.875rem;
+                    color: var(--color-gray-500);
+                }
+                .login-hint {
+                    font-size: 0.75rem;
+                    color: var(--color-gray-500);
+                }
+                .login-label {
+                    display: block;
+                    margin-bottom: 4px;
+                    font-size: 0.875rem;
+                    color: var(--color-gray-500);
+                }
+                .login-footer {
+                    margin-top: clamp(1rem, 3vh, 1.5rem);
+                    padding-top: clamp(0.5rem, 1.5vh, 0.75rem);
+                    border-top: 1px solid var(--color-gray-200);
+                    width: 100%;
+                    text-align: center;
+                }
                 .quick-login-buttons {
                     display: flex;
                     flex-direction: column;
-                    gap: 1rem;
+                    gap: 0.75rem;
                     width: 100%;
                 }
                 .btn-login {
                     background: var(--color-primary);
                     color: white;
                     font-weight: 600;
-                    transition: opacity 0.2s;
+                    transition: all 0.2s;
                     border: none;
                     cursor: pointer;
+                    border-radius: 9999px;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
                 }
-                .btn-login:hover {
-                    opacity: 0.9;
-                }
-                .btn-login:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
-                }
+                .btn-login:hover { opacity: 0.9; }
+                .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
                 .btn-passkey {
                     background: #1e1b4b;
                     color: white;
                     font-weight: 600;
-                    transition: opacity 0.2s;
+                    transition: all 0.2s;
                     border: none;
                     cursor: pointer;
+                    border-radius: 9999px;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
                 }
-                .btn-passkey:hover {
-                    opacity: 0.9;
+                .btn-passkey:hover { opacity: 0.9; }
+                .btn-passkey:disabled { opacity: 0.5; cursor: not-allowed; }
+                .btn-create-account {
+                    display: block;
+                    width: 100%;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
+                    background: var(--color-primary);
+                    color: white;
+                    font-size: 1rem;
+                    font-weight: 600;
+                    text-decoration: none;
+                    text-align: center;
+                    border-radius: 9999px;
+                    transition: opacity 0.2s;
                 }
-                .btn-passkey:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
+                .btn-create-account:hover { opacity: 0.9; }
+                .btn-demo {
+                    display: block;
+                    width: 100%;
+                    padding: 0.75rem 1.5rem;
+                    background: transparent;
+                    color: var(--color-gray-500);
+                    border: 1px dashed var(--color-gray-200);
+                    border-radius: 9999px;
+                    font-size: 0.85rem;
+                    cursor: pointer;
+                    transition: all 0.2s;
                 }
+                .btn-demo:hover { background: var(--color-gray-100); }
+                .login-link-btn {
+                    background: none;
+                    border: none;
+                    color: var(--color-primary);
+                    font-weight: 500;
+                    cursor: pointer;
+                    padding: 0;
+                    font-size: inherit;
+                }
+                .login-link-btn:hover { text-decoration: underline; }
                 .divider {
                     width: 100%;
                     display: flex;
                     align-items: center;
                     gap: 1rem;
                     margin: 0.75rem 0;
-                    color: var(--color-gray-400);
+                    color: var(--color-gray-500);
                     font-size: 0.875rem;
                 }
                 .divider::before,
@@ -889,35 +880,36 @@ const Login = () => {
                     background: var(--color-gray-200);
                 }
                 .mode-tabs {
-                    display: flex;
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
                     width: 100%;
-                    gap: 0.5rem;
-                    margin-bottom: 1rem;
+                    gap: 0.75rem;
+                    margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
                 }
                 .mode-tab {
-                    flex: 1;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     gap: 6px;
-                    padding: 0.5rem;
+                    padding: 0.75rem 0.5rem;
                     border: 1px solid var(--color-gray-200);
-                    border-radius: var(--radius-md, 8px);
+                    border-radius: 9999px;
                     background: transparent;
-                    color: var(--color-gray-400);
+                    color: var(--color-gray-500);
                     font-size: 0.8rem;
                     font-weight: 500;
                     cursor: pointer;
                     transition: all 0.2s;
                 }
                 .mode-tab:hover {
-                    border-color: var(--color-gray-300);
-                    color: var(--color-gray-500);
+                    border-color: var(--color-gray-400);
+                    color: var(--color-text, inherit);
                 }
                 .mode-tab.active {
                     border-color: var(--color-primary);
                     color: var(--color-primary);
                     background: var(--color-blue-tint);
+                    font-weight: 600;
                 }
                 .key-input-wrapper {
                     width: 100%;
@@ -928,31 +920,39 @@ const Login = () => {
                 .key-input-icon {
                     position: absolute;
                     left: 14px;
-                    color: var(--color-gray-400);
+                    color: var(--color-gray-500);
                     pointer-events: none;
                 }
                 .key-input {
                     width: 100%;
                     padding: 0.75rem 0.75rem 0.75rem 2.5rem;
                     border: 1px solid var(--color-gray-200);
-                    border-radius: 9999px;
+                    border-radius: 1rem;
                     font-size: 0.875rem;
                     outline: none;
                     transition: border-color 0.2s;
+                    background: var(--color-surface);
+                    color: var(--color-text, inherit);
                 }
                 .key-input:focus {
                     border-color: var(--color-primary);
+                }
+                .key-input::placeholder,
+                .seed-input::placeholder {
+                    color: var(--color-gray-500);
                 }
                 .seed-input {
                     width: 100%;
                     padding: 0.75rem;
                     border: 1px solid var(--color-gray-200);
-                    border-radius: var(--radius-md, 8px);
+                    border-radius: 1rem;
                     font-size: 0.875rem;
                     font-family: monospace;
                     outline: none;
                     resize: none;
                     transition: border-color 0.2s;
+                    background: var(--color-surface);
+                    color: var(--color-text, inherit);
                 }
                 .seed-input:focus {
                     border-color: var(--color-primary);
@@ -966,7 +966,7 @@ const Login = () => {
                     gap: 0.5rem;
                     padding: 2rem 1rem;
                     border: 2px dashed var(--color-gray-200);
-                    border-radius: var(--radius-md, 8px);
+                    border-radius: 0.75rem;
                     cursor: pointer;
                     transition: border-color 0.2s, background 0.2s;
                     margin-bottom: 0.75rem;
@@ -984,7 +984,7 @@ const Login = () => {
                 }
                 .extension-link {
                     font-size: 0.75rem;
-                    color: #3b82f6;
+                    color: var(--color-primary);
                     text-decoration: none;
                     font-weight: 500;
                 }
@@ -998,11 +998,11 @@ const Login = () => {
                     background: var(--color-red-tint);
                     color: var(--color-error);
                     padding: 0.75rem 1rem;
-                    border-radius: var(--radius-md);
+                    border-radius: 0.75rem;
                     font-size: 0.875rem;
                     width: 100%;
                     margin-bottom: 1rem;
-                    border: 1px solid var(--color-red-200, #FECACA);
+                    border: 1px solid var(--badge-error-bg);
                 }
                 .spin {
                     animation: spin 1s linear infinite;
