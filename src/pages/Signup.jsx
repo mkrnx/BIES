@@ -3,7 +3,7 @@ import { getPublicKey, nip19 } from 'nostr-tools';
 import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { passkeyService } from '../services/passkeyService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 import { keyfileService } from '../services/keyfileService';
@@ -18,13 +18,16 @@ const Signup = () => {
     const [step, setStep] = useState(0);
     const [keys, setKeys] = useState(null); // { nsec, npub, sk, pk, mnemonic }
     const [profile, setProfile] = useState({ name: '', role: 'investor' });
-    const [copied, setCopied] = useState(false);
+    const [copiedItem, setCopiedItem] = useState(null);
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [passkeySaved, setPasskeySaved] = useState(false);
     const [keyPassword, setKeyPassword] = useState('');
     const [keyPasswordConfirm, setKeyPasswordConfirm] = useState('');
     const [showKeyPassword, setShowKeyPassword] = useState(false);
     const [encrypting, setEncrypting] = useState(false);
+    const [showSeedPhrase, setShowSeedPhrase] = useState(false);
+
+    const truncateKey = (key) => key ? `${key.slice(0, 10)}...${key.slice(-10)}` : '';
 
     const generateKeys = () => {
         const mnemonic = generateSeedWords();
@@ -38,10 +41,10 @@ const Signup = () => {
         setStep(1);
     };
 
-    const copyToClipboard = (text) => {
+    const copyToClipboard = (text, type) => {
         navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        setCopiedItem(type);
+        setTimeout(() => setCopiedItem(null), 2000);
     };
 
     const downloadKeys = async () => {
@@ -161,51 +164,76 @@ const Signup = () => {
                             We cannot recover this for you. If you lose it, your account is gone forever.
                         </p>
 
-                        <div className="key-box mb-4">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-bold text-gray-400">PUBLIC ID (Share this)</span>
-                                <button onClick={() => copyToClipboard(keys.npub)} className="text-blue-500 text-xs">
-                                    {copied ? 'Copied' : 'Copy'}
+                        <div className="flex flex-col gap-5 mb-4">
+                            <div className="flex items-center justify-between p-3 rounded-2xl" style={{ background: 'var(--color-gray-100)', color: 'var(--color-text, inherit)' }}>
+                                <span className="text-xs font-black shrink-0 tracking-wide" style={{ color: 'var(--color-gray-400)' }}>PUBLIC ID</span>
+                                <span className="text-sm tracking-widest font-mono truncate" style={{ opacity: 0.8, flex: 1, textAlign: 'center', margin: '0 0.5rem' }}>
+                                    {truncateKey(keys.npub)}
+                                </span>
+                                <button onClick={() => copyToClipboard(keys.npub, 'npub')} className="text-xs font-semibold flex items-center gap-2 px-2 py-1 shrink-0" style={{ background: 'transparent', color: 'var(--color-primary)', border: 'none' }}>
+                                    <Copy size={14} /> {copiedItem === 'npub' ? 'Copied!' : 'Copy'}
                                 </button>
                             </div>
-                            <div className="bg-gray-100 p-3 rounded text-xs break-all font-mono">
-                                {keys.npub}
+
+                            <div className="flex items-center justify-between p-3 rounded-2xl border" style={{ background: 'var(--color-red-tint)', borderColor: 'var(--badge-error-bg)', color: 'var(--color-error)' }}>
+                                <span className="text-xs font-black shrink-0 tracking-wide" style={{ color: 'var(--color-error)' }}>SECRET KEY</span>
+                                <span className="text-sm tracking-widest font-mono truncate" style={{ opacity: 0.8, flex: 1, textAlign: 'center', margin: '0 0.5rem' }}>
+                                    {truncateKey(keys.nsec)}
+                                </span>
+                                <button onClick={() => copyToClipboard(keys.nsec, 'nsec')} className="text-xs font-semibold flex items-center gap-2 px-2 py-1 shrink-0" style={{ background: 'transparent', color: 'inherit', border: 'none' }}>
+                                    <Copy size={14} /> {copiedItem === 'nsec' ? 'Copied!' : 'Copy'}
+                                </button>
                             </div>
                         </div>
 
-                        <div className="key-box mb-4">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-bold text-red-400">SECRET KEY (Keep Safe!)</span>
-                                <button onClick={() => copyToClipboard(keys.nsec)} className="text-blue-500 text-xs">
-                                    {copied ? 'Copied' : 'Copy'}
-                                </button>
-                            </div>
-                            <div className="bg-red-50 p-3 rounded text-xs break-all font-mono border border-red-100 text-red-600">
-                                {keys.nsec}
-                            </div>
-                        </div>
+                        <div 
+                            className="key-box mb-6 transition-all"
+                            style={{ 
+                                background: showSeedPhrase ? 'var(--color-gray-50)' : 'var(--color-surface)',
+                                border: '1px solid var(--color-gray-200)', 
+                                borderRadius: '1.5rem',
+                                overflow: 'hidden',
+                                boxShadow: 'var(--shadow-sm)'
+                            }}
+                        >
+                            <button
+                                onClick={() => setShowSeedPhrase(!showSeedPhrase)}
+                                className="w-full flex items-center justify-between"
+                                style={{ padding: '0.625rem 1rem', color: 'var(--color-gray-800)', borderBottom: showSeedPhrase ? '1px solid var(--color-gray-200)' : 'none' }}
+                            >
+                                <span className="text-sm font-bold flex items-center gap-2">
+                                    <ShieldAlert size={18} style={{ color: 'var(--color-error)' }} /> Seed Phrase Backup
+                                </span>
+                                <div style={{ background: 'var(--color-gray-100)', borderRadius: '50%', padding: '4px', display: 'flex', color: 'var(--color-gray-500)' }}>
+                                    {showSeedPhrase ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </div>
+                            </button>
 
-                        <div className="key-box mb-6">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="text-xs font-bold text-red-400">SEED PHRASE (Keep Safe!)</span>
-                                <button onClick={() => copyToClipboard(keys.mnemonic)} className="text-blue-500 text-xs">
-                                    {copied ? 'Copied' : 'Copy'}
-                                </button>
-                            </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', background: '#fef2f2', padding: '0.75rem', borderRadius: '0.375rem', border: '1px solid #fecaca', fontFamily: 'monospace', fontSize: '0.875rem', color: '#dc2626' }}>
-                                {keys.mnemonic.split(' ').map((word, i) => (
-                                    <span key={i} style={{ display: 'flex', gap: '0.25rem' }}>
-                                        <span style={{ color: '#fca5a5', fontSize: '0.75rem', minWidth: '1.25rem' }}>{i + 1}.</span>{word}
-                                    </span>
-                                ))}
-                            </div>
-                            <p className="text-xs text-gray-400 mt-1">
-                                You can use this seed phrase instead of the nsec to log in.
-                            </p>
+                            {showSeedPhrase && (
+                                <div className="p-5" style={{ background: 'transparent' }}>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <span className="text-xs font-black tracking-wide" style={{ color: 'var(--color-error)' }}>12 WORDS (Keep Safe!)</span>
+                                        <button onClick={() => copyToClipboard(keys.mnemonic, 'seed')} className="text-xs font-semibold flex items-center gap-2 px-2 py-1" style={{ background: 'transparent', color: 'var(--color-primary)', border: 'none' }}>
+                                            <Copy size={14} /> {copiedItem === 'seed' ? 'Copied!' : 'Copy Phrase'}
+                                        </button>
+                                    </div>
+                                    <div className="shadow-sm" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', background: 'var(--color-red-tint)', padding: '1rem', borderRadius: '1.25rem', border: '1px solid var(--badge-error-bg)', fontFamily: 'monospace', fontSize: '0.875rem', color: 'var(--color-error)' }}>
+                                        {keys.mnemonic.split(' ').map((word, i) => (
+                                            <span key={i} style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                                <span style={{ color: '#fca5a5', fontSize: '0.75rem', minWidth: '1.25rem' }}>{i + 1}.</span>
+                                                <span style={{ fontWeight: '500' }}>{word}</span>
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs mt-4 text-center" style={{ color: 'var(--color-gray-500)', maxWidth: '280px', margin: '1rem auto 0' }}>
+                                        You can log in with this 12-word seed phrase instead of your secret key.
+                                    </p>
+                                </div>
+                            )}
                         </div>
 
                         {error && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '0.75rem', border: '1px solid #FECACA' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--color-red-tint)', color: 'var(--color-error)', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '0.75rem', border: '1px solid var(--badge-error-bg)' }}>
                                 <AlertCircle size={16} />
                                 <span>{error}</span>
                             </div>
@@ -213,24 +241,24 @@ const Signup = () => {
 
                         <div className="backup-buttons">
                             {/* ── Backup section ── */}
-                            <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
-                                <p className="text-sm font-bold text-gray-600" style={{ marginBottom: 4 }}>Backup Your Keys</p>
-                                <p className="text-xs text-gray-400" style={{ marginBottom: '0.75rem' }}>
+                            <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
+                                <p className="text-sm font-bold" style={{ marginBottom: 4, color: 'var(--color-gray-600)' }}>Backup Your Keys</p>
+                                <p className="text-xs" style={{ marginBottom: '0.75rem', color: 'var(--color-gray-400)' }}>
                                     Choose one or more ways to back up. Copy the nsec or seed phrase above, or download an encrypted key file:
                                 </p>
                             </div>
-                            <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                <p className="text-xs font-bold text-gray-500" style={{ marginBottom: 2 }}>Encrypted Key File (.nostrkey)</p>
+                            <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--color-surface)' }}>
+                                <p className="text-xs font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-500)' }}>Encrypted Key File (.nostrkey)</p>
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                     <input
                                         type={showKeyPassword ? 'text' : 'password'}
                                         value={keyPassword}
                                         onChange={(e) => setKeyPassword(e.target.value)}
                                         placeholder="Password (min 8 chars)"
-                                        style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.8rem' }}
+                                        style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: '0.5rem', fontSize: '0.8rem', background: 'var(--color-surface)', color: 'var(--color-text, inherit)' }}
                                         autoComplete="new-password"
                                     />
-                                    <button type="button" onClick={() => setShowKeyPassword(!showKeyPassword)} style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 2 }}>
+                                    <button type="button" onClick={() => setShowKeyPassword(!showKeyPassword)} style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-500)', padding: 2 }}>
                                         {showKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
                                     </button>
                                 </div>
@@ -239,7 +267,7 @@ const Signup = () => {
                                     value={keyPasswordConfirm}
                                     onChange={(e) => setKeyPasswordConfirm(e.target.value)}
                                     placeholder="Confirm password"
-                                    style={{ width: '100%', padding: '0.5rem', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: '0.8rem' }}
+                                    style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: '0.5rem', fontSize: '0.8rem', background: 'var(--color-surface)', color: 'var(--color-text, inherit)' }}
                                     autoComplete="new-password"
                                 />
                                 <button
@@ -250,29 +278,29 @@ const Signup = () => {
                                 >
                                     {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
                                 </button>
-                                <p className="text-xs text-gray-400" style={{ lineHeight: 1.3 }}>
+                                <p className="text-xs" style={{ lineHeight: 1.3, color: 'var(--color-gray-400)' }}>
                                     This password-protected file is a true backup. Store it somewhere safe. You'll need the password to unlock it.
                                 </p>
                             </div>
 
                             {/* ── Quick Login section (separate from backup) ── */}
                             {PASSKEY_ENABLED && passkeyService.isSupported() && (
-                                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <p className="text-sm font-bold text-gray-600" style={{ marginBottom: 2 }}>Quick Login (Optional)</p>
+                                <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    <p className="text-sm font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-600)' }}>Quick Login (Optional)</p>
                                     <button
                                         onClick={handleSavePasskey}
                                         disabled={savingPasskey || passkeySaved}
                                         className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2"
                                     >
                                         {passkeySaved ? (
-                                            <><CheckCircle size={16} style={{ color: '#22c55e' }} /> Passkey Saved</>
+                                            <><CheckCircle size={16} style={{ color: 'var(--color-success)' }} /> Passkey Saved</>
                                         ) : savingPasskey ? (
                                             <><Loader2 size={16} className="spin" /> Saving...</>
                                         ) : (
                                             <><Fingerprint size={16} /> Save to Passkey</>
                                         )}
                                     </button>
-                                    <p className="text-xs" style={{ color: '#f59e0b', lineHeight: 1.3 }}>
+                                    <p className="text-xs" style={{ color: 'var(--color-warning)', lineHeight: 1.3 }}>
                                         Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup above.
                                     </p>
                                 </div>
@@ -294,40 +322,54 @@ const Signup = () => {
                         </p>
 
                         {error && (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#FEF2F2', color: '#EF4444', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '1rem', border: '1px solid #FECACA' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--color-red-tint)', color: 'var(--color-error)', padding: '0.75rem 1rem', borderRadius: 8, fontSize: '0.875rem', width: '100%', marginBottom: '1rem', border: '1px solid var(--badge-error-bg)' }}>
                                 <AlertCircle size={16} />
                                 <span>{error}</span>
                             </div>
                         )}
 
                         <div className="mb-4">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-gray-700)' }}>Display Name</label>
                             <input
                                 type="text"
                                 required
-                                className="w-full p-3 border rounded-lg"
+                                className="w-full p-3 border input-box"
                                 placeholder="e.g. Satoshi Nakamoto"
                                 value={profile.name}
                                 onChange={e => setProfile({ ...profile, name: e.target.value })}
                             />
                         </div>
 
-                        <div className="mb-6">
-                            <label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label>
+                        <div className="mb-6" style={{ marginBottom: '3rem' }}>
+                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-gray-700)' }}>I am a...</label>
                             <div className="grid grid-cols-2 gap-4">
                                 <div
                                     className={`role-card ${profile.role === 'investor' ? 'active' : ''}`}
                                     onClick={() => setProfile({ ...profile, role: 'investor' })}
                                 >
                                     <div className="font-bold">Investor</div>
-                                    <div className="text-xs text-gray-500"> looking for opportunities</div>
+                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> looking for opportunities</div>
                                 </div>
                                 <div
                                     className={`role-card ${profile.role === 'builder' ? 'active' : ''}`}
                                     onClick={() => setProfile({ ...profile, role: 'builder' })}
                                 >
                                     <div className="font-bold">Builder</div>
-                                    <div className="text-xs text-gray-500"> building project in El Salvador</div>
+                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> building a project</div>
+                                </div>
+                                <div
+                                    className={`role-card ${profile.role === 'educator' ? 'active' : ''}`}
+                                    onClick={() => setProfile({ ...profile, role: 'educator' })}
+                                >
+                                    <div className="font-bold">Educator</div>
+                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> teaching & community</div>
+                                </div>
+                                <div
+                                    className={`role-card ${profile.role === 'member' ? 'active' : ''}`}
+                                    onClick={() => setProfile({ ...profile, role: 'member' })}
+                                >
+                                    <div className="font-bold">Member</div>
+                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> supporting the ecosystem</div>
                                 </div>
                             </div>
                         </div>
@@ -341,15 +383,18 @@ const Signup = () => {
 
             <style jsx>{`
                 .signup-container {
-                    min-height: 100vh;
+                    min-height: calc(100vh - 150px);
+                    min-height: calc(100dvh - 150px);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: var(--color-gray-50);
+                    padding: clamp(1rem, 3vh, 2rem) clamp(0.5rem, 2vh, 1rem);
                 }
                 .signup-card {
-                    background: white;
-                    padding: 3rem;
+                    background: var(--color-surface);
+                    color: var(--color-text, inherit);
+                    padding: clamp(1rem, 2vh, 2.5rem);
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-lg);
                     width: 100%;
@@ -357,6 +402,7 @@ const Signup = () => {
                     display: flex;
                     flex-direction: column;
                     align-items: center;
+                    border: 1px solid var(--color-gray-200);
                 }
                 .progress-bar {
                     display: flex;
@@ -368,8 +414,8 @@ const Signup = () => {
                     width: 30px;
                     height: 30px;
                     border-radius: 50%;
-                    background: #e2e8f0;
-                    color: #64748b;
+                    background: var(--color-gray-200);
+                    color: var(--color-gray-500);
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -383,7 +429,7 @@ const Signup = () => {
                 .line {
                     flex: 1;
                     height: 2px;
-                    background: #e2e8f0;
+                    background: var(--color-gray-200);
                     margin: 0 5px;
                 }
 
@@ -392,15 +438,33 @@ const Signup = () => {
                     color: white;
                     font-weight: 600;
                     transition: opacity 0.2s;
+                    border: none;
+                    border-radius: 9999px;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
                 }
                 .btn-primary:hover { opacity: 0.9; }
 
                 .btn-outline {
-                    border: 1px solid #e2e8f0;
-                    color: #64748b;
-                    border-radius: 99px;
+                    border: 1px solid var(--color-gray-300);
+                    color: var(--color-gray-600);
+                    border-radius: 1rem;
+                    background: transparent;
+                    transition: all 0.2s;
                 }
-                .btn-outline:hover { background: var(--color-gray-50); }
+                .btn-outline:hover { background: var(--color-gray-100); color: var(--color-gray-900); }
+                .btn-outline:disabled { opacity: 0.5; pointer-events: none; }
+
+                .input-box {
+                    background: var(--color-surface);
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: 1rem;
+                    color: var(--color-text, inherit);
+                    transition: border-color 0.2s;
+                    outline: none;
+                }
+                .input-box:focus {
+                    border-color: var(--color-primary);
+                }
 
                 .backup-buttons {
                     display: flex;
@@ -410,16 +474,20 @@ const Signup = () => {
                 }
 
                 .role-card {
-                    border: 2px solid #e2e8f0;
-                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-gray-200);
+                    background: var(--color-surface);
+                    border-radius: 1rem;
                     padding: 1rem;
                     cursor: pointer;
                     text-align: center;
                     transition: all 0.2s;
                 }
+                .role-card:hover {
+                    background: var(--color-gray-50);
+                }
                 .role-card.active {
                     border-color: var(--color-primary);
-                    background: #eff6ff;
+                    background: var(--color-blue-tint);
                 }
                 .spin {
                     animation: spin 1s linear infinite;

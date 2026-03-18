@@ -18,14 +18,20 @@ async function registerUser(request, suffix) {
     });
     expect(res.ok(), `Register ${suffix} failed: ${res.status()}`).toBeTruthy();
     const body = await res.json();
-    return { token: body.token, user: body.user, email };
+    return { token: body.token, user: body.user, email, skHex };
 }
 
-async function injectAuth(page, token, user) {
+async function injectAuth(page, token, user, skHex) {
+    if (skHex) {
+        await page.addInitScript(({ skHex }) => {
+            window.__TEST_NSEC_HEX = skHex;
+        }, { skHex });
+    }
     await page.goto(`${BASE}/`);
     await page.evaluate(({ token, user }) => {
         localStorage.setItem('bies_token', token);
         localStorage.setItem('bies_user', JSON.stringify(user));
+        localStorage.setItem('bies_login_method', 'nsec');
     }, { token, user });
 }
 
@@ -76,17 +82,17 @@ test.describe('Landing Page - Social Pulse', () => {
 // ── 2. Feed Page - Tabs & Rendering ─────────────────────────────────
 
 test.describe('Feed Page - Authenticated', () => {
-    let token, user;
+    let token, user, skHex;
 
     test.beforeAll(async ({ request }) => {
-        ({ token, user } = await registerUser(request, 'feed'));
+        ({ token, user, skHex } = await registerUser(request, 'feed'));
     });
 
     test('Feed page loads with Private/Public tabs', async ({ page }) => {
         const jsErrors = [];
         page.on('pageerror', err => jsErrors.push(err.message));
 
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
 
         // Feed tabs should be visible
@@ -98,15 +104,15 @@ test.describe('Feed Page - Authenticated', () => {
         await expect(privateTab).toBeVisible();
         await expect(privateTab).toHaveClass(/active/);
 
-        // Public tab should exist but not active
-        const publicTab = page.locator('[data-testid="tab-public"]');
+        // Explore tab should exist but not active
+        const publicTab = page.locator('[data-testid="tab-explore"]');
         await expect(publicTab).toBeVisible();
 
         expect(jsErrors, `JS errors on feed: ${jsErrors.join('; ')}`).toHaveLength(0);
     });
 
     test('Feed page shows compose box with textarea and post button', async ({ page }) => {
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
 
         const composeInput = page.locator('[data-testid="compose-input"]');
@@ -124,7 +130,7 @@ test.describe('Feed Page - Authenticated', () => {
     });
 
     test('Private tab loads posts from BIES relay', async ({ page }) => {
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
 
         // Should initially show loading
@@ -147,11 +153,11 @@ test.describe('Feed Page - Authenticated', () => {
         const jsErrors = [];
         page.on('pageerror', err => jsErrors.push(err.message));
 
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
 
         // Wait for tabs
-        const publicTab = page.locator('[data-testid="tab-public"]');
+        const publicTab = page.locator('[data-testid="tab-explore"]');
         await expect(publicTab).toBeVisible({ timeout: 10000 });
 
         // Click Public tab
@@ -185,11 +191,11 @@ test.describe('Feed Page - Authenticated', () => {
     });
 
     test('Switching between tabs clears and reloads posts', async ({ page }) => {
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
 
         const privateTab = page.locator('[data-testid="tab-private"]');
-        const publicTab = page.locator('[data-testid="tab-public"]');
+        const publicTab = page.locator('[data-testid="tab-explore"]');
         await expect(privateTab).toBeVisible({ timeout: 10000 });
 
         // Switch to public
@@ -234,7 +240,7 @@ test.describe('Feed Stability - No JS Crashes', () => {
         const jsErrors = [];
         page.on('pageerror', err => jsErrors.push(err.message));
 
-        await injectAuth(page, token, user);
+        await injectAuth(page, token, user, skHex);
         await page.goto(`${BASE}/feed`);
         await page.waitForLoadState('networkidle');
         await page.waitForTimeout(3000);

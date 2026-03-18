@@ -230,7 +230,7 @@ const ProfileSetup = () => {
                                 onClick={() => setRole('BUILDER')}
                             >
                                 <div className="font-bold">Builder</div>
-                                <div className="text-xs text-gray-500">Building in El Salvador</div>
+                                <div className="text-xs text-gray-500">Building a project</div>
                             </div>
                             <div
                                 className={`role-card ${role === 'INVESTOR' ? 'active' : ''}`}
@@ -238,6 +238,20 @@ const ProfileSetup = () => {
                             >
                                 <div className="font-bold">Investor</div>
                                 <div className="text-xs text-gray-500">Looking for opportunities</div>
+                            </div>
+                            <div
+                                className={`role-card ${role === 'EDUCATOR' ? 'active' : ''}`}
+                                onClick={() => setRole('EDUCATOR')}
+                            >
+                                <div className="font-bold">Educator</div>
+                                <div className="text-xs text-gray-500">Teaching & Community</div>
+                            </div>
+                            <div
+                                className={`role-card ${role === 'MEMBER' ? 'active' : ''}`}
+                                onClick={() => setRole('MEMBER')}
+                            >
+                                <div className="font-bold">Member</div>
+                                <div className="text-xs text-gray-500">Supporting the ecosystem</div>
                             </div>
                         </div>
                     </div>
@@ -258,15 +272,17 @@ const ProfileSetup = () => {
 
             <style jsx>{`
                 .setup-container {
-                    min-height: 100vh;
+                    min-height: calc(100vh - 150px);
+                    min-height: calc(100dvh - 150px);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: var(--color-gray-50);
+                    padding: clamp(1rem, 3vh, 2rem) clamp(0.5rem, 2vh, 1rem);
                 }
                 .setup-card {
                     background: var(--color-surface);
-                    padding: 3rem;
+                    padding: clamp(1rem, 2vh, 2.5rem);
                     border-radius: var(--radius-xl);
                     box-shadow: var(--shadow-lg);
                     width: 100%;
@@ -293,7 +309,7 @@ const ProfileSetup = () => {
                 .mb-2 { margin-bottom: 0.5rem; }
                 .mb-3 { margin-bottom: 0.75rem; }
                 .mb-4 { margin-bottom: 1rem; }
-                .mb-6 { margin-bottom: 1.5rem; }
+                .mb-6 { margin-bottom: 3rem; }
                 .mt-1 { margin-top: 0.25rem; }
                 .mt-2 { margin-top: 0.5rem; }
                 .mt-3 { margin-top: 0.75rem; }
@@ -381,17 +397,16 @@ const ProfileSetup = () => {
                 .input-field {
                     width: 100%;
                     padding: 0.75rem 1rem;
-                    border: 1px solid var(--color-gray-300);
-                    background: var(--color-gray-50);
-                    border-radius: var(--radius-md);
+                    border: 1px solid var(--color-gray-200);
+                    background: var(--color-surface);
+                    border-radius: 1rem;
                     font-size: 0.95rem;
                     outline: none;
                     transition: all 0.2s;
+                    color: var(--color-text, inherit);
                 }
                 .input-field:focus {
                     border-color: var(--color-primary);
-                    background: var(--color-surface);
-                    box-shadow: 0 0 0 3px rgba(0, 85, 255, 0.1);
                 }
 
                 .role-grid {
@@ -400,15 +415,16 @@ const ProfileSetup = () => {
                     gap: 1rem;
                 }
                 .role-card {
-                    border: 2px solid var(--color-gray-200);
-                    border-radius: var(--radius-lg);
+                    border: 1px solid var(--color-gray-200);
+                    background: var(--color-surface);
+                    border-radius: 1rem;
                     padding: 1rem;
                     cursor: pointer;
                     text-align: center;
                     transition: all 0.2s;
                 }
                 .role-card:hover {
-                    border-color: var(--color-gray-300);
+                    background: var(--color-gray-50);
                 }
                 .role-card.active {
                     border-color: var(--color-primary);
@@ -422,6 +438,8 @@ const ProfileSetup = () => {
                     transition: opacity 0.2s;
                     border: none;
                     cursor: pointer;
+                    border-radius: 9999px;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
                 }
                 .btn-primary:hover { opacity: 0.9; }
                 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
