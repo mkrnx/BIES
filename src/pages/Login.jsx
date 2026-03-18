@@ -402,7 +402,7 @@ const Login = () => {
                                     : 'Save Key File (Required)'}
                             </p>
                             {!keyDownloaded && (
-                                <>
+                                <form onSubmit={(e) => { e.preventDefault(); handleDownloadKeyfile(); }} style={{ display: 'contents' }}>
                                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                         <input
                                             type={showDlKeyPassword ? 'text' : 'password'}
@@ -430,7 +430,7 @@ const Login = () => {
                                         autoComplete="new-password"
                                     />
                                     <button
-                                        onClick={handleDownloadKeyfile}
+                                        type="submit"
                                         disabled={dlEncrypting || !isKeyPasswordValid(dlKeyPassword) || dlKeyPassword !== dlKeyPasswordConfirm}
                                         className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
                                     >
@@ -439,7 +439,7 @@ const Login = () => {
                                     <p className="login-hint" style={{ lineHeight: 1.3 }}>
                                         Password must be at least 16 characters and include both letters and numbers. All other characters are welcome too. Store it somewhere safe — it is your only backup.
                                     </p>
-                                </>
+                                </form>
                             )}
                             {keyDownloaded && (
                                 <p className="login-hint" style={{ color: 'var(--color-success, #16a34a)', lineHeight: 1.3 }}>
