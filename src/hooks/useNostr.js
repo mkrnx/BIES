@@ -7,6 +7,7 @@ export const useNostrFeed = (npubs) => {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [profiles, setProfiles] = useState({});
+    const fetchedProfiles = useRef(new Set());
 
     useEffect(() => {
         if (!npubs || npubs.length === 0) {
@@ -15,29 +16,89 @@ export const useNostrFeed = (npubs) => {
         }
 
         setLoading(true);
+        fetchedProfiles.current.clear();
 
         // Stop loading after 15s even if no events arrive
         const timeout = setTimeout(() => setLoading(false), 15000);
 
+        // Collect pubkeys during streaming, batch-fetch after EOSE.
+        // Post-EOSE live arrivals are debounced (300ms) and batched too.
+        const preEosePubkeys = [];
+        const liveQueue = new Set();
+        let debounceTimer = null;
+        let eoseFired = false;
+
+        const flushLiveProfiles = async () => {
+            if (liveQueue.size === 0) return;
+            const toFetch = [...liveQueue].filter(pk => !fetchedProfiles.current.has(pk));
+            toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+            liveQueue.clear();
+            if (toFetch.length === 0) return;
+            const profileMap = await nostrService.getProfiles(toFetch);
+            if (profileMap.size > 0) {
+                setProfiles(prev => {
+                    const next = { ...prev };
+                    for (const [pk, p] of profileMap) next[pk] = p;
+                    return next;
+                });
+            }
+        };
+
+        const authorsHex = npubs
+            .map(a => {
+                try { return a.startsWith('npub') ? nip19.decode(a).data : a; }
+                catch { return null; }
+            })
+            .filter(Boolean);
+
         let sub;
         try {
-            sub = nostrService.subscribeToFeed(npubs, async (event) => {
-                if (!profiles[event.pubkey]) {
-                    const profile = await nostrService.getProfile(event.pubkey);
-                    setProfiles(prev => ({
-                        ...prev,
-                        [event.pubkey]: profile
-                    }));
-                }
-
-                setPosts(prev => {
-                    if (prev.find(p => p.id === event.id)) return prev;
-                    const newPosts = [...prev, event].sort((a, b) => b.created_at - a.created_at);
-                    return newPosts;
-                });
-                clearTimeout(timeout);
+            if (authorsHex.length === 0) {
                 setLoading(false);
-            });
+                return;
+            }
+
+            sub = nostrService.pool.subscribeMany(
+                nostrService.relays,
+                { kinds: [1], authors: authorsHex, limit: 20 },
+                {
+                    onevent: (event) => {
+                        setPosts(prev => {
+                            if (prev.find(p => p.id === event.id)) return prev;
+                            return [...prev, event].sort((a, b) => b.created_at - a.created_at);
+                        });
+                        clearTimeout(timeout);
+                        setLoading(false);
+
+                        if (!fetchedProfiles.current.has(event.pubkey)) {
+                            if (!eoseFired) {
+                                preEosePubkeys.push(event.pubkey);
+                            } else {
+                                liveQueue.add(event.pubkey);
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(flushLiveProfiles, 300);
+                            }
+                        }
+                    },
+                    oneose: async () => {
+                        eoseFired = true;
+                        setLoading(false);
+                        clearTimeout(debounceTimer);
+                        const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                        toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                        if (toFetch.length === 0) return;
+                        const profileMap = await nostrService.getProfiles(toFetch);
+                        if (profileMap.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of profileMap) next[pk] = p;
+                                return next;
+                            });
+                        }
+                    },
+                    onclose: () => setLoading(false),
+                }
+            );
         } catch (err) {
             console.error('[Nostr] Feed subscription error:', err);
             setLoading(false);
@@ -46,6 +107,7 @@ export const useNostrFeed = (npubs) => {
 
         return () => {
             clearTimeout(timeout);
+            clearTimeout(debounceTimer);
             if (sub) sub.close();
         };
     }, [JSON.stringify(npubs)]);
