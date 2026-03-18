@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, Users } from 'lucide-react';
+import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, Users, ArrowLeft } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
 import { searchApi } from '../services/api';
@@ -25,6 +25,7 @@ const Messages = () => {
     const [showNewChat, setShowNewChat] = useState(false);
     const [userSearchResults, setUserSearchResults] = useState([]);
     const [searchingUsers, setSearchingUsers] = useState(false);
+    const [mobileView, setMobileView] = useState('sidebar'); // 'sidebar' | 'chat'
     const chatEndRef = useRef(null);
     const searchTimerRef = useRef(null);
 
@@ -123,6 +124,7 @@ const Messages = () => {
         setShowNewChat(false);
         setNewChatInput('');
         setUserSearchResults([]);
+        setMobileView('chat');
     };
 
     const handleStartNewChat = () => {
@@ -193,7 +195,7 @@ const Messages = () => {
     // Not connected state
     if (!publicKey && !loading) {
         return (
-            <div className="container py-8 h-screen-minus-nav">
+            <div className="messages-page">
                 <div className="connect-container">
                     <div className="connect-card">
                         <Lock size={48} className="mb-4 text-primary" />
@@ -218,7 +220,7 @@ const Messages = () => {
 
     if (loading) {
         return (
-            <div className="container py-8 h-screen-minus-nav">
+            <div className="messages-page">
                 <div className="connect-container">
                     <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
                     <p className="text-gray-500" style={{ marginTop: '1rem' }}>Connecting to Nostr relays...</p>
@@ -229,10 +231,10 @@ const Messages = () => {
     }
 
     return (
-        <div className="container py-8 h-screen-minus-nav">
+        <div className="messages-page">
             <div className="messages-layout">
                 {/* Sidebar List */}
-                <div className="messages-sidebar">
+                <div className={`messages-sidebar${mobileView === 'chat' ? ' mobile-hidden' : ''}`}>
                     <div className="sidebar-header">
                         <h2>Messages</h2>
                         <button className="icon-btn" onClick={() => setShowNewChat(true)} title="New conversation">
@@ -314,7 +316,7 @@ const Messages = () => {
                                     <div
                                         key={pubkey}
                                         className={`chat-item ${activeChatPubkey === pubkey ? 'active' : ''}`}
-                                        onClick={() => setActiveChatPubkey(pubkey)}
+                                        onClick={() => { setActiveChatPubkey(pubkey); setMobileView('chat'); }}
                                     >
                                         <div className="chat-avatar">
                                             {avatar ? (
@@ -341,11 +343,14 @@ const Messages = () => {
                 </div>
 
                 {/* Chat Area */}
-                <div className="chat-area">
+                <div className={`chat-area${mobileView === 'sidebar' ? ' mobile-hidden' : ''}`}>
                     {activeChatPubkey ? (
                         <>
                             <div className="chat-header">
                                 <div className="flex items-center gap-3">
+                                    <button className="icon-btn back-btn" onClick={() => setMobileView('sidebar')} aria-label="Back to conversations">
+                                        <ArrowLeft size={20} />
+                                    </button>
                                     <div className="chat-avatar small">
                                         {getAvatar(activeChatPubkey) ? (
                                             <img src={getAvatar(activeChatPubkey)} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
@@ -412,14 +417,26 @@ const Messages = () => {
 };
 
 const sharedStyles = `
-    .h-screen-minus-nav { height: calc(100vh - 100px); }
+    /* ── Page wrapper ── */
+    .messages-page {
+        width: 100%;
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 1.5rem var(--spacing-md) 0;
+        box-sizing: border-box;
+        /* Fill viewport: subtract top navbar (73px) */
+        height: calc(100vh - 73px);
+        display: flex;
+        flex-direction: column;
+    }
 
+    /* ── Connect / loading centered cards ── */
     .connect-container {
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        height: 100%;
+        flex: 1;
     }
     .connect-card {
         background: var(--color-surface);
@@ -430,6 +447,7 @@ const sharedStyles = `
         flex-direction: column;
         align-items: center;
         max-width: 500px;
+        width: 100%;
         border: 1px solid var(--color-gray-200);
     }
 
@@ -445,15 +463,25 @@ const sharedStyles = `
         width: 100%;
     }
 
-    .messages-layout { display: flex; height: 100%; border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; background: var(--color-surface); }
+    /* ── Two-pane layout ── */
+    .messages-layout {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        border: 1px solid var(--color-gray-200);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+        background: var(--color-surface);
+    }
 
-    .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; }
-    .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; }
+    /* ── Sidebar ── */
+    .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; }
+    .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-    .new-chat-panel { border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); }
+    .new-chat-panel { border-bottom: 1px solid var(--color-gray-200); background: var(--color-gray-50); flex-shrink: 0; }
     .new-chat-header { padding: 0.5rem 0.75rem; display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--color-gray-600); }
     .new-chat-box { padding: 0.5rem 0.75rem; display: flex; gap: 0.5rem; }
-    .new-chat-box input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); font-size: 0.85rem; outline: none; }
+    .new-chat-box input { flex: 1; padding: 0.5rem 0.75rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); font-size: 0.85rem; outline: none; background: var(--color-surface); color: var(--color-text); }
     .new-chat-box input:focus { border-color: var(--color-primary); }
 
     .search-status { padding: 0.5rem 0.75rem; font-size: 0.8rem; color: var(--color-gray-500); display: flex; align-items: center; gap: 0.5rem; }
@@ -470,10 +498,10 @@ const sharedStyles = `
 
     .btn-sm { padding: 0.5rem 0.75rem; font-size: 0.8rem; border-radius: var(--radius-md); border: none; cursor: pointer; font-weight: 600; }
 
-    .search-box { margin: 1rem; padding: 0.5rem 1rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; }
-    .search-box input { background: transparent; border: none; outline: none; font-size: 0.9rem; flex: 1; }
+    .search-box { margin: 1rem; padding: 0.5rem 1rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+    .search-box input { background: transparent; border: none; outline: none; font-size: 0.9rem; flex: 1; color: var(--color-text); }
 
-    .conversation-list { flex: 1; overflow-y: auto; }
+    .conversation-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; }
     .chat-item { padding: 1rem; display: flex; gap: 1rem; cursor: pointer; border-bottom: 1px solid var(--color-gray-50); transition: background 0.2s; position: relative; }
     .chat-item:hover { background: var(--color-gray-50); }
     .chat-item.active { background: var(--color-gray-100); border-left: 3px solid var(--color-primary); }
@@ -481,37 +509,53 @@ const sharedStyles = `
     .chat-avatar { width: 40px; height: 40px; background: var(--color-gray-200); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--color-gray-600); flex-shrink: 0; overflow: hidden; }
     .chat-avatar.small { width: 32px; height: 32px; font-size: 0.8rem; }
 
-    .chat-info { flex: 1; overflow: hidden; }
+    .chat-info { flex: 1; overflow: hidden; min-width: 0; }
     .chat-name { font-weight: 600; font-size: 0.95rem; }
-    .chat-time { font-size: 0.75rem; color: var(--color-gray-400); }
+    .chat-time { font-size: 0.75rem; color: var(--color-gray-400); white-space: nowrap; }
     .chat-preview { font-size: 0.85rem; color: var(--color-gray-500); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     .unread-badge { position: absolute; right: 1rem; top: 50%; transform: translateY(-50%); background: var(--color-primary); color: white; font-size: 0.7rem; padding: 2px 6px; border-radius: 99px; }
 
     .nip17-badge { font-size: 0.7rem; background: var(--color-green-tint); color: #166534; padding: 1px 6px; border-radius: 99px; }
 
-    .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); }
-    .chat-header { padding: 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; }
+    /* ── Chat area ── */
+    .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; }
+    .chat-header { padding: 0.75rem 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
-    .active-chat-content { flex: 1; padding: 2rem; overflow-y: auto; display: flex; flex-direction: column; gap: 1rem; }
+    .active-chat-content { flex: 1; padding: 1.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 0.75rem; }
 
-    .msg { max-width: 60%; padding: 0.75rem 1rem; border-radius: 12px; position: relative; }
+    .msg { max-width: 60%; padding: 0.75rem 1rem; border-radius: 12px; word-break: break-word; }
     .msg.received { background: var(--color-surface); border: 1px solid var(--color-gray-200); align-self: flex-start; border-bottom-left-radius: 2px; }
     .msg.sent { background: var(--color-primary); color: white; align-self: flex-end; border-bottom-right-radius: 2px; }
-
     .msg-time { font-size: 0.7rem; opacity: 0.7; margin-top: 4px; display: block; text-align: right; }
 
-    .chat-input-area { padding: 1rem; background: var(--color-surface); border-top: 1px solid var(--color-gray-200); display: flex; gap: 1rem; }
-    .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; cursor: text; }
+    .chat-input-area {
+        padding: 0.75rem 1rem;
+        background: var(--color-surface);
+        border-top: 1px solid var(--color-gray-200);
+        display: flex;
+        gap: 0.75rem;
+        flex-shrink: 0;
+        padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0.75rem));
+    }
+    .chat-input-area input { flex: 1; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); border-radius: var(--radius-full); outline: none; cursor: text; font-size: 1rem; background: var(--color-surface); color: var(--color-text); }
+    .chat-input-area input:focus { border-color: var(--color-primary); }
     .chat-input-area input:disabled { opacity: 0.5; }
-    .send-btn { border-radius: 50%; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; padding: 0; }
+    .send-btn { border-radius: 50%; width: 44px; height: 44px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; padding: 0; }
 
-    .icon-btn { padding: 8px; border-radius: 50%; color: var(--color-gray-500); border: none; background: none; cursor: pointer; }
+    /* ── Utility ── */
+    .icon-btn { padding: 8px; border-radius: 50%; color: var(--color-gray-500); border: none; background: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
     .icon-btn:hover { background: var(--color-gray-100); }
+    .back-btn { display: none; }
     .flex { display: flex; }
+    .items-center { align-items: center; }
     .justify-between { justify-content: space-between; }
     .gap-3 { gap: 0.75rem; }
     .text-primary { color: var(--color-primary); }
+    .text-gray-400 { color: var(--color-gray-400); }
+    .text-gray-500 { color: var(--color-gray-500); }
+    .h-full { height: 100%; }
+    .flex-col { flex-direction: column; }
     .btn { border: none; cursor: pointer; font-weight: 600; }
     .btn-primary { background: var(--color-primary); color: white; border: none; padding: 0.75rem 1.5rem; border-radius: var(--radius-full); cursor: pointer; font-weight: 600; }
     .btn-primary:hover { opacity: 0.9; }
@@ -519,11 +563,49 @@ const sharedStyles = `
     .mb-4 { margin-bottom: 1rem; }
     .mb-6 { margin-bottom: 1.5rem; }
 
+    /* ── Mobile ── */
     @media (max-width: 768px) {
-        .messages-sidebar { width: 100%; }
-        .chat-area { display: none; }
-        .messages-layout:has(.chat-item.active) .messages-sidebar { display: none; }
-        .messages-layout:has(.chat-item.active) .chat-area { display: flex; }
+        .messages-page {
+            /* subtract top nav (73px) + bottom nav (72px) + safe area */
+            height: calc(100vh - 73px - 72px - env(safe-area-inset-bottom, 0px));
+            padding: 0;
+            max-width: 100%;
+        }
+        .messages-layout {
+            border-radius: 0;
+            border-left: none;
+            border-right: none;
+            border-top: none;
+        }
+        .messages-sidebar {
+            width: 100%;
+            border-right: none;
+        }
+        .chat-area {
+            width: 100%;
+        }
+        .mobile-hidden {
+            display: none !important;
+        }
+        .back-btn {
+            display: flex;
+        }
+        .msg {
+            max-width: 82%;
+        }
+        .active-chat-content {
+            padding: 1rem 0.75rem;
+        }
+        .chat-input-area {
+            padding: 0.625rem 0.75rem;
+            padding-bottom: max(0.625rem, env(safe-area-inset-bottom, 0.625rem));
+        }
+        .connect-card {
+            padding: 2rem 1.5rem;
+            border-radius: var(--radius-lg);
+            border: none;
+            box-shadow: none;
+        }
     }
 `;
 
