@@ -256,6 +256,8 @@ const Signup = () => {
                                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                     <input
                                         type={showKeyPassword ? 'text' : 'password'}
+                                        id="nostrkey-signup-password"
+                                        name="new-password"
                                         value={keyPassword}
                                         onChange={(e) => setKeyPassword(e.target.value)}
                                         placeholder="Password (min 16 chars, letters & numbers)"
@@ -268,6 +270,8 @@ const Signup = () => {
                                 </div>
                                 <input
                                     type={showKeyPassword ? 'text' : 'password'}
+                                    id="nostrkey-signup-password-confirm"
+                                    name="new-password-confirm"
                                     value={keyPasswordConfirm}
                                     onChange={(e) => setKeyPasswordConfirm(e.target.value)}
                                     placeholder="Confirm password"
