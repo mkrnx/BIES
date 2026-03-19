@@ -2,29 +2,21 @@ import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
-import { Bell, User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { User, Search, ChevronDown, LogOut } from 'lucide-react';
 import NostrIcon from './NostrIcon';
-import { notificationsApi } from '../services/api';
+import NostrNotifications from './NostrNotifications';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 import logoIconDark from '../assets/logo-icon-dark.svg';
 
 const Navbar = () => {
   const { mode, selectMode, clearMode } = useUserMode();
-  const { user, isAuthenticated, notifications, unreadCount, clearNotificationCount, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
-
-  const handleMarkAllRead = async () => {
-    try {
-      await notificationsApi.markAllRead();
-      clearNotificationCount();
-    } catch { /* ignore */ }
-  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -131,49 +123,7 @@ const Navbar = () => {
             )}
           </div>
           <div className="notifications-menu relative">
-            <button
-              className="icon-btn relative"
-              aria-label="Notifications"
-              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)}
-            >
-              <Bell size={20} />
-              {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
-            </button>
-
-            {isNotificationsOpen && (
-              <>
-                <div className="click-outside-overlay" onClick={() => setIsNotificationsOpen(false)}></div>
-                <div className="dropdown notifications-dropdown">
-                  <div className="dropdown-header">Notifications</div>
-                  <div className="notification-list">
-                    {notifications.length === 0 ? (
-                      <div style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--color-gray-400)', fontSize: '0.85rem' }}>
-                        No notifications yet
-                      </div>
-                    ) : (
-                      notifications.slice(0, 5).map((notif) => (
-                        <div key={notif.id} className={`notification-item ${!notif.read ? 'unread' : ''}`}>
-                          {!notif.read && <div className="dot-indicator"></div>}
-                          <div>
-                            <p className="notif-text">{notif.message || notif.text}</p>
-                            <span className="notif-time">{notif.timeAgo || notif.createdAt}</span>
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="dropdown-footer">
-                    {unreadCount > 0 && (
-                      <button className="text-secondary text-sm" onClick={handleMarkAllRead}>Mark all as read</button>
-                    )}
-                    <Link to="/notifications" className="text-primary text-sm" style={{ display: 'block', marginTop: unreadCount > 0 ? '0.25rem' : 0 }}
-                      onClick={() => setIsNotificationsOpen(false)}>
-                      View all
-                    </Link>
-                  </div>
-                </div>
-              </>
-            )}
+            {isAuthenticated && <NostrNotifications />}
           </div>
 
           {/* User Profile / Mode Switcher */}
@@ -283,19 +233,22 @@ const Navbar = () => {
             </Link>
           )}
 
-          {/* Mobile Menu Toggle — uses avatar/user icon instead of hamburger */}
-          <button
-            className="mobile-toggle"
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-          >
-            <div className="avatar" style={{ width: 32, height: 32 }}>
-              {user?.profile?.avatar ? (
-                <img src={user.profile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-              ) : (
-                <User size={18} />
-              )}
-            </div>
-          </button>
+          {/* Mobile Notification Bell + Menu Toggle */}
+          <div className="mobile-actions">
+            {isAuthenticated && <NostrNotifications mobile />}
+            <button
+              className="mobile-toggle"
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+            >
+              <div className="avatar" style={{ width: 32, height: 32 }}>
+                {user?.profile?.avatar ? (
+                  <img src={user.profile.avatar} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                ) : (
+                  <User size={18} />
+                )}
+              </div>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -424,21 +377,6 @@ const Navbar = () => {
           color: white;
         }
 
-        .badge {
-          position: absolute;
-          top: 4px;
-          right: 4px;
-          background: var(--color-error);
-          color: white;
-          font-size: 10px;
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid white;
-        }
 
         .search-container {
           height: 36px;
@@ -591,6 +529,7 @@ const Navbar = () => {
 
         .hidden-mobile { display: block; }
         .mobile-toggle { display: none; color: white; padding: 8px; }
+        .mobile-actions { display: none; align-items: center; gap: 4px; }
 
         /* Mobile Drawer */
         .mobile-overlay {
@@ -666,44 +605,12 @@ const Navbar = () => {
           .desktop-links { display: none; }
           .hidden-mobile { display: none; }
           .mobile-toggle { display: block; }
+          .mobile-actions { display: flex; }
           .search-container { display: none; }
           .notifications-menu { display: none; }
           .user-menu { display: none; }
         }
 
-        /* Notifications */
-        .notifications-dropdown {
-            width: 300px;
-            right: -100px; /* Center somewhat relative to bell */
-        }
-        
-        .notification-list {
-            max-height: 300px;
-            overflow-y: auto;
-        }
-
-        .notification-item {
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--color-gray-100);
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
-        }
-        .notification-item:last-child { border-bottom: none; }
-        .notification-item.unread { background: var(--color-blue-tint); }
-
-        .notif-text { font-size: 0.85rem; line-height: 1.3; color: var(--color-neutral-dark); }
-        .notif-time { font-size: 0.75rem; color: var(--color-gray-400); display: block; margin-top: 4px; }
-        
-        .dot-indicator {
-            width: 8px; height: 8px; background: var(--color-primary); border-radius: 50%; margin-top: 6px; flex-shrink: 0;
-        }
-
-        .dropdown-footer {
-            padding: 0.5rem;
-            text-align: center;
-            border-top: 1px solid var(--color-gray-100);
-        }
 
         .vertical-stack {
             display: flex;

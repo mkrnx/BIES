@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -39,6 +40,7 @@ function formatSats(n) {
 
 const Feed = () => {
     const { user } = useAuth();
+    const location = useLocation();
     const [posts, setPosts] = useState([]);
     const [profiles, setProfiles] = useState({});
     const [noteStats, setNoteStats] = useState({});
@@ -65,6 +67,9 @@ const Feed = () => {
     const [replyPosting, setReplyPosting] = useState(false);
     const [zapTarget, setZapTarget] = useState(null);
     const [myPubkey, setMyPubkey] = useState(null);
+    const [repostMenu, setRepostMenu] = useState(null); // post.id or null — shows repost relay choice
+    const [postMenu, setPostMenu] = useState(null); // post.id or null — shows "..." menu
+    const [deletingPost, setDeletingPost] = useState(null); // post.id being deleted
 
     // Mention autocomplete
     const [mentionResults, setMentionResults] = useState([]);
@@ -102,6 +107,23 @@ const Feed = () => {
             }
         }).catch(() => {});
     }, []);
+
+    // Scroll to a specific post when navigated from notifications
+    useEffect(() => {
+        const scrollToPost = location.state?.scrollToPost;
+        if (!scrollToPost || loading || feedMode !== 'private') return;
+        // Wait a tick for posts to render
+        const timer = setTimeout(() => {
+            const el = document.querySelector(`[data-post-id="${CSS.escape(scrollToPost)}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                el.style.transition = 'box-shadow 0.3s';
+                el.style.boxShadow = '0 0 0 2px var(--color-secondary)';
+                setTimeout(() => { el.style.boxShadow = ''; }, 2000);
+            }
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [location.state?.scrollToPost, loading, feedMode]);
 
     // Sort notes based on the current explore view
     const sortNotes = useCallback((notes, stats, viewKey) => {
@@ -163,9 +185,33 @@ const Feed = () => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
-            { kinds: [1], limit: 50 },
+            [{ kinds: [1, 6], limit: 50 }],
             {
                 onevent: (event) => {
+                    // Handle reposts (kind 6) — parse the embedded original post
+                    if (event.kind === 6) {
+                        let original;
+                        try { original = JSON.parse(event.content); } catch { return; }
+                        if (!original?.id || !original?.pubkey || !original?.content) return;
+                        // Mark as a repost so we can render "X reposted" label
+                        const repostEvent = { ...original, _repostedBy: event.pubkey, _repostTime: event.created_at, _repostId: event.id };
+                        setPosts(prev => {
+                            if (prev.find(p => p.id === event.id || (p._repostId === event.id))) return prev;
+                            return [...prev, repostEvent].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
+                        });
+                        if (!fetchedProfiles.current.has(event.pubkey)) {
+                            if (!eoseFired) { preEosePubkeys.push(event.pubkey); }
+                            else { liveQueue.add(event.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
+                        }
+                        if (!fetchedProfiles.current.has(original.pubkey)) {
+                            if (!eoseFired) { preEosePubkeys.push(original.pubkey); }
+                            else { liveQueue.add(original.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
+                        }
+                        clearTimeout(timeout);
+                        setLoading(false);
+                        return;
+                    }
+
                     // Skip machine-generated events (JSON metadata, protocol messages)
                     const c = (event.content || '').trimStart();
                     if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
@@ -175,7 +221,7 @@ const Feed = () => {
 
                     setPosts(prev => {
                         if (prev.find(p => p.id === event.id)) return prev;
-                        return [...prev, event].sort((a, b) => b.created_at - a.created_at);
+                        return [...prev, event].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
                     });
                     clearTimeout(timeout);
                     setLoading(false);
@@ -218,34 +264,55 @@ const Feed = () => {
         };
     }, [feedMode]);
 
-    // Fetch user's own reactions for private relay posts so likes/reposts persist across refresh
-    const fetchedReactions = useRef(false);
+    // Fetch ALL reactions for private relay posts — builds stats counts + marks user's own likes/reposts
+    const fetchedReactionIds = useRef(new Set());
     useEffect(() => {
-        if (feedMode !== 'private' || !myPubkey || posts.length === 0 || fetchedReactions.current) return;
-        fetchedReactions.current = true;
+        if (feedMode !== 'private' || posts.length === 0) return;
 
-        const postIds = posts.map(p => p.id);
+        const postIds = posts.map(p => p.id).filter(id => !fetchedReactionIds.current.has(id));
+        if (postIds.length === 0) return;
+        postIds.forEach(id => fetchedReactionIds.current.add(id));
+        const likeCounts = {};
+        const repostCounts = {};
+        const replyCounts = {};
+        const userLiked = new Set();
+        const userReposted = new Set();
+
         const sub = nostrService.pool.subscribeMany(
-            nostrService.relays,
-            { kinds: [7, 6], authors: [myPubkey], '#e': postIds, limit: 500 },
+            [BIES_RELAY, ...nostrService.relays],
+            [{ kinds: [7, 6, 1], '#e': postIds, limit: 2000 }],
             {
                 onevent: (event) => {
                     const eTag = event.tags.find(t => t[0] === 'e');
                     if (!eTag) return;
                     const targetId = eTag[1];
                     if (event.kind === 7) {
-                        setLikedNotes(prev => {
-                            if (prev.has(targetId)) return prev;
-                            return new Set(prev).add(targetId);
-                        });
+                        likeCounts[targetId] = (likeCounts[targetId] || 0) + 1;
+                        if (myPubkey && event.pubkey === myPubkey) userLiked.add(targetId);
                     } else if (event.kind === 6) {
-                        setRepostedNotes(prev => {
-                            if (prev.has(targetId)) return prev;
-                            return new Set(prev).add(targetId);
-                        });
+                        repostCounts[targetId] = (repostCounts[targetId] || 0) + 1;
+                        if (myPubkey && event.pubkey === myPubkey) userReposted.add(targetId);
+                    } else if (event.kind === 1) {
+                        replyCounts[targetId] = (replyCounts[targetId] || 0) + 1;
                     }
                 },
-                oneose: () => sub.close(),
+                oneose: () => {
+                    sub.close();
+                    // Build stats object
+                    const stats = {};
+                    for (const id of postIds) {
+                        if (likeCounts[id] || repostCounts[id] || replyCounts[id]) {
+                            stats[id] = {
+                                likes: likeCounts[id] || 0,
+                                reposts: repostCounts[id] || 0,
+                                replies: replyCounts[id] || 0,
+                            };
+                        }
+                    }
+                    setNoteStats(prev => ({ ...prev, ...stats }));
+                    if (userLiked.size) setLikedNotes(prev => new Set([...prev, ...userLiked]));
+                    if (userReposted.size) setRepostedNotes(prev => new Set([...prev, ...userReposted]));
+                },
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
         );
@@ -255,8 +322,28 @@ const Feed = () => {
 
     // Reset reaction cache when switching feed modes
     useEffect(() => {
-        fetchedReactions.current = false;
+        fetchedReactionIds.current.clear();
     }, [feedMode]);
+
+    // Ensure profiles are loaded for repost authors (catches missed/failed fetches)
+    const repostProfileRetries = useRef(new Set());
+    useEffect(() => {
+        const missing = posts
+            .filter(p => p._repostedBy && !profiles[p._repostedBy])
+            .map(p => p._repostedBy);
+        const unique = [...new Set(missing)].filter(pk => !repostProfileRetries.current.has(pk));
+        if (unique.length === 0) return;
+        unique.forEach(pk => repostProfileRetries.current.add(pk));
+        nostrService.getProfiles(unique).then(profileMap => {
+            if (profileMap.size > 0) {
+                setProfiles(prev => {
+                    const next = { ...prev };
+                    for (const [pk, p] of profileMap) next[pk] = p;
+                    return next;
+                });
+            }
+        });
+    }, [posts, profiles]);
 
     // Fetch explore feed from Primal
     useEffect(() => {
@@ -411,11 +498,20 @@ const Feed = () => {
                 content,
             };
 
+            // Sign the event first so we can add it to the feed optimistically
+            const signedEvent = await nostrSigner.signEvent(event);
+
             if (broadcastPublic) {
-                await nostrService.publishEvent(event);
+                await Promise.any(nostrService.pool.publish(nostrService.relays, signedEvent));
             } else {
-                await nostrService.publishToBiesRelay(event);
+                await Promise.any(nostrService.pool.publish([BIES_RELAY], signedEvent));
             }
+
+            // Optimistically add to feed so the user sees it immediately
+            setPosts(prev => {
+                if (prev.find(p => p.id === signedEvent.id)) return prev;
+                return [signedEvent, ...prev];
+            });
 
             setComposeText('');
             attachedFiles.forEach(a => URL.revokeObjectURL(a.previewUrl));
@@ -431,7 +527,8 @@ const Feed = () => {
     };
 
     const handleKeyDown = (e) => {
-        if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
             handlePost();
         }
     };
@@ -522,11 +619,12 @@ const Feed = () => {
         }
     };
 
-    // Repost a note (kind:6)
-    const handleRepost = async (post) => {
+    // Repost a note (kind:6) — relay: 'private' | 'public'
+    const handleRepost = async (post, relay) => {
         if (repostedNotes.has(post.id)) return;
         if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
 
+        setRepostMenu(null);
         try {
             const event = {
                 kind: 6,
@@ -537,7 +635,13 @@ const Feed = () => {
                 ],
                 content: JSON.stringify(post),
             };
-            await nostrService.publishEvent(event);
+            if (relay === 'private') {
+                await nostrService.publishToBiesRelay(event);
+            } else {
+                await nostrService.publishEvent(event);
+                // Also publish to private relay so it shows up there
+                try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
+            }
             setRepostedNotes(prev => new Set(prev).add(post.id));
             setNoteStats(prev => ({
                 ...prev,
@@ -671,6 +775,65 @@ const Feed = () => {
         }
     };
 
+    // NIP-09: Request delete — publishes a kind:5 event referencing the target event
+    const handleDeletePost = async (post) => {
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
+        setPostMenu(null);
+        setDeletingPost(post.id);
+        try {
+            const event = {
+                kind: 5,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [['e', post.id]],
+                content: 'Request delete',
+            };
+            // Publish delete request to both private and public relays
+            await nostrService.publishEvent(event);
+            try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
+            // Remove from local feed
+            setPosts(prev => prev.filter(p => p.id !== post.id && p._repostId !== post.id));
+        } catch (err) {
+            console.error('[Feed] Delete request failed:', err);
+        } finally {
+            setDeletingPost(null);
+        }
+    };
+
+    // Mute a user — add to local mute set (stored in localStorage)
+    const [mutedUsers, setMutedUsers] = useState(() => {
+        try { return new Set(JSON.parse(localStorage.getItem('bies_muted_users') || '[]')); }
+        catch { return new Set(); }
+    });
+
+    const handleMuteUser = (pubkey) => {
+        setMutedUsers(prev => {
+            const next = new Set(prev).add(pubkey);
+            localStorage.setItem('bies_muted_users', JSON.stringify([...next]));
+            return next;
+        });
+    };
+
+    // Report content — NIP-56 kind:1984 report event
+    const handleReport = async (post) => {
+        if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) return;
+        setPostMenu(null);
+        try {
+            const event = {
+                kind: 1984,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [
+                    ['e', post.id, 'spam'],
+                    ['p', post.pubkey],
+                ],
+                content: '',
+            };
+            await nostrService.publishEvent(event);
+            try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
+        } catch (err) {
+            console.error('[Feed] Report failed:', err);
+        }
+    };
+
     const formatTime = (timestamp) => {
         const diff = Math.floor(Date.now() / 1000) - timestamp;
         if (diff < 60) return 'just now';
@@ -775,7 +938,13 @@ const Feed = () => {
     };
 
     // Only show root posts — filter out replies (events with 'e' tags referencing other events)
-    const rootPosts = useMemo(() => posts.filter(p => !p.tags?.some(t => t[0] === 'e')), [posts]);
+    // Show root posts + reposts (reposts have _repostId marker, so allow them through)
+    // Show root posts + reposts, filter out muted users
+    const rootPosts = useMemo(() => posts.filter(p => {
+        if (mutedUsers.has(p.pubkey)) return false;
+        if (p._repostedBy && mutedUsers.has(p._repostedBy)) return false;
+        return p._repostId || !p.tags?.some(t => t[0] === 'e');
+    }), [posts, mutedUsers]);
 
     const getStats = (noteId) => noteStats[noteId] || {};
 
@@ -789,7 +958,7 @@ const Feed = () => {
             const commentPubkeys = [];
             const sub = nostrService.pool.subscribeMany(
                 [BIES_RELAY],
-                { kinds: [1], '#e': [postId], limit: 100 },
+                [{ kinds: [1], '#e': [postId], limit: 100 }],
                 {
                     onevent: (event) => {
                         if (!fetchedProfiles.current.has(event.pubkey)) {
@@ -870,6 +1039,17 @@ const Feed = () => {
             return next;
         });
     };
+
+    // Close repost menu and post menu on outside click
+    useEffect(() => {
+        if (!repostMenu && !postMenu) return;
+        const handler = (e) => {
+            if (repostMenu && !e.target.closest('.repost-wrapper')) setRepostMenu(null);
+            if (postMenu && !e.target.closest('.note-menu-wrapper')) setPostMenu(null);
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [repostMenu, postMenu]);
 
     // Lightbox state
     const [lightboxSrc, setLightboxSrc] = useState(null);
@@ -952,7 +1132,7 @@ const Feed = () => {
         // Single image — scale proportionally, no crop
         if (images.length === 1) {
             return (
-                <div style={{ margin: '0.5rem 0 0.75rem', paddingLeft: '52px' }}>
+                <div style={{ margin: '0.5rem 0 0.75rem', paddingLeft: '52px', overflow: 'hidden' }}>
                     <img
                         src={images[0]}
                         alt=""
@@ -961,7 +1141,6 @@ const Feed = () => {
                         style={{
                             display: 'block',
                             maxWidth: '100%',
-                            width: 'auto',
                             height: 'auto',
                             borderRadius: '8px',
                             cursor: 'pointer',
@@ -974,7 +1153,7 @@ const Feed = () => {
         // 2 images — side by side squares
         if (images.length === 2) {
             return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
                     {images.map((src, i) => (
                         <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
                             <img src={src} alt="" loading="lazy" style={gridImgStyle} />
@@ -987,7 +1166,7 @@ const Feed = () => {
         // 3 images — one large left, two stacked right
         if (images.length === 3) {
             return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem', height: '320px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', height: '320px', borderRadius: '8px', overflow: 'hidden' }}>
                     <div style={{ ...gridCellStyle, gridRow: '1 / 3' }} onClick={(e) => { e.stopPropagation(); openLightbox(images[0], images); }}>
                         <img src={images[0]} alt="" loading="lazy" style={gridImgStyle} />
                     </div>
@@ -1004,7 +1183,7 @@ const Feed = () => {
         // 4 images — 2x2 grid
         if (images.length === 4) {
             return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
                     {images.map((src, i) => (
                         <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
                             <img src={src} alt="" loading="lazy" style={gridImgStyle} />
@@ -1016,7 +1195,7 @@ const Feed = () => {
 
         // 5+ images — top row 2, bottom row 3 (Facebook style)
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '0.5rem -1.25rem 0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
                     {displayImages.slice(0, 2).map((src, i) => (
                         <div key={i} style={{ ...gridCellStyle, paddingBottom: '75%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
@@ -1249,6 +1428,7 @@ const Feed = () => {
                                     <NostrGifPicker
                                         onSelect={handleComposeGif}
                                         onClose={() => setShowGifPicker(false)}
+                                        dropDown
                                     />
                                 )}
                             </div>
@@ -1291,13 +1471,59 @@ const Feed = () => {
                         {rootPosts.map(post => {
                             const stats = getStats(post.id);
                             const isLiked = likedNotes.has(post.id);
-                            const isReposted = repostedNotes.has(post.id);
+                            const isReposted = repostedNotes.has(post.id) || (post._repostedBy && post._repostedBy === myPubkey);
                             const isReplying = replyTarget?.id === post.id;
                             const isCommentsOpen = openComments.has(post.id);
                             const postComments = comments[post.id] || [];
                             const { text, images, otherMedia } = parseNoteContent(post.content);
+                            const isOwnPost = myPubkey && post.pubkey === myPubkey;
                             return (
-                                <div key={post.id} className="feed-note" data-testid="feed-note">
+                                <div key={post._repostId || post.id} className="feed-note" data-testid="feed-note" data-post-id={post.id}>
+                                    <div className="note-menu-wrapper">
+                                        <button className="note-menu-btn" onClick={() => setPostMenu(postMenu === post.id ? null : post.id)}>
+                                            <MoreHorizontal size={16} />
+                                        </button>
+                                        {postMenu === post.id && (
+                                            <div className="note-menu">
+                                                <button className="note-menu-item" onClick={() => { handleShare(post); setPostMenu(null); }}>
+                                                    <Share size={14} /> Share Note
+                                                </button>
+                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); }}>
+                                                    <Link size={14} /> Copy Note Link
+                                                </button>
+                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); }}>
+                                                    <Type size={14} /> Copy Note Text
+                                                </button>
+                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); }}>
+                                                    <Hash size={14} /> Copy Note ID
+                                                </button>
+                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); }}>
+                                                    <Code size={14} /> Copy Raw Data
+                                                </button>
+                                                {isOwnPost && (
+                                                    <button className="note-menu-item note-menu-danger" onClick={() => handleDeletePost(post)}>
+                                                        <Trash2 size={14} /> Request Delete
+                                                    </button>
+                                                )}
+                                                {!isOwnPost && (
+                                                    <>
+                                                        <button className="note-menu-item note-menu-danger" onClick={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}>
+                                                            <VolumeX size={14} /> Mute User
+                                                        </button>
+                                                        <button className="note-menu-item note-menu-danger" onClick={() => { handleReport(post); setPostMenu(null); }}>
+                                                            <Flag size={14} /> Report Content
+                                                        </button>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    {post._repostedBy && (
+                                        <div className="repost-label">
+                                            <Repeat size={13} />
+                                            <span>{getDisplayName(post._repostedBy)} reposted</span>
+                                        </div>
+                                    )}
                                     <div className="note-header">
                                         <div className="note-avatar">
                                             {getAvatar(post.pubkey) ? (
@@ -1308,7 +1534,7 @@ const Feed = () => {
                                         </div>
                                         <div className="note-meta">
                                             <span className="note-name">{getDisplayName(post.pubkey)}</span>
-                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
+                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post._repostTime || post.created_at)}</span>
                                         </div>
                                     </div>
                                     {text && <div className="note-content">{renderContent(text)}</div>}
@@ -1323,14 +1549,31 @@ const Feed = () => {
                                             <MessageCircle size={15} />
                                             <span>{formatCount(stats.replies)}</span>
                                         </button>
-                                        <button
-                                            className={`action-btn ${isReposted ? 'active-repost' : ''}`}
-                                            title="Repost"
-                                            onClick={() => handleRepost(post)}
-                                        >
-                                            <Repeat size={15} />
-                                            <span>{formatCount(stats.reposts)}</span>
-                                        </button>
+                                        <div className="repost-wrapper">
+                                            <button
+                                                className={`action-btn ${isReposted ? 'active-repost' : ''}`}
+                                                title="Repost"
+                                                onClick={() => {
+                                                    if (isReposted) return;
+                                                    setRepostMenu(repostMenu === post.id ? null : post.id);
+                                                }}
+                                            >
+                                                <Repeat size={15} />
+                                                <span>{formatCount(stats.reposts)}</span>
+                                            </button>
+                                            {repostMenu === post.id && (
+                                                <div className="repost-menu">
+                                                    <button className="repost-menu-item" onClick={() => handleRepost(post, 'private')}>
+                                                        <Lock size={14} />
+                                                        <span>Repost to Private Relay</span>
+                                                    </button>
+                                                    <button className="repost-menu-item" onClick={() => handleRepost(post, 'public')}>
+                                                        <Globe size={14} />
+                                                        <span>Repost to Public Nostr</span>
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                         <button
                                             className={`action-btn ${isLiked ? 'active-like' : ''}`}
                                             title="Like"
@@ -1383,10 +1626,12 @@ const Feed = () => {
                                                         onChange={(e) => {
                                                             setReplyTarget({ id: post.id, pubkey: post.pubkey });
                                                             setReplyText(e.target.value);
+                                                            handleMentionInput(e.target.value, e.target.selectionStart, 'reply');
                                                         }}
                                                         onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
+                                                        onBlur={() => setTimeout(() => setMentionAnchor(null), 150)}
                                                         onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
+                                                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(post); }
                                                         }}
                                                         rows={1}
                                                     />
@@ -1431,6 +1676,28 @@ const Feed = () => {
                                                     </button>
                                                 </div>
                                             </div>
+
+                                            {/* Mention dropdown for replies */}
+                                            {isReplying && mentionAnchor?.field === 'reply' && (mentionResults.length > 0 || mentionLoading) && (
+                                                <div className="mention-dropdown mention-dropdown-reply">
+                                                    {mentionLoading && mentionResults.length === 0 && (
+                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
+                                                    )}
+                                                    {mentionResults.map(p => (
+                                                        <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
+                                                            {p.picture ? (
+                                                                <img src={p.picture} className="mention-avatar" alt="" />
+                                                            ) : (
+                                                                <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
+                                                            )}
+                                                            <div className="mention-info">
+                                                                <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
+                                                                {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
+                                                            </div>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
 
                                             {loadingComments[post.id] && postComments.length === 0 && (
                                                 <div className="comment-loading">
@@ -1520,96 +1787,6 @@ const Feed = () => {
                                                 <div className="comment-empty">No replies yet. Be the first!</div>
                                             )}
 
-                                            {/* Reply compose - at top */}
-                                            <div className="comment-compose">
-                                                <div className="comment-compose-avatar">
-                                                    {user?.profile?.avatar ? (
-                                                        <img src={user.profile.avatar} alt="" />
-                                                    ) : (
-                                                        <NostrIcon size={13} />
-                                                    )}
-                                                </div>
-                                                <div className="comment-compose-input-row">
-                                                    <textarea
-                                                        ref={el => { commentInputRefs.current[post.id] = el; }}
-                                                        className="comment-input"
-                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
-                                                        value={isReplying ? replyText : ''}
-                                                        onChange={(e) => {
-                                                            setReplyTarget({ id: post.id, pubkey: post.pubkey });
-                                                            setReplyText(e.target.value);
-                                                            handleMentionInput(e.target.value, e.target.selectionStart, 'reply');
-                                                        }}
-                                                        onFocus={() => setReplyTarget({ id: post.id, pubkey: post.pubkey })}
-                                                        onBlur={() => setTimeout(() => setMentionAnchor(null), 150)}
-                                                        onKeyDown={(e) => {
-                                                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleReply(post);
-                                                        }}
-                                                        rows={1}
-                                                    />
-                                                    <div className="comment-picker-btns">
-                                                        <div className="picker-anchor">
-                                                            <button
-                                                                className="comment-picker-btn"
-                                                                onClick={() => { setCommentEmojiPicker(commentEmojiPicker === post.id ? null : post.id); setCommentGifPicker(null); }}
-                                                                title="Emoji"
-                                                            >
-                                                                <Smile size={14} />
-                                                            </button>
-                                                            {commentEmojiPicker === post.id && (
-                                                                <EmojiPicker
-                                                                    onSelect={(emoji) => handleCommentEmoji(post.id, emoji)}
-                                                                    onClose={() => setCommentEmojiPicker(null)}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                        <div className="picker-anchor">
-                                                            <button
-                                                                className="comment-picker-btn"
-                                                                onClick={() => { setCommentGifPicker(commentGifPicker === post.id ? null : post.id); setCommentEmojiPicker(null); }}
-                                                                title="GIF"
-                                                            >
-                                                                <span className="gif-label-sm">GIF</span>
-                                                            </button>
-                                                            {commentGifPicker === post.id && (
-                                                                <NostrGifPicker
-                                                                    onSelect={(url) => handleCommentGif(post.id, post.pubkey, url)}
-                                                                    onClose={() => setCommentGifPicker(null)}
-                                                                />
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <button
-                                                        className="comment-send-btn"
-                                                        onClick={() => handleReply(post)}
-                                                        disabled={!isReplying || !replyText.trim() || replyPosting}
-                                                    >
-                                                        {replyPosting && isReplying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            {/* Mention dropdown for replies */}
-                                            {isReplying && mentionAnchor?.field === 'reply' && (mentionResults.length > 0 || mentionLoading) && (
-                                                <div className="mention-dropdown mention-dropdown-reply">
-                                                    {mentionLoading && mentionResults.length === 0 && (
-                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
-                                                    )}
-                                                    {mentionResults.map(p => (
-                                                        <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
-                                                            {p.picture ? (
-                                                                <img src={p.picture} className="mention-avatar" alt="" />
-                                                            ) : (
-                                                                <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
-                                                            )}
-                                                            <div className="mention-info">
-                                                                <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
-                                                                {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
-                                                            </div>
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -1671,6 +1848,7 @@ const Feed = () => {
                     min-height: calc(100vh - 73px);
                     background: var(--color-gray-50, #f9fafb);
                     padding: 2rem 1rem;
+                    overflow-x: hidden;
                 }
                 @media (max-width: 768px) {
                     .feed-page {
@@ -1680,6 +1858,8 @@ const Feed = () => {
                 .feed-container {
                     max-width: 640px;
                     margin: 0 auto;
+                    min-width: 0;
+                    overflow: hidden;
                 }
                 .feed-header {
                     display: flex;
@@ -1819,6 +1999,7 @@ const Feed = () => {
                     line-height: 1.5;
                     color: #1f2937;
                     background: transparent;
+                    cursor: text;
                 }
                 .compose-input::placeholder {
                     color: #9ca3af;
@@ -1997,24 +2178,103 @@ const Feed = () => {
                     display: flex;
                     flex-direction: column;
                     gap: 1rem;
+                    min-width: 0;
                 }
                 .feed-note {
+                    position: relative;
                     background: var(--color-gray-100);
                     border: 1px solid #e5e7eb;
                     border-radius: var(--radius-xl, 12px);
                     padding: 1.25rem;
                     transition: box-shadow 0.2s, border-color 0.2s;
                     overflow: visible;
+                    min-width: 0;
+                    max-width: 100%;
+                    box-sizing: border-box;
                 }
                 .feed-note:hover {
                     box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1));
                     border-color: #ddd6fe;
                 }
+                /* Repost label */
+                .repost-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    padding-left: 52px;
+                    margin-bottom: 0.35rem;
+                    color: #22c55e;
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                }
+
                 .note-header {
                     display: flex;
                     align-items: center;
                     gap: 0.75rem;
                     margin-bottom: 0.75rem;
+                }
+
+                /* Three-dot menu */
+                .note-menu-wrapper {
+                    position: absolute;
+                    top: 0.75rem;
+                    right: 0.75rem;
+                    z-index: 10;
+                }
+                .note-menu-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 28px;
+                    height: 28px;
+                    border: none;
+                    background: transparent;
+                    color: #9ca3af;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    transition: background 0.12s, color 0.12s;
+                }
+                .note-menu-btn:hover {
+                    background: #f3f4f6;
+                    color: #6b7280;
+                }
+                .note-menu {
+                    position: absolute;
+                    top: 100%;
+                    right: 0;
+                    margin-top: 4px;
+                    background: var(--color-surface, white);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+                    z-index: 9999;
+                    overflow: hidden;
+                    min-width: 200px;
+                }
+                .note-menu-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.6rem;
+                    width: 100%;
+                    padding: 0.6rem 0.85rem;
+                    border: none;
+                    background: transparent;
+                    color: var(--color-gray-900, #1f2937);
+                    font-size: 0.82rem;
+                    font-family: inherit;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: background 0.12s;
+                }
+                .note-menu-item:hover {
+                    background: #f3f4f6;
+                }
+                .note-menu-item + .note-menu-item {
+                    border-top: 1px solid #f3f4f6;
+                }
+                .note-menu-danger {
+                    color: #ef4444;
                 }
                 .note-avatar {
                     width: 40px;
@@ -2081,12 +2341,56 @@ const Feed = () => {
                 .action-zap:hover { color: #f59e0b; }
                 .action-share { margin-left: auto; }
 
+                /* Repost relay choice dropdown */
+                .repost-wrapper {
+                    position: relative;
+                }
+                .repost-menu {
+                    position: absolute;
+                    bottom: 100%;
+                    left: 50%;
+                    transform: translateX(-50%);
+                    margin-bottom: 6px;
+                    background: var(--color-surface, white);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+                    z-index: 9999;
+                    overflow: hidden;
+                    min-width: 200px;
+                }
+                .repost-menu-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    width: 100%;
+                    padding: 0.55rem 0.85rem;
+                    border: none;
+                    background: transparent;
+                    color: var(--color-gray-900, #1f2937);
+                    font-size: 0.82rem;
+                    font-family: inherit;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: background 0.12s;
+                }
+                .repost-menu-item:hover {
+                    background: #f3f4f6;
+                }
+                .repost-menu-item:first-child {
+                    border-bottom: 1px solid #f3f4f6;
+                }
+
                 /* Media in notes */
                 .note-media {
                     display: flex;
                     flex-direction: column;
                     gap: 0.5rem;
                     margin-top: 0.75rem;
+                    overflow: hidden;
+                    max-width: 100%;
+                    padding-left: 52px;
+                    box-sizing: border-box;
                 }
                 .note-media-img {
                     max-width: 100%;
@@ -2095,11 +2399,14 @@ const Feed = () => {
                     object-fit: contain;
                 }
                 .note-media-video {
+                    width: 100%;
                     max-width: 100%;
                     max-height: 500px;
                     border-radius: 12px;
                     aspect-ratio: 16/9;
                     border: none;
+                    object-fit: contain;
+                    box-sizing: border-box;
                 }
                 .note-media-audio {
                     width: 100%;
@@ -2240,6 +2547,9 @@ const Feed = () => {
                     gap: 0.6rem;
                     align-items: flex-start;
                     padding-top: 0.25rem;
+                    padding-bottom: 0.75rem;
+                    border-bottom: 1px solid #ede9fe;
+                    margin-bottom: 0.25rem;
                 }
                 .comment-compose-avatar {
                     width: 28px;
@@ -2278,6 +2588,7 @@ const Feed = () => {
                     color: inherit;
                     box-sizing: border-box;
                     line-height: 1.4;
+                    cursor: text;
                 }
                 .comment-input:focus {
                     border-color: #7c3aed;
@@ -2550,6 +2861,29 @@ const Feed = () => {
                 :global([data-theme="dark"]) .note-name {
                     color: #f1f5f9;
                 }
+                :global([data-theme="dark"]) .note-menu-btn {
+                    color: #64748b;
+                }
+                :global([data-theme="dark"]) .note-menu-btn:hover {
+                    background: #2d3748;
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .note-menu {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .note-menu-item {
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .note-menu-item:hover {
+                    background: #2d3748;
+                }
+                :global([data-theme="dark"]) .note-menu-item + .note-menu-item {
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .note-menu-danger {
+                    color: #f87171;
+                }
                 :global([data-theme="dark"]) .note-handle {
                     color: #64748b;
                 }
@@ -2558,6 +2892,22 @@ const Feed = () => {
                 }
                 :global([data-theme="dark"]) .action-btn {
                     color: #64748b;
+                }
+                :global([data-theme="dark"]) .action-btn.active-repost { color: #22c55e; }
+                :global([data-theme="dark"]) .action-btn.active-like { color: #ef4444; }
+                :global([data-theme="dark"]) .action-btn.active-reply { color: #7c3aed; }
+                :global([data-theme="dark"]) .repost-menu {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .repost-menu-item {
+                    color: #e2e8f0;
+                }
+                :global([data-theme="dark"]) .repost-menu-item:hover {
+                    background: #2d3748;
+                }
+                :global([data-theme="dark"]) .repost-menu-item:first-child {
+                    border-color: #2d3748;
                 }
                 :global([data-theme="dark"]) .compose-box {
                     background: #1e2a3a;
@@ -2631,6 +2981,9 @@ const Feed = () => {
                     color: #e2e8f0;
                 }
                 :global([data-theme="dark"]) .comment-section {
+                    border-color: #2d3748;
+                }
+                :global([data-theme="dark"]) .comment-compose {
                     border-color: #2d3748;
                 }
                 :global([data-theme="dark"]) .comment-item {
