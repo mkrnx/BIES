@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import DOMPurify from 'dompurify';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import TranslatableText from './TranslatableText';
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Label } from 'recharts';
 
 const PIE_COLORS = ['#0052cc', '#16a34a', '#7c3aed', '#ea580c', '#dc2626', '#0891b2', '#ca8a04', '#be185d'];
@@ -44,15 +45,22 @@ const ProfileSection = ({ section, isSidebar }) => {
     const stype = section.type || 'TEXT';
     return (
         <div style={{ background: 'var(--color-surface, white)', border: '1px solid var(--color-gray-200, #e5e7eb)', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginBottom: '1.5rem' }}>
-            {section.title && (
-                <h3 style={{ fontSize: isSidebar ? '1rem' : '1.25rem', fontWeight: 700, color: 'var(--color-gray-900, #111827)', margin: '0 0 0.75rem', fontFamily: 'var(--font-display)' }}>{section.title}</h3>
-            )}
-            {stype === 'TEXT' && (
-                <div
+            {stype === 'TEXT' ? (
+                <TranslatableText
+                    title={section.title}
+                    titleTag="h3"
+                    titleStyle={{ fontSize: isSidebar ? '1rem' : '1.25rem', fontWeight: 700, color: 'var(--color-gray-900, #111827)', margin: '0 0 0.75rem', fontFamily: 'var(--font-display)' }}
+                    text={section.body || section.content || ''}
+                    isHtml={true}
                     className="rich-text-content"
                     style={{ color: 'var(--color-gray-600, #4b5563)', fontSize: '0.95rem', lineHeight: 1.75 }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body || section.content || '', { ADD_ATTR: ['style'] }) }}
                 />
+            ) : (
+                <>
+                    {section.title && (
+                        <h3 style={{ fontSize: isSidebar ? '1rem' : '1.25rem', fontWeight: 700, color: 'var(--color-gray-900, #111827)', margin: '0 0 0.75rem', fontFamily: 'var(--font-display)' }}>{section.title}</h3>
+                    )}
+                </>
             )}
             {stype === 'PHOTO' && section.imageUrl && (
                 <img src={section.imageUrl} alt={section.title || ''} style={{ width: '100%', borderRadius: '10px', objectFit: 'cover' }} />

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
 import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil, Users, Copy, Check } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
@@ -12,6 +13,7 @@ import ZapButton from '../components/ZapButton';
 import ProfileSection from '../components/ProfileSection';
 
 const Profile = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);

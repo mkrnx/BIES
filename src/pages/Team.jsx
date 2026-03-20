@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Mail, MapPin, Loader2, CheckCircle } from 'lucide-react';
 
 const Team = () => {
+    const { t } = useTranslation();
     const [form, setForm] = useState({ name: '', email: '', role: 'Builder', message: '' });
     const [submitting, setSubmitting] = useState(false);
     const [submitted, setSubmitted] = useState(false);
@@ -16,11 +18,11 @@ const Team = () => {
         setError('');
 
         if (!form.name.trim() || !form.email.trim() || !form.message.trim()) {
-            setError('Please fill in all required fields.');
+            setError(t('team.fillFields'));
             return;
         }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-            setError('Please enter a valid email address.');
+            setError(t('team.validEmail'));
             return;
         }
 
@@ -36,7 +38,7 @@ const Team = () => {
             setSubmitted(true);
             setForm({ name: '', email: '', role: 'Builder', message: '' });
         } catch (err) {
-            setError(err.message || 'Something went wrong. Please try again.');
+            setError(err.message || t('team.somethingWrong'));
         } finally {
             setSubmitting(false);
         }
@@ -47,11 +49,9 @@ const Team = () => {
             {/* Mission */}
             <section className="mission-section">
                 <div className="container text-center">
-                    <h1 className="mb-4 page-header">Orchestrating the Future</h1>
+                    <h1 className="mb-4 page-header">{t('team.title')}</h1>
                     <p className="lead">
-                        BIES (Build In El Salvador) is the digital bridge between global capital
-                        and the builders of the first Bitcoin nation. We are dedicated to accelerating the hyperbitcoinization
-                        of El Salvador through transparency, connection, and trusted infrastructure.
+                        {t('team.mission')}
                     </p>
                 </div>
             </section>
@@ -61,40 +61,40 @@ const Team = () => {
                 <div className="container grid grid-cols-3 text-center">
                     <div>
                         <div className="text-3xl font-bold text-primary mb-2">150+</div>
-                        <div className="text-gray-500">Verified Projects</div>
+                        <div className="text-gray-500">{t('team.verifiedProjects')}</div>
                     </div>
                     <div>
                         <div className="text-3xl font-bold text-secondary mb-2">$400M+</div>
-                        <div className="text-gray-500">Capital Deployed</div>
+                        <div className="text-gray-500">{t('team.capitalDeployed')}</div>
                     </div>
                     <div>
                         <div className="text-3xl font-bold text-neutral-dark mb-2">2,000+</div>
-                        <div className="text-gray-500">Jobs Created</div>
+                        <div className="text-gray-500">{t('team.jobsCreated')}</div>
                     </div>
                 </div>
             </section>
 
             {/* Team */}
             <section className="py-16 container">
-                <h2 className="text-center mb-12">Leadership Team</h2>
+                <h2 className="text-center mb-12">{t('team.leadershipTeam')}</h2>
                 <div className="grid grid-cols-3 gap-lg">
                     <div className="team-card">
                         <div className="team-img"></div>
                         <h3>Elena Castillo</h3>
-                        <p className="role">Executive Director</p>
-                        <p className="bio">Former FinTech regulator turned Bitcoin advocate. Leading the strategic vision of BIES.</p>
+                        <p className="role">{t('team.teamMembers.elena.role')}</p>
+                        <p className="bio">{t('team.teamMembers.elena.bio')}</p>
                     </div>
                     <div className="team-card">
                         <div className="team-img"></div>
                         <h3>Marcus Green</h3>
-                        <p className="role">Head of Investment</p>
-                        <p className="bio">20 years in VC. Focused on bridging Silicon Valley capital with Salvadoran opportunity.</p>
+                        <p className="role">{t('team.teamMembers.marcus.role')}</p>
+                        <p className="bio">{t('team.teamMembers.marcus.bio')}</p>
                     </div>
                     <div className="team-card">
                         <div className="team-img"></div>
                         <h3>Roberto Diaz</h3>
-                        <p className="role">Chief Technology Officer</p>
-                        <p className="bio">Building the digital rails for the new economy. Open source contributor.</p>
+                        <p className="role">{t('team.teamMembers.roberto.role')}</p>
+                        <p className="bio">{t('team.teamMembers.roberto.bio')}</p>
                     </div>
                 </div>
             </section>
@@ -102,14 +102,14 @@ const Team = () => {
             {/* Contact */}
             <section className="contact-section py-16 bg-white">
                 <div className="container max-w-2xl">
-                    <h2 className="text-center mb-8">Get in Touch</h2>
+                    <h2 className="text-center mb-8">{t('team.getInTouch')}</h2>
 
                     {submitted ? (
                         <div style={{ textAlign: 'center', padding: '2rem' }}>
                             <CheckCircle size={48} style={{ color: 'var(--color-success)', margin: '0 auto 1rem' }} />
-                            <h3>Message Sent!</h3>
-                            <p style={{ color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>Thank you for reaching out. We'll get back to you shortly.</p>
-                            <button className="btn btn-outline" style={{ marginTop: '1.5rem' }} onClick={() => setSubmitted(false)}>Send Another</button>
+                            <h3>{t('common.messageSent')}</h3>
+                            <p style={{ color: 'var(--color-gray-500)', marginTop: '0.5rem' }}>{t('common.thankYouMessage')}</p>
+                            <button className="btn btn-outline" style={{ marginTop: '1.5rem' }} onClick={() => setSubmitted(false)}>{t('common.sendAnother')}</button>
                         </div>
                     ) : (
                         <form className="contact-form" onSubmit={handleSubmit}>
@@ -119,18 +119,18 @@ const Team = () => {
                                 </div>
                             )}
                             <div className="grid grid-cols-2 gap-md mb-4">
-                                <input type="text" name="name" placeholder="Name *" className="input" value={form.name} onChange={handleChange} required />
-                                <input type="email" name="email" placeholder="Email *" className="input" value={form.email} onChange={handleChange} required />
+                                <input type="text" name="name" placeholder={t('team.namePlaceholder')} className="input" value={form.name} onChange={handleChange} required />
+                                <input type="email" name="email" placeholder={t('team.emailPlaceholder')} className="input" value={form.email} onChange={handleChange} required />
                             </div>
                             <select name="role" className="input mb-4" value={form.role} onChange={handleChange}>
-                                <option value="Builder">I am a Builder</option>
-                                <option value="Investor">I am an Investor</option>
-                                <option value="Media">Media Inquiry</option>
-                                <option value="Other">Other</option>
+                                <option value="Builder">{t('team.iAmBuilder')}</option>
+                                <option value="Investor">{t('team.iAmInvestor')}</option>
+                                <option value="Media">{t('team.mediaInquiry')}</option>
+                                <option value="Other">{t('team.other')}</option>
                             </select>
-                            <textarea name="message" placeholder="Message *" className="input textarea mb-4" rows="5" value={form.message} onChange={handleChange} required></textarea>
+                            <textarea name="message" placeholder={t('team.messagePlaceholder')} className="input textarea mb-4" rows="5" value={form.message} onChange={handleChange} required></textarea>
                             <button className="btn btn-primary w-full" type="submit" disabled={submitting}>
-                                {submitting ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite', marginRight: 8 }} /> Sending...</> : 'Send Message'}
+                                {submitting ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite', marginRight: 8 }} /> {t('common.sending')}</> : t('common.sendMessage')}
                             </button>
                         </form>
                     )}

@@ -1,22 +1,24 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Compass, Heart, MessageSquare, CalendarDays, BookOpen, Settings, LogOut } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const mainTabs = [
-  { to: '/dashboard/member', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/dashboard/member/courses', label: 'Courses', icon: BookOpen },
-  { to: '/discover', label: 'Discover', icon: Compass },
-  { to: '/dashboard/member/my-events', label: 'Events', icon: CalendarDays },
-  { to: '/dashboard/member/following', label: 'Following', icon: Heart },
-  { to: '/dashboard/member/messages', label: 'Messages', icon: MessageSquare },
-];
-
 const MemberDashboard = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { logout } = useAuth();
   const { theme } = useTheme();
+
+  const mainTabs = [
+    { to: '/dashboard/member', label: t('dashboard.overview'), icon: LayoutDashboard, end: true },
+    { to: '/dashboard/member/courses', label: t('dashboard.courses'), icon: BookOpen },
+    { to: '/discover', label: t('dashboard.discover'), icon: Compass },
+    { to: '/dashboard/member/my-events', label: t('dashboard.myEvents'), icon: CalendarDays },
+    { to: '/dashboard/member/following', label: t('dashboard.following'), icon: Heart },
+    { to: '/dashboard/member/messages', label: t('dashboard.messages'), icon: MessageSquare },
+  ];
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
@@ -27,7 +29,7 @@ const MemberDashboard = () => {
       <aside className="sidebar desktop-sidebar">
         <div className="sidebar-menu">
           <div className="menu-group">
-            <p className="menu-label">Main</p>
+            <p className="menu-label">{t('dashboard.main')}</p>
             {mainTabs.map(tab => (
               <NavLink
                 key={tab.to}
@@ -46,10 +48,10 @@ const MemberDashboard = () => {
               to="/dashboard/member/settings"
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
-              <Settings size={18} /> <span className="link-label">Settings</span>
+              <Settings size={18} /> <span className="link-label">{t('dashboard.settings')}</span>
             </NavLink>
             <button onClick={logout} className="sidebar-link text-error">
-              <LogOut size={18} /> <span className="link-label">Logout</span>
+              <LogOut size={18} /> <span className="link-label">{t('dashboard.logout')}</span>
             </button>
           </div>
         </div>

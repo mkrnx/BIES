@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { useUserMode } from '../context/UserModeContext';
 import { ArrowRight, Globe, Shield, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -6,6 +7,7 @@ import SocialPulse from '../components/SocialPulse';
 import heroBg from '../assets/el-salvador-banner.png';
 
 const Landing = () => {
+  const { t } = useTranslation();
   const { mode } = useUserMode();
 
   return (
@@ -14,37 +16,37 @@ const Landing = () => {
         <div className="container">
           <div className="hero-content">
             <span className="pill">
-              {mode === 'investor' ? 'For Global Investors' : 'The Future of El Salvador'}
+              {mode === 'investor' ? t('landing.forInvestors') : t('landing.theFuture')}
             </span>
             <h1>
               {mode === 'builder'
-                ? 'Build the Future of Freedom'
+                ? t('landing.heroBuilder')
                 : mode === 'investor'
-                  ? 'Invest in Liberty & Innovation'
-                  : 'The Bridge to El Salvador\'s Future'}
+                  ? t('landing.heroInvestor')
+                  : t('landing.heroDefault')}
             </h1>
             <p className="hero-text">
               {mode === 'builder'
-                ? 'Connect with global capital, showcase your vision, and launch your startup in the world\'s first Bitcoin country.'
-                : 'Access exclusive deal flow from the world\'s most rapidly growing digital economy. Verified projects, direct connections.'}
+                ? t('landing.descBuilder')
+                : t('landing.descInvestor')}
             </p>
             <div className="cta-group">
               <Link
                 to={mode === 'builder' ? '/dashboard/builder' : '/discover'}
                 className={`btn ${mode === 'investor' ? 'btn-secondary' : 'btn-primary'}`}
               >
-                {mode === 'builder' ? 'Start Building' : 'Explore Projects'} <ArrowRight size={18} style={{ marginLeft: 8 }} />
+                {mode === 'builder' ? t('landing.startBuilding') : t('landing.exploreProjects')} <ArrowRight size={18} style={{ marginLeft: 8 }} />
               </Link>
-              <button className="btn btn-outline-white">Watch Video</button>
+              <button className="btn btn-outline-white">{t('landing.watchVideo')}</button>
             </div>
           </div>
           <div className="hero-visual">
             <div className="stat-card float-1">
-              <span className="label">Total Investment</span>
+              <span className="label">{t('landing.totalInvestment')}</span>
               <span className="value text-mono text-secondary">$42.5M+</span>
             </div>
             <div className="stat-card float-2">
-              <span className="label">Active Builders</span>
+              <span className="label">{t('landing.activeBuilders')}</span>
               <span className="value text-mono text-primary">1,240</span>
             </div>
           </div>
@@ -58,22 +60,22 @@ const Landing = () => {
             <div className="icon-box blue">
               <Globe size={24} />
             </div>
-            <h3>Global Ecosystem</h3>
-            <p>Direct integration with international markets and the Bitcoin standard economy.</p>
+            <h3>{t('landing.globalEcosystem')}</h3>
+            <p>{t('landing.globalEcosystemDesc')}</p>
           </div>
           <div className="feature-card">
             <div className="icon-box orange">
               <Shield size={24} />
             </div>
-            <h3>Verified Trust</h3>
-            <p>Identity verification and due diligence tools built directly into the platform.</p>
+            <h3>{t('landing.verifiedTrust')}</h3>
+            <p>{t('landing.verifiedTrustDesc')}</p>
           </div>
           <div className="feature-card">
             <div className="icon-box dark">
               <Users size={24} />
             </div>
-            <h3>Direct Access</h3>
-            <p>No intermediaries. Connect directly with founders and funders via secure messaging.</p>
+            <h3>{t('landing.directAccess')}</h3>
+            <p>{t('landing.directAccessDesc')}</p>
           </div>
         </div>
       </section>

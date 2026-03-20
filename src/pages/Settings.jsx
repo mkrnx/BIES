@@ -2,29 +2,35 @@ import React from 'react';
 import { Moon, Bell, Lock, Globe, Eye, Zap } from 'lucide-react';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
+import { useTranslation } from 'react-i18next';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
+    const { t, i18n } = useTranslation();
+
+    const handleLanguageChange = (e) => {
+        i18n.changeLanguage(e.target.value);
+    };
 
     return (
         <div className="container py-8 max-w-3xl">
-            <h1 className="mb-8">Settings</h1>
+            <h1 className="mb-8">{t('settings.title')}</h1>
 
             <div className="settings-section">
-                <h2><Zap size={16} /> Lightning Wallet</h2>
+                <h2><Zap size={16} /> {t('settings.lightningWallet')}</h2>
                 <div className="setting-item">
                     <WalletConnect />
                 </div>
             </div>
 
             <div className="settings-section">
-                <h2>Preferences</h2>
+                <h2>{t('settings.preferences')}</h2>
                 <div className="setting-item">
                     <div className="setting-info">
                         <div className="icon-box"><Moon size={20} /></div>
                         <div>
-                            <p className="setting-label">Dark Mode</p>
-                            <p className="setting-desc">Switch between light and dark themes</p>
+                            <p className="setting-label">{t('settings.darkMode')}</p>
+                            <p className="setting-desc">{t('settings.darkModeDesc')}</p>
                         </div>
                     </div>
                     <select
@@ -32,61 +38,65 @@ const Settings = () => {
                         value={theme}
                         onChange={(e) => setTheme(e.target.value)}
                     >
-                        <option value="light">Light</option>
-                        <option value="dark">Dark</option>
-                        <option value="system">System</option>
+                        <option value="light">{t('settings.light')}</option>
+                        <option value="dark">{t('settings.dark')}</option>
+                        <option value="system">{t('settings.system')}</option>
                     </select>
                 </div>
                 <div className="setting-item">
                     <div className="setting-info">
                         <div className="icon-box"><Globe size={20} /></div>
                         <div>
-                            <p className="setting-label">Language</p>
-                            <p className="setting-desc">Select your preferred language</p>
+                            <p className="setting-label">{t('settings.language')}</p>
+                            <p className="setting-desc">{t('settings.languageDesc')}</p>
                         </div>
                     </div>
-                    <select className="select-input">
-                        <option>English</option>
-                        <option>Español</option>
+                    <select
+                        className="select-input"
+                        value={i18n.language?.startsWith('es') ? 'es' : 'en'}
+                        onChange={handleLanguageChange}
+                    >
+                        <option value="en">English</option>
+                        <option value="es">Espanol</option>
                     </select>
                 </div>
             </div>
 
             <div className="settings-section">
-                <h2>Notifications</h2>
+                <h2>{t('settings.notifications')}</h2>
                 <div className="setting-item">
                     <div className="setting-info">
                         <div className="icon-box"><Bell size={20} /></div>
                         <div>
-                            <p className="setting-label">Email Notifications</p>
-                            <p className="setting-desc">Receive updates about your projects</p>
+                            <p className="setting-label">{t('settings.emailNotifications')}</p>
+                            <p className="setting-desc">{t('settings.emailNotificationsDesc')}</p>
                         </div>
                     </div>
-                    <button className="toggle-btn active">On</button>
+                    <button className="toggle-btn active">{t('common.on')}</button>
                 </div>
                 <div className="setting-item">
                     <div className="setting-info">
                         <div className="icon-box"><Eye size={20} /></div>
                         <div>
-                            <p className="setting-label">Profile Visibility</p>
-                            <p className="setting-desc">Allow others to see your profile activity</p>
+                            <p className="setting-label">{t('settings.profileVisibility')}</p>
+                            <p className="setting-desc">{t('settings.profileVisibilityDesc')}</p>
                         </div>
                     </div>
-                    <button className="toggle-btn active">On</button>
+                    <button className="toggle-btn active">{t('common.on')}</button>
                 </div>
             </div>
 
             <div className="settings-section">
-                <h2>Security</h2>
+                <h2>{t('settings.security')}</h2>
                 <div className="setting-item">
                     <div className="setting-info">
                         <div className="icon-box"><Lock size={20} /></div>
                         <div>
-                            <p className="setting-label">Change Password</p>
-                            <p className="setting-desc">Update your account password</p>
+                            <p className="setting-label">{t('settings.changePassword')}</p>
+                            <p className="setting-desc">{t('settings.changePasswordDesc')}</p>
                         </div>
                     </div>
-                    <button className="btn btn-outline btn-sm">Update</button>
+                    <button className="btn btn-outline btn-sm">{t('common.update')}</button>
                 </div>
             </div>
 
@@ -101,7 +111,7 @@ const Settings = () => {
 
                 .setting-info { display: flex; align-items: center; gap: 1rem; }
                 .icon-box { width: 40px; height: 40px; background: var(--color-gray-100); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-gray-600); }
-                
+
                 .setting-label { font-weight: 600; margin-bottom: 2px; }
                 .setting-desc { font-size: 0.85rem; color: var(--color-gray-500); }
 

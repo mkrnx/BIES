@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Save, Loader2, BookOpen } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const CATEGORIES = ['Bitcoin', 'Lightning', 'Nostr', 'Fintech', 'Business', 'Technology', 'Other'];
 const FORMATS = ['Video', 'Live', 'Text', 'Workshop'];
@@ -38,6 +39,7 @@ const FormField = ({ label, required, children }) => (
 );
 
 const NewCourse = () => {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const editId = searchParams.get('edit');
@@ -74,7 +76,7 @@ const NewCourse = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.title.trim()) {
-      setError('Course title is required.');
+      setError(t('dashboard.courseTitleRequired'));
       return;
     }
     setLoading(true);
@@ -115,14 +117,14 @@ const NewCourse = () => {
             fontWeight: 500,
           }}
         >
-          <ChevronLeft size={16} /> Back
+          <ChevronLeft size={16} /> {t('dashboard.back')}
         </button>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>
-            {editId ? 'Edit Course' : 'New Course'}
+            {editId ? t('dashboard.editCourse') : t('dashboard.newCourseTitle')}
           </h1>
           <p style={{ margin: '0.2rem 0 0', color: 'var(--color-gray-500)', fontSize: '0.9rem' }}>
-            {editId ? 'Update your course details.' : 'Create a new educational course for the BIES community.'}
+            {editId ? t('dashboard.updateCourseDetails') : t('dashboard.createNewCourse')}
           </p>
         </div>
       </div>
@@ -141,7 +143,7 @@ const NewCourse = () => {
           fontWeight: 600,
           fontSize: '0.95rem',
         }}>
-          <BookOpen size={18} /> Course saved! Redirecting…
+          <BookOpen size={18} /> {t('dashboard.courseSaved')}
         </div>
       )}
 
@@ -176,10 +178,10 @@ const NewCourse = () => {
             padding: '2rem',
             boxShadow: 'var(--shadow-sm)',
           }}>
-            <FormField label="Course Title" required>
+            <FormField label={t('dashboard.courseTitle')} required>
               <input
                 type="text"
-                placeholder="e.g. Bitcoin Fundamentals for Beginners"
+                placeholder={t('admin.courseTitlePlaceholder')}
                 value={form.title}
                 onChange={handleChange('title')}
                 required
@@ -188,9 +190,9 @@ const NewCourse = () => {
               />
             </FormField>
 
-            <FormField label="Short Description">
+            <FormField label={t('dashboard.shortDescription')}>
               <textarea
-                placeholder="A brief summary of the course (2–3 sentences shown in listings)."
+                placeholder={t('admin.shortDescPlaceholder')}
                 value={form.shortDescription}
                 onChange={handleChange('shortDescription')}
                 rows={3}
@@ -199,9 +201,9 @@ const NewCourse = () => {
               />
             </FormField>
 
-            <FormField label="Full Description / Content">
+            <FormField label={t('dashboard.fullDescription')}>
               <textarea
-                placeholder="Describe what students will learn, prerequisites, course outline, etc."
+                placeholder={t('admin.fullDescPlaceholder')}
                 value={form.fullDescription}
                 onChange={handleChange('fullDescription')}
                 rows={8}
@@ -210,17 +212,17 @@ const NewCourse = () => {
               />
             </FormField>
 
-            <FormField label="Tags">
+            <FormField label={t('dashboard.tags')}>
               <input
                 type="text"
-                placeholder="bitcoin, lightning, beginner (comma-separated)"
+                placeholder={t('admin.tagPlaceholder')}
                 value={form.tags}
                 onChange={handleChange('tags')}
                 style={fieldStyle}
                 {...inputFocusHandlers}
               />
               <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--color-gray-400)' }}>
-                Separate tags with commas.
+                {t('dashboard.separateTags')}
               </p>
             </FormField>
           </div>
@@ -237,49 +239,49 @@ const NewCourse = () => {
               boxShadow: 'var(--shadow-sm)',
             }}>
               <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gray-700)' }}>
-                Course Settings
+                {t('dashboard.courseSettings')}
               </h3>
 
-              <FormField label="Category">
+              <FormField label={t('dashboard.category')}>
                 <select
                   value={form.category}
                   onChange={handleChange('category')}
                   style={fieldStyle}
                   {...inputFocusHandlers}
                 >
-                  <option value="">Select a category…</option>
+                  <option value="">{t('admin.selectCategory')}</option>
                   {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </FormField>
 
-              <FormField label="Format">
+              <FormField label={t('dashboard.format')}>
                 <select
                   value={form.format}
                   onChange={handleChange('format')}
                   style={fieldStyle}
                   {...inputFocusHandlers}
                 >
-                  <option value="">Select a format…</option>
+                  <option value="">{t('admin.selectFormat')}</option>
                   {FORMATS.map(f => <option key={f} value={f}>{f}</option>)}
                 </select>
               </FormField>
 
-              <FormField label="Level">
+              <FormField label={t('dashboard.level')}>
                 <select
                   value={form.level}
                   onChange={handleChange('level')}
                   style={fieldStyle}
                   {...inputFocusHandlers}
                 >
-                  <option value="">Select a level…</option>
+                  <option value="">{t('admin.selectLevel')}</option>
                   {LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </FormField>
 
-              <FormField label="Duration">
+              <FormField label={t('dashboard.duration')}>
                 <input
                   type="text"
-                  placeholder='e.g. "4 weeks" or "2 hours"'
+                  placeholder={t('admin.durationPlaceholder')}
                   value={form.duration}
                   onChange={handleChange('duration')}
                   style={fieldStyle}
@@ -287,10 +289,10 @@ const NewCourse = () => {
                 />
               </FormField>
 
-              <FormField label="Price">
+              <FormField label={t('dashboard.price')}>
                 <input
                   type="text"
-                  placeholder='e.g. "Free" or "50,000 sats"'
+                  placeholder={t('admin.pricePlaceholder')}
                   value={form.price}
                   onChange={handleChange('price')}
                   style={fieldStyle}
@@ -308,12 +310,12 @@ const NewCourse = () => {
               boxShadow: 'var(--shadow-sm)',
             }}>
               <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.95rem', fontWeight: 700, color: 'var(--color-gray-700)' }}>
-                Cover Image
+                {t('dashboard.coverImage')}
               </h3>
               {form.coverImage && (
                 <img
                   src={form.coverImage}
-                  alt="Cover preview"
+                  alt={t('admin.coverPreview')}
                   style={{ width: '100%', height: '140px', objectFit: 'cover', borderRadius: '8px', marginBottom: '0.875rem' }}
                 />
               )}
@@ -326,7 +328,7 @@ const NewCourse = () => {
                 {...inputFocusHandlers}
               />
               <p style={{ margin: '0.35rem 0 0', fontSize: '0.8rem', color: 'var(--color-gray-400)' }}>
-                Paste a direct image URL for the course cover.
+                {t('admin.coverImageUrl')}
               </p>
             </div>
 
@@ -353,9 +355,9 @@ const NewCourse = () => {
                 }}
               >
                 {loading ? (
-                  <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Saving…</>
+                  <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> {t('common.saving')}</>
                 ) : (
-                  <><Save size={18} /> {editId ? 'Update Course' : 'Save Course'}</>
+                  <><Save size={18} /> {editId ? t('dashboard.updateCourse') : t('dashboard.saveCourse')}</>
                 )}
               </button>
               <button
@@ -373,7 +375,7 @@ const NewCourse = () => {
                   width: '100%',
                 }}
               >
-                Cancel
+                {t('dashboard.cancel')}
               </button>
             </div>
           </div>

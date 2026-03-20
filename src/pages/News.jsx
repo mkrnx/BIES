@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2, Heart, Repeat, MessageCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 const XIcon = ({ size = 12, style }) => (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" style={style}>

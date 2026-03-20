@@ -3,10 +3,12 @@ import { Hammer, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
 
 const Builders = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -52,14 +54,14 @@ const Builders = () => {
                 <div className="icon-wrapper mb-4">
                     <Hammer size={48} className="text-primary" />
                 </div>
-                <h1 className="page-header">Builders Directory</h1>
+                <h1 className="page-header">{t('builders.title')}</h1>
                 <p className="text-lg text-gray-500 max-w-2xl mt-4">
-                    Discover the visionaries building the infrastructure of freedom in El Salvador.
+                    {t('builders.subtitle')}
                 </p>
 
                 <div className="search-bar mt-8">
                     <Search size={20} className="text-gray-400" />
-                    <input type="text" placeholder="Search builders..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                    <input type="text" placeholder={t('builders.searchPlaceholder')} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                 </div>
             </div>
 
@@ -69,7 +71,7 @@ const Builders = () => {
                 </div>
             ) : profiles.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                    No builders found{search ? ` matching "${search}"` : ''}.
+                    {search ? t('builders.noBuildersSearch', { query: search }) : t('builders.noBuilders')}.
                 </div>
             ) : (
                 <div className="builders-grid">
@@ -130,9 +132,9 @@ const Builders = () => {
 
             {totalPages > 1 && (
                 <div className="pagination">
-                    <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
-                    <span>Page {page} of {totalPages}</span>
-                    <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+                    <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
+                    <span>{t('common.page', { current: page, total: totalPages })}</span>
+                    <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
                 </div>
             )}
 

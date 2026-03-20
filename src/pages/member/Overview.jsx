@@ -1,41 +1,43 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { LayoutDashboard, Heart, CalendarDays, MessageSquare, Compass, ArrowRight, BookOpen, PlayCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { MOCK_COURSES } from './MyCourses';
 
 const ENROLLED_IDS = ['c1', 'c2'];
 
-const statCards = [
-  { label: 'Courses Enrolled', value: ENROLLED_IDS.length, icon: BookOpen, color: '#7c3aed', tint: 'rgba(124,58,237,0.1)' },
-  { label: 'Following', value: 0, icon: Heart, color: 'var(--color-primary)', tint: 'var(--color-blue-tint)' },
-  { label: 'Events Attended', value: 0, icon: CalendarDays, color: '#16a34a', tint: 'var(--color-green-tint)' },
-  { label: 'Messages', value: 0, icon: MessageSquare, color: 'var(--color-secondary)', tint: 'var(--color-orange-tint)' },
-];
-
-const quickActions = [
-  {
-    to: '/discover',
-    label: 'Discover Projects',
-    description: 'Browse cutting-edge projects from BIES builders',
-    icon: Compass,
-  },
-  {
-    to: '/members',
-    label: 'Meet Members',
-    description: 'Connect with builders, investors, and educators',
-    icon: Heart,
-  },
-  {
-    to: '/events',
-    label: 'Upcoming Events',
-    description: 'Attend events and grow your network',
-    icon: CalendarDays,
-  },
-];
-
 const MemberOverview = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
+
+  const statCards = [
+    { label: t('dashboard.coursesEnrolled'), value: ENROLLED_IDS.length, icon: BookOpen, color: '#7c3aed', tint: 'rgba(124,58,237,0.1)' },
+    { label: t('dashboard.following'), value: 0, icon: Heart, color: 'var(--color-primary)', tint: 'var(--color-blue-tint)' },
+    { label: t('dashboard.eventsAttended'), value: 0, icon: CalendarDays, color: '#16a34a', tint: 'var(--color-green-tint)' },
+    { label: t('dashboard.messages'), value: 0, icon: MessageSquare, color: 'var(--color-secondary)', tint: 'var(--color-orange-tint)' },
+  ];
+
+  const quickActions = [
+    {
+      to: '/discover',
+      label: t('dashboard.discoverProjects'),
+      description: t('dashboard.browseProjects'),
+      icon: Compass,
+    },
+    {
+      to: '/members',
+      label: t('dashboard.meetMembers'),
+      description: t('dashboard.connectWithMembers'),
+      icon: Heart,
+    },
+    {
+      to: '/events',
+      label: t('dashboard.upcomingEvents'),
+      description: t('dashboard.attendEvents'),
+      icon: CalendarDays,
+    },
+  ];
   const displayName = user?.profile?.name || 'Member';
   const enrolledCourses = MOCK_COURSES.filter(c => ENROLLED_IDS.includes(c.id));
   const inProgress = enrolledCourses.filter(c => {
@@ -51,9 +53,9 @@ const MemberOverview = () => {
           <LayoutDashboard size={28} />
         </div>
         <div className="welcome-text">
-          <h2 className="welcome-title">Welcome to BIES, {displayName}!</h2>
+          <h2 className="welcome-title">{t('dashboard.memberWelcome', { name: displayName })}</h2>
           <p className="welcome-body">
-            Explore projects, connect with builders and investors, and grow within the ecosystem.
+            {t('dashboard.memberWelcomeBody')}
           </p>
         </div>
       </div>
@@ -77,8 +79,8 @@ const MemberOverview = () => {
       {inProgress.length > 0 && (
         <div className="section">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 className="section-title">Continue Learning</h3>
-            <Link to="/dashboard/member/courses" style={{ fontSize: '0.85rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>View all →</Link>
+            <h3 className="section-title">{t('dashboard.continueLearning')}</h3>
+            <Link to="/dashboard/member/courses" style={{ fontSize: '0.85rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}>{t('common.viewAll')} →</Link>
           </div>
           <div className="actions-grid">
             {inProgress.map(course => {
@@ -109,7 +111,7 @@ const MemberOverview = () => {
 
       {/* Quick Actions */}
       <div className="section">
-        <h3 className="section-title">Explore the Platform</h3>
+        <h3 className="section-title">{t('dashboard.explorePlatform')}</h3>
         <div className="actions-grid">
           {quickActions.map(({ to, label, description, icon: Icon }) => (
             <Link key={to} to={to} className="action-card">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
@@ -11,6 +12,7 @@ import NostrIcon from '../components/NostrIcon';
 import ZapModal from '../components/ZapModal';
 import EmojiPicker from '../components/EmojiPicker';
 import NostrGifPicker from '../components/NostrGifPicker';
+import TranslatableText from '../components/TranslatableText';
 import { nip19 } from 'nostr-tools';
 
 const EXPLORE_ICONS = {
@@ -40,6 +42,7 @@ function formatSats(n) {
 
 const Feed = () => {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const location = useLocation();
     const [posts, setPosts] = useState([]);
     const [profiles, setProfiles] = useState({});
@@ -1267,7 +1270,7 @@ const Feed = () => {
             <div className="feed-container">
                 <div className="feed-header">
                     <h1 className="feed-title page-header">
-                        <NostrIcon size={24} /> BIES Feed
+                        <NostrIcon size={24} /> {t('feed.biesFeed')}
                     </h1>
                 </div>
 
@@ -1279,7 +1282,7 @@ const Feed = () => {
                         data-testid="tab-private"
                     >
                         <Lock size={14} />
-                        <span>Private Relay</span>
+                        <span>{t('feed.privateRelay')}</span>
                     </button>
                     <button
                         className={`feed-tab ${feedMode === 'explore' ? 'active' : ''}`}
@@ -1287,7 +1290,7 @@ const Feed = () => {
                         data-testid="tab-explore"
                     >
                         <Globe size={14} />
-                        <span>Explore</span>
+                        <span>{t('feed.explore')}</span>
                     </button>
                 </div>
 
@@ -1324,7 +1327,7 @@ const Feed = () => {
                         <textarea
                             ref={composeInputRef}
                             className="compose-input"
-                            placeholder="What's happening on BIES?"
+                            placeholder={t('feed.whatsHappening')}
                             value={composeText}
                             onChange={(e) => {
                                 setComposeText(e.target.value);
@@ -1339,7 +1342,7 @@ const Feed = () => {
                     {mentionAnchor?.field === 'compose' && (mentionResults.length > 0 || mentionLoading) && (
                         <div className="mention-dropdown">
                             {mentionLoading && mentionResults.length === 0 && (
-                                <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
+                                <div className="mention-loading"><Loader2 size={12} className="spin" /> {t('feed.searching')}</div>
                             )}
                             {mentionResults.map(p => (
                                 <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
@@ -1378,10 +1381,10 @@ const Feed = () => {
                             <button
                                 className={`relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
                                 onClick={() => setBroadcastPublic(!broadcastPublic)}
-                                title={broadcastPublic ? 'Broadcasting to all relays' : 'Private relay only'}
+                                title={broadcastPublic ? t('feed.broadcastingPublic') : t('feed.privateRelayOnly')}
                             >
                                 {broadcastPublic ? <Globe size={14} /> : <Lock size={14} />}
-                                <span>{broadcastPublic ? 'Public' : 'Private'}</span>
+                                <span>{broadcastPublic ? t('feed.public') : t('feed.private')}</span>
                             </button>
                         </div>
                         <div className="compose-actions-right">
@@ -1439,7 +1442,7 @@ const Feed = () => {
                                 data-testid="post-btn"
                             >
                                 {(posting || uploading) ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-                                <span>{uploading ? 'Uploading...' : posting ? 'Posting...' : 'Post'}</span>
+                                <span>{uploading ? t('feed.uploading') : posting ? t('feed.posting') : t('feed.post')}</span>
                             </button>
                         </div>
                     </div>
@@ -1449,20 +1452,20 @@ const Feed = () => {
                 {loading && rootPosts.length === 0 ? (
                     <div className="feed-loading" data-testid="feed-loading">
                         <Loader2 size={24} className="spin" />
-                        <p>{feedMode === 'private' ? 'Connecting to BIES relay...' : 'Loading trending notes...'}</p>
+                        <p>{feedMode === 'private' ? t('feed.connectingRelay') : t('feed.loadingTrending')}</p>
                     </div>
                 ) : rootPosts.length === 0 ? (
                     <div className="feed-empty" data-testid="feed-empty">
                         <NostrIcon size={40} />
-                        <h3>No posts yet</h3>
+                        <h3>{t('feed.noPostsTitle')}</h3>
                         <p>
                             {feedMode === 'private'
-                                ? 'Be the first to post on the BIES private relay!'
-                                : 'No trending posts found. Try a different view.'}
+                                ? t('feed.noPostsPrivate')
+                                : t('feed.noPostsExplore')}
                         </p>
                         {feedMode === 'private' && (
                             <button className="try-public-btn" onClick={() => setFeedMode('explore')}>
-                                <Globe size={14} /> Explore Nostr
+                                <Globe size={14} /> {t('feed.exploreNostr')}
                             </button>
                         )}
                     </div>
@@ -1486,32 +1489,32 @@ const Feed = () => {
                                         {postMenu === post.id && (
                                             <div className="note-menu">
                                                 <button className="note-menu-item" onClick={() => { handleShare(post); setPostMenu(null); }}>
-                                                    <Share size={14} /> Share Note
+                                                    <Share size={14} /> {t('feed.shareNote')}
                                                 </button>
                                                 <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); }}>
-                                                    <Link size={14} /> Copy Note Link
+                                                    <Link size={14} /> {t('feed.copyNoteLink')}
                                                 </button>
                                                 <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); }}>
-                                                    <Type size={14} /> Copy Note Text
+                                                    <Type size={14} /> {t('feed.copyNoteText')}
                                                 </button>
                                                 <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); }}>
-                                                    <Hash size={14} /> Copy Note ID
+                                                    <Hash size={14} /> {t('feed.copyNoteId')}
                                                 </button>
                                                 <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); }}>
-                                                    <Code size={14} /> Copy Raw Data
+                                                    <Code size={14} /> {t('feed.copyRawData')}
                                                 </button>
                                                 {isOwnPost && (
                                                     <button className="note-menu-item note-menu-danger" onClick={() => handleDeletePost(post)}>
-                                                        <Trash2 size={14} /> Request Delete
+                                                        <Trash2 size={14} /> {t('feed.requestDelete')}
                                                     </button>
                                                 )}
                                                 {!isOwnPost && (
                                                     <>
                                                         <button className="note-menu-item note-menu-danger" onClick={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}>
-                                                            <VolumeX size={14} /> Mute User
+                                                            <VolumeX size={14} /> {t('feed.muteUser')}
                                                         </button>
                                                         <button className="note-menu-item note-menu-danger" onClick={() => { handleReport(post); setPostMenu(null); }}>
-                                                            <Flag size={14} /> Report Content
+                                                            <Flag size={14} /> {t('feed.reportContent')}
                                                         </button>
                                                     </>
                                                 )}
@@ -1521,7 +1524,7 @@ const Feed = () => {
                                     {post._repostedBy && (
                                         <div className="repost-label">
                                             <Repeat size={13} />
-                                            <span>{getDisplayName(post._repostedBy)} reposted</span>
+                                            <span>{getDisplayName(post._repostedBy)} {t('feed.reposted')}</span>
                                         </div>
                                     )}
                                     <div className="note-header">
@@ -1537,7 +1540,12 @@ const Feed = () => {
                                             <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post._repostTime || post.created_at)}</span>
                                         </div>
                                     </div>
-                                    {text && <div className="note-content">{renderContent(text)}</div>}
+                                    {text && (
+                                        <div className="note-content">
+                                            {renderContent(text)}
+                                        </div>
+                                    )}
+                                    {text && <TranslatableText text={text} buttonOnly />}
                                     {renderImageGrid(images)}
                                     {renderOtherMedia(otherMedia)}
                                     <div className="note-actions">
@@ -1565,11 +1573,11 @@ const Feed = () => {
                                                 <div className="repost-menu">
                                                     <button className="repost-menu-item" onClick={() => handleRepost(post, 'private')}>
                                                         <Lock size={14} />
-                                                        <span>Repost to Private Relay</span>
+                                                        <span>{t('feed.repostPrivate')}</span>
                                                     </button>
                                                     <button className="repost-menu-item" onClick={() => handleRepost(post, 'public')}>
                                                         <Globe size={14} />
-                                                        <span>Repost to Public Nostr</span>
+                                                        <span>{t('feed.repostPublic')}</span>
                                                     </button>
                                                 </div>
                                             )}
@@ -1621,7 +1629,7 @@ const Feed = () => {
                                                     <textarea
                                                         ref={el => { commentInputRefs.current[post.id] = el; }}
                                                         className="comment-input"
-                                                        placeholder={`Reply to ${getDisplayName(post.pubkey)}...`}
+                                                        placeholder={t('feed.replyTo', { name: getDisplayName(post.pubkey) })}
                                                         value={isReplying ? replyText : ''}
                                                         onChange={(e) => {
                                                             setReplyTarget({ id: post.id, pubkey: post.pubkey });
@@ -1681,7 +1689,7 @@ const Feed = () => {
                                             {isReplying && mentionAnchor?.field === 'reply' && (mentionResults.length > 0 || mentionLoading) && (
                                                 <div className="mention-dropdown mention-dropdown-reply">
                                                     {mentionLoading && mentionResults.length === 0 && (
-                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> Searching...</div>
+                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> {t('feed.searching')}</div>
                                                     )}
                                                     {mentionResults.map(p => (
                                                         <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
@@ -1701,7 +1709,7 @@ const Feed = () => {
 
                                             {loadingComments[post.id] && postComments.length === 0 && (
                                                 <div className="comment-loading">
-                                                    <Loader2 size={14} className="spin" /> Loading comments...
+                                                    <Loader2 size={14} className="spin" /> {t('feed.loadingComments')}
                                                 </div>
                                             )}
 
@@ -1741,14 +1749,14 @@ const Feed = () => {
                                                                                 onClick={() => handleCommentReply(post.id, comment)}
                                                                             >
                                                                                 <MessageCircle size={13} />
-                                                                                <span>Reply</span>
+                                                                                <span>{t('feed.reply')}</span>
                                                                             </button>
                                                                             <button
                                                                                 className={`comment-action-btn${likedComments.has(comment.id) ? ' comment-liked' : ''}`}
                                                                                 onClick={() => handleCommentLike(comment)}
                                                                             >
                                                                                 <Heart size={13} fill={likedComments.has(comment.id) ? 'currentColor' : 'none'} />
-                                                                                <span>Like</span>
+                                                                                <span>{t('feed.like')}</span>
                                                                             </button>
                                                                             <button
                                                                                 className="comment-action-btn"
@@ -1760,7 +1768,7 @@ const Feed = () => {
                                                                                 })}
                                                                             >
                                                                                 <Zap size={13} />
-                                                                                <span>Zap</span>
+                                                                                <span>{t('feed.zap')}</span>
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -1776,7 +1784,7 @@ const Feed = () => {
                                                                     [post.id]: (prev[post.id] || 5) * 2,
                                                                 }))}
                                                             >
-                                                                Show {Math.min(hiddenCount, limit)} more {hiddenCount === 1 ? 'comment' : 'comments'}
+                                                                {t('feed.showMoreComments', { count: Math.min(hiddenCount, limit) })}
                                                             </button>
                                                         )}
                                                     </>
@@ -1784,7 +1792,7 @@ const Feed = () => {
                                             })()}
 
                                             {!loadingComments[post.id] && postComments.length === 0 && (
-                                                <div className="comment-empty">No replies yet. Be the first!</div>
+                                                <div className="comment-empty">{t('feed.noReplies')}</div>
                                             )}
 
                                         </div>
@@ -1801,9 +1809,9 @@ const Feed = () => {
                                 disabled={loadingMore}
                             >
                                 {loadingMore ? (
-                                    <><Loader2 size={16} className="spin" /> Loading...</>
+                                    <><Loader2 size={16} className="spin" /> {t('feed.loading')}</>
                                 ) : (
-                                    <><ChevronDown size={16} /> Load More</>
+                                    <><ChevronDown size={16} /> {t('feed.loadMore')}</>
                                 )}
                             </button>
                         )}

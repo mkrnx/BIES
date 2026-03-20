@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
@@ -6,6 +7,7 @@ import { searchApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
 
 const Messages = () => {
+    const { t } = useTranslation();
     const {
         messages,
         conversations,

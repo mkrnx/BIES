@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
 import { User, Search, ChevronDown, LogOut } from 'lucide-react';
@@ -9,6 +10,7 @@ import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 import logoIconDark from '../assets/logo-icon-dark.svg';
 
 const Navbar = () => {
+  const { t } = useTranslation();
   const { mode, selectMode, clearMode } = useUserMode();
   const { user, isAuthenticated, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -28,12 +30,12 @@ const Navbar = () => {
   };
 
   const navLinks = [
-    { label: 'Discover', path: '/discover' },
-    { label: 'Members', path: '/members' },
-    { label: 'Events', path: '/events' },
-    { label: 'Media', path: '/media' },
-    { label: 'News', path: '/news' },
-    { label: 'About', path: '/about' },
+    { label: t('nav.discover'), path: '/discover' },
+    { label: t('nav.members'), path: '/members' },
+    { label: t('nav.events'), path: '/events' },
+    { label: t('nav.media'), path: '/media' },
+    { label: t('nav.news'), path: '/news' },
+    { label: t('nav.about'), path: '/about' },
   ];
 
   const isActive = (path) => location.pathname === path;
@@ -41,17 +43,17 @@ const Navbar = () => {
   // Derive mobile navbar title from route
   const getPageTitle = () => {
     const path = location.pathname;
-    if (path === '/' || path === '/feed') return 'BIES Feed';
-    if (path.startsWith('/discover')) return 'Discover Projects';
-    if (path.startsWith('/events')) return 'Ecosystem Events';
-    if (path.startsWith('/news')) return 'News';
-    if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return 'Members';
-    if (path.startsWith('/media')) return 'Media';
-    if (path.startsWith('/about')) return 'About';
-    if (path.startsWith('/profile') || path.startsWith('/dashboard')) return 'Dashboard';
-    if (path.startsWith('/messages')) return 'Messages';
-    if (path.startsWith('/settings')) return 'Settings';
-    if (path.startsWith('/admin')) return 'Admin Panel';
+    if (path === '/' || path === '/feed') return t('pageTitles.biesFeed');
+    if (path.startsWith('/discover')) return t('pageTitles.discoverProjects');
+    if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
+    if (path.startsWith('/news')) return t('pageTitles.news');
+    if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return t('pageTitles.members');
+    if (path.startsWith('/media')) return t('pageTitles.media');
+    if (path.startsWith('/about')) return t('pageTitles.about');
+    if (path.startsWith('/profile') || path.startsWith('/dashboard')) return t('pageTitles.dashboard');
+    if (path.startsWith('/messages')) return t('pageTitles.messages');
+    if (path.startsWith('/settings')) return t('pageTitles.settings');
+    if (path.startsWith('/admin')) return t('pageTitles.adminPanel');
     return '';
   };
 
@@ -100,7 +102,7 @@ const Navbar = () => {
               <form onSubmit={handleSearchSubmit} className="search-form flex items-center">
                 <input
                   type="text"
-                  placeholder="Search projects, builders..."
+                  placeholder={t('common.searchPlaceholder')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="search-input"
@@ -158,48 +160,48 @@ const Navbar = () => {
                         className="dropdown-item"
                         onClick={() => setIsUserMenuOpen(false)}
                       >
-                        Profile
+                        {t('nav.profile')}
                       </Link>
-                      <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Messages</Link>
-                      <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Dashboard</Link>
+                      <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.messages')}</Link>
+                      <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.dashboard')}</Link>
                       {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
-                        <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>Admin Panel</Link>
+                        <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
                       )}
-                      <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Settings</Link>
+                      <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.settings')}</Link>
                     </div>
 
                     <div className="dropdown-divider"></div>
 
                     <div className="dropdown-header">
-                      <p className="text-sm font-semibold">Switch View</p>
+                      <p className="text-sm font-semibold">{t('nav.switchView')}</p>
                     </div>
                     <button
                       className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
                       onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); navigate('/dashboard/builder'); }}
                     >
                       <div className="dot builder"></div>
-                      Builder View
+                      {t('nav.builderView')}
                     </button>
                     <button
                       className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
                       onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); navigate('/dashboard/investor'); }}
                     >
                       <div className="dot investor"></div>
-                      Investor View
+                      {t('nav.investorView')}
                     </button>
                     <button
                       className={`dropdown-item ${mode === 'educator' ? 'active' : ''}`}
                       onClick={() => { selectMode('educator'); setIsUserMenuOpen(false); navigate('/dashboard/educator'); }}
                     >
                       <div className="dot educator"></div>
-                      Educator View
+                      {t('nav.educatorView')}
                     </button>
                     <button
                       className={`dropdown-item ${mode === 'member' ? 'active' : ''}`}
                       onClick={() => { selectMode('member'); setIsUserMenuOpen(false); navigate('/dashboard/member'); }}
                     >
                       <div className="dot member"></div>
-                      Member View
+                      {t('nav.memberView')}
                     </button>
                     {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
                       <button
@@ -207,7 +209,7 @@ const Navbar = () => {
                         onClick={() => { selectMode('admin'); setIsUserMenuOpen(false); navigate('/admin'); }}
                       >
                         <div className="dot admin"></div>
-                        Admin View
+                        {t('nav.adminView')}
                       </button>
                     )}
 
@@ -215,11 +217,11 @@ const Navbar = () => {
 
                     {isAuthenticated ? (
                       <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
-                        <LogOut size={14} style={{ marginRight: 8 }} /> Log Out
+                        <LogOut size={14} style={{ marginRight: 8 }} /> {t('common.logOut')}
                       </button>
                     ) : (
                       <Link to="/login" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>
-                        Log In
+                        {t('common.logIn')}
                       </Link>
                     )}
                   </div>
@@ -229,7 +231,7 @@ const Navbar = () => {
           ) : (
             <Link to="/login" className="login-btn flex items-center gap-sm" style={{ color: 'white', fontWeight: 600, fontSize: '0.9rem', padding: '6px 16px', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 'var(--radius-full)' }}>
               <NostrIcon size={16} />
-              <span>Login</span>
+              <span>{t('common.login')}</span>
             </Link>
           )}
 
