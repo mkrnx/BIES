@@ -81,6 +81,25 @@ services:
         limits:
           memory: 128M
 
+  bies-translate:
+    image: libretranslate/libretranslate:latest
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: "en,es"
+      LT_DISABLE_WEB_UI: "true"
+    networks:
+      - bies-net
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/languages"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
   bies-nginx:
     build:
       context: .

@@ -3,10 +3,12 @@ import { TrendingUp, Search, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from 'react-i18next';
 import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
 
 const Investors = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [profiles, setProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -52,14 +54,14 @@ const Investors = () => {
                 <div className="icon-wrapper mb-4">
                     <TrendingUp size={48} className="text-secondary" />
                 </div>
-                <h1 className="page-header">Investor Network</h1>
+                <h1 className="page-header">{t('investors.title')}</h1>
                 <p className="text-lg text-gray-500 max-w-2xl mt-4">
-                    Connect with capital allocators looking to fund the next generation of Bitcoin companies.
+                    {t('investors.subtitle')}
                 </p>
 
                 <div className="search-bar mt-8">
                     <Search size={20} className="text-gray-400" />
-                    <input type="text" placeholder="Search investors..." value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
+                    <input type="text" placeholder={t('investors.searchPlaceholder')} value={search} onChange={e => { setSearch(e.target.value); setPage(1); }} />
                 </div>
             </div>
 
@@ -69,7 +71,7 @@ const Investors = () => {
                 </div>
             ) : profiles.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                    No investors found{search ? ` matching "${search}"` : ''}.
+                    {search ? t('investors.noInvestorsSearch', { query: search }) : t('investors.noInvestors')}.
                 </div>
             ) : (
                 <div className="investors-grid">
@@ -130,9 +132,9 @@ const Investors = () => {
 
             {totalPages > 1 && (
                 <div className="pagination">
-                    <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
-                    <span>Page {page} of {totalPages}</span>
-                    <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+                    <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
+                    <span>{t('common.page', { current: page, total: totalPages })}</span>
+                    <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
                 </div>
             )}
 

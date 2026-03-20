@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, Plus, Edit, Trash2, Eye, Users, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
 const MyCourses = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [courses, setCourses] = useState([]);
@@ -50,12 +52,12 @@ const MyCourses = () => {
             alignItems: 'center',
             gap: '1rem',
           }}>
-            My Courses
+            {t('dashboard.myCourses')}
             {/* Mobile icon button */}
             <Link
               to="/dashboard/educator/new-course"
               className="hide-on-desktop"
-              title="New Course"
+              title={t('dashboard.newCourse')}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -73,7 +75,7 @@ const MyCourses = () => {
             </Link>
           </h1>
           <p style={{ margin: '0.25rem 0 0', color: 'var(--color-gray-500)' }}>
-            Manage and publish your educational content
+            {t('dashboard.manageContent')}
           </p>
         </div>
         {/* Desktop button */}
@@ -93,7 +95,7 @@ const MyCourses = () => {
             fontSize: '0.9rem',
           }}
         >
-          <Plus size={18} /> New Course
+          <Plus size={18} /> {t('dashboard.newCourse')}
         </Link>
       </div>
 
@@ -113,7 +115,7 @@ const MyCourses = () => {
           }}>
             <BookOpen size={44} style={{ color: 'var(--color-gray-300)', marginBottom: '1rem' }} />
             <p style={{ margin: '0 0 1.25rem', fontSize: '0.95rem' }}>
-              No courses yet. Create your first course!
+              {t('dashboard.noCoursesYet')}
             </p>
             <Link
               to="/dashboard/educator/new-course"
@@ -130,7 +132,7 @@ const MyCourses = () => {
                 fontSize: '0.875rem',
               }}
             >
-              <Plus size={16} /> Create Course
+              <Plus size={16} /> {t('dashboard.createCourse')}
             </Link>
           </div>
         ) : (
@@ -210,11 +212,11 @@ const MyCourses = () => {
                     WebkitBoxOrient: 'vertical',
                     overflow: 'hidden',
                   }}>
-                    {course.description || 'No description provided.'}
+                    {course.description || t('admin.noDescription')}
                   </p>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', fontSize: '0.8rem', color: 'var(--color-gray-400)' }}>
                     <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <Users size={13} /> {course.studentCount || 0} students
+                      <Users size={13} /> {course.studentCount || 0} {t('dashboard.students')}
                     </span>
                   </div>
                 </div>
@@ -223,7 +225,7 @@ const MyCourses = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
                   <button
                     onClick={() => navigate(`/dashboard/educator/new-course?edit=${course.id}`)}
-                    title="Edit"
+                    title={t('common.edit')}
                     style={{
                       width: '34px',
                       height: '34px',
@@ -244,7 +246,7 @@ const MyCourses = () => {
                   </button>
                   <Link
                     to={`/course/${course.id}`}
-                    title="View"
+                    title={t('admin.view')}
                     style={{
                       width: '34px',
                       height: '34px',
@@ -264,7 +266,7 @@ const MyCourses = () => {
                   </Link>
                   <button
                     onClick={() => handleDelete(course.id, course.title)}
-                    title="Delete"
+                    title={t('common.delete')}
                     style={{
                       width: '34px',
                       height: '34px',

@@ -1,29 +1,31 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { BookOpen, Users, Eye, Plus, GraduationCap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 
 const EducatorOverview = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const displayName = user?.profile?.name || 'Educator';
 
   const stats = [
     {
-      label: 'Total Courses',
+      label: t('dashboard.totalCourses'),
       value: 0,
       icon: BookOpen,
       color: 'var(--color-primary)',
       tint: 'var(--color-blue-tint)',
     },
     {
-      label: 'Total Students',
+      label: t('dashboard.totalStudents'),
       value: 0,
       icon: Users,
       color: '#16a34a',
       tint: 'rgba(22, 163, 74, 0.08)',
     },
     {
-      label: 'Total Views',
+      label: t('dashboard.totalViews'),
       value: 0,
       icon: Eye,
       color: '#7c3aed',
@@ -58,10 +60,10 @@ const EducatorOverview = () => {
         </div>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 700 }}>
-            Welcome back, {displayName}!
+            {t('dashboard.educatorWelcome', { name: displayName })}
           </h1>
           <p style={{ margin: '0.25rem 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '0.95rem' }}>
-            Share your knowledge with the BIES community.
+            {t('dashboard.shareKnowledge')}
           </p>
         </div>
       </div>
@@ -124,7 +126,7 @@ const EducatorOverview = () => {
           marginBottom: '1.25rem',
         }}>
           <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--color-gray-800)' }}>
-            My Courses
+            {t('dashboard.myCourses')}
           </h2>
           <Link
             to="/dashboard/educator/new-course"
@@ -141,7 +143,7 @@ const EducatorOverview = () => {
               fontWeight: 600,
             }}
           >
-            <Plus size={16} /> New Course
+            <Plus size={16} /> {t('dashboard.newCourse')}
           </Link>
         </div>
 
@@ -157,7 +159,7 @@ const EducatorOverview = () => {
         }}>
           <BookOpen size={40} style={{ color: 'var(--color-gray-300)', marginBottom: '1rem' }} />
           <p style={{ margin: 0, fontSize: '0.95rem' }}>
-            You haven't created any courses yet. Share your knowledge with the community!
+            {t('dashboard.noCourses')}
           </p>
           <Link
             to="/dashboard/educator/new-course"
@@ -175,7 +177,7 @@ const EducatorOverview = () => {
               fontWeight: 600,
             }}
           >
-            <Plus size={16} /> Create Your First Course
+            <Plus size={16} /> {t('dashboard.createFirstCourse')}
           </Link>
         </div>
       </section>

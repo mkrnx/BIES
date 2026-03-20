@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { getAssetUrl } from '../utils/assets';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -105,6 +106,7 @@ const CATEGORY_COLORS = {
 };
 
 const EventCard = ({ event, isOfficial }) => {
+    const { t } = useTranslation();
     const bgColor = CATEGORY_COLORS[event.category] || 'var(--color-gray-100)';
     const hasImage = event.coverImage || event.image || event.thumbnail;
     const categoryLabel = (event.category || '').replace(/_/g, ' ');
@@ -127,13 +129,13 @@ const EventCard = ({ event, isOfficial }) => {
                 >
                     <span className="cat-badge">{categoryLabel}</span>
                     {isOfficial && (
-                        <span className="official-badge"><ShieldCheck size={11} /> Official</span>
+                        <span className="official-badge"><ShieldCheck size={11} /> {t('common.official')}</span>
                     )}
                     {event.isOnline && (
-                        <span className="online-badge"><Globe size={11} /> Online</span>
+                        <span className="online-badge"><Globe size={11} /> {t('common.online')}</span>
                     )}
                     {event.isEndorsed && (
-                        <span className="endorsed-badge"><Award size={11} /> Endorsed</span>
+                        <span className="endorsed-badge"><Award size={11} /> {t('common.endorsed')}</span>
                     )}
                 </div>
             </Link>
@@ -148,9 +150,9 @@ const EventCard = ({ event, isOfficial }) => {
                 </div>
                 <div className="actions">
                     {(event.ticketUrl || event.externalUrl) ? (
-                        <a href={event.ticketUrl || event.externalUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-xs reserve-btn">Get Tickets</a>
+                        <a href={event.ticketUrl || event.externalUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-xs reserve-btn">{t('common.getTickets')}</a>
                     ) : (
-                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn">Get Tickets</Link>
+                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn">{t('common.getTickets')}</Link>
                     )}
                 </div>
             </div>
@@ -261,6 +263,7 @@ const EventCard = ({ event, isOfficial }) => {
 };
 
 const Events = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [rawOfficialEvents, setRawOfficialEvents] = useState([]);
     const [rawCommunityEvents, setRawCommunityEvents] = useState([]);
@@ -409,7 +412,7 @@ const Events = () => {
                     {days}
                 </div>
                 {selectedDate && (
-                    <button className="clear-date" onClick={() => setSelectedDate(null)}>Clear Date</button>
+                    <button className="clear-date" onClick={() => setSelectedDate(null)}>{t('common.clearDate')}</button>
                 )}
             </div>
         );
@@ -418,14 +421,14 @@ const Events = () => {
     return (
         <div className="events-page container">
             <div className="discover-header">
-                <h1>Ecosystem Events</h1>
+                <h1>{t('events.title')}</h1>
             </div>
 
             <div className="search-row">
                 <div className="search-left-column">
                     {(user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
                         <Link to="/events/create" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
-                            <Plus size={18} /><span>Create Event</span>
+                            <Plus size={18} /><span>{t('events.createEvent')}</span>
                         </Link>
                     )}
                 </div>
@@ -434,14 +437,14 @@ const Events = () => {
                         <Search size={20} className="search-icon" />
                         <input
                             type="text"
-                            placeholder="Search events, hosts, or tags"
+                            placeholder={t('events.searchPlaceholder')}
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
                         <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
                             <SlidersHorizontal size={20} />
                         </button>
-                        <button className="btn btn-primary search-btn-desktop">Search</button>
+                        <button className="btn btn-primary search-btn-desktop">{t('common.search')}</button>
                     </div>
                     {isPWA && (user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
                         <Link to="/events/create" className="pwa-create-btn" title="Create Event" style={{
@@ -461,34 +464,34 @@ const Events = () => {
                     <div className="sidebar-section calendar-section">
                         <div className="filter-header">
                             <CalendarIcon size={18} />
-                            <span>Calendar</span>
+                            <span>{t('events.calendar')}</span>
                         </div>
                         {renderCalendar()}
                     </div>
 
                     <aside className="filters">
                         <div className="filter-group">
-                            <label>Event Types</label>
+                            <label>{t('events.eventTypes')}</label>
                             <div className="checkbox-list">
                                 <label>
                                     <input type="checkbox" checked={showOfficial} onChange={e => setShowOfficial(e.target.checked)} />
-                                    Official Events
+                                    {t('events.officialEvents')}
                                 </label>
                                 <label>
                                     <input type="checkbox" checked={showCommunity} onChange={e => setShowCommunity(e.target.checked)} />
-                                    Community Events
+                                    {t('events.communityEvents')}
                                 </label>
                             </div>
                         </div>
 
                         <div className="filter-group" style={{ marginBottom: 0 }}>
-                            <label>Categories</label>
+                            <label>{t('events.categories')}</label>
                             <div className="checkbox-list">
                                 <button
                                     className={`cat-item ${!category ? 'active' : ''}`}
                                     onClick={() => setCategory('')}
                                 >
-                                    All Categories
+                                    {t('events.allCategories')}
                                 </button>
                                 {categories.map(cat => (
                                     <button
@@ -517,7 +520,7 @@ const Events = () => {
                                 <section className="events-section official-section">
                                     <div className="section-header">
                                         <ShieldCheck size={24} className="text-secondary" />
-                                        <h2>Official Build in El Salvador Events</h2>
+                                        <h2>{t('events.officialBIES')}</h2>
                                     </div>
                                     <div className="events-grid">
                                         {officialEvents.map(event => (
@@ -532,10 +535,10 @@ const Events = () => {
                                 <section className="events-section community-section">
                                     <div className="section-header">
                                         <Users size={24} className="text-primary" />
-                                        <h2>BIES Community Events</h2>
+                                        <h2>{t('events.communityBIES')}</h2>
                                     </div>
                                     {communityEvents.length === 0 ? (
-                                        <div className="empty-state">No community events found.</div>
+                                        <div className="empty-state">{t('events.noCommunityEvents')}</div>
                                     ) : (
                                         <div className="events-grid">
                                             {communityEvents.map(event => (
@@ -547,7 +550,7 @@ const Events = () => {
                             )}
 
                             {!showOfficial && !showCommunity && (
-                                <div className="empty-state">Select event types to view.</div>
+                                <div className="empty-state">{t('events.selectEventTypes')}</div>
                             )}
                         </>
                     )}

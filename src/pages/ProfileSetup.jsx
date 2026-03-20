@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { nostrService } from '../services/nostrService';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
@@ -8,6 +9,7 @@ import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send } from '
 import NostrIcon from '../components/NostrIcon';
 
 const ProfileSetup = () => {
+    const { t } = useTranslation();
     const { user, updateRole, refreshUser } = useAuth();
     const navigate = useNavigate();
     const [nostrProfile, setNostrProfile] = useState(null);
@@ -114,9 +116,9 @@ const ProfileSetup = () => {
             <div className="setup-card">
                 <div className="text-center mb-6">
                     <NostrIcon size={32} className="mx-auto mb-3" color="#8b5cf6" />
-                    <h2 className="text-2xl font-bold mb-2">Welcome to BIES</h2>
+                    <h2 className="text-2xl font-bold mb-2">{t('profileSetup.welcome')}</h2>
                     <p className="text-gray-500 text-sm">
-                        Set up your BIES profile to get started.
+                        {t('profileSetup.setupDesc')}
                     </p>
                 </div>
 
@@ -124,7 +126,7 @@ const ProfileSetup = () => {
                 {loadingNostr ? (
                     <div className="nostr-preview loading">
                         <Loader2 size={20} className="spin" />
-                        <span className="text-sm text-gray-400">Fetching your Nostr profile...</span>
+                        <span className="text-sm text-gray-400">{t('profileSetup.fetchingNostr')}</span>
                     </div>
                 ) : nostrProfile ? (
                     <div className="nostr-preview">
@@ -133,7 +135,7 @@ const ProfileSetup = () => {
                                 <img src={nostrProfile.picture} alt="" className="nostr-avatar" />
                             )}
                             <div>
-                                <p className="font-bold text-gray-900">{nostrProfile.name || 'Unnamed'}</p>
+                                <p className="font-bold text-gray-900">{nostrProfile.name || t('common.unnamed')}</p>
                                 {nostrProfile.nip05 && (
                                     <p className="text-xs text-gray-400">{nostrProfile.nip05}</p>
                                 )}
@@ -146,11 +148,11 @@ const ProfileSetup = () => {
                                     : nostrProfile.about}
                             </p>
                         )}
-                        <p className="text-xs text-gray-400 mt-2">Nostr profile from public relays</p>
+                        <p className="text-xs text-gray-400 mt-2">{t('profileSetup.nostrFromRelays')}</p>
                     </div>
                 ) : (
                     <div className="nostr-preview empty">
-                        <p className="text-sm text-gray-400">No Nostr profile found on public relays.</p>
+                        <p className="text-sm text-gray-400">{t('profileSetup.noNostrProfile')}</p>
                     </div>
                 )}
 
@@ -164,18 +166,18 @@ const ProfileSetup = () => {
                 <form onSubmit={handleSubmit} className="w-full">
                     <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            BIES Display Name
+                            {t('profileSetup.biesDisplayName')}
                         </label>
                         <input
                             type="text"
                             required
                             className="w-full p-3 border rounded-lg input-field"
-                            placeholder="Your name on BIES"
+                            placeholder={t('profileSetup.namePlaceholder')}
                             value={biesName}
                             onChange={e => setBiesName(e.target.value)}
                         />
                         <p className="text-xs text-gray-400 mt-1">
-                            This name is shown on BIES only and won't change your Nostr profile.
+                            {t('profileSetup.nameNote')}
                         </p>
                     </div>
 
@@ -187,35 +189,35 @@ const ProfileSetup = () => {
                             className="nostr-edit-toggle"
                         >
                             <NostrIcon size={16} style={{ color: '#8b5cf6' }} />
-                            <span>{showNostrEdit ? 'Hide' : 'Edit'} Nostr Profile</span>
+                            <span>{showNostrEdit ? t('profileSetup.hideNostrProfile') : t('profileSetup.editNostrProfile')}</span>
                             {showNostrEdit ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                         </button>
 
                         {showNostrEdit && (
                             <div className="nostr-edit-section">
-                                <p className="text-xs text-gray-400 mb-3">These changes will be published to Nostr relays when you submit.</p>
+                                <p className="text-xs text-gray-400 mb-3">{t('profileSetup.nostrPublishNote')}</p>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Nostr Name</label>
-                                    <input type="text" className="input-field text-sm" value={nostrForm.name} onChange={handleNostrFormChange('name')} placeholder="Name on Nostr" />
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.nostrName')}</label>
+                                    <input type="text" className="input-field text-sm" value={nostrForm.name} onChange={handleNostrFormChange('name')} placeholder={t('profileSetup.nostrNamePlaceholder')} />
                                 </div>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">About</label>
-                                    <textarea rows="2" className="input-field text-sm" value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr"></textarea>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.aboutLabel')}</label>
+                                    <textarea rows="2" className="input-field text-sm" value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder={t('profileSetup.aboutPlaceholder')}></textarea>
                                 </div>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Picture URL</label>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.pictureUrl')}</label>
                                     <input type="url" className="input-field text-sm" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} placeholder="https://..." />
                                 </div>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Website</label>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.website')}</label>
                                     <input type="url" className="input-field text-sm" value={nostrForm.website} onChange={handleNostrFormChange('website')} placeholder="https://..." />
                                 </div>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">NIP-05</label>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.nip05')}</label>
                                     <input type="text" className="input-field text-sm" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} placeholder="you@domain.com" />
                                 </div>
                                 <div className="mb-3">
-                                    <label className="block text-xs font-medium text-gray-600 mb-1">Lightning Address</label>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">{t('profileSetup.lightningAddress')}</label>
                                     <input type="text" className="input-field text-sm" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} placeholder="you@wallet.com" />
                                 </div>
                             </div>
@@ -223,35 +225,35 @@ const ProfileSetup = () => {
                     </div>
 
                     <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">I am a...</label>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">{t('profileSetup.iAmA')}</label>
                         <div className="role-grid">
                             <div
                                 className={`role-card ${role === 'BUILDER' ? 'active' : ''}`}
                                 onClick={() => setRole('BUILDER')}
                             >
-                                <div className="font-bold">Builder</div>
-                                <div className="text-xs text-gray-500">Building a project</div>
+                                <div className="font-bold">{t('signup.builder')}</div>
+                                <div className="text-xs text-gray-500">{t('profileSetup.buildingProject')}</div>
                             </div>
                             <div
                                 className={`role-card ${role === 'INVESTOR' ? 'active' : ''}`}
                                 onClick={() => setRole('INVESTOR')}
                             >
-                                <div className="font-bold">Investor</div>
-                                <div className="text-xs text-gray-500">Looking for opportunities</div>
+                                <div className="font-bold">{t('signup.investor')}</div>
+                                <div className="text-xs text-gray-500">{t('profileSetup.lookingOpportunities')}</div>
                             </div>
                             <div
                                 className={`role-card ${role === 'EDUCATOR' ? 'active' : ''}`}
                                 onClick={() => setRole('EDUCATOR')}
                             >
-                                <div className="font-bold">Educator</div>
-                                <div className="text-xs text-gray-500">Teaching & Community</div>
+                                <div className="font-bold">{t('signup.educator')}</div>
+                                <div className="text-xs text-gray-500">{t('profileSetup.teachingCommunity')}</div>
                             </div>
                             <div
                                 className={`role-card ${role === 'MEMBER' ? 'active' : ''}`}
                                 onClick={() => setRole('MEMBER')}
                             >
-                                <div className="font-bold">Member</div>
-                                <div className="text-xs text-gray-500">Supporting the ecosystem</div>
+                                <div className="font-bold">{t('signup.member')}</div>
+                                <div className="text-xs text-gray-500">{t('profileSetup.supportingEcosystem')}</div>
                             </div>
                         </div>
                     </div>
@@ -264,7 +266,7 @@ const ProfileSetup = () => {
                         {submitting ? (
                             <Loader2 size={18} className="spin" />
                         ) : (
-                            <>Enter BIES <ArrowRight size={18} /></>
+                            <>{t('profileSetup.enterBIES')} <ArrowRight size={18} /></>
                         )}
                     </button>
                 </form>

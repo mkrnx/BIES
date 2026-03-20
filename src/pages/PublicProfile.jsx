@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
@@ -11,9 +12,11 @@ import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
 import ZapButton from '../components/ZapButton';
 import ProfileSection from '../components/ProfileSection';
+import TranslatableText from '../components/TranslatableText';
 
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
+    const { t } = useTranslation();
     const { user: currentUser } = useAuth();
     const { theme } = useTheme();
     const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -128,11 +131,11 @@ const PublicProfile = ({ type }) => {
     }
 
     if (error || !profile) {
-        return <div className="p-10 text-center text-gray-500">{error || 'Profile not found'}</div>;
+        return <div className="p-10 text-center text-gray-500">{error || t('publicProfile.profileNotFound', 'Profile not found')}</div>;
     }
 
     const role = profile.user?.role || (type === 'investor' ? 'INVESTOR' : 'BUILDER');
-    const projectsTitle = role === 'INVESTOR' ? 'Invested In' : 'Working On';
+    const projectsTitle = role === 'INVESTOR' ? t('publicProfile.investedIn', 'Invested In') : t('publicProfile.workingOn', 'Working On');
     const npub = profile.user?.nostrPubkey
         ? nip19.npubEncode(profile.user.nostrPubkey)
         : profile.nostrNpub;
@@ -168,7 +171,7 @@ const PublicProfile = ({ type }) => {
                                     display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none',
                                     fontWeight: 600, boxShadow: 'var(--shadow-sm)'
                                 }}>
-                                    Edit Profile
+                                    {t('publicProfile.editProfile', 'Edit Profile')}
                                 </Link>
                             ) : currentUser && targetUserId && currentUser.id !== targetUserId ? (
                                 <>
@@ -207,7 +210,7 @@ const PublicProfile = ({ type }) => {
                                             display: 'flex', alignItems: 'center', gap: '6px',
                                         }}>
                                         {isFollowing ? <UserCheck size={18} /> : <UserPlus size={18} />}
-                                        {!isMobile && (followLoading ? 'Loading...' : isFollowing ? 'Following' : 'Follow')}
+                                        {!isMobile && (followLoading ? t('publicProfile.loading', 'Loading...') : isFollowing ? t('publicProfile.following', 'Following') : t('publicProfile.follow', 'Follow'))}
                                     </button>
 
                                     {/* Connect button — desktop only; on mobile it moves to ... menu */}
@@ -217,7 +220,7 @@ const PublicProfile = ({ type }) => {
                                             height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                                             textDecoration: 'none', fontWeight: 600, boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
                                         }}>
-                                            Connect
+                                            {t('publicProfile.connect', 'Connect')}
                                         </Link>
                                     )}
                                 </>
@@ -254,7 +257,7 @@ const PublicProfile = ({ type }) => {
                                                 display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem',
                                                 fontWeight: 500, color: 'var(--color-gray-700)', textDecoration: 'none',
                                             }}>
-                                                <MessageSquare size={16} /> Connect
+                                                <MessageSquare size={16} /> {t('publicProfile.connect', 'Connect')}
                                             </Link>
                                         )}
                                         <button onClick={() => setShowMenu(false)} style={{
@@ -262,7 +265,7 @@ const PublicProfile = ({ type }) => {
                                             display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem',
                                             fontWeight: 500, color: 'var(--color-gray-700)', background: 'none', border: 'none', cursor: 'pointer',
                                         }}>
-                                            <Share size={16} /> Share Profile
+                                            <Share size={16} /> {t('publicProfile.shareProfile', 'Share Profile')}
                                         </button>
                                     </div>
                                 )}
@@ -351,11 +354,11 @@ const PublicProfile = ({ type }) => {
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <Users size={16} style={{ color: 'var(--color-primary)' }} />
                                         <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{biesFollowers}</span>
-                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Followers</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('publicProfile.followers', 'Followers')}</span>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                         <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{biesFollowing}</span>
-                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Following</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('publicProfile.following', 'Following')}</span>
                                     </div>
                                 </div>
                                 {/* Nostr stats */}
@@ -364,12 +367,12 @@ const PublicProfile = ({ type }) => {
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                             <NostrIcon size={14} className="text-purple-500" />
                                             <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{nostrFollowers}</span>
-                                            <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Nostr Followers</span>
+                                            <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('publicProfile.nostrFollowers', 'Nostr Followers')}</span>
                                         </div>
                                         {nostrFollowing !== null && (
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                                                 <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{nostrFollowing}</span>
-                                                <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>Following</span>
+                                                <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('publicProfile.following', 'Following')}</span>
                                             </div>
                                         )}
                                     </div>
@@ -380,10 +383,13 @@ const PublicProfile = ({ type }) => {
                         {/* About/Bio */}
                         {profile.bio && (
                             <div style={{ paddingTop: '2rem', paddingBottom: '1.5rem', borderTop: '1px solid var(--color-gray-100)' }}>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '0.5rem' }}>About</h3>
-                                <p style={{ color: 'var(--color-gray-600)', lineHeight: 1.625, fontSize: '1.125rem', maxWidth: '64rem' }}>
-                                    {profile.bio}
-                                </p>
+                                <TranslatableText
+                                    title={t('publicProfile.about', 'About')}
+                                    titleTag="h3"
+                                    titleStyle={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}
+                                    text={profile.bio}
+                                    style={{ color: 'var(--color-gray-600)', lineHeight: 1.625, fontSize: '1.125rem', maxWidth: '64rem' }}
+                                />
                             </div>
                         )}
                     </div>
@@ -398,7 +404,7 @@ const PublicProfile = ({ type }) => {
                             <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
                                     <Briefcase size={20} style={{ color: 'var(--color-gray-400)' }} />
-                                    Experience
+                                    {t('publicProfile.experience', 'Experience')}
                                 </h3>
                                 <div style={{ marginLeft: '10px' }}>
                                     {profile.experience.map((exp, idx) => (
@@ -491,14 +497,14 @@ const PublicProfile = ({ type }) => {
                                         ))}
                                     </div>
                                 ) : (
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>No projects listed.</p>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>{t('publicProfile.noProjectsListed', 'No projects listed.')}</p>
                                 )
                             )}
                         </div>
 
                         {/* Events Attending Panel */}
                         <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
-                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>Events Attending</h3>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>{t('publicProfile.eventsAttending', 'Events Attending')}</h3>
                             {profile.user?.eventRSVPs && profile.user.eventRSVPs.length > 0 ? (
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                     {profile.user.eventRSVPs.map((rsvp, idx) => (
@@ -538,7 +544,7 @@ const PublicProfile = ({ type }) => {
                                                         background: rsvp.status === 'GOING' ? 'var(--color-green-tint)' : 'var(--color-amber-tint)',
                                                         color: rsvp.status === 'GOING' ? '#15803d' : '#854d0e',
                                                     }}>
-                                                        {rsvp.status === 'GOING' ? 'Attending' : 'Interested'}
+                                                        {rsvp.status === 'GOING' ? t('publicProfile.attending', 'Attending') : t('publicProfile.interested', 'Interested')}
                                                     </span>
                                                 </div>
                                             </div>
@@ -546,7 +552,7 @@ const PublicProfile = ({ type }) => {
                                     ))}
                                 </div>
                             ) : (
-                                <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>No upcoming events.</p>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>{t('publicProfile.noUpcomingEvents', 'No upcoming events.')}</p>
                             )}
                         </div>
 
@@ -561,7 +567,7 @@ const PublicProfile = ({ type }) => {
                         {/* Links/Socials Panel */}
                         {(profile.website || profile.twitter || profile.linkedin) && (
                             <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
-                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>Links</h3>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>{t('publicProfile.links', 'Links')}</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                     {profile.website && (
                                         <a href={profile.website} target="_blank" rel="noopener noreferrer" className="social-link">
@@ -587,7 +593,7 @@ const PublicProfile = ({ type }) => {
                             <div className="profile-card">
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                     <NostrIcon size={20} className="text-purple-500" />
-                                    Nostr Identity
+                                    {t('publicProfile.nostrIdentity', 'Nostr Identity')}
                                 </h3>
                                 {nostrProfile ? (
                                     <div>
@@ -595,7 +601,7 @@ const PublicProfile = ({ type }) => {
                                             {nostrProfile.picture && (
                                                 <img src={nostrProfile.picture} alt="" style={{ width: 36, height: 36, borderRadius: '50%', objectFit: 'cover' }} />
                                             )}
-                                            <span style={{ fontWeight: 500, color: 'var(--color-gray-900)' }}>{nostrProfile.name || 'Unnamed'}</span>
+                                            <span style={{ fontWeight: 500, color: 'var(--color-gray-900)' }}>{nostrProfile.name || t('publicProfile.unnamed', 'Unnamed')}</span>
                                         </div>
                                         {nostrProfile.about && (
                                             <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-600)', lineHeight: 1.625, marginBottom: '0.75rem' }}>
@@ -604,7 +610,7 @@ const PublicProfile = ({ type }) => {
                                         )}
                                     </div>
                                 ) : (
-                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-400)' }}>Loading Nostr profile...</p>
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-400)' }}>{t('publicProfile.loadingNostrProfile', 'Loading Nostr profile...')}</p>
                                 )}
                                 {npub && (
                                     <p style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', fontFamily: 'monospace', marginTop: '0.5rem' }}>

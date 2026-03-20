@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Share2, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
 import DOMPurify from 'dompurify';
+import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 
 const MOCK_EVENT_DATA = {
@@ -172,6 +174,7 @@ Prerequisite: familiarity with Bitcoin fundamentals and basic programming experi
 
 const EventDetail = () => {
     const { id } = useParams();
+    const { t } = useTranslation();
     const { isAuthenticated } = useAuth();
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -240,10 +243,10 @@ const EventDetail = () => {
 
     const getRsvpLabel = (status) => {
         switch (status) {
-            case 'GOING': return 'Attending';
-            case 'INTERESTED': return 'Thinking About It';
-            case 'NOT_GOING': return 'Not Attending';
-            default: return 'RSVP';
+            case 'GOING': return t('eventDetail.attending', 'Attending');
+            case 'INTERESTED': return t('eventDetail.thinkingAboutIt', 'Thinking About It');
+            case 'NOT_GOING': return t('eventDetail.notAttending', 'Not Attending');
+            default: return t('eventDetail.rsvp', 'RSVP');
         }
     };
 
@@ -269,10 +272,10 @@ const EventDetail = () => {
             <div className="event-detail-page">
                 <div className="container">
                     <div style={{ textAlign: 'center', padding: '4rem 0' }}>
-                        <h2>Event not found</h2>
-                        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>{error || "This event doesn't exist or has been removed."}</p>
-                        <Link to="/events" className="back-link" style={{ marginTop: '1.5rem', display: 'inline-flex' }}>
-                            <ArrowLeft size={16} /> Back to Events
+                        <h2>{t('eventDetail.eventNotFound', 'Event not found')}</h2>
+                        <p style={{ color: '#64748b', margin: '0.5rem 0' }}>{error || t('eventDetail.eventNotFoundDesc', "This event doesn't exist or has been removed.")}</p>
+                        <Link to="/events" className="back-link" style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none', fontWeight: 500, color: 'var(--color-primary)' }}>
+                            <ArrowLeft size={16} /> {t('eventDetail.backToEvents', 'Back to Events')}
                         </Link>
                     </div>
                 </div>
@@ -309,7 +312,7 @@ const EventDetail = () => {
                         {(event.organizer || event.host?.profile?.name || event.host?.profile?.company) && (
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                                 <p className="organizer" style={{ margin: 0 }}>
-                                    Hosted by{' '}
+                                    {t('eventDetail.hostedBy', 'Hosted by')}{' '}
                                     {event.host?.id ? (
                                         <Link to={`/builder/${event.host.id}`} style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}>
                                             {event.organizer || event.host?.profile?.name || event.host?.profile?.company || 'BIES Community'}
@@ -328,11 +331,13 @@ const EventDetail = () => {
                         )}
 
                         <div className="pd-card" style={{ marginTop: '1.5rem', padding: '1.75rem', background: 'white', borderRadius: '16px', border: '1px solid var(--color-gray-200)', boxShadow: 'var(--shadow-md)' }}>
-                            <h2 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem', color: 'var(--color-gray-900)' }}>About Event</h2>
-                            <div
+                            <TranslatableText
+                                title={t('eventDetail.aboutEvent', 'About Event')}
+                                titleStyle={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-gray-900)' }}
+                                text={description}
+                                isHtml={true}
                                 className="description rich-text-content"
                                 style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.75 }}
-                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['style'] }) }}
                             />
                         </div>
 
@@ -357,12 +362,12 @@ const EventDetail = () => {
 
                     <div className="detail-sidebar">
                         <div className="info-card">
-                            <h3>Event Details</h3>
+                            <h3>{t('eventDetail.eventDetails', 'Event Details')}</h3>
 
                             <div className="info-row">
                                 <Calendar size={18} />
                                 <div>
-                                    <span className="info-label">Date</span>
+                                    <span className="info-label">{t('eventDetail.date', 'Date')}</span>
                                     <span className="info-value">{formatDate(event.date || event.startDate)}</span>
                                 </div>
                             </div>
@@ -371,7 +376,7 @@ const EventDetail = () => {
                                 <div className="info-row">
                                     <Clock size={18} />
                                     <div>
-                                        <span className="info-label">Time</span>
+                                        <span className="info-label">{t('eventDetail.time', 'Time')}</span>
                                         <span className="info-value">
                                             {event.time || new Date(event.startDate).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                                         </span>
@@ -382,7 +387,7 @@ const EventDetail = () => {
                             <div className="info-row">
                                 <MapPin size={18} />
                                 <div>
-                                    <span className="info-label">Location</span>
+                                    <span className="info-label">{t('eventDetail.locationLabel', 'Location')}</span>
                                     <span className="info-value">{event.location}</span>
                                 </div>
                             </div>
@@ -391,10 +396,10 @@ const EventDetail = () => {
                                 <div className="info-row">
                                     <Users size={18} />
                                     <div>
-                                        <span className="info-label">Attendees</span>
+                                        <span className="info-label">{t('eventDetail.attendees', 'Attendees')}</span>
                                         <span className="info-value">
                                             {event.attendeeCount || event._count?.attendees || (typeof event.attendees === 'number' ? event.attendees : 0)}
-                                            + expected
+                                            {` + ${t('eventDetail.expected', 'expected')}`}
                                         </span>
                                     </div>
                                 </div>
@@ -430,21 +435,21 @@ const EventDetail = () => {
                                                 onClick={() => handleRsvp('GOING')}
                                                 style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, borderBottom: '1px solid var(--color-gray-50)' }}
                                             >
-                                                Attending
+                                                {t('eventDetail.attending', 'Attending')}
                                             </button>
                                             <button
                                                 className="dropdown-item"
                                                 onClick={() => handleRsvp('INTERESTED')}
                                                 style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, borderBottom: '1px solid var(--color-gray-50)' }}
                                             >
-                                                Thinking About It
+                                                {t('eventDetail.thinkingAboutIt', 'Thinking About It')}
                                             </button>
                                             <button
                                                 className="dropdown-item"
                                                 onClick={() => handleRsvp(null)}
                                                 style={{ width: '100%', padding: '0.75rem 1rem', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500, color: '#ef4444' }}
                                             >
-                                                Not Attending
+                                                {t('eventDetail.notAttending', 'Not Attending')}
                                             </button>
                                         </div>
                                     )}
@@ -764,15 +769,22 @@ const EventSection = ({ section, isSidebar }) => {
     const stype = section.type || 'TEXT';
     return (
         <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginTop: '1.5rem' }}>
-            {section.title && (
-                <h2 style={{ fontSize: isSidebar ? '1rem' : '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem', letterSpacing: '-0.01em' }}>{section.title}</h2>
-            )}
-            {stype === 'TEXT' && (
-                <div
+            {stype === 'TEXT' ? (
+                <TranslatableText
+                    title={section.title}
+                    titleTag="h2"
+                    titleStyle={{ fontSize: isSidebar ? '1rem' : '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem', letterSpacing: '-0.01em' }}
+                    text={section.body || section.content || ''}
+                    isHtml={true}
                     className="rich-text-content"
                     style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.75 }}
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body || section.content || '', { ADD_ATTR: ['style'] }) }}
                 />
+            ) : (
+                <>
+                    {section.title && (
+                        <h2 style={{ fontSize: isSidebar ? '1rem' : '1.35rem', fontWeight: 700, color: '#111827', margin: '0 0 1rem', letterSpacing: '-0.01em' }}>{section.title}</h2>
+                    )}
+                </>
             )}
             {stype === 'PHOTO' && section.imageUrl && (
                 <img src={section.imageUrl} alt={section.title || ''} style={{ width: '100%', borderRadius: '10px', objectFit: 'cover' }} />

@@ -2,11 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, MessageSquare, Plus, MoreHorizontal, Loader2, Edit, Trash2, ExternalLink, Send, Zap, FolderPlus } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
 import { projectsApi, analyticsApi, zapsApi } from '../../services/api';
 
-const ActionMenu = ({ project, onDelete, onSubmit }) => {
+const ActionMenu = ({ project, onDelete, onSubmit, t }) => {
     const [open, setOpen] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
     const btnRef = useRef(null);
@@ -34,19 +35,19 @@ const ActionMenu = ({ project, onDelete, onSubmit }) => {
                     <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={close} />
                     <div className="ctx-menu" style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-100%)', zIndex: 9999 }}>
                         <button className="ctx-item" onClick={() => { close(); navigate(`/dashboard/builder/new-project?edit=${project.id}`); }}>
-                            <Edit size={15} /> Edit Project
+                            <Edit size={15} /> {t('dashboard.editProject')}
                         </button>
                         <button className="ctx-item" onClick={() => { close(); navigate(`/project/${project.id}`); }}>
-                            <ExternalLink size={15} /> View Project
+                            <ExternalLink size={15} /> {t('dashboard.viewProject')}
                         </button>
                         {(project.status || 'draft') === 'draft' && (
                             <button className="ctx-item ctx-submit" onClick={() => { close(); onSubmit(project.id, name); }}>
-                                <Send size={15} /> Submit for Review
+                                <Send size={15} /> {t('dashboard.submitForReview')}
                             </button>
                         )}
                         <div className="ctx-divider" />
                         <button className="ctx-item ctx-delete" onClick={() => { close(); onDelete(project.id, name); }}>
-                            <Trash2 size={15} /> Delete
+                            <Trash2 size={15} /> {t('common.delete')}
                         </button>
                     </div>
                 </>,
@@ -57,6 +58,7 @@ const ActionMenu = ({ project, onDelete, onSubmit }) => {
 };
 
 const BuilderOverview = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const { data: projects, loading: projectsLoading, refetch } = useApiQuery(projectsApi.list, { ownerId: user?.id });
     const { data: stats, loading: statsLoading } = useApiQuery(analyticsApi.builderDashboard);
@@ -95,22 +97,22 @@ const BuilderOverview = () => {
     };
 
     const handleDelete = async (id, name) => {
-        if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return;
+        if (!window.confirm(t('dashboard.deleteConfirm', { name }))) return;
         try {
             await projectsApi.delete(id);
             refetch();
         } catch (err) {
-            alert(err?.message || 'Failed to delete project.');
+            alert(err?.message || t('dashboard.failedToDeleteProject'));
         }
     };
 
     const handleSubmit = async (id, name) => {
-        if (!window.confirm(`Submit "${name}" for admin review?`)) return;
+        if (!window.confirm(t('dashboard.submitConfirm', { name }))) return;
         try {
             await projectsApi.submit(id);
             refetch();
         } catch (err) {
-            alert(err?.message || 'Failed to submit project');
+            alert(err?.message || t('dashboard.failedToSubmitProject'));
         }
     };
 
@@ -128,17 +130,17 @@ const BuilderOverview = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <div style={{ flex: 1 }}>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                            Builder Dashboard
+                            {t('dashboard.builderDashboard')}
                             {/* Mobile icon */}
-                            <Link to="/dashboard/builder/new-project" className="hide-on-desktop" title="New Project" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
+                            <Link to="/dashboard/builder/new-project" className="hide-on-desktop" title={t('dashboard.newProject')} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-primary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
                                 <FolderPlus size={18} />
                             </Link>
                         </h1>
-                        <p className="subtitle">Manage your projects and fundraising</p>
+                        <p className="subtitle">{t('dashboard.manageProjectsFundraising')}</p>
                     </div>
                     {/* Desktop button */}
                     <Link to="/dashboard/builder/new-project" className="btn btn-primary hide-on-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: 250 }}>
-                        <Plus size={18} style={{ marginRight: 8 }} />{' '}New Project
+                        <Plus size={18} style={{ marginRight: 8 }} />{' '}{t('dashboard.newProject')}
                     </Link>
                 </div>
             </div>
@@ -146,24 +148,24 @@ const BuilderOverview = () => {
             {/* Stats Row */}
             <div className="stats-grid">
                 <div className="stat-box featured">
-                    <span className="label">Total Capital Raised</span>
+                    <span className="label">{t('dashboard.totalCapitalRaised')}</span>
                     <div className="value-row">
                         <span className="value">{formatCurrency(totalRaised)}</span>
-                        <span className="fraction">/ {formatCurrency(totalGoal)} Goal</span>
+                        <span className="fraction">/ {formatCurrency(totalGoal)} {t('dashboard.goal')}</span>
                     </div>
                     <div className="progress-bar">
                         <div className="progress-fill" style={{ width: `${Math.min(progressPct, 100)}%` }}></div>
                     </div>
                 </div>
                 <div className="stat-box">
-                    <span className="label">Total Project Views</span>
+                    <span className="label">{t('dashboard.totalProjectViews')}</span>
                     <div className="value-row">
                         <Eye size={20} className="text-secondary" />
                         <span className="value">{totalViews.toLocaleString()}</span>
                     </div>
                 </div>
                 <div className="stat-box">
-                    <span className="label">Active Enquiries</span>
+                    <span className="label">{t('dashboard.activeEnquiries')}</span>
                     <div className="value-row">
                         <MessageSquare size={20} className="text-primary" />
                         <span className="value">{activeEnquiries}</span>

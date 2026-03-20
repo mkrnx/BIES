@@ -2,14 +2,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Home, Compass, Calendar, Newspaper, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-
-const tabs = [
-  { path: '/feed', icon: Home, label: 'Home' },
-  { path: '/discover', icon: Compass, label: 'Discover' },
-  { path: '/events', icon: Calendar, label: 'Events' },
-  { path: '/news', icon: Newspaper, label: 'News' },
-  { path: '/dashboard', icon: User, label: 'Dashboard', auth: true },
-];
+import { useTranslation } from 'react-i18next';
 
 const itemStyle = (active) => ({
   display: 'flex',
@@ -39,6 +32,15 @@ const iconWrapStyle = (active) => ({
 const MobileBottomNav = () => {
   const location = useLocation();
   const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
+
+  const tabs = [
+    { path: '/feed', icon: Home, label: t('mobileNav.home') },
+    { path: '/discover', icon: Compass, label: t('mobileNav.discover') },
+    { path: '/events', icon: Calendar, label: t('mobileNav.events') },
+    { path: '/news', icon: Newspaper, label: t('mobileNav.news') },
+    { path: '/dashboard', icon: User, label: t('mobileNav.dashboard'), auth: true },
+  ];
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -60,7 +62,7 @@ const MobileBottomNav = () => {
             return (
               <Link key="login" to="/login" style={itemStyle(false)}>
                 <div style={iconWrapStyle(false)}><User size={22} strokeWidth={1.8} /></div>
-                <span>Login</span>
+                <span>{t('common.login')}</span>
               </Link>
             );
           }

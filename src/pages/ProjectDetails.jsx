@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertTriangle, ExternalLink, FileText, Globe, Briefcase, TrendingUp, Target, Layers, ChevronLeft, ChevronRight } from 'lucide-react';
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
 import DOMPurify from 'dompurify';
+import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 
 const ProjectDetails = () => {
     const { id } = useParams();
+    const { t } = useTranslation();
     const { user } = useAuth();
     const { mode } = useUserMode();
     const [project, setProject] = useState(null);
@@ -104,7 +107,7 @@ const ProjectDetails = () => {
         return (
             <div className="pd-loading">
                 <Loader2 size={36} className="pd-spin" />
-                <p>Loading project...</p>
+                <p>{t('projectDetails.loadingProject', 'Loading project...')}</p>
             </div>
         );
     }
@@ -113,8 +116,8 @@ const ProjectDetails = () => {
         return (
             <div className="pd-error">
                 <AlertTriangle size={48} />
-                <p>{error || 'Project not found'}</p>
-                <Link to="/discover" className="pd-error-link">Back to Discover</Link>
+                <p>{error || t('projectDetails.projectNotFound', 'Project not found')}</p>
+                <Link to="/discover" className="pd-error-link">{t('projectDetails.backToDiscover', 'Back to Discover')}</Link>
             </div>
         );
     }
@@ -149,7 +152,7 @@ const ProjectDetails = () => {
     return (
         <div className="pd-container">
             <Link to="/discover" className="pd-back">
-                <ArrowLeft size={16} /> Back to Discover
+                <ArrowLeft size={16} /> {t('projectDetails.backToDiscover', 'Back to Discover')}
             </Link>
 
             {/* ─── Header ─────────────────────────────── */}
@@ -162,17 +165,17 @@ const ProjectDetails = () => {
                     <div className="pd-meta">
                         <span className="pd-meta-item"><MapPin size={15} /> El Salvador</span>
                         <Link to={`/builder/${project.ownerId || project.owner?.id}`} className="pd-meta-item pd-meta-link">
-                            <Users size={15} /> Built by {ownerName}
+                            <Users size={15} /> {t('projectDetails.builtBy', 'Built by {{name}}', { name: ownerName })}
                         </Link>
                     </div>
                 </div>
                 <div className="pd-header-actions">
                     <button className="pd-btn pd-btn-outline" onClick={handleShare}>
                         <Share2 size={16} />
-                        {shareTooltip ? 'Copied!' : 'Share'}
+                        {shareTooltip ? t('projectDetails.copied', 'Copied!') : t('projectDetails.share', 'Share')}
                     </button>
-                    <button className="pd-btn pd-btn-primary">
-                        <MessageSquare size={16} /> Contact Founder
+                    <button className="pd-btn pd-btn-primary" onClick={() => window.open(`/messages?to=${project.ownerId || project.owner?.id}`, '_self')}>
+                        <MessageSquare size={16} /> {t('projectDetails.contactFounder', 'Contact Founder')}
                     </button>
                 </div>
             </header>
@@ -190,10 +193,11 @@ const ProjectDetails = () => {
 
                     {/* About */}
                     <section className="pd-card pd-about">
-                        <h2>About the Project</h2>
-                        <div
+                        <TranslatableText
+                            title={t('projectDetails.aboutProject', 'About the Project')}
+                            text={description}
+                            isHtml={true}
                             className="pd-description pd-rich-text rich-text-content"
-                            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(description, { ADD_ATTR: ['style'] }) }}
                         />
                     </section>
 
@@ -208,7 +212,7 @@ const ProjectDetails = () => {
                     {/* Tags */}
                     {tags.length > 0 && (
                         <section className="pd-card">
-                            <h2>Tags</h2>
+                            <h2>{t('projectDetails.tags', 'Tags')}</h2>
                             <div className="pd-tags">
                                 {tags.map((tag, i) => (
                                     <span key={i} className="pd-tag">{tag}</span>
@@ -222,9 +226,9 @@ const ProjectDetails = () => {
                 <aside className="pd-sidebar">
                     {/* Funding Status */}
                     <div className="pd-card pd-funding">
-                        <h3>Funding Status</h3>
+                        <h3>{t('projectDetails.fundingStatus', 'Funding Status')}</h3>
                         <div className="pd-funding-stage">
-                            <span className="pd-label">Stage:</span>
+                            <span className="pd-label">{t('projectDetails.stage', 'Stage')}:</span>
                             <span className="pd-value">{stageLabel(stage)}</span>
                         </div>
                         {goal > 0 && (
@@ -236,12 +240,12 @@ const ProjectDetails = () => {
                                 <div className="pd-progress-bar">
                                     <div className="pd-progress-fill" style={{ width: `${Math.min(progressPct, 100)}%` }} />
                                 </div>
-                                <p className="pd-progress-pct">{progressPct}% funded</p>
+                                <p className="pd-progress-pct">{t('projectDetails.funded', '{{pct}}% funded', { pct: progressPct })}</p>
                             </>
                         )}
                         {useOfFunds.length > 0 && (
                             <div className="pd-use-of-funds">
-                                <h4 className="pd-uof-title">Use of Funds</h4>
+                                <h4 className="pd-uof-title">{t('projectDetails.useOfFunds', 'Use of Funds')}</h4>
                                 <div className="pd-pie-container">
                                     <svg viewBox="0 0 100 100" className="pd-pie-chart">
                                         {(() => {
@@ -290,7 +294,7 @@ const ProjectDetails = () => {
                                 onClick={handleExpressInterestClick}
                             >
                                 <Heart size={16} fill={isWatchlisted ? 'currentColor' : 'none'} />
-                                {isWatchlisted ? 'Following' : 'Express Interest'}
+                                {isWatchlisted ? t('projectDetails.following', 'Following') : t('projectDetails.expressInterest', 'Express Interest')}
                             </button>
                         </div>
                     </div>
@@ -298,17 +302,17 @@ const ProjectDetails = () => {
                     {/* Core Team */}
                     <div className="pd-card pd-team">
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                            <h3 style={{ margin: 0 }}>Core Team</h3>
+                            <h3 style={{ margin: 0 }}>{t('projectDetails.coreTeam', 'Core Team')}</h3>
                             <ZapButton
                                 recipients={[
                                     ...(project.owner?.nostrPubkey ? [{ pubkey: project.owner.nostrPubkey, name: ownerName, avatar: ownerAvatar }] : []),
                                     ...teamMembers.filter(tm => tm.user?.nostrPubkey).map(tm => ({
                                         pubkey: tm.user.nostrPubkey,
-                                        name: tm.user?.profile?.name || 'Team Member',
+                                        name: tm.user?.profile?.name || t('projectDetails.teamMember', 'Team Member'),
                                         avatar: tm.user?.profile?.avatar || '',
                                     })),
                                 ]}
-                                label={teamMembers.filter(tm => tm.user?.nostrPubkey).length > 0 ? 'Zap Team' : 'Zap'}
+                                label={teamMembers.filter(tm => tm.user?.nostrPubkey).length > 0 ? t('projectDetails.zapTeam', 'Zap Team') : 'Zap'}
                                 size="sm"
                             />
                         </div>
@@ -333,9 +337,9 @@ const ProjectDetails = () => {
                         {teamMembers.length > 0 && (
                             <div className="pd-team-list">
                                 {teamMembers.map((tm, i) => {
-                                    const name = tm.user?.profile?.name || 'Team Member';
+                                    const name = tm.user?.profile?.name || t('projectDetails.teamMember', 'Team Member');
                                     const avatar = tm.user?.profile?.avatar || '';
-                                    const role = tm.title || tm.role || 'Member';
+                                    const role = tm.title || tm.role || t('projectDetails.member', 'Member');
                                     return (
                                         <div key={i} className="pd-team-member">
                                             <div className="pd-avatar sm">
@@ -378,13 +382,13 @@ const ProjectDetails = () => {
                             )}
                             {demoUrl && (
                                 <a href={demoUrl} target="_blank" rel="noopener noreferrer" className="pd-doc-link">
-                                    <ExternalLink size={16} /> Demo
+                                    <ExternalLink size={16} /> {t('projectDetails.demo', 'Demo')}
                                     <ExternalLink size={13} className="pd-link-ext" />
                                 </a>
                             )}
                             {hasDeck && (
                                 <div className="pd-doc-link pd-doc-available">
-                                    <FileText size={16} /> Pitch Deck Available
+                                    <FileText size={16} /> {t('projectDetails.pitchDeckAvailable', 'Pitch Deck Available')}
                                 </div>
                             )}
                         </div>
@@ -400,19 +404,19 @@ const ProjectDetails = () => {
 
                     {/* Quick Info (Moved from main area) */}
                     <div className="pd-card pd-info-sidebar">
-                        <h3>Project Info</h3>
+                        <h3>{t('projectDetails.projectInfo', 'Project Info')}</h3>
                         <div className="pd-info-list">
                             <div className="pd-info-row">
                                 <Target size={18} className="pd-info-icon-sm" />
                                 <div>
-                                    <h4>Stage</h4>
+                                    <h4>{t('projectDetails.stage', 'Stage')}</h4>
                                     <p>{stageLabel(stage)}</p>
                                 </div>
                             </div>
                             <div className="pd-info-row">
                                 <Layers size={18} className="pd-info-icon-sm" />
                                 <div>
-                                    <h4>Category</h4>
+                                    <h4>{t('projectDetails.categoryLabel', 'Category')}</h4>
                                     <p>{categoryLabel(category)}</p>
                                 </div>
                             </div>
@@ -420,7 +424,7 @@ const ProjectDetails = () => {
                                 <div className="pd-info-row">
                                     <TrendingUp size={18} className="pd-info-icon-sm" />
                                     <div>
-                                        <h4>Fundraising</h4>
+                                        <h4>{t('projectDetails.fundraising', 'Fundraising')}</h4>
                                         <p>{formatCurrency(raised)} / {formatCurrency(goal)}</p>
                                     </div>
                                 </div>
@@ -428,8 +432,8 @@ const ProjectDetails = () => {
                             <div className="pd-info-row">
                                 <Briefcase size={18} className="pd-info-icon-sm" />
                                 <div>
-                                    <h4>Traction</h4>
-                                    <p>{viewCount} views · {followerCount} followers</p>
+                                    <h4>{t('projectDetails.traction', 'Traction')}</h4>
+                                    <p>{viewCount} {t('projectDetails.views', 'views')} · {followerCount} {t('projectDetails.followers', 'followers')}</p>
                                 </div>
                             </div>
                         </div>
@@ -447,18 +451,18 @@ const ProjectDetails = () => {
                                     <circle className="checkmark-circle" cx="26" cy="26" r="25" fill="none" />
                                     <path className="checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8" />
                                 </svg>
-                                <h3>Interest Sent!</h3>
-                                <p>The builder has been notified.</p>
+                                <h3>{t('projectDetails.interestSent', 'Interest Sent!')}</h3>
+                                <p>{t('projectDetails.builderNotified', 'The builder has been notified.')}</p>
                             </div>
                         ) : (
                             <>
                                 <div className="modal-header">
-                                    <h2 className="modal-title">Express Interest</h2>
+                                    <h2 className="modal-title">{t('projectDetails.expressInterest', 'Express Interest')}</h2>
                                 </div>
                                 <div className="modal-body">
                                     <p style={{ margin: 0, color: 'var(--color-gray-600)', lineHeight: '1.5' }}>
-                                        Let the Builder know you are interested in their project?
-                                        This will add the project to your Watchlist and send them a notification.
+                                        {t('projectDetails.expressInterestQuestion', 'Let the Builder know you are interested in their project?')}
+                                        {' '}{t('projectDetails.expressInterestDesc', 'This will add the project to your Watchlist and send them a notification.')}
                                     </p>
                                 </div>
                                 <div className="modal-footer" style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'flex-end' }}>
@@ -467,14 +471,14 @@ const ProjectDetails = () => {
                                         onClick={() => setShowInterestModal(false)}
                                         disabled={expressingInterest}
                                     >
-                                        Cancel
+                                        {t('common.cancel', 'Cancel')}
                                     </button>
                                     <button
                                         className="btn btn-primary"
                                         onClick={confirmExpressInterest}
                                         disabled={expressingInterest}
                                     >
-                                        {expressingInterest ? <Loader2 size={16} className="spin" /> : 'Yes, Express Interest'}
+                                        {expressingInterest ? <Loader2 size={16} className="spin" /> : t('projectDetails.yesExpressInterest', 'Yes, Express Interest')}
                                     </button>
                                 </div>
                             </>
@@ -779,13 +783,18 @@ const ProjectSection = ({ section, pieColors, isSidebar }) => {
     const stype = section.type || 'TEXT';
     return (
         <section className={`pd-card ${isSidebar ? 'pd-sidebar-section' : 'pd-about'}`}>
-            {section.title && (isSidebar ? <h3>{section.title}</h3> : <h2>{section.title}</h2>)}
-
-            {stype === 'TEXT' && (
-                <div
+            {stype === 'TEXT' ? (
+                <TranslatableText
+                    title={section.title}
+                    titleTag={isSidebar ? 'h3' : 'h2'}
+                    text={section.body}
+                    isHtml={true}
                     className="pd-description pd-rich-text rich-text-content"
-                    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(section.body, { ADD_ATTR: ['style'] }) }}
                 />
+            ) : (
+                <>
+                    {section.title && (isSidebar ? <h3>{section.title}</h3> : <h2>{section.title}</h2>)}
+                </>
             )}
 
             {stype === 'PHOTO' && section.imageUrl && (

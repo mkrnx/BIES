@@ -3,7 +3,7 @@ import { Search, Upload, X, Loader2, Tag } from 'lucide-react';
 import { gifStore } from '../services/gifStore';
 import { blossomService } from '../services/blossomService';
 
-const NostrGifPicker = ({ onSelect, onClose }) => {
+const NostrGifPicker = ({ onSelect, onClose, dropDown = false }) => {
     const [gifs, setGifs] = useState(gifStore.gifs);
     const [search, setSearch] = useState('');
     const [uploading, setUploading] = useState(false);
@@ -86,7 +86,7 @@ const NostrGifPicker = ({ onSelect, onClose }) => {
     };
 
     return (
-        <div className="gif-picker" ref={pickerRef}>
+        <div className={`gif-picker${dropDown ? ' gif-picker-dropdown' : ''}`} ref={pickerRef}>
             <div className="gif-picker-header">
                 <span className="gif-picker-title">GIF Library</span>
                 <button className="gif-picker-close" onClick={onClose}><X size={14} /></button>
@@ -204,6 +204,12 @@ const NostrGifPicker = ({ onSelect, onClose }) => {
                     flex-direction: column;
                     max-height: 420px;
                     overflow: hidden;
+                }
+                .gif-picker-dropdown {
+                    bottom: auto;
+                    top: 100%;
+                    margin-bottom: 0;
+                    margin-top: 0.5rem;
                 }
                 .gif-picker-header {
                     display: flex;

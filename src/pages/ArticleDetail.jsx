@@ -3,9 +3,11 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, User, Loader2 } from 'lucide-react';
 import DOMPurify from 'dompurify';
 import { contentApi } from '../services/api';
+import { useTranslation } from 'react-i18next';
 import ZapButton from '../components/ZapButton';
 
 const ArticleDetail = () => {
+    const { t } = useTranslation();
     const { slug } = useParams();
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -47,10 +49,10 @@ const ArticleDetail = () => {
         return (
             <div className="article-page">
                 <div className="container" style={{ textAlign: 'center', padding: '4rem 0' }}>
-                    <h2>Article not found</h2>
-                    <p style={{ color: '#64748b', marginTop: '0.5rem' }}>{error || 'This article may have been removed.'}</p>
+                    <h2>{t('articleDetail.articleNotFound')}</h2>
+                    <p style={{ color: '#64748b', marginTop: '0.5rem' }}>{error || t('articleDetail.articleRemovedDesc')}</p>
                     <Link to="/news" style={{ marginTop: '1.5rem', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', color: '#64748b' }}>
-                        <ArrowLeft size={16} /> Back to News
+                        <ArrowLeft size={16} /> {t('articleDetail.backToNews')}
                     </Link>
                 </div>
             </div>
@@ -61,7 +63,7 @@ const ArticleDetail = () => {
         <div className="article-page">
             <div className="container">
                 <Link to="/news" className="back-link">
-                    <ArrowLeft size={16} /> Back to News
+                    <ArrowLeft size={16} /> {t('articleDetail.backToNews')}
                 </Link>
 
                 {(article.image || article.coverImage) && (

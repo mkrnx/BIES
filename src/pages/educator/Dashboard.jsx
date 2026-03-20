@@ -1,21 +1,23 @@
 import React from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, BookOpen, Heart, MessageSquare, CalendarDays, Settings, LogOut } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
-const mainTabs = [
-  { to: '/dashboard/educator', label: 'Overview', icon: LayoutDashboard, end: true },
-  { to: '/dashboard/educator/courses', label: 'My Courses', icon: BookOpen },
-  { to: '/dashboard/educator/my-events', label: 'Events', icon: CalendarDays },
-  { to: '/dashboard/educator/following', label: 'Following', icon: Heart },
-  { to: '/dashboard/educator/messages', label: 'Messages', icon: MessageSquare },
-];
-
 const EducatorDashboard = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { logout } = useAuth();
   const { theme } = useTheme();
+
+  const mainTabs = [
+    { to: '/dashboard/educator', label: t('dashboard.overview'), icon: LayoutDashboard, end: true },
+    { to: '/dashboard/educator/courses', label: t('dashboard.myCourses'), icon: BookOpen },
+    { to: '/dashboard/educator/my-events', label: t('dashboard.myEvents'), icon: CalendarDays },
+    { to: '/dashboard/educator/following', label: t('dashboard.following'), icon: Heart },
+    { to: '/dashboard/educator/messages', label: t('dashboard.messages'), icon: MessageSquare },
+  ];
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
@@ -26,7 +28,7 @@ const EducatorDashboard = () => {
       <aside className="sidebar desktop-sidebar">
         <div className="sidebar-menu">
           <div className="menu-group">
-            <p className="menu-label">Main</p>
+            <p className="menu-label">{t('dashboard.main')}</p>
             {mainTabs.map(tab => (
               <NavLink
                 key={tab.to}
@@ -45,10 +47,10 @@ const EducatorDashboard = () => {
               to="/dashboard/educator/settings"
               className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
             >
-              <Settings size={18} /> <span className="link-label">Settings</span>
+              <Settings size={18} /> <span className="link-label">{t('dashboard.settings')}</span>
             </NavLink>
             <button onClick={logout} className="sidebar-link text-error">
-              <LogOut size={18} /> <span className="link-label">Logout</span>
+              <LogOut size={18} /> <span className="link-label">{t('dashboard.logout')}</span>
             </button>
           </div>
         </div>

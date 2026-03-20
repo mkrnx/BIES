@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Play, Loader2, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { contentApi } from '../services/api';
 
 const Media = () => {

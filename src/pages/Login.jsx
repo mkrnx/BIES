@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, CheckCircle, Lock, Eye, EyeOff, ArrowLeft, Download, ShieldCheck, Smartphone } from 'lucide-react';
@@ -13,6 +14,7 @@ import NostrIcon from '../components/NostrIcon';
 const isKeyPasswordValid = (p) => p.length >= 16 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
 
 const Login = () => {
+    const { t } = useTranslation();
     const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithBunkerAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
@@ -299,15 +301,15 @@ const Login = () => {
                         <Lock size={40} />
                     </div>
 
-                    <h2 className="login-heading">Unlock Your Key</h2>
+                    <h2 className="login-heading">{t('login.unlockYourKey')}</h2>
 
                     {keyfilePayload.npub && (
                         <p className="login-subtext" style={{ marginBottom: '0.25rem' }}>
-                            Identity: <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{keyfilePayload.npub.slice(0, 16)}...{keyfilePayload.npub.slice(-6)}</span>
+                            {t('login.identity')}: <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{keyfilePayload.npub.slice(0, 16)}...{keyfilePayload.npub.slice(-6)}</span>
                         </p>
                     )}
                     {keyfileFilename && (
-                        <p className="login-hint" style={{ marginBottom: '1rem' }}>File: {keyfileFilename}</p>
+                        <p className="login-hint" style={{ marginBottom: '1rem' }}>{t('login.file')}: {keyfileFilename}</p>
                     )}
 
                     {error && (
@@ -320,7 +322,7 @@ const Login = () => {
                     <form onSubmit={handleUnlockKeyfile} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                         <div>
                             <label className="login-label">
-                                Enter the password you set when you created this key file
+                                {t('login.enterKeyFilePassword')}
                             </label>
                             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                                 <input
@@ -329,7 +331,7 @@ const Login = () => {
                                     name="password"
                                     value={unlockPassword}
                                     onChange={(e) => setUnlockPassword(e.target.value)}
-                                    placeholder="Password"
+                                    placeholder={t('login.password')}
                                     className="login-input"
                                     style={{ paddingLeft: '0.75rem', paddingRight: '2.5rem' }}
                                     autoComplete="current-password"
@@ -346,15 +348,15 @@ const Login = () => {
                             className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
                         >
                             {unlocking ? (
-                                <><Loader2 size={20} className="spin" /> Unlocking...</>
+                                <><Loader2 size={20} className="spin" /> {t('login.unlocking')}</>
                             ) : (
-                                <><Lock size={20} /> Unlock & Log In</>
+                                <><Lock size={20} /> {t('login.unlockAndLogIn')}</>
                             )}
                         </button>
                     </form>
 
                     <button onClick={resetKeyfileState} className="login-back-btn">
-                        <ArrowLeft size={14} /> Choose a different file
+                        <ArrowLeft size={14} /> {t('login.chooseDifferentFile')}
                     </button>
                 </div>
 
@@ -391,9 +393,9 @@ const Login = () => {
                         {keyDownloaded ? <CheckCircle size={40} /> : <ShieldCheck size={40} />}
                     </div>
 
-                    <h2 className="login-heading">Save Your Nostr Key</h2>
+                    <h2 className="login-heading">{t('login.saveYourNostrKey')}</h2>
                     <p className="login-subtext" style={{ marginBottom: '1.5rem', textAlign: 'center' }}>
-                        Download an encrypted backup of your key before continuing. This is the only copy — if you lose it, your account cannot be recovered.
+                        {t('login.downloadEncryptedBackup')}
                     </p>
 
                     {error && (
@@ -408,8 +410,8 @@ const Login = () => {
                         <div className="login-section-box" style={keyDownloaded ? { borderColor: 'var(--color-success, #16a34a)' } : {}}>
                             <p className="login-section-title" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 {keyDownloaded
-                                    ? <><CheckCircle size={13} style={{ color: 'var(--color-success, #16a34a)' }} /> Key File Saved</>
-                                    : 'Save Key File (Required)'}
+                                    ? <><CheckCircle size={13} style={{ color: 'var(--color-success, #16a34a)' }} /> {t('login.keyFileSaved')}</>
+                                    : t('login.saveKeyFileRequired')}
                             </p>
                             {!keyDownloaded && (
                                 <form onSubmit={(e) => { e.preventDefault(); handleDownloadKeyfile(); }} style={{ display: 'contents' }}>
@@ -421,7 +423,7 @@ const Login = () => {
                                             name="new-password"
                                             defaultValue=""
                                             onInput={syncDlPasswordValid}
-                                            placeholder="Password (min 16 chars, letters & numbers)"
+                                            placeholder={t('signup.passwordPlaceholder')}
                                             className="login-input-sm"
                                             style={{ paddingRight: '2.25rem' }}
                                             autoComplete="new-password"
@@ -437,7 +439,7 @@ const Login = () => {
                                         name="new-password"
                                         defaultValue=""
                                         onInput={syncDlPasswordValid}
-                                        placeholder="Confirm password"
+                                        placeholder={t('signup.confirmPassword')}
                                         className="login-input-sm"
                                         autoComplete="new-password"
                                     />
@@ -446,16 +448,16 @@ const Login = () => {
                                         disabled={dlEncrypting || !dlKeyPasswordValid}
                                         className="w-full btn-login flex items-center justify-center gap-2 py-2 rounded-full"
                                     >
-                                        {dlEncrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : <><Download size={14} /> Download .nostrkey File</>}
+                                        {dlEncrypting ? <><Loader2 size={14} className="spin" /> {t('login.decrypting')}</> : <><Download size={14} /> {t('login.downloadNostrkey')}</>}
                                     </button>
                                     <p className="login-hint" style={{ lineHeight: 1.3 }}>
-                                        Password must be at least 16 characters and include both letters and numbers. All other characters are welcome too. Store it somewhere safe — it is your only backup.
+                                        {t('signup.passwordRequirements')}
                                     </p>
                                 </form>
                             )}
                             {keyDownloaded && (
                                 <p className="login-hint" style={{ color: 'var(--color-success, #16a34a)', lineHeight: 1.3 }}>
-                                    Your encrypted key file has been downloaded. Keep it safe.
+                                    {t('login.keyFileDownloaded')}
                                 </p>
                             )}
                         </div>
@@ -464,7 +466,7 @@ const Login = () => {
                         {PASSKEY_ENABLED && passkeyService.isSupported() && keyDownloaded && (
                             <div className="login-section-box">
                                 <p className="login-section-title">
-                                    Quick Login — Passkey (Optional)
+                                    {t('login.quickLoginPasskey')}
                                 </p>
                                 <button
                                     onClick={handleSavePasskey}
@@ -476,10 +478,10 @@ const Login = () => {
                                     ) : (
                                         <Fingerprint size={16} />
                                     )}
-                                    <span>{savingPasskey ? 'Saving...' : 'Save Passkey'}</span>
+                                    <span>{savingPasskey ? t('common.saving') : t('login.savePasskey')}</span>
                                 </button>
                                 <p className="login-hint" style={{ color: 'var(--color-warning)', lineHeight: 1.3 }}>
-                                    Passkey does NOT replace your key file. It encrypts your key on this device for quick login only. If you lose this device, the passkey is gone.
+                                    {t('login.passkeyWarning')}
                                 </p>
                             </div>
                         )}
@@ -490,7 +492,7 @@ const Login = () => {
                             className="w-full btn-skip flex items-center justify-center py-3 rounded-full"
                             title={!keyDownloaded ? 'Download your key file first' : ''}
                         >
-                            {keyDownloaded ? 'Continue to Dashboard' : 'Download your key file to continue'}
+                            {keyDownloaded ? t('login.continueToDashboard') : t('login.downloadToContiue')}
                         </button>
                     </div>
                 </div>
@@ -529,9 +531,9 @@ const Login = () => {
                     <img src={logoIcon} alt="BIES" style={{ height: '64px', width: 'auto' }} />
                 </div>
 
-                <h2 className="login-heading" style={{ fontSize: '1.5rem' }}>Welcome Back</h2>
+                <h2 className="login-heading" style={{ fontSize: '1.5rem' }}>{t('login.welcomeBack')}</h2>
                 <p className="login-subtext" style={{ marginBottom: '2rem', textAlign: 'center' }}>
-                    Access the Bitcoin Investment Ecosystem of El Salvador
+                    {t('login.accessEcosystem')}
                 </p>
 
                 {error && (
@@ -555,7 +557,7 @@ const Login = () => {
                                 ) : (
                                     <Globe size={20} />
                                 )}
-                                <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? 'Connecting...' : 'Login with Extension'}</span>
+                                <span>{loading && !nsecInput.trim() && !showPasskeyPrompt ? t('common.connecting') : t('login.loginWithExtension')}</span>
                             </button>
                         )}
                         {hasPasskey && (
@@ -569,7 +571,7 @@ const Login = () => {
                                 ) : (
                                     <Fingerprint size={20} />
                                 )}
-                                <span>Login with Passkey</span>
+                                <span>{t('login.loginWithPasskey')}</span>
                             </button>
                         )}
                     </div>
@@ -577,7 +579,7 @@ const Login = () => {
 
                 {/* Divider between quick methods and manual methods */}
                 {(hasNostrExtension || hasPasskey) && (
-                    <div className="divider"><span>or</span></div>
+                    <div className="divider"><span>{t('common.or')}</span></div>
                 )}
 
                 {/* Login mode tabs */}
@@ -586,26 +588,26 @@ const Login = () => {
                         className={`mode-tab ${loginMode === 'nsec' ? 'active' : ''}`}
                         onClick={() => { setLoginMode('nsec'); setError(''); }}
                     >
-                        <Key size={14} /> nsec
+                        <Key size={14} /> {t('login.nsecKey')}
                     </button>
                     <button
                         className={`mode-tab ${loginMode === 'seed' ? 'active' : ''}`}
                         onClick={() => { setLoginMode('seed'); setError(''); }}
                     >
-                        <FileText size={14} /> Seed Phrase
+                        <FileText size={14} /> {t('login.seedPhrase')}
                     </button>
                     <button
                         className={`mode-tab ${loginMode === 'file' ? 'active' : ''}`}
                         onClick={() => { setLoginMode('file'); setError(''); setKeyFileName(''); }}
                     >
-                        <Upload size={14} /> Key File
+                        <Upload size={14} /> {t('login.keyFile')}
                     </button>
                     {NIP46_ENABLED && (
                         <button
                             className={`mode-tab ${loginMode === 'bunker' ? 'active' : ''}`}
                             onClick={() => { setLoginMode('bunker'); setError(''); }}
                         >
-                            <Smartphone size={14} /> Remote
+                            <Smartphone size={14} /> {t('login.remote')}
                         </button>
                     )}
                 </div>

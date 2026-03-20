@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, SlidersHorizontal, Loader2, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
@@ -45,6 +46,7 @@ const MOCK_MEMBERS = [
 ];
 
 const Members = () => {
+    const { t } = useTranslation();
     const { user } = useAuth();
     const [allProfiles, setAllProfiles] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -133,7 +135,7 @@ const Members = () => {
 
     return (
         <div className="members-page container">
-            <h1 className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Members Directory</h1>
+            <h1 className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>{t('members.title')}</h1>
 
             <div className="search-row">
                 <div className="search-left-column" />
@@ -142,7 +144,7 @@ const Members = () => {
                         <Search size={20} className="search-icon" />
                         <input
                             type="text"
-                            placeholder="Search by name, skill, or interest..."
+                            placeholder={t('members.searchPlaceholder')}
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                             className="search-input"
@@ -163,13 +165,13 @@ const Members = () => {
                     <aside className="filters">
                         <div className="filter-header">
                             <SlidersHorizontal size={18} />
-                            <span>Filters</span>
+                            <span>{t('common.filters')}</span>
                         </div>
 
                         <div className="filter-group">
-                            <label>Role</label>
+                            <label>{t('members.role')}</label>
                             <div className="checkbox-list">
-                                {[{ id: 'BUILDER', label: 'Builder' }, { id: 'INVESTOR', label: 'Investor' }, { id: 'EDUCATOR', label: 'Educator' }, { id: 'MEMBER', label: 'Member' }].map(role => (
+                                {[{ id: 'BUILDER', label: t('members.roles.builder') }, { id: 'INVESTOR', label: t('members.roles.investor') }, { id: 'EDUCATOR', label: t('members.roles.educator') }, { id: 'MEMBER', label: t('members.roles.member') }].map(role => (
                                     <label key={role.id}>
                                         <input
                                             type="checkbox"
@@ -183,7 +185,7 @@ const Members = () => {
                         </div>
 
                         <div className="filter-group">
-                            <label>Interests</label>
+                            <label>{t('members.interests')}</label>
                             <div className="checkbox-list">
                                 {INTEREST_TAGS.map(tag => (
                                     <label key={tag.id}>
@@ -216,7 +218,7 @@ const Members = () => {
                             const isMember = roleUpper === 'MEMBER';
                             const profilePath = isBuilder || isEducator || isMember ? `/builder/${member.id}` : `/investor/${member.id}`;
                             const badgeClass = isBuilder ? 'builder' : isEducator ? 'educator' : isMember ? 'member' : 'investor';
-                            const badgeLabel = isBuilder ? 'Builder' : isEducator ? 'Educator' : isMember ? 'Member' : 'Investor';
+                            const badgeLabel = isBuilder ? t('members.roles.builder') : isEducator ? t('members.roles.educator') : isMember ? t('members.roles.member') : t('members.roles.investor');
                             return (
                                 <div key={member.id} className="member-card">
                                     <Link to={profilePath} className="card-image-link">
@@ -274,7 +276,7 @@ const Members = () => {
                         })
                     ) : (
                         <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                            No members found{search ? ` matching "${search}"` : (selectedRoles.length > 0 || selectedTags.length > 0) ? ' with these filters' : ''}.
+                            {search ? t('members.noMembersSearch', { query: search }) : (selectedRoles.length > 0 || selectedTags.length > 0) ? t('members.noMembersFilters') : t('members.noMembers')}
                         </div>
                     )}
                 </div>

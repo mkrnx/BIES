@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { projectsApi, watchlistApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 import { getAssetUrl } from '../utils/assets';
 
-const ProjectCard = ({ project }) => {
+const ProjectCard = ({ project, t }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
 
   useEffect(() => {
@@ -91,15 +92,15 @@ const ProjectCard = ({ project }) => {
         )}
 
         <div className="actions">
-          <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">Details</Link>
+          <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">{t('common.details')}</Link>
           <button
             className={`icon-btn ${isLiked ? 'liked' : ''}`}
-            title="Add to Watchlist"
+            title={t('discover.addToWatchlist')}
             onClick={toggleWatchlist}
           >
             <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
           </button>
-          <button className="icon-btn btn-secondary-icon" title="Request Pitch Deck"><Download size={18} /></button>
+          <button className="icon-btn btn-secondary-icon" title={t('discover.requestPitchDeck')}><Download size={18} /></button>
           {project.owner?.nostrPubkey && (
             <ZapButton
               recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '' }]}
@@ -288,6 +289,7 @@ const ProjectCard = ({ project }) => {
 };
 
 const Discover = () => {
+  const { t } = useTranslation();
   const location = useLocation();
   const { user } = useAuth();
   const { mode } = useUserMode();
@@ -398,13 +400,13 @@ const Discover = () => {
   return (
     <div className="discover-page container">
       {/* Header */}
-      <h1 className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>Discover Projects</h1>
+      <h1 className="page-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>{t('discover.title')}</h1>
 
       <div className="search-row">
         <div className="search-left-column">
           {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
             <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
-              <Plus size={18} /><span>New Project</span>
+              <Plus size={18} /><span>{t('discover.newProject')}</span>
             </Link>
           )}
         </div>
@@ -413,7 +415,7 @@ const Discover = () => {
             <Search size={20} className="search-icon" />
             <input
               type="text"
-              placeholder="Search by name, industry, or tag..."
+              placeholder={t('discover.searchPlaceholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
@@ -424,10 +426,10 @@ const Discover = () => {
                 <span className="filter-badge">{selectedIndustries.length + selectedStages.length}</span>
               )}
             </button>
-            <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>Search</button>
+            <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>{t('common.search')}</button>
           </div>
           {isPWA && (mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
-            <Link to="/dashboard/builder/new-project" className="pwa-create-btn" title="New Project" style={{
+            <Link to="/dashboard/builder/new-project" className="pwa-create-btn" title={t('discover.newProject')} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 44, height: 44, minWidth: 44, borderRadius: '50%',
               background: 'var(--color-primary)', color: 'white', textDecoration: 'none', flexShrink: 0
@@ -444,11 +446,11 @@ const Discover = () => {
           <aside className="filters">
             <div className="filter-header">
               <SlidersHorizontal size={18} />
-              <span>Filters</span>
+              <span>{t('common.filters')}</span>
             </div>
 
             <div className="filter-group">
-              <label>Industry</label>
+              <label>{t('discover.industry')}</label>
               <div className="checkbox-list">
                 {categories.map(cat => (
                   <label key={cat.id}>
@@ -464,7 +466,7 @@ const Discover = () => {
             </div>
 
             <div className="filter-group">
-              <label>Stage</label>
+              <label>{t('discover.stage')}</label>
               <div className="checkbox-list">
                 {['Idea', 'MVP', 'Seed', 'Series A', 'Early Revenue', 'Scaling'].map(stg => (
                   <label key={stg}>
@@ -480,7 +482,7 @@ const Discover = () => {
             </div>
 
             <div className="filter-group">
-              <label>Funding Goal</label>
+              <label>{t('discover.fundingGoal')}</label>
               <input type="range" className="range-slider" />
               <div className="range-labels">
                 <span>$10k</span>
@@ -497,18 +499,18 @@ const Discover = () => {
               <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
             </div>
           ) : filteredProjects.length > 0 ? (
-            filteredProjects.map(p => <ProjectCard key={p.id} project={p} />)
+            filteredProjects.map(p => <ProjectCard key={p.id} project={p} t={t} />)
           ) : (
             <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-              No projects found{searchQuery ? ` matching "${searchQuery}"` : ''}
+              {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noProjects')}
             </div>
           )}
         </div>
         {totalPages > 1 && (
           <div className="pagination">
-            <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</button>
-            <span>Page {page} of {totalPages}</span>
-            <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next</button>
+            <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
+            <span>{t('common.page', { current: page, total: totalPages })}</span>
+            <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
           </div>
         )}
       </div>

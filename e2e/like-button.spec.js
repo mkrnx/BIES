@@ -98,4 +98,42 @@ test.describe('Like Button - Production Docker', () => {
         const likedBtn = listEl.locator('[data-testid="feed-note"]').first().locator('[data-testid="like-btn"]');
         await expect(likedBtn).toHaveClass(/active-like/, { timeout: 15000 });
     });
+
+    test('like count persists after page reload', async ({ page }) => {
+        page.on('pageerror', err => console.error('[Page error]', err.message));
+        await setupPage(page);
+        const { emptyEl, listEl } = await waitForFeed(page);
+        if (await emptyEl.isVisible()) { test.skip(true, 'No posts in relay'); return; }
+
+        const firstNote = listEl.locator('[data-testid="feed-note"]').first();
+        const likeBtn = firstNote.locator('[data-testid="like-btn"]');
+        await expect(likeBtn).toBeVisible({ timeout: 10000 });
+
+        // Like the post if not already liked
+        if (!(await likeBtn.getAttribute('class'))?.includes('active-like')) {
+            await likeBtn.click();
+            await expect(likeBtn).toHaveClass(/active-like/, { timeout: 10000 });
+        }
+
+        // Get the like count text after liking
+        const countAfterLike = await likeBtn.locator('span').textContent();
+        const likeCount = parseInt(countAfterLike) || 0;
+        expect(likeCount).toBeGreaterThanOrEqual(1);
+
+        // Reload and verify count persists (is not 0)
+        await page.reload();
+        await expect(page.locator('[data-testid="feed-tabs"]')).toBeVisible({ timeout: 15000 });
+        await expect(listEl).toBeVisible({ timeout: 20000 });
+
+        const reloadedNote = listEl.locator('[data-testid="feed-note"]').first();
+        const reloadedLikeBtn = reloadedNote.locator('[data-testid="like-btn"]');
+        await expect(reloadedLikeBtn).toHaveClass(/active-like/, { timeout: 15000 });
+
+        // Wait for stats to load from relay, then check count is >= 1
+        await expect(async () => {
+            const countText = await reloadedLikeBtn.locator('span').textContent();
+            const count = parseInt(countText) || 0;
+            expect(count).toBeGreaterThanOrEqual(1);
+        }).toPass({ timeout: 15000 });
+    });
 });

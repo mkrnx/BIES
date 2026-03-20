@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { eventsApi } from '../services/api';
 import { useApiQuery } from '../hooks/useApi';
 import { getAssetUrl } from '../utils/assets';
