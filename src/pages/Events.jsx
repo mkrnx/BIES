@@ -99,9 +99,9 @@ const MOCK_COMMUNITY_EVENTS = [
 const CATEGORY_COLORS = {
     CONFERENCE: 'var(--color-blue-tint)',
     HACKATHON: 'var(--color-amber-tint)',
-    WORKSHOP: '#EDE9FE',
+    WORKSHOP: 'var(--color-blue-tint)',
     MEETUP: 'var(--color-green-tint)',
-    NETWORKING: '#FFE4E6',
+    NETWORKING: 'var(--color-red-tint)',
     DEMO_DAY: 'var(--color-orange-tint)',
 };
 
