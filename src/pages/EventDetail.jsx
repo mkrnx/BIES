@@ -294,7 +294,7 @@ const EventDetail = () => {
                     )}
                     <Link to="/events" style={{
                         position: 'absolute', top: '24px', left: '24px',
-                        borderRadius: '50%', background: 'white', border: '1px solid var(--color-gray-200)',
+                        borderRadius: '50%', background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)',
                         width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         textDecoration: 'none', color: 'var(--color-gray-700)', boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
                         zIndex: 10,
@@ -330,7 +330,7 @@ const EventDetail = () => {
                             </div>
                         )}
 
-                        <div className="pd-card" style={{ marginTop: '1.5rem', padding: '1.75rem', background: 'white', borderRadius: '16px', border: '1px solid var(--color-gray-200)', boxShadow: 'var(--shadow-md)' }}>
+                        <div className="pd-card" style={{ marginTop: '1.5rem', padding: '1.75rem', background: 'var(--color-surface)', borderRadius: '16px', border: '1px solid var(--color-gray-200)', boxShadow: 'var(--shadow-md)' }}>
                             <TranslatableText
                                 title={t('eventDetail.aboutEvent', 'About Event')}
                                 titleStyle={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-gray-900)' }}
@@ -422,7 +422,7 @@ const EventDetail = () => {
                                             top: '100%',
                                             left: 0,
                                             right: 0,
-                                            background: 'white',
+                                            background: 'var(--color-surface)',
                                             borderRadius: '10px',
                                             boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
                                             border: '1px solid var(--color-gray-200)',
@@ -627,7 +627,7 @@ const EventDetail = () => {
                 }
 
                 .info-card {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-xl);
                     padding: 1.75rem;
                     box-shadow: var(--shadow-md);
@@ -768,7 +768,7 @@ const PIE_COLORS = ['#F97316', '#0052cc', '#22c55e', '#8b5cf6', '#ef4444', '#06b
 const EventSection = ({ section, isSidebar }) => {
     const stype = section.type || 'TEXT';
     return (
-        <div style={{ background: 'white', border: '1px solid #e5e7eb', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginTop: '1.5rem' }}>
+        <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginTop: '1.5rem' }}>
             {stype === 'TEXT' ? (
                 <TranslatableText
                     title={section.title}

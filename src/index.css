@@ -722,7 +722,8 @@ textarea {
 [data-theme="dark"] .pd-btn-express.active,
 [data-theme="dark"] .hide-on-desktop[style*="color-primary"],
 [data-theme="dark"] .navbar,
-[data-theme="dark"] .mobile-drawer {
+[data-theme="dark"] .mobile-drawer,
+[data-theme="dark"] .rsvp-btn:not(.going) {
   background: #00004E !important;
 }
 
@@ -742,6 +743,7 @@ textarea {
 [data-theme="dark"] .sidebar-link.active,
 [data-theme="dark"] .pe-save-btn,
 [data-theme="dark"] .pe-publish-btn,
-[data-theme="dark"] .primary-action-btn {
+[data-theme="dark"] .primary-action-btn,
+[data-theme="dark"] .rsvp-btn:not(.going) {
   box-shadow: 0 0 0 1px rgba(100, 149, 237, 0.35) !important;
 }
