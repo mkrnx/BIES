@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { api } from '../services/api';
 import { getAssetUrl } from '../utils/assets';
 import { stripHtml } from '../utils/text';
 import { eventsApi } from '../services/api';
