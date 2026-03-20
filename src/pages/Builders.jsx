@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
+import { getAssetUrl } from '../utils/assets';
+import { stripHtml } from '../utils/text';
 
 const Builders = () => {
     const { t } = useTranslation();
@@ -92,7 +94,7 @@ const Builders = () => {
                                     <div className="p-5 flex-1 flex flex-col">
                                         <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>
                                         {builder.company && <p className="text-primary font-medium text-sm mb-2">{builder.company}</p>}
-                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{builder.bio || ''}</p>
+                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{stripHtml(builder.bio || '')}</p>
 
                                         {(builder.skills || builder.tags || []).length > 0 && (
                                             <div className="flex flex-wrap gap-2 mb-4">

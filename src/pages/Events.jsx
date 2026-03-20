@@ -2,7 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { api } from '../services/api';
 import { getAssetUrl } from '../utils/assets';
+import { stripHtml } from '../utils/text';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
@@ -143,7 +145,7 @@ const EventCard = ({ event, isOfficial }) => {
                 <Link to={`/events/${event.id}`} className="card-title-link">
                     <h3>{event.title}</h3>
                 </Link>
-                <p className="description">{event.description}</p>
+                <p className="description">{stripHtml(event.description)}</p>
                 <div className="meta-rows">
                     <div className="meta-item"><CalendarIcon size={13} /><span>{dateStr}</span></div>
                     <div className="meta-item"><MapPin size={13} /><span>{event.location}</span></div>

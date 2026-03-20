@@ -7,6 +7,7 @@ import ZapButton from '../components/ZapButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 import { getAssetUrl } from '../utils/assets';
+import { stripHtml } from '../utils/text';
 
 const ProjectCard = ({ project, t }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
@@ -67,7 +68,7 @@ const ProjectCard = ({ project, t }) => {
         <Link to={`/project/${project.id}`} className="card-title-link">
           <h3>{project.title || project.name}</h3>
         </Link>
-        <p className="description">{project.description || ''}</p>
+        <p className="description">{stripHtml(project.description || '')}</p>
 
         <div className="meta-row">
           <div className="meta-item">
