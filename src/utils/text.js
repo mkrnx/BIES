@@ -3,16 +3,16 @@
  * Useful for providing plain-text previews of rich-text content in thumbnails/cards.
  */
 export const stripHtml = (html) => {
-    if (!html) return '';
+    if (!html || typeof html !== 'string') return '';
     
-    // Remove HTML tags
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const text = doc.body.textContent || "";
-    
-    // If DOMParser isn't available or fails (e.g. non-browser environment), fallback to regex
-    if (!text && html.includes('<')) {
-        return html.replace(/<[^>]*>?/gm, '');
+    try {
+        if (typeof DOMParser !== 'undefined') {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            return doc.body.textContent || "";
+        }
+    } catch (e) {
+        // Fallback
     }
     
-    return text;
+    return html.replace(/<[^>]*>?/gm, '');
 };
