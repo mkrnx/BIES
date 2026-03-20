@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
+import { getAssetUrl } from '../utils/assets';
+import { stripHtml } from '../utils/text';
 
 const Investors = () => {
     const { t } = useTranslation();
@@ -92,7 +94,7 @@ const Investors = () => {
                                     <div className="p-5 flex-1 flex flex-col">
                                         <h3 className="font-semibold text-xl mb-1">{investor.name}</h3>
                                         {investor.company && <p className="text-secondary font-medium text-sm mb-2">{investor.company}</p>}
-                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{investor.bio || ''}</p>
+                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{stripHtml(investor.bio || '')}</p>
 
                                         {(investor.tags || investor.interests || []).length > 0 && (
                                             <div className="flex flex-wrap gap-2 mb-4">
