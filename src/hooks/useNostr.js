@@ -136,8 +136,19 @@ export const useNostrDMs = () => {
         setError(null);
 
         try {
+            // Try to restore signing ability (handles page refresh for all login methods)
             if (!nostrSigner.hasNip44) {
-                throw new Error('NIP-44 not available. Please log in again.');
+                const restored = await nostrSigner.tryRestore();
+                if (!restored) {
+                    const method = nostrSigner.storedMethod;
+                    if (method === 'nsec') {
+                        throw new Error('Your signing session has expired. Please log in again with your nsec key or passkey.');
+                    } else if (method === 'bunker') {
+                        throw new Error('Could not reconnect to your remote signer. Please log in again.');
+                    } else {
+                        throw new Error('Nostr signing not available. Please log in with a Nostr account to use messaging.');
+                    }
+                }
             }
 
             const pubkey = await nostrSigner.getPublicKey();

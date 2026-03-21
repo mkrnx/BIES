@@ -217,9 +217,11 @@ const Messages = () => {
                 <div className="connect-container">
                     <div className="connect-card">
                         <Lock size={48} className="mb-4 text-primary" />
-                        <h2>Connect to Nostr</h2>
+                        <h2>Private Messages</h2>
                         <p className="text-gray-500 mb-6 text-center">
-                            To view and send encrypted private messages, connect with a Nostr extension (like Alby or nos2x).
+                            {error
+                                ? 'Your Nostr signing session has expired. Please log in again to access encrypted messages.'
+                                : 'End-to-end encrypted messaging powered by Nostr (NIP-17). Log in with any Nostr method to get started.'}
                         </p>
                         {error && (
                             <div className="error-banner mb-4">
@@ -227,7 +229,7 @@ const Messages = () => {
                             </div>
                         )}
                         <button className="btn btn-primary" onClick={connect} disabled={loading}>
-                            {loading ? 'Connecting...' : 'Connect Extension'}
+                            {loading ? 'Connecting...' : 'Connect'}
                         </button>
                     </div>
                 </div>

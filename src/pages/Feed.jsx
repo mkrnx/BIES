@@ -491,7 +491,7 @@ const Feed = () => {
         if ((!composeText.trim() && attachedFiles.length === 0) || posting || uploading) return;
 
         if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) {
-            setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
+            setPostError('Nostr signing not available. Please log in with your Nostr account to post.');
             return;
         }
 
