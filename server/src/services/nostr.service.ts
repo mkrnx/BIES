@@ -338,6 +338,148 @@ export async function publishCalendarEvent(
 }
 
 /**
+ * Publish a NIP-09 deletion event (Kind 5) to remove a calendar event from relays.
+ * References the original event by its Nostr event ID.
+ */
+export async function deleteCalendarEvent(
+    userId: string,
+    nostrEventId: string,
+    dTag: string,
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<boolean> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — deletion happens client-side
+            return false;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const deletionEvent: EventTemplate = {
+            kind: 5,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', nostrEventId],
+                ['a', `31923:${user.nostrPubkey}:${dTag}`],
+            ],
+            content: 'Event deleted from BIES',
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(deletionEvent, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays: string[] = [];
+        if ((target === 'bies' || target === 'both') && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+        if (target === 'public' || target === 'both') {
+            relays.push(...config.nostrRelays);
+        }
+        if (relays.length === 0 && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-09 deletion published to ${published}/${relays.length} relays`);
+        return published > 0;
+    } catch (error) {
+        console.error('[Nostr] NIP-09 deletion error:', error);
+        return false;
+    }
+}
+
+/**
+ * Publish a NIP-52 calendar event RSVP (Kind 31925).
+ */
+export async function publishRSVPEvent(
+    userId: string,
+    eventData: {
+        eventId: string;
+        eventDTag: string;
+        hostPubkey: string;
+        status: 'accepted' | 'declined' | 'tentative';
+    },
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            return null;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const rsvpTags: string[][] = [
+            ['d', `${eventData.eventDTag}-rsvp`],
+            ['a', `31923:${eventData.hostPubkey}:${eventData.eventDTag}`],
+            ['L', 'status'],
+            ['l', eventData.status, 'status'],
+            ['p', eventData.hostPubkey],
+        ];
+
+        const rsvpEvent: EventTemplate = {
+            kind: 31925,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: rsvpTags,
+            content: '',
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(rsvpEvent, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays: string[] = [];
+        if ((target === 'bies' || target === 'both') && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+        if (target === 'public' || target === 'both') {
+            relays.push(...config.nostrRelays);
+        }
+        if (relays.length === 0 && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-52 RSVP published to ${published}/${relays.length} relays (status: ${eventData.status})`);
+        return published > 0 ? signed.id : null;
+    } catch (error) {
+        console.error('[Nostr] NIP-52 RSVP publish error:', error);
+        return null;
+    }
+}
+
+/**
+ * Validate NIP-52 calendar event data before publishing.
+ * Returns null if valid, or an error message string.
+ */
+export function validateCalendarEventData(event: {
+    id?: string;
+    title?: string;
+    startDate?: Date | null;
+}): string | null {
+    if (!event.id) return 'Event ID (d-tag) is required';
+    if (!event.title || event.title.trim().length === 0) return 'Event title is required';
+    if (!event.startDate) return 'Start date is required';
+    const startUnix = event.startDate.getTime();
+    if (isNaN(startUnix)) return 'Start date is not a valid date';
+    return null;
+}
+
+/**
  * Convert hex string to Uint8Array
  */
 function hexToBytes(hex: string): Uint8Array {

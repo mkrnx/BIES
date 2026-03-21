@@ -528,8 +528,14 @@ class NostrService {
      * @param {'bies'|'public'|'both'} target - Which relays to publish to
      */
     async publishCalendarEvent(eventData, target = 'bies') {
-        const pubkey = await nostrSigner.getPublicKey();
+        // Validate required NIP-52 fields
+        if (!eventData.id) throw new Error('Event ID (d-tag) is required for NIP-52');
+        if (!eventData.title?.trim()) throw new Error('Event title is required for NIP-52');
+        if (!eventData.startDate) throw new Error('Start date is required for NIP-52');
         const startUnix = Math.floor(new Date(eventData.startDate).getTime() / 1000);
+        if (isNaN(startUnix)) throw new Error('Invalid start date for NIP-52');
+
+        const pubkey = await nostrSigner.getPublicKey();
 
         const tags = [
             ['d', eventData.id],
@@ -595,6 +601,140 @@ class NostrService {
         }
         console.log(`[NIP-52] Calendar event published to ${succeeded}/${relays.length} relays (target: ${target})`);
         return signedEvent.id;
+    }
+
+    /**
+     * Subscribe to NIP-52 calendar events (kind:31923) from relays.
+     * Returns a subscription handle with a .close() method.
+     * @param {Function} callback - Called with each calendar event
+     * @param {Object} [options] - Optional filter overrides
+     * @param {string[]} [options.authors] - Filter by author pubkeys
+     * @param {number} [options.since] - Only events after this unix timestamp
+     * @param {number} [options.limit] - Max events to fetch
+     */
+    subscribeToCalendarEvents(callback, options = {}) {
+        const filter = {
+            kinds: [31923],
+            ...(options.authors ? { authors: options.authors } : {}),
+            ...(options.since ? { since: options.since } : {}),
+            limit: options.limit || 50,
+        };
+
+        const relays = [this.biesRelay, ...this.publicRelays];
+
+        const sub = this.pool.subscribeMany(
+            relays,
+            filter,
+            {
+                onevent: (event) => callback(event),
+                onauth: handleRelayAuth,
+            }
+        );
+
+        return sub;
+    }
+
+    /**
+     * Publish a NIP-09 deletion event (kind:5) to remove a calendar event.
+     * @param {string} nostrEventId - The Nostr event ID to delete
+     * @param {string} dTag - The d-tag of the calendar event
+     * @param {'bies'|'public'|'both'} target - Which relays to delete from
+     */
+    async deleteCalendarEvent(nostrEventId, dTag, target = 'bies') {
+        const pubkey = await nostrSigner.getPublicKey();
+
+        const event = {
+            kind: 5,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', nostrEventId],
+                ['a', `31923:${pubkey}:${dTag}`],
+            ],
+            content: 'Event deleted from BIES',
+        };
+
+        let relays;
+        if (target === 'bies') relays = [this.biesRelay];
+        else if (target === 'public') relays = [...this.publicRelays];
+        else relays = [this.biesRelay, ...this.publicRelays];
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(relays, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`[NIP-09] Deletion published to ${succeeded}/${relays.length} relays`);
+        return succeeded > 0;
+    }
+
+    /**
+     * Publish a NIP-52 calendar event RSVP (kind:31925).
+     * @param {Object} rsvpData - { eventDTag, hostPubkey, status }
+     * @param {'bies'|'public'|'both'} target
+     */
+    async publishRSVPEvent(rsvpData, target = 'bies') {
+        const pubkey = await nostrSigner.getPublicKey();
+
+        const tags = [
+            ['d', `${rsvpData.eventDTag}-rsvp`],
+            ['a', `31923:${rsvpData.hostPubkey}:${rsvpData.eventDTag}`],
+            ['L', 'status'],
+            ['l', rsvpData.status, 'status'],
+            ['p', rsvpData.hostPubkey],
+        ];
+
+        const event = {
+            kind: 31925,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: '',
+        };
+
+        let relays;
+        if (target === 'bies') relays = [this.biesRelay];
+        else if (target === 'public') relays = [...this.publicRelays];
+        else relays = [this.biesRelay, ...this.publicRelays];
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(relays, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        if (succeeded === 0) {
+            throw new Error('Failed to publish NIP-52 RSVP to any relay');
+        }
+        console.log(`[NIP-52] RSVP published to ${succeeded}/${relays.length} relays`);
+        return signedEvent.id;
+    }
+
+    /**
+     * Check relay connectivity. Returns { url, connected } for each relay.
+     * Caches result for 30 seconds to avoid spamming WebSocket connections.
+     */
+    async checkRelayHealth() {
+        if (this._relayHealthCache && Date.now() - this._relayHealthCacheTime < 30000) {
+            return this._relayHealthCache;
+        }
+        const relays = [this.biesRelay, ...this.publicRelays];
+        const results = await Promise.allSettled(
+            relays.map(async (url) => {
+                const ws = new WebSocket(url);
+                return new Promise((resolve, reject) => {
+                    const timeout = setTimeout(() => { ws.close(); reject(new Error('timeout')); }, 5000);
+                    ws.onopen = () => { clearTimeout(timeout); ws.close(); resolve(url); };
+                    ws.onerror = () => { clearTimeout(timeout); reject(new Error('error')); };
+                });
+            })
+        );
+        const health = relays.map((url, i) => ({
+            url,
+            connected: results[i].status === 'fulfilled',
+        }));
+        this._relayHealthCache = health;
+        this._relayHealthCacheTime = Date.now();
+        return health;
     }
 
     /**

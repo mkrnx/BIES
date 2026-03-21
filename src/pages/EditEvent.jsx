@@ -46,6 +46,7 @@ const EditEvent = () => {
     const [pageLoading, setPageLoading] = useState(true);
     const [uploadLoading, setUploadLoading] = useState(false);
     const [submitError, setSubmitError] = useState('');
+    const [nostrStatus, setNostrStatus] = useState(null);
 
     const [form, setForm] = useState({
         title: '', category: '', description: '',
@@ -58,6 +59,13 @@ const EditEvent = () => {
     });
     const [tags, setTags] = useState([]);
     const [customSections, setCustomSections] = useState([]);
+    const [relayHealth, setRelayHealth] = useState(null);
+
+    useEffect(() => {
+        if (form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && form.nostrPublish !== 'none') {
+            nostrService.checkRelayHealth().then(setRelayHealth).catch(() => {});
+        }
+    }, [form.visibility, form.nostrPublish]);
 
     useEffect(() => {
         const load = async () => {
@@ -334,14 +342,15 @@ const EditEvent = () => {
     const handleSubmit = async () => {
         setLoading(true);
         setSubmitError('');
+        setNostrStatus(null);
         try {
             const payload = buildPayload();
             const updated = await eventsApi.update(id, payload);
+            const eventData = updated.data || updated;
 
-            // For Nostr-native users, publish NIP-52 client-side
-            if (payload.nostrPublish !== 'none' && nostrSigner._mode) {
+            if (payload.nostrPublish !== 'none' && nostrSigner._mode && !eventData.nostrPublished) {
+                setNostrStatus('publishing');
                 try {
-                    const eventData = updated.data || updated;
                     await nostrService.publishCalendarEvent({
                         id: eventData.id || id,
                         title: payload.title,
@@ -357,12 +366,16 @@ const EditEvent = () => {
                         thumbnail: payload.thumbnail,
                         ticketUrl: payload.ticketUrl,
                     }, payload.nostrPublish);
+                    setNostrStatus('success');
                 } catch (nostrErr) {
                     console.warn('[NIP-52] Client-side publish failed:', nostrErr);
+                    setNostrStatus('failed');
                 }
+            } else if (eventData.nostrPublished) {
+                setNostrStatus('success');
             }
 
-            navigate('/events/my');
+            setTimeout(() => navigate('/events/my'), nostrStatus === 'failed' ? 2000 : 500);
         } catch (err) {
             if (err.data?.details) {
                 setSubmitError(`${err.message}: ${err.data.details.map(d => `${d.field}: ${d.message}`).join(', ')}`);
@@ -400,6 +413,17 @@ const EditEvent = () => {
 
                 {submitError && (
                     <div className="error-banner"><AlertCircle size={16} /> {submitError}</div>
+                )}
+
+                {nostrStatus && nostrStatus !== 'skipped' && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1rem', background: nostrStatus === 'success' ? 'var(--color-green-tint)' : nostrStatus === 'failed' ? 'var(--color-red-tint)' : 'var(--color-blue-tint)', color: nostrStatus === 'success' ? '#166534' : nostrStatus === 'failed' ? '#B91C1C' : '#1d4ed8', borderRadius: '8px', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
+                        {nostrStatus === 'publishing' && <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />}
+                        {nostrStatus === 'success' && <Radio size={16} />}
+                        {nostrStatus === 'failed' && <AlertCircle size={16} />}
+                        {nostrStatus === 'publishing' && 'Publishing to Nostr relays...'}
+                        {nostrStatus === 'success' && 'Updated on Nostr (NIP-52 calendar event)'}
+                        {nostrStatus === 'failed' && 'Failed to update on Nostr — changes saved to BIES only'}
+                    </div>
                 )}
 
                 {/* Cover Image Banner */}
@@ -606,6 +630,19 @@ const EditEvent = () => {
                                             </label>
                                         ))}
                                     </div>
+                                    {relayHealth && form.nostrPublish !== 'none' && (
+                                        <div style={{ marginTop: '0.75rem', padding: '0.6rem 0.75rem', background: 'var(--color-gray-50)', borderRadius: '6px', border: '1px solid var(--color-gray-200)' }}>
+                                            <p style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--color-gray-500)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Relay Status</p>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                {relayHealth.map((r, i) => (
+                                                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.75rem', color: 'var(--color-gray-600)' }}>
+                                                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: r.connected ? '#22c55e' : '#ef4444', flexShrink: 0 }} />
+                                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.url.replace(/^wss?:\/\//, '')}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
