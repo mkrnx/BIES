@@ -203,7 +203,7 @@ const Feed = () => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
-            [{ kinds: [1, 6], limit: 50 }],
+            { kinds: [1, 6], limit: 50 },
             {
                 onevent: (event) => {
                     // Handle reposts (kind 6) — parse the embedded original post
@@ -298,7 +298,7 @@ const Feed = () => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY, ...nostrService.relays],
-            [{ kinds: [7, 6, 1], '#e': postIds, limit: 2000 }],
+            { kinds: [7, 6, 1], '#e': postIds, limit: 2000 },
             {
                 onevent: (event) => {
                     const eTag = event.tags.find(t => t[0] === 'e');
@@ -984,7 +984,7 @@ const Feed = () => {
             const commentPubkeys = [];
             const sub = nostrService.pool.subscribeMany(
                 [BIES_RELAY],
-                [{ kinds: [1], '#e': [postId], limit: 100 }],
+                { kinds: [1], '#e': [postId], limit: 100 },
                 {
                     onevent: (event) => {
                         if (!fetchedProfiles.current.has(event.pubkey)) {
