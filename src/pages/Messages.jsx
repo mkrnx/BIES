@@ -468,6 +468,7 @@ const sharedStyles = `
         box-sizing: border-box;
         display: flex;
         flex-direction: column;
+        overflow: hidden;
     }
 
     /* ── Connect / loading centered cards ── */
@@ -515,7 +516,7 @@ const sharedStyles = `
     }
 
     /* ── Sidebar ── */
-    .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; }
+    .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
     .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
     /* ── Unified search box ── */
@@ -569,7 +570,7 @@ const sharedStyles = `
     .chat-tab-close:hover { background: var(--color-gray-200); }
 
     /* ── Chat area ── */
-    .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; }
+    .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; min-height: 0; overflow: hidden; }
     .chat-header { padding: 0.75rem 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
     .active-chat-content { flex: 1; padding: 1.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 0.75rem; }
