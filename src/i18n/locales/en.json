@@ -617,7 +617,7 @@
     "uploading": "Uploading...",
     "nostrFeed": "Nostr Feed",
     "biesFeed": "BIES Feed",
-    "privateRelay": "BIES Private",
+    "privateRelay": "Private nostr",
     "explore": "Public nostr",
     "public": "Public",
     "private": "Private",
