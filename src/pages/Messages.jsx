@@ -488,19 +488,7 @@ const Messages = () => {
 };
 
 const sharedStyles = `
-    /* ── Page wrapper ── */
-    .messages-page {
-        position: fixed;
-        top: 73px;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        padding: 0.75rem var(--spacing-md);
-        box-sizing: border-box;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
+    /* ── Page wrapper lives in index.css (styled-jsx can't scope root element) ── */
 
     /* ── Connect / loading centered cards ── */
     .connect-container {
@@ -655,11 +643,6 @@ const sharedStyles = `
 
     /* ── Mobile ── */
     @media (max-width: 768px) {
-        .messages-page {
-            top: 73px;
-            bottom: calc(72px + env(safe-area-inset-bottom, 0px));
-            padding: 0;
-        }
         .messages-layout {
             border-radius: 0;
             border-left: none;
