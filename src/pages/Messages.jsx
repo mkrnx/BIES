@@ -509,7 +509,6 @@ const sharedStyles = `
         display: flex;
         flex: 1 1 0%;
         min-height: 0;
-        height: 0;
         border: 1px solid var(--color-gray-200);
         border-radius: var(--radius-lg);
         overflow: hidden;
