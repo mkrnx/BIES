@@ -186,6 +186,7 @@ body {
   background-color: var(--color-gray-50);
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
+  overscroll-behavior-y: contain;
 }
 
 input,
