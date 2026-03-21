@@ -66,6 +66,31 @@ function verifyAuthEvent(event, challenge, expectedRelayUrl) {
     return null; // success
 }
 
+// ─── NIP-01 REQ normalisation ────────────────────────────────────────────────
+// nostr-tools v2 sometimes sends filters wrapped in an extra array:
+//   ["REQ","sub:1",[{"kinds":[1,6],"limit":50}]]
+// NIP-01 requires each filter as a separate element:
+//   ["REQ","sub:1",{"kinds":[1,6],"limit":50}]
+// Normalise before forwarding so strfry accepts the request.
+function normalizeMessage(text) {
+    let msg;
+    try { msg = JSON.parse(text); } catch { return text; }
+    if (!Array.isArray(msg) || msg[0] !== 'REQ' || msg.length < 3) return text;
+
+    let changed = false;
+    const normalized = [msg[0], msg[1]];
+    for (let i = 2; i < msg.length; i++) {
+        if (Array.isArray(msg[i])) {
+            // Spread the nested filter array
+            normalized.push(...msg[i]);
+            changed = true;
+        } else {
+            normalized.push(msg[i]);
+        }
+    }
+    return changed ? JSON.stringify(normalized) : text;
+}
+
 // ─── WebSocket proxy server ──────────────────────────────────────────────────
 const wss = new WebSocketServer({ port: LISTEN_PORT });
 
@@ -130,7 +155,8 @@ wss.on('connection', (clientWs, req) => {
         while (pendingMessages.length > 0) {
             const buffered = pendingMessages.shift();
             if (upstream && upstream.readyState === WebSocket.OPEN) {
-                upstream.send(typeof buffered !== 'string' ? buffered.toString() : buffered);
+                const str = typeof buffered !== 'string' ? buffered.toString() : buffered;
+                upstream.send(normalizeMessage(str));
             }
         }
     }
@@ -184,7 +210,7 @@ wss.on('connection', (clientWs, req) => {
 
         // After auth: transparent forwarding to upstream
         if (upstream && upstream.readyState === WebSocket.OPEN) {
-            upstream.send(text);
+            upstream.send(normalizeMessage(text));
         }
     });
 
