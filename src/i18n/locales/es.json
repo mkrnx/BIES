@@ -77,7 +77,7 @@
     "adminView": "Vista Admin"
   },
   "pageTitles": {
-    "biesFeed": "BIES Feed",
+    "biesFeed": "BIES nostr Feed",
     "discoverProjects": "Descubrir Proyectos",
     "ecosystemEvents": "Eventos del Ecosistema",
     "news": "Noticias",
@@ -575,8 +575,8 @@
     "posting": "Publicando...",
     "uploading": "Subiendo...",
     "nostrFeed": "Feed Nostr",
-    "biesFeed": "Feed BIES",
-    "privateRelay": "BIES Private nostr",
+    "biesFeed": "BIES nostr Feed",
+    "privateRelay": "BIES private",
     "explore": "Public nostr",
     "public": "Publico",
     "private": "Privado",
