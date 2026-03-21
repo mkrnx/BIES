@@ -6,7 +6,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
-import { publishAnnouncement, publishCalendarEvent } from '../services/nostr.service';
+import { publishAnnouncement, publishCalendarEvent, deleteCalendarEvent, publishRSVPEvent, validateCalendarEventData } from '../services/nostr.service';
 import { notifyEventRsvp } from '../services/notification.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -321,32 +321,44 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
         }
 
         // Publish NIP-52 calendar event to Nostr relays (custodial users)
+        let nostrPublished = false;
         if (nostrPublish !== 'none' && isPublished) {
-            publishCalendarEvent(req.user!.id, {
+            const validationError = validateCalendarEventData({
                 id: event.id,
                 title: event.title,
-                description: event.description,
                 startDate: data.startDate,
-                endDate: data.endDate || undefined,
-                location: event.location || undefined,
-                locationName: event.locationName || undefined,
-                locationAddress: event.locationAddress || undefined,
-                isOnline: event.isOnline,
-                onlineUrl: event.onlineUrl || undefined,
-                category: event.category,
-                tags: parsedTags,
-                thumbnail: event.thumbnail || undefined,
-                ticketUrl: event.ticketUrl || undefined,
-            }, nostrPublish as 'bies' | 'public' | 'both').then(async (nostrEventId) => {
-                if (nostrEventId) {
-                    await prisma.event.update({
-                        where: { id: event.id },
-                        data: { nostrEventId },
-                    });
+            });
+            if (validationError) {
+                console.warn('[Nostr] NIP-52 validation failed:', validationError);
+            } else {
+                try {
+                    const nostrEventId = await publishCalendarEvent(req.user!.id, {
+                        id: event.id,
+                        title: event.title,
+                        description: event.description,
+                        startDate: data.startDate,
+                        endDate: data.endDate || undefined,
+                        location: event.location || undefined,
+                        locationName: event.locationName || undefined,
+                        locationAddress: event.locationAddress || undefined,
+                        isOnline: event.isOnline,
+                        onlineUrl: event.onlineUrl || undefined,
+                        category: event.category,
+                        tags: parsedTags,
+                        thumbnail: event.thumbnail || undefined,
+                        ticketUrl: event.ticketUrl || undefined,
+                    }, nostrPublish as 'bies' | 'public' | 'both');
+                    if (nostrEventId) {
+                        await prisma.event.update({
+                            where: { id: event.id },
+                            data: { nostrEventId },
+                        });
+                        nostrPublished = true;
+                    }
+                } catch (err) {
+                    console.error('[Nostr] NIP-52 calendar event publish failed:', err);
                 }
-            }).catch((err) =>
-                console.error('[Nostr] NIP-52 calendar event publish failed:', err)
-            );
+            }
         }
 
         res.status(201).json({
@@ -354,6 +366,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
             customSections: JSON.parse((event as any).customSections || '[]'),
+            nostrPublished,
         });
     } catch (error) {
         console.error('Create event error:', error);
@@ -373,7 +386,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
     try {
         const existing = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { hostId: true, visibility: true },
+            select: { hostId: true, visibility: true, nostrEventId: true, nostrPublish: true },
         });
 
         if (!existing) { res.status(404).json({ error: 'Event not found' }); return; }
@@ -417,35 +430,57 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
         const event = await prisma.event.update({ where: { id: req.params.id }, data });
         await cache.delPattern('events:');
 
-        // Re-publish NIP-52 calendar event if nostrPublish is set
-        if (nostrPublish !== 'none') {
-            const isPublished = event.isPublished;
-            if (isPublished) {
-                publishCalendarEvent(req.user!.id, {
-                    id: event.id,
-                    title: event.title,
-                    description: event.description,
-                    startDate: event.startDate,
-                    endDate: event.endDate || undefined,
-                    location: event.location || undefined,
-                    locationName: event.locationName || undefined,
-                    locationAddress: event.locationAddress || undefined,
-                    isOnline: event.isOnline,
-                    onlineUrl: event.onlineUrl || undefined,
-                    category: event.category,
-                    tags: parsedTags.length > 0 ? parsedTags : JSON.parse(event.tags || '[]'),
-                    thumbnail: event.thumbnail || undefined,
-                    ticketUrl: event.ticketUrl || undefined,
-                }, nostrPublish as 'bies' | 'public' | 'both').then(async (nostrEventId) => {
+        // If visibility changed to non-public and event was previously on Nostr, delete it
+        let nostrPublished = false;
+        const wasPublic = visibilityToPublished(existing.visibility);
+        const isNowPublic = event.isPublished;
+
+        if (wasPublic && !isNowPublic && existing.nostrEventId) {
+            const prevTarget = (existing.nostrPublish || 'bies') as 'bies' | 'public' | 'both';
+            deleteCalendarEvent(req.user!.id, existing.nostrEventId, event.id, prevTarget).catch((err) =>
+                console.error('[Nostr] NIP-09 deletion on visibility change failed:', err)
+            );
+            await prisma.event.update({
+                where: { id: event.id },
+                data: { nostrEventId: '', nostrPublish: 'none' },
+            });
+        } else if (nostrPublish !== 'none' && isNowPublic) {
+            // Re-publish NIP-52 calendar event (kind 31923 is replaceable via d-tag)
+            const validationError = validateCalendarEventData({
+                id: event.id,
+                title: event.title,
+                startDate: event.startDate,
+            });
+            if (validationError) {
+                console.warn('[Nostr] NIP-52 validation failed on update:', validationError);
+            } else {
+                try {
+                    const nostrEventId = await publishCalendarEvent(req.user!.id, {
+                        id: event.id,
+                        title: event.title,
+                        description: event.description,
+                        startDate: event.startDate,
+                        endDate: event.endDate || undefined,
+                        location: event.location || undefined,
+                        locationName: event.locationName || undefined,
+                        locationAddress: event.locationAddress || undefined,
+                        isOnline: event.isOnline,
+                        onlineUrl: event.onlineUrl || undefined,
+                        category: event.category,
+                        tags: parsedTags.length > 0 ? parsedTags : JSON.parse(event.tags || '[]'),
+                        thumbnail: event.thumbnail || undefined,
+                        ticketUrl: event.ticketUrl || undefined,
+                    }, nostrPublish as 'bies' | 'public' | 'both');
                     if (nostrEventId) {
                         await prisma.event.update({
                             where: { id: event.id },
                             data: { nostrEventId },
                         });
+                        nostrPublished = true;
                     }
-                }).catch((err) =>
-                    console.error('[Nostr] NIP-52 calendar event update failed:', err)
-                );
+                } catch (err) {
+                    console.error('[Nostr] NIP-52 calendar event update failed:', err);
+                }
             }
         }
 
@@ -454,6 +489,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
             customSections: JSON.parse((event as any).customSections || '[]'),
+            nostrPublished,
         });
     } catch (error) {
         console.error('Update event error:', error);
@@ -469,12 +505,24 @@ export async function deleteEvent(req: Request, res: Response): Promise<void> {
     try {
         const existing = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { hostId: true },
+            select: { hostId: true, nostrEventId: true, nostrPublish: true },
         });
 
         if (!existing) { res.status(404).json({ error: 'Event not found' }); return; }
         if (existing.hostId !== req.user!.id && req.user!.role !== 'ADMIN') {
             res.status(403).json({ error: 'Not authorized' }); return;
+        }
+
+        // Delete NIP-52 calendar event from Nostr relays before removing from DB
+        if (existing.nostrEventId && existing.nostrPublish !== 'none') {
+            deleteCalendarEvent(
+                existing.hostId,
+                existing.nostrEventId,
+                req.params.id,
+                (existing.nostrPublish || 'bies') as 'bies' | 'public' | 'both'
+            ).catch((err) =>
+                console.error('[Nostr] NIP-09 deletion on event delete failed:', err)
+            );
         }
 
         await prisma.event.delete({ where: { id: req.params.id } });
@@ -528,7 +576,12 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
 
         const event = await prisma.event.findUnique({
             where: { id: req.params.id },
-            select: { title: true, hostId: true, maxAttendees: true, isPublished: true, visibility: true, _count: { select: { attendees: true } } },
+            select: {
+                title: true, hostId: true, maxAttendees: true, isPublished: true,
+                visibility: true, nostrPublish: true,
+                host: { select: { nostrPubkey: true } },
+                _count: { select: { attendees: true } },
+            },
         });
 
         if (!event || !event.isPublished) {
@@ -580,6 +633,31 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
                     status,
                 }).catch(() => {});
             }
+        }
+
+        // Publish NIP-52 RSVP (kind 31925) to Nostr
+        const nostrTarget = (event.nostrPublish || 'none') as string;
+        if (nostrTarget !== 'none' && event.host?.nostrPubkey) {
+            const rsvpStatusMap: Record<string, 'accepted' | 'declined' | 'tentative'> = {
+                GOING: 'accepted',
+                INTERESTED: 'tentative',
+                NOT_GOING: 'declined',
+            };
+            publishRSVPEvent(userId, {
+                eventId: req.params.id,
+                eventDTag: req.params.id,
+                hostPubkey: event.host.nostrPubkey,
+                status: rsvpStatusMap[status] || 'tentative',
+            }, nostrTarget as 'bies' | 'public' | 'both').then(async (nostrRsvpId) => {
+                if (nostrRsvpId) {
+                    await prisma.eventAttendee.update({
+                        where: { id: attendee.id },
+                        data: { nostrEventId: nostrRsvpId },
+                    });
+                }
+            }).catch((err) =>
+                console.error('[Nostr] NIP-52 RSVP publish failed:', err)
+            );
         }
 
         res.json(attendee);

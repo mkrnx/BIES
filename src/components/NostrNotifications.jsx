@@ -75,7 +75,7 @@ const NostrNotifications = ({ mobile = false }) => {
         const postIds = new Set();
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
-            [{ kinds: [1], authors: [myPubkey], limit: 200 }],
+            { kinds: [1], authors: [myPubkey], limit: 200 },
             {
                 onevent: (event) => {
                     postIds.add(event.id);
@@ -100,7 +100,7 @@ const NostrNotifications = ({ mobile = false }) => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
-            [{ kinds: [7, 6, 1], '#e': postIdArray, limit: 200 }],
+            { kinds: [7, 6, 1], '#e': postIdArray, limit: 200 },
             {
                 onevent: (event) => {
                     // Skip own events

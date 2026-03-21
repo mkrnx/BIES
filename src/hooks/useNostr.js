@@ -121,7 +121,7 @@ export const useNostrFeed = (npubs) => {
  * Subscribes to kind:1059 gift-wraps, unwraps them to extract kind:14 rumors,
  * and groups messages by conversation partner.
  */
-export const useNostrDMs = () => {
+export const useNostrDMs = ({ onIncomingMessage } = {}) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [publicKey, setPublicKey] = useState(null);
@@ -130,14 +130,27 @@ export const useNostrDMs = () => {
     const subRef = useRef(null);
     const processedIds = useRef(new Set());
     const fetchedProfiles = useRef(new Set());
+    const onIncomingRef = useRef(onIncomingMessage);
+    onIncomingRef.current = onIncomingMessage;
 
     const connect = useCallback(async () => {
         setLoading(true);
         setError(null);
 
         try {
+            // Try to restore signing ability (handles page refresh for all login methods)
             if (!nostrSigner.hasNip44) {
-                throw new Error('NIP-44 not available. Please log in again.');
+                const restored = await nostrSigner.tryRestore();
+                if (!restored) {
+                    const method = nostrSigner.storedMethod;
+                    if (method === 'nsec') {
+                        throw new Error('Your signing session has expired. Please log in again with your nsec key or passkey.');
+                    } else if (method === 'bunker') {
+                        throw new Error('Could not reconnect to your remote signer. Please log in again.');
+                    } else {
+                        throw new Error('Nostr signing not available. Please log in with a Nostr account to use messaging.');
+                    }
+                }
             }
 
             const pubkey = await nostrSigner.getPublicKey();
@@ -196,6 +209,11 @@ export const useNostrDMs = () => {
                         }
                         return [...prev, dm].sort((a, b) => a.created_at - b.created_at);
                     });
+
+                    // Fire notification callback for received (not sent) messages
+                    if (!dm.isSender) {
+                        onIncomingRef.current?.(dm);
+                    }
                 } catch (err) {
                     // Skip messages we can't decrypt (not for us, corrupted, etc.)
                     console.debug('Could not unwrap gift-wrap:', err.message);

@@ -45,7 +45,7 @@ if ! git reset --hard "origin/$BRANCH" >> "$LOG_FILE" 2>&1; then
 fi
 
 log "Building containers..."
-if ! docker compose build --no-cache >> "$LOG_FILE" 2>&1; then
+if ! docker compose build >> "$LOG_FILE" 2>&1; then
   log "ERROR: docker compose build failed"
   exit 1
 fi

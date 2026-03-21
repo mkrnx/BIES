@@ -330,11 +330,12 @@ model Event {
 }
 
 model EventAttendee {
-  id       String   @id @default(cuid())
-  eventId  String   @map("event_id")
-  userId   String   @map("user_id")
-  status   String   @default("GOING") // GOING | INTERESTED | NOT_GOING
-  joinedAt DateTime @default(now()) @map("joined_at")
+  id            String   @id @default(cuid())
+  eventId       String   @map("event_id")
+  userId        String   @map("user_id")
+  status        String   @default("GOING") // GOING | INTERESTED | NOT_GOING
+  nostrEventId  String?  @map("nostr_event_id") // NIP-52 RSVP event id (kind 31925)
+  joinedAt      DateTime @default(now()) @map("joined_at")
 
   event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)

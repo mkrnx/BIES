@@ -203,7 +203,7 @@ const Feed = () => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY],
-            [{ kinds: [1, 6], limit: 50 }],
+            { kinds: [1, 6], limit: 50 },
             {
                 onevent: (event) => {
                     // Handle reposts (kind 6) — parse the embedded original post
@@ -298,7 +298,7 @@ const Feed = () => {
 
         const sub = nostrService.pool.subscribeMany(
             [BIES_RELAY, ...nostrService.relays],
-            [{ kinds: [7, 6, 1], '#e': postIds, limit: 2000 }],
+            { kinds: [7, 6, 1], '#e': postIds, limit: 2000 },
             {
                 onevent: (event) => {
                     const eTag = event.tags.find(t => t[0] === 'e');
@@ -491,7 +491,7 @@ const Feed = () => {
         if ((!composeText.trim() && attachedFiles.length === 0) || posting || uploading) return;
 
         if (!nostrSigner.hasKey && nostrSigner.mode !== 'extension' && !nostrSigner.storedMethod && !window.nostr) {
-            setPostError('Nostr signing not available. Please log in with an nsec key or browser extension to post.');
+            setPostError('Nostr signing not available. Please log in with your Nostr account to post.');
             return;
         }
 
@@ -984,7 +984,7 @@ const Feed = () => {
             const commentPubkeys = [];
             const sub = nostrService.pool.subscribeMany(
                 [BIES_RELAY],
-                [{ kinds: [1], '#e': [postId], limit: 100 }],
+                { kinds: [1], '#e': [postId], limit: 100 },
                 {
                     onevent: (event) => {
                         if (!fetchedProfiles.current.has(event.pubkey)) {
@@ -1295,15 +1295,6 @@ const Feed = () => {
                     <h1 className="feed-title page-header">
                         <NostrIcon size={24} /> {t('feed.biesFeed')}
                     </h1>
-                    <button
-                        className={`feed-refresh-btn${refreshing ? ' spinning' : ''}`}
-                        onClick={handleRefreshFeed}
-                        disabled={loading || refreshing}
-                        title={t('feed.refresh', 'Refresh feed')}
-                        aria-label={t('feed.refresh', 'Refresh feed')}
-                    >
-                        <RefreshCw size={18} />
-                    </button>
                 </div>
 
                 {/* Feed Mode Tabs */}
@@ -1969,38 +1960,11 @@ const Feed = () => {
                     box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
                 }
 
-                /* Refresh button in header (desktop) */
-                .feed-refresh-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 36px;
-                    height: 36px;
-                    border-radius: 50%;
-                    border: 1px solid #e5e7eb;
-                    background: var(--color-gray-100);
-                    color: #6b7280;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    flex-shrink: 0;
-                }
-                .feed-refresh-btn:hover {
-                    background: var(--color-gray-200, #e5e7eb);
-                    color: var(--color-primary, #0047AB);
-                }
-                .feed-refresh-btn:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-                .feed-refresh-btn.spinning svg,
                 .feed-tab-refresh.spinning svg {
                     animation: spin 0.8s linear infinite;
                 }
-                @media (max-width: 768px) {
-                    .feed-refresh-btn { display: none; }
-                }
 
-                /* Refresh button in tab bar (always visible) */
+                /* Refresh button in tab bar */
                 .feed-tab-refresh {
                     display: flex;
                     align-items: center;
@@ -3049,15 +3013,6 @@ const Feed = () => {
                 }
                 :global([data-theme="dark"]) .feed-tab.active {
                     color: #ffffff;
-                }
-                :global([data-theme="dark"]) .feed-refresh-btn {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                    color: #94a3b8;
-                }
-                :global([data-theme="dark"]) .feed-refresh-btn:hover {
-                    background: #2d3748;
-                    color: #60a5fa;
                 }
                 :global([data-theme="dark"]) .feed-tab-refresh {
                     color: #94a3b8;

@@ -6,6 +6,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import './i18n';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
+import PullToRefresh from './components/PullToRefresh';
 import ModeSelectionModal from './components/ModeSelectionModal';
 
 // Pages
@@ -120,6 +121,7 @@ const AppContent = () => {
     return (
         <>
             <Navbar />
+            <PullToRefresh>
             <div className="app-content">
                 <Routes>
                     {/* Public Routes */}
@@ -264,6 +266,7 @@ const AppContent = () => {
                     } />
                 </Routes>
             </div>
+            </PullToRefresh>
             <MobileBottomNav />
         </>
     );

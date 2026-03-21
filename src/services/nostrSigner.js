@@ -230,7 +230,24 @@ class NostrSigner {
         throw new Error('Remote signer disconnected. Please log in again.');
     }
 
-    // ─── Key re-acquisition ─────────────────────────────────────────────────
+    // ─── Session restoration ─────────────────────────────────────────────────
+
+    /**
+     * Public method to attempt session restoration after page refresh.
+     * Returns true if signing ability was restored, false otherwise.
+     * Callers can use this to check if the user needs to re-login.
+     */
+    async tryRestore() {
+        if (this._sk) return true;
+        if (this._mode === 'extension' && window.nostr) return true;
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
+            try {
+                await this._getBunkerSigner();
+                return true;
+            } catch { return false; }
+        }
+        return this._tryReacquire();
+    }
 
     /**
      * Attempt to re-acquire nsec from passkey.
