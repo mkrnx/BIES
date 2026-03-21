@@ -121,7 +121,7 @@ export const useNostrFeed = (npubs) => {
  * Subscribes to kind:1059 gift-wraps, unwraps them to extract kind:14 rumors,
  * and groups messages by conversation partner.
  */
-export const useNostrDMs = () => {
+export const useNostrDMs = ({ onIncomingMessage } = {}) => {
     const [messages, setMessages] = useState([]);
     const [loading, setLoading] = useState(false);
     const [publicKey, setPublicKey] = useState(null);
@@ -130,6 +130,8 @@ export const useNostrDMs = () => {
     const subRef = useRef(null);
     const processedIds = useRef(new Set());
     const fetchedProfiles = useRef(new Set());
+    const onIncomingRef = useRef(onIncomingMessage);
+    onIncomingRef.current = onIncomingMessage;
 
     const connect = useCallback(async () => {
         setLoading(true);
@@ -207,6 +209,11 @@ export const useNostrDMs = () => {
                         }
                         return [...prev, dm].sort((a, b) => a.created_at - b.created_at);
                     });
+
+                    // Fire notification callback for received (not sent) messages
+                    if (!dm.isSender) {
+                        onIncomingRef.current?.(dm);
+                    }
                 } catch (err) {
                     // Skip messages we can't decrypt (not for us, corrupted, etc.)
                     console.debug('Could not unwrap gift-wrap:', err.message);

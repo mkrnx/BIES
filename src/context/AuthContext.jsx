@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { authService } from '../services/authService';
 import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
+import { notifyIncomingMessage } from '../utils/notificationManager';
 
 const AuthContext = createContext();
 
@@ -54,6 +55,16 @@ export const AuthProvider = ({ children }) => {
                 if (msg.type === 'notification') {
                     setNotifications((prev) => [msg.notification, ...prev]);
                     setUnreadCount((c) => c + 1);
+                }
+                // Play sound + browser notification for incoming DMs (app-wide)
+                if (msg.type === 'new_message' && msg.message) {
+                    const m = msg.message;
+                    notifyIncomingMessage(
+                        m.id || m.nostrEventId || ('ws-' + Date.now()),
+                        m.senderName || 'New message',
+                        m.content || 'You have a new message',
+                        () => { window.location.href = '/messages'; }
+                    );
                 }
             },
             // onConnect

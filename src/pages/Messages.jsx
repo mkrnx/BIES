@@ -1,13 +1,24 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft } from 'lucide-react';
+import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft, Bell, BellOff } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
 import { searchApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
+import { notifyIncomingMessage, requestNotificationPermission, getNotificationPermission } from '../utils/notificationManager';
 
 const Messages = () => {
     const { t } = useTranslation();
+    const [notifPermission, setNotifPermission] = useState(getNotificationPermission());
+
+    // Notification callback — fires for every received (non-sender) DM
+    const profilesRef = useRef({});
+    const handleIncomingMessage = useCallback((dm) => {
+        const p = profilesRef.current[dm.partnerPubkey];
+        const senderName = p?.name || p?.display_name || dm.partnerPubkey.substring(0, 12) + '...';
+        notifyIncomingMessage(dm.id, senderName, dm.content);
+    }, []);
+
     const {
         messages,
         conversations,
@@ -17,7 +28,7 @@ const Messages = () => {
         connect,
         publicKey,
         sendMessage,
-    } = useNostrDMs();
+    } = useNostrDMs({ onIncomingMessage: handleIncomingMessage });
 
     const [activeChatPubkey, setActiveChatPubkey] = useState(null);
     const [openChats, setOpenChats] = useState([]);
@@ -31,6 +42,7 @@ const Messages = () => {
     const chatEndRef = useRef(null);
     const searchTimerRef = useRef(null);
     const messageInputRef = useRef(null);
+    profilesRef.current = profiles;
 
     // Auto-connect on mount
     useEffect(() => {
@@ -258,6 +270,25 @@ const Messages = () => {
                     <div className="sidebar-header">
                         <h2>Messages</h2>
                     </div>
+
+                    {notifPermission === 'default' && (
+                        <button
+                            className="notif-prompt"
+                            onClick={async () => {
+                                const perm = await requestNotificationPermission();
+                                setNotifPermission(perm);
+                            }}
+                        >
+                            <Bell size={14} />
+                            <span>Enable notifications</span>
+                        </button>
+                    )}
+                    {notifPermission === 'denied' && (
+                        <div className="notif-prompt denied">
+                            <BellOff size={14} />
+                            <span>Notifications blocked — enable in browser settings</span>
+                        </div>
+                    )}
 
                     <div className="search-box">
                         <Search size={16} className="search-icon" />
@@ -513,11 +544,17 @@ const sharedStyles = `
         border-radius: var(--radius-lg);
         overflow: hidden;
         background: var(--color-surface);
+        box-sizing: border-box;
     }
 
     /* ── Sidebar ── */
-    .messages-sidebar { width: 320px; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; height: 100%; }
+    .messages-sidebar { width: 320px; flex-shrink: 0; border-right: 1px solid var(--color-gray-200); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
     .sidebar-header { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+
+    /* ── Notification prompt ── */
+    .notif-prompt { margin: 0.5rem 0.75rem; padding: 0.5rem 0.75rem; background: var(--color-blue-tint, #EFF6FF); border: 1px solid var(--color-primary, #0047ab); border-radius: var(--radius-md, 8px); display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; font-weight: 500; color: var(--color-primary, #0047ab); cursor: pointer; transition: background 0.15s; flex-shrink: 0; font-family: inherit; }
+    .notif-prompt:hover { background: var(--color-primary, #0047ab); color: white; }
+    .notif-prompt.denied { background: var(--color-gray-100); border-color: var(--color-gray-300); color: var(--color-gray-500); cursor: default; font-size: 0.75rem; }
 
     /* ── Unified search box ── */
     .search-box { margin: 0.75rem; padding: 0.5rem 0.75rem; background: var(--color-gray-100); border-radius: var(--radius-full); display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; border: 1px solid transparent; transition: border-color 0.2s, background 0.2s; }
@@ -570,7 +607,7 @@ const sharedStyles = `
     .chat-tab-close:hover { background: var(--color-gray-200); }
 
     /* ── Chat area ── */
-    .chat-area { flex: 1; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; min-height: 0; overflow: hidden; height: 100%; }
+    .chat-area { flex: 1 1 0%; display: flex; flex-direction: column; background: var(--color-gray-50); min-width: 0; min-height: 0; overflow: hidden; }
     .chat-header { padding: 0.75rem 1rem; background: var(--color-surface); border-bottom: 1px solid var(--color-gray-200); display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
 
     .active-chat-content { flex: 1 1 0%; min-height: 0; padding: 1.5rem; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 0.75rem; }
