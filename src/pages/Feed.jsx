@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX } from 'lucide-react';
+import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX, RefreshCw } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -51,6 +51,8 @@ const Feed = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [feedMode, setFeedMode] = useState('private'); // 'private' | 'explore'
     const [exploreView, setExploreView] = useState('trending_24h');
+    const [refreshKey, setRefreshKey] = useState(0);
+    const [refreshing, setRefreshing] = useState(false);
     const fetchedProfiles = useRef(new Set());
 
     // Compose state
@@ -265,7 +267,7 @@ const Feed = () => {
             clearTimeout(debounceTimer);
             if (sub) sub.close();
         };
-    }, [feedMode]);
+    }, [feedMode, refreshKey]);
 
     // Fetch ALL reactions for private relay posts — builds stats counts + marks user's own likes/reposts
     const fetchedReactionIds = useRef(new Set());
@@ -391,7 +393,7 @@ const Feed = () => {
         })();
 
         return () => { cancelled = true; };
-    }, [feedMode, exploreView, currentView, sortNotes]);
+    }, [feedMode, exploreView, currentView, sortNotes, refreshKey]);
 
     // Load more for explore feed
     const handleLoadMore = async () => {
@@ -428,6 +430,14 @@ const Feed = () => {
             setLoadingMore(false);
         }
     };
+
+    // Refresh feed — bumps refreshKey to re-trigger subscription/fetch effects
+    const handleRefreshFeed = useCallback(() => {
+        if (loading || refreshing) return;
+        setRefreshing(true);
+        setRefreshKey(k => k + 1);
+        setTimeout(() => setRefreshing(false), 1500);
+    }, [loading, refreshing]);
 
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files || []);
@@ -1272,6 +1282,15 @@ const Feed = () => {
                     <h1 className="feed-title page-header">
                         <NostrIcon size={24} /> {t('feed.biesFeed')}
                     </h1>
+                    <button
+                        className={`feed-refresh-btn${refreshing ? ' spinning' : ''}`}
+                        onClick={handleRefreshFeed}
+                        disabled={loading || refreshing}
+                        title={t('feed.refresh', 'Refresh feed')}
+                        aria-label={t('feed.refresh', 'Refresh feed')}
+                    >
+                        <RefreshCw size={18} />
+                    </button>
                 </div>
 
                 {/* Feed Mode Tabs */}
@@ -1291,6 +1310,15 @@ const Feed = () => {
                     >
                         <Globe size={14} />
                         <span>{t('feed.explore')}</span>
+                    </button>
+                    <button
+                        className={`feed-tab-refresh${refreshing ? ' spinning' : ''}`}
+                        onClick={handleRefreshFeed}
+                        disabled={loading || refreshing}
+                        title={t('feed.refresh', 'Refresh feed')}
+                        aria-label={t('feed.refresh', 'Refresh feed')}
+                    >
+                        <RefreshCw size={14} />
                     </button>
                 </div>
 
@@ -1926,6 +1954,62 @@ const Feed = () => {
                 .feed-tab.active:nth-child(2) {
                     background: #2563eb;
                     box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+                }
+
+                /* Refresh button in header (desktop) */
+                .feed-refresh-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    border: 1px solid #e5e7eb;
+                    background: var(--color-gray-100);
+                    color: #6b7280;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    flex-shrink: 0;
+                }
+                .feed-refresh-btn:hover {
+                    background: var(--color-gray-200, #e5e7eb);
+                    color: var(--color-primary, #0047AB);
+                }
+                .feed-refresh-btn:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+                .feed-refresh-btn.spinning svg,
+                .feed-tab-refresh.spinning svg {
+                    animation: spin 0.8s linear infinite;
+                }
+                @media (max-width: 768px) {
+                    .feed-refresh-btn { display: none; }
+                }
+
+                /* Refresh button in tab bar (always visible) */
+                .feed-tab-refresh {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 36px;
+                    min-width: 36px;
+                    padding: 0.625rem 0;
+                    border-radius: 10px;
+                    border: none;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    background: transparent;
+                    color: #9ca3af;
+                    flex-shrink: 0;
+                }
+                .feed-tab-refresh:hover {
+                    color: var(--color-primary, #0047AB);
+                    background: #f9fafb;
+                }
+                .feed-tab-refresh:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
                 }
 
                 /* Explore Sub-Tabs */
@@ -2952,6 +3036,22 @@ const Feed = () => {
                 }
                 :global([data-theme="dark"]) .feed-tab.active {
                     color: #ffffff;
+                }
+                :global([data-theme="dark"]) .feed-refresh-btn {
+                    background: #1e2a3a;
+                    border-color: #2d3748;
+                    color: #94a3b8;
+                }
+                :global([data-theme="dark"]) .feed-refresh-btn:hover {
+                    background: #2d3748;
+                    color: #60a5fa;
+                }
+                :global([data-theme="dark"]) .feed-tab-refresh {
+                    color: #94a3b8;
+                }
+                :global([data-theme="dark"]) .feed-tab-refresh:hover {
+                    background: #2d3748;
+                    color: #60a5fa;
                 }
                 :global([data-theme="dark"]) .explore-tab {
                     color: #94a3b8;
