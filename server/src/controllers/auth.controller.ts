@@ -5,7 +5,7 @@ import jwt from 'jsonwebtoken';
 // use dynamic import() so the compiled CJS output doesn't call require().
 import prisma from '../lib/prisma';
 import { generateToken, isAdminPubkey } from '../middleware/auth';
-import { encryptPrivateKey } from '../services/crypto.service';
+import { encryptPrivateKey, decryptPrivateKey } from '../services/crypto.service';
 import { publishRelayList } from '../services/nostr.service';
 import { cache } from '../services/redis.service';
 import { config } from '../config';
@@ -311,6 +311,20 @@ export async function login(req: Request, res: Response): Promise<void> {
 
         const token = generateToken(user.id, user.role);
 
+        // Decrypt the custodial nostr private key so the client can sign
+        // NIP-42 AUTH challenges for the private relay.
+        let nostrNsec: string | undefined;
+        if (user.encryptedPrivkey) {
+            try {
+                const hexKey = decryptPrivateKey(user.encryptedPrivkey);
+                const { nip19 } = await import('nostr-tools');
+                const skBytes = Buffer.from(hexKey, 'hex');
+                nostrNsec = nip19.nsecEncode(new Uint8Array(skBytes));
+            } catch (err) {
+                console.error('Failed to decrypt custodial key for login:', err);
+            }
+        }
+
         res.json({
             user: {
                 id: user.id,
@@ -320,6 +334,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 profile: user.profile,
             },
             token,
+            ...(nostrNsec ? { nostrNsec } : {}),
         });
     } catch (error) {
         console.error('Login error:', error);
@@ -532,6 +547,19 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             return;
         }
 
+        // Include nsec for custodial users so the client can sign NIP-42 AUTH
+        let nostrNsec: string | undefined;
+        if (user.encryptedPrivkey) {
+            try {
+                const hexKey = decryptPrivateKey(user.encryptedPrivkey);
+                const { nip19 } = await import('nostr-tools');
+                const skBytes = Buffer.from(hexKey, 'hex');
+                nostrNsec = nip19.nsecEncode(new Uint8Array(skBytes));
+            } catch (err) {
+                console.error('Failed to decrypt custodial key for /me:', err);
+            }
+        }
+
         res.json({
             id: user.id,
             email: user.email,
@@ -539,6 +567,7 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             role: user.role,
             isAdmin: user.role === 'ADMIN',
             profile: user.profile,
+            ...(nostrNsec ? { nostrNsec } : {}),
         });
     } catch (error) {
         console.error('Get me error:', error);
