@@ -55,6 +55,19 @@ const Feed = () => {
     const [refreshing, setRefreshing] = useState(false);
     const fetchedProfiles = useRef(new Set());
 
+    // Re-subscribe to the private relay when the page regains visibility.
+    // Mobile browsers kill WebSocket connections when backgrounded; bumping
+    // refreshKey re-triggers the subscription effect so the feed reconnects.
+    useEffect(() => {
+        const onVisible = () => {
+            if (document.visibilityState === 'visible' && feedMode === 'private') {
+                setRefreshKey(k => k + 1);
+            }
+        };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [feedMode]);
+
     // Compose state
     const [composeText, setComposeText] = useState('');
     const [broadcastPublic, setBroadcastPublic] = useState(false);
