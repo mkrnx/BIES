@@ -329,18 +329,12 @@ const Signup = () => {
                                 </div>
                             )}
 
-                            {!keyfileDownloaded && (
-                                <p className="text-xs text-center" style={{ color: 'var(--color-warning)', marginTop: '0.25rem' }}>
-                                    You must download your encrypted key file before continuing.
-                                </p>
-                            )}
                             <button
                                 onClick={handleBackupConfirm}
-                                disabled={!keyfileDownloaded}
                                 className="w-full btn-primary py-3 rounded-full"
-                                style={{ marginTop: '0.25rem', opacity: keyfileDownloaded ? 1 : 0.4, pointerEvents: keyfileDownloaded ? 'auto' : 'none' }}
+                                style={{ marginTop: '0.25rem' }}
                             >
-                                {keyfileDownloaded ? 'Continue — I\'ve Saved My Keys' : 'Download Key File to Continue'}
+                                Continue
                             </button>
                         </div>
                     </div>
