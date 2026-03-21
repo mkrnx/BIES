@@ -206,6 +206,17 @@ export const useNostrDMs = ({ onIncomingMessage } = {}) => {
                                 updated[pendingIdx] = dm;
                                 return updated;
                             }
+                            // Safety net: if a relay-delivered copy with the same
+                            // content + partner + close timestamp already exists,
+                            // drop this duplicate (handles edge-case race conditions).
+                            const alreadyDelivered = prev.some(m =>
+                                !m.id.startsWith('pending-') &&
+                                m.isSender &&
+                                m.content === dm.content &&
+                                m.partnerPubkey === dm.partnerPubkey &&
+                                Math.abs(m.created_at - dm.created_at) < 2
+                            );
+                            if (alreadyDelivered) return prev;
                         }
                         return [...prev, dm].sort((a, b) => a.created_at - b.created_at);
                     });
@@ -238,19 +249,30 @@ export const useNostrDMs = ({ onIncomingMessage } = {}) => {
     }, []);
 
     const sendMessage = useCallback(async (recipientPubkey, content) => {
-        const rumor = await nostrService.sendNip17DM(recipientPubkey, content);
-
-        // Optimistically add to local messages
+        // Add optimistic message BEFORE publishing so it is already in state
+        // when the relay echoes the gift-wrap back through the subscription.
+        // This prevents the race condition where the echo arrives before the
+        // optimistic insert, causing a duplicate.
+        const pendingId = 'pending-' + Date.now();
         const dm = {
-            id: 'pending-' + Date.now(),
-            content: rumor.content,
-            created_at: rumor.created_at,
+            id: pendingId,
+            content,
+            created_at: Math.floor(Date.now() / 1000),
             senderPubkey: publicKey,
             partnerPubkey: recipientPubkey,
             isSender: true,
         };
 
         setMessages(prev => [...prev, dm]);
+
+        try {
+            await nostrService.sendNip17DM(recipientPubkey, content);
+        } catch (err) {
+            // Remove the optimistic message on send failure
+            setMessages(prev => prev.filter(m => m.id !== pendingId));
+            throw err;
+        }
+
         return dm;
     }, [publicKey]);
 
