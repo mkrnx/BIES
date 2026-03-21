@@ -50,3 +50,44 @@ self.addEventListener('fetch', (event) => {
     fetch(request).catch(() => caches.match(request))
   );
 });
+
+// ─── Push notifications (PWA background messages) ─────────────────────────
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'BIES', body: 'You have a new message' };
+  try {
+    if (event.data) data = Object.assign(data, event.data.json());
+  } catch { /* use defaults */ }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      tag: data.tag || 'bies-message',
+      renotify: true,
+      data: data,
+    })
+  );
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const url = event.notification.data?.url || '/messages';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // Focus an existing BIES tab if open
+      for (const client of clients) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.focus();
+          client.navigate(url);
+          return;
+        }
+      }
+      // Otherwise open a new window
+      return self.clients.openWindow(url);
+    })
+  );
+});
