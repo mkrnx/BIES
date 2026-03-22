@@ -800,6 +800,106 @@ export async function listAdminProjects(req: Request, res: Response): Promise<vo
     }
 }
 
+// ─── Investor Requests ────────────────────────────────────────────────────────
+
+/**
+ * GET /admin/investor-requests
+ * List pending investor requests.
+ */
+export async function listInvestorRequests(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can view investor requests' }); return;
+        }
+        const requests = await prisma.investorRequest.findMany({
+            where: { status: 'PENDING' },
+            include: {
+                user: {
+                    select: {
+                        id: true, email: true,
+                        profile: { select: { name: true, company: true } },
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(requests);
+    } catch (error) {
+        console.error('List investor requests error:', error);
+        res.status(500).json({ error: 'Failed to list investor requests' });
+    }
+}
+
+/**
+ * PUT /admin/investor-requests/:id
+ * Approve or deny an investor request.
+ */
+export async function reviewInvestorRequest(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can review investor requests' }); return;
+        }
+
+        const { status } = req.body;
+        if (!['APPROVED', 'DENIED'].includes(status)) {
+            res.status(400).json({ error: 'Status must be APPROVED or DENIED' }); return;
+        }
+
+        const request = await prisma.investorRequest.findUnique({
+            where: { id: req.params.id }
+        });
+
+        if (!request) {
+            res.status(404).json({ error: 'Request not found' }); return;
+        }
+
+        if (request.status !== 'PENDING') {
+            res.status(400).json({ error: 'Request is already processed' }); return;
+        }
+
+        if (status === 'APPROVED') {
+            await prisma.$transaction([
+                prisma.investorRequest.update({
+                    where: { id: request.id },
+                    data: { status: 'APPROVED', reviewedAt: new Date() }
+                }),
+                prisma.user.update({
+                    where: { id: request.userId },
+                    data: { role: 'INVESTOR' }
+                }),
+                prisma.auditLog.create({
+                    data: {
+                        userId: req.user!.id,
+                        action: 'INVESTOR_REQUEST_APPROVED',
+                        resource: `user:${request.userId}`,
+                        metadata: JSON.stringify({ requestId: request.id }),
+                    }
+                })
+            ]);
+        } else {
+            await prisma.$transaction([
+                prisma.investorRequest.update({
+                    where: { id: request.id },
+                    data: { status: 'DENIED', reviewedAt: new Date() }
+                }),
+                prisma.auditLog.create({
+                    data: {
+                        userId: req.user!.id,
+                        action: 'INVESTOR_REQUEST_DENIED',
+                        resource: `user:${request.userId}`,
+                        metadata: JSON.stringify({ requestId: request.id }),
+                    }
+                })
+            ]);
+        }
+
+        res.json({ message: `Request ${status.toLowerCase()}` });
+    } catch (error) {
+        console.error('Review investor request error:', error);
+        res.status(500).json({ error: 'Failed to review investor request' });
+    }
+}
+
 /**
  * PUT /admin/projects/:id/review
  * Approve or reject a project submission.

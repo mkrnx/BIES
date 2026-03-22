@@ -19,6 +19,8 @@ import {
     getAuditLogs,
     broadcastMessage,
     clearCache,
+    listInvestorRequests,
+    reviewInvestorRequest,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -38,6 +40,9 @@ router.delete('/users/:id/purge', purgeUser);           // ADMIN only (enforced 
 router.post('/users/sync', syncAccounts);               // ADMIN only (enforced in controller)
 
 // Projects
+router.get('/investor-requests', listInvestorRequests);
+router.put('/investor-requests/:id/review', reviewInvestorRequest);
+
 router.get('/projects', listAdminProjects);
 router.put('/projects/:id/feature', featureProject);
 router.put('/projects/:id/review', reviewProject);

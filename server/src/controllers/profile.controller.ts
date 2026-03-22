@@ -90,7 +90,16 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
         const where: any = { isPublic: true };
 
         if (role && typeof role === 'string') {
-            where.user = { role: role.toUpperCase() };
+            const upRole = role.toUpperCase();
+            if (upRole === 'BUILDER') {
+                where.user = { projects: { some: { isPublished: true } } };
+            } else if (upRole === 'EVENT_HOST') {
+                where.user = { hostedEvents: { some: { isPublished: true } } };
+            } else if (upRole === 'EDUCATOR') {
+                where.user = { role: 'EDUCATOR' }; // Placeholder until courses are added
+            } else {
+                where.user = { role: upRole }; // ADMIN, MOD, INVESTOR, MEMBER
+            }
         }
         if (location && typeof location === 'string') {
             where.location = { contains: location };
@@ -113,7 +122,7 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
                         select: {
                             id: true, nostrPubkey: true, role: true,
                             isVerified: true,
-                            _count: { select: { projects: true, followers: true } },
+                            _count: { select: { projects: true, followers: true, hostedEvents: true } },
                         },
                     },
                 },

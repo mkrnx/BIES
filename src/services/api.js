@@ -288,6 +288,12 @@ export const analyticsApi = {
     platform: () => get('/analytics/platform'),
 };
 
+// ─── Investor ─────────────────────────────────────────────────────────────────
+
+export const investorApi = {
+    requestRole: (data) => post('/investor/request', data),
+};
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export const searchApi = {
@@ -319,6 +325,8 @@ export const adminApi = {
     auditLogs: (params = {}) => get('/admin/audit-logs', params),
     broadcast: (message) => post('/admin/broadcast', { message }),
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
+    investorRequests: (params = {}) => get('/admin/investor-requests', params),
+    updateInvestorRequest: (id, status) => put(`/admin/investor-requests/${id}`, { status }),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────

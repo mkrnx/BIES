@@ -60,6 +60,7 @@ import AdminEvents from './pages/admin/AdminEvents';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
+import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -226,6 +227,7 @@ const AppContent = () => {
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
+                        <Route path="investor-vetting" element={<AdminInvestorVetting />} />
                     </Route>
 
                     <Route path="/project/:id" element={

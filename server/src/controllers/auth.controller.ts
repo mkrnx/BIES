@@ -132,7 +132,6 @@ async function checkBanEvasion(
 export const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
-    role: z.enum(['BUILDER', 'INVESTOR']).default('BUILDER'),
     name: z.string().min(1).optional(),
 });
 
@@ -176,7 +175,7 @@ async function generateNip05Name(baseName: string): Promise<string | null> {
  */
 export async function register(req: Request, res: Response): Promise<void> {
     try {
-        const { email, password, role, name, fingerprint } = req.body;
+        const { email, password, name, fingerprint } = req.body;
 
         // Check if email already exists
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -205,7 +204,7 @@ export async function register(req: Request, res: Response): Promise<void> {
                 passwordHash,
                 nostrPubkey,
                 encryptedPrivkey,
-                role,
+                role: 'MEMBER',
                 isBanned: bannedUserIds.length > 0,
                 profile: {
                     create: {
@@ -444,7 +443,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             user = await prisma.user.create({
                 data: {
                     nostrPubkey: pubkey,
-                    role: isEnvAdmin ? 'ADMIN' : 'BUILDER',
+                    role: isEnvAdmin ? 'ADMIN' : 'MEMBER',
                     isBanned: bannedUserIds.length > 0,
                     profile: {
                         create: {
@@ -605,29 +604,7 @@ export async function logout(req: Request, res: Response): Promise<void> {
     }
 }
 
-/**
- * PUT /auth/role
- * Update own role (BUILDER <-> INVESTOR).
- */
-export async function updateRole(req: Request, res: Response): Promise<void> {
-    try {
-        const { role } = req.body;
-        if (!['BUILDER', 'INVESTOR', 'EDUCATOR', 'MEMBER'].includes(role)) {
-            res.status(400).json({ error: 'Role must be BUILDER, INVESTOR, EDUCATOR, or MEMBER' });
-            return;
-        }
 
-        const user = await prisma.user.update({
-            where: { id: req.user!.id },
-            data: { role },
-        });
-
-        res.json({ id: user.id, role: user.role });
-    } catch (error) {
-        console.error('Update role error:', error);
-        res.status(500).json({ error: 'Failed to update role' });
-    }
-}
 
 /**
  * POST /auth/demo-login

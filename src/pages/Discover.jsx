@@ -756,13 +756,25 @@ const Discover = () => {
                             </div>
                         );
                         
-                        const tags = builder.skills || builder.tags || [];
+                        const roleTags = [];
+                        if (builder.user?.role === 'INVESTOR') roleTags.push('Investor');
+                        if (builder.user?.role === 'ADMIN') roleTags.push('Admin');
+                        if (builder.user?.role === 'MOD') roleTags.push('Moderator');
+                        if (builder.user?._count?.projects > 0) roleTags.push('Builder');
+                        if (builder.user?._count?.hostedEvents > 0) roleTags.push('Event Host');
+                        if (roleTags.length === 0) roleTags.push('Member');
+
+                        const tags = [...roleTags, ...(builder.skills || builder.tags || [])];
 
                         if (memberViewType === 'icons') {
                             return (
                                 <Link to={`/builder/${builder.id}`} key={builder.id} className="builder-card-link-icons" title={builder.name}>
                                     <div className="builder-card-icons">
-                                        <div className="builder-avatar-wrap-icons">{avatarContent}</div>
+                                        <div className="builder-avatar-wrap-icons">
+                                            {avatarContent}
+                                            {builder.user?.role === 'MOD' && <div className="badge-shield" title="Moderator">🛡️</div>}
+                                            {builder.user?.role === 'ADMIN' && <div className="badge-shield" title="Admin">👑</div>}
+                                        </div>
                                         <h3 className="builder-name-icons">{builder.name}</h3>
                                     </div>
                                 </Link>
@@ -773,18 +785,22 @@ const Discover = () => {
                             return (
                                 <Link to={`/builder/${builder.id}`} key={builder.id} className="builder-card-link-list">
                                     <div className="builder-card-list">
-                                        <div className="builder-avatar-wrap-list">{avatarContent}</div>
+                                        <div className="builder-avatar-wrap-list relative">
+                                            {avatarContent}
+                                            {builder.user?.role === 'MOD' && <div className="badge-shield list-badge" title="Moderator">🛡️</div>}
+                                            {builder.user?.role === 'ADMIN' && <div className="badge-shield list-badge" title="Admin">👑</div>}
+                                        </div>
                                         <div className="builder-info-list" style={{ flex: 1, overflow: 'hidden' }}>
                                             <h3 className="font-semibold text-lg" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{builder.name}</h3>
-                                            {(builder.company || builder.role) && (
+                                            {(builder.company || builder.title || builder.role) && (
                                                 <p className="text-primary font-medium text-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                    {builder.company || builder.role}
+                                                    {builder.title ? `${builder.title} at ${builder.company || builder.role}` : builder.company || builder.role}
                                                 </p>
                                             )}
                                             {tags.length > 0 && (
                                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
                                                     {tags.map((tag, i) => (
-                                                        <span key={i} className="builder-tag" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{tag}</span>
+                                                        <span key={i} className={`builder-tag ${roleTags.includes(tag) ? 'role-tag-highlight' : ''}`} style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{tag}</span>
                                                     ))}
                                                 </div>
                                             )}
@@ -814,16 +830,18 @@ const Discover = () => {
                                 <div className="builder-card">
                                     <div className="h-48 bg-gray-100 relative builder-avatar-wrap-standard">
                                         {avatarContent}
+                                        {builder.user?.role === 'MOD' && <div className="badge-shield standard-badge" title="Moderator">🛡️</div>}
+                                        {builder.user?.role === 'ADMIN' && <div className="badge-shield standard-badge" title="Admin">👑</div>}
                                     </div>
                                     <div className="p-5 flex-1 flex flex-col">
                                         <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>
-                                        {(builder.company || builder.role) && <p className="text-primary font-medium text-sm mb-2">{builder.company || builder.role}</p>}
+                                        {(builder.company || builder.title || builder.role) && <p className="text-primary font-medium text-sm mb-2">{builder.title ? `${builder.title} at ${builder.company || builder.role}` : builder.company || builder.role}</p>}
                                         <p className="text-sm text-gray-500 line-clamp-2 mb-4">{stripHtml(builder.bio || '')}</p>
 
                                         {tags.length > 0 && (
                                             <div className="flex flex-wrap gap-2 mb-4">
                                                 {tags.map((tag, i) => (
-                                                    <span key={i} className="builder-tag">{tag}</span>
+                                                    <span key={i} className={`builder-tag ${roleTags.includes(tag) ? 'role-tag-highlight' : ''}`}>{tag}</span>
                                                 ))}
                                             </div>
                                         )}
@@ -1248,6 +1266,32 @@ const Discover = () => {
           border-radius: 99px;
           color: var(--color-gray-600);
           font-weight: 500;
+        }
+        .role-tag-highlight {
+          background: var(--color-primary-light);
+          color: white;
+          background-color: var(--color-primary);
+        }
+        .badge-shield {
+          position: absolute;
+          bottom: 0px;
+          right: 0px;
+          background: white;
+          border-radius: 50%;
+          font-size: 14px;
+          line-height: 1;
+          padding: 2px;
+          box-shadow: var(--shadow-sm);
+        }
+        .list-badge {
+          bottom: -2px;
+          right: -2px;
+        }
+        .standard-badge {
+          bottom: 8px;
+          right: 8px;
+          font-size: 20px;
+          padding: 4px;
         }
         .line-clamp-2 {
           display: -webkit-box;
