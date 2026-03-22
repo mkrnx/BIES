@@ -47,6 +47,7 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
     try {
         const {
             category, stage, ownerId, search, featured,
+            minFunding, maxFunding,
             page = '1', limit = '20',
             sort = 'newest',
         } = req.query;
@@ -60,6 +61,8 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
             stage: stage as string || '',
             search: search as string || '',
             featured: featured as string || '',
+            minFunding: minFunding as string || '',
+            maxFunding: maxFunding as string || '',
             sort: sort as string,
             page: page as string,
             limit: limit as string,
@@ -88,6 +91,18 @@ export async function listProjects(req: Request, res: Response): Promise<void> {
                 { title: { contains: search } },
                 { description: { contains: search } },
             ];
+        }
+
+        if (minFunding !== undefined || maxFunding !== undefined) {
+            where.fundingGoal = {};
+            if (minFunding !== undefined) {
+                const min = parseInt(minFunding as string, 10);
+                if (!isNaN(min)) where.fundingGoal.gte = min;
+            }
+            if (maxFunding !== undefined) {
+                const max = parseInt(maxFunding as string, 10);
+                if (!isNaN(max)) where.fundingGoal.lte = max;
+            }
         }
 
         let orderBy: any = { createdAt: 'desc' };
