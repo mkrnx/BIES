@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X, User, LayoutGrid, List as ListIcon, Columns } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { projectsApi, watchlistApi } from '../services/api';
+import { projectsApi, watchlistApi, profilesApi } from '../services/api';
 import ZapButton from '../components/ZapButton';
+import FollowIconButton from '../components/FollowIconButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 import { getAssetUrl } from '../utils/assets';
@@ -297,12 +298,34 @@ const Discover = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
+  const [selectedLocations, setSelectedLocations] = useState([]);
+  const [selectedRoles, setSelectedRoles] = useState([]);
+  const [minFunding, setMinFunding] = useState('');
+  const [maxFunding, setMaxFunding] = useState('');
+  const [memberViewType, setMemberViewType] = useState('standard');
+  const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
   const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+  const [discoverView, setDiscoverView] = useState('projects');
+  const [builders, setBuilders] = useState([]);
+  const [buildersLoading, setBuildersLoading] = useState(false);
+  const [buildersPage, setBuildersPage] = useState(1);
+  const [buildersTotalPages, setBuildersTotalPages] = useState(1);
+  const [followingIds, setFollowingIds] = useState(new Set());
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const currentView = isMobile ? discoverView : 'projects';
 
   const categories = [
     { id: 'FINTECH', label: 'Fintech' },
@@ -320,6 +343,14 @@ const Discover = () => {
     { id: 'ENTERTAINMENT', label: 'Entertainment' },
     { id: 'LOGISTICS', label: 'Logistics' },
     { id: 'EDUCATION', label: 'Education' }
+  ];
+
+  const memberRoles = [
+    { id: 'BUILDER', label: 'Builders' },
+    { id: 'INVESTOR', label: 'Investors' },
+    { id: 'EDUCATOR', label: 'Educators' },
+    { id: 'EVENT_HOST', label: 'Event Hosts' },
+    { id: 'MEMBER', label: 'Members' }
   ];
 
   const handleIndustryChange = (industryId) => {
@@ -357,6 +388,8 @@ const Discover = () => {
         if (searchQuery) params.search = searchQuery;
         if (selectedIndustries.length === 1) params.category = selectedIndustries[0];
         if (selectedStages.length === 1) params.stage = selectedStages[0];
+        if (minFunding) params.minFunding = minFunding;
+        if (maxFunding) params.maxFunding = maxFunding;
 
         const [result, wlRes] = await Promise.all([
           projectsApi.list(params),
@@ -383,7 +416,42 @@ const Discover = () => {
 
     const debounce = setTimeout(fetchProjects, 300);
     return () => clearTimeout(debounce);
-  }, [searchQuery, selectedIndustries, selectedStages, page, user?.id]);
+  }, [searchQuery, selectedIndustries, selectedStages, minFunding, maxFunding, page, user?.id]);
+
+  useEffect(() => {
+    if (currentView !== 'members') return;
+    const fetchBuilders = async () => {
+      setBuildersLoading(true);
+      try {
+        const params = { page: buildersPage, limit: 12 };
+        if (searchQuery) params.search = searchQuery;
+        if (selectedLocations.length === 1) params.location = selectedLocations[0];
+        if (selectedRoles.length === 1) params.role = selectedRoles[0];
+        // If zero or multiple roles are selected, we don't pass 'role' natively since the API might only support strings. Client-side filtering applies below.
+
+        const [result, followingRes] = await Promise.all([
+          profilesApi.list(params),
+          user?.id ? profilesApi.getFollowing(user.id, { limit: 100 }).catch(() => null) : Promise.resolve(null)
+        ]);
+
+        const list = result?.data || result || [];
+        setBuilders(Array.isArray(list) ? list : []);
+        setBuildersTotalPages(result?.totalPages || 1);
+
+        if (followingRes) {
+          const fList = followingRes?.data || followingRes || [];
+          setFollowingIds(new Set(fList.map(u => u.id)));
+        }
+      } catch (err) {
+        console.error('Fetch builders error:', err);
+        setBuilders([]);
+      } finally {
+        setBuildersLoading(false);
+      }
+    };
+    const debounce = setTimeout(fetchBuilders, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, buildersPage, user?.id, currentView, selectedLocations, selectedRoles]);
 
   // Client-side multi-filter (API may not support multi-select)
   const filteredProjects = projects.filter(p => {
@@ -394,6 +462,18 @@ const Discover = () => {
     if (selectedStages.length > 1) {
       const stage = p.stage || '';
       if (!selectedStages.some(s => s.toLowerCase() === stage.toLowerCase())) return false;
+    }
+    return true;
+  });
+
+  const filteredBuilders = builders.filter(b => {
+    if (selectedLocations.length > 1) {
+      const loc = b.location || b.profile?.location || '';
+      if (!selectedLocations.some(l => l.toLowerCase() === loc.toLowerCase())) return false;
+    }
+    if (selectedRoles.length > 1) {
+      const role = b.role || '';
+      if (!selectedRoles.includes(role)) return false;
     }
     return true;
   });
@@ -421,10 +501,39 @@ const Discover = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
             />
+            {currentView === 'members' && (
+              <div className="view-toggle-container" style={{ position: 'relative' }}>
+                <button className="mobile-filter-toggle" onClick={() => setViewMenuOpen(!viewMenuOpen)} aria-label="Toggle View" style={{ marginRight: '0.25rem' }}>
+                  {memberViewType === 'icons' && <LayoutGrid size={20} />}
+                  {memberViewType === 'list' && <ListIcon size={20} />}
+                  {memberViewType === 'standard' && <Columns size={20} />}
+                </button>
+                {viewMenuOpen && (
+                  <div className="view-menu-dropdown" style={{
+                    position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem',
+                    background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)',
+                    borderRadius: 'var(--radius-md)', padding: '0.5rem', zIndex: 50,
+                    boxShadow: 'var(--shadow-md)', minWidth: '160px',
+                    display: 'flex', flexDirection: 'column', gap: '4px'
+                  }}>
+                    <button onClick={() => { setMemberViewType('icons'); setViewMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: memberViewType==='icons'?'var(--color-primary)':'transparent', color: memberViewType==='icons'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                      <LayoutGrid size={16}/> Icons
+                    </button>
+                    <button onClick={() => { setMemberViewType('list'); setViewMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: memberViewType==='list'?'var(--color-primary)':'transparent', color: memberViewType==='list'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                      <ListIcon size={16}/> List
+                    </button>
+                    <button onClick={() => { setMemberViewType('standard'); setViewMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: memberViewType==='standard'?'var(--color-primary)':'transparent', color: memberViewType==='standard'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                      <Columns size={16}/> Standard
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+            
             <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
               <SlidersHorizontal size={20} />
-              {(selectedIndustries.length + selectedStages.length) > 0 && (
-                <span className="filter-badge">{selectedIndustries.length + selectedStages.length}</span>
+              {(selectedIndustries.length + selectedStages.length + selectedLocations.length + selectedRoles.length) > 0 && (
+                <span className="filter-badge">{selectedIndustries.length + selectedStages.length + selectedLocations.length + selectedRoles.length}</span>
               )}
             </button>
             <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>{t('common.search')}</button>
@@ -439,17 +548,54 @@ const Discover = () => {
             </Link>
           )}
         </div>
+
+        <div className="discover-mobile-tabs">
+          <button
+            className={`discover-tab ${discoverView === 'projects' ? 'active' : ''}`}
+            onClick={() => setDiscoverView('projects')}
+          >
+            <span>{t('discover.projects', 'Projects')}</span>
+          </button>
+          <button
+            className={`discover-tab ${discoverView === 'members' ? 'active' : ''}`}
+            onClick={() => setDiscoverView('members')}
+          >
+            <span>{t('discover.members', 'Members')}</span>
+          </button>
+        </div>
       </div>
 
       <div className="content-layout">
         {/* Filters Sidebar */}
         <div className={`filters-column ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
           <aside className="filters">
-            <div className="filter-header">
-              <SlidersHorizontal size={18} />
-              <span>{t('common.filters')}</span>
+            <div className="filter-header" style={{ justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <SlidersHorizontal size={18} />
+                <span>{t('common.filters')}</span>
+              </div>
+              {isMobile && (
+                <button
+                  onClick={() => setMobileFiltersOpen(false)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'none',
+                    border: 'none',
+                    padding: '4px',
+                    cursor: 'pointer',
+                    color: 'var(--color-gray-500)'
+                  }}
+                  aria-label="Close filters"
+                >
+                  <X size={20} />
+                </button>
+              )}
             </div>
 
+            {currentView === 'projects' ? (
+              <>
             <div className="filter-group">
               <label>{t('discover.industry')}</label>
               <div className="checkbox-list">
@@ -484,34 +630,238 @@ const Discover = () => {
 
             <div className="filter-group">
               <label>{t('discover.fundingGoal')}</label>
-              <input type="range" className="range-slider" />
-              <div className="range-labels">
-                <span>$10k</span>
-                <span>$5M+</span>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <select 
+                  value={minFunding} 
+                  onChange={(e) => { setMinFunding(e.target.value); setPage(1); }}
+                  style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)', fontSize: '0.85rem' }}
+                >
+                  <option value="">Min</option>
+                  <option value="0">$0</option>
+                  <option value="10000">$10k</option>
+                  <option value="50000">$50k</option>
+                  <option value="100000">$100k</option>
+                  <option value="500000">$500k</option>
+                  <option value="1000000">$1M</option>
+                  <option value="5000000">$5M</option>
+                </select>
+                <span style={{ color: 'var(--color-gray-500)' }}>-</span>
+                <select 
+                  value={maxFunding} 
+                  onChange={(e) => { setMaxFunding(e.target.value); setPage(1); }}
+                  style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)', fontSize: '0.85rem' }}
+                >
+                  <option value="">Max</option>
+                  <option value="10000">$10k</option>
+                  <option value="50000">$50k</option>
+                  <option value="100000">$100k</option>
+                  <option value="500000">$500k</option>
+                  <option value="1000000">$1M</option>
+                  <option value="5000000">$5M+</option>
+                </select>
               </div>
             </div>
+              </>
+            ) : (
+              <>
+                <div className="filter-group">
+                  <label>{t('discover.role', 'Role')}</label>
+                  <div className="checkbox-list">
+                    {memberRoles.map(role => (
+                      <label key={role.id}>
+                        <input
+                          type="checkbox"
+                          checked={selectedRoles.includes(role.id)}
+                          onChange={() => {
+                            setSelectedRoles(prev =>
+                              prev.includes(role.id) ? prev.filter(r => r !== role.id) : [...prev, role.id]
+                            );
+                            setBuildersPage(1);
+                          }}
+                        />
+                        {role.label}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="filter-group">
+                  <label>{t('discover.location', 'Location')}</label>
+                  <div className="checkbox-list">
+                    {['El Salvador', 'Remote', 'USA', 'Europe', 'Latin America'].map(loc => (
+                      <label key={loc}>
+                        <input
+                          type="checkbox"
+                          checked={selectedLocations.includes(loc)}
+                          onChange={() => {
+                            setSelectedLocations(prev =>
+                              prev.includes(loc) ? prev.filter(l => l !== loc) : [...prev, loc]
+                            );
+                            setBuildersPage(1);
+                          }}
+                        />
+                        {loc}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </aside>
         </div>
 
-        {/* Project Grid */}
-        <div className="project-grid">
-          {loading ? (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
-              <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+        {/* Content Section */}
+        {currentView === 'projects' ? (
+          <div style={{ flex: 1, width: '100%' }}>
+            <div className="project-grid">
+              {loading ? (
+                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
+                  <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                </div>
+              ) : filteredProjects.length > 0 ? (
+                filteredProjects.map(p => <ProjectCard key={p.id} project={p} t={t} />)
+              ) : (
+                <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
+                  {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noProjects')}
+                </div>
+              )}
             </div>
-          ) : filteredProjects.length > 0 ? (
-            filteredProjects.map(p => <ProjectCard key={p.id} project={p} t={t} />)
-          ) : (
-            <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-              {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noProjects')}
-            </div>
-          )}
-        </div>
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
-            <span>{t('common.page', { current: page, total: totalPages })}</span>
-            <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
+            {totalPages > 1 && (
+              <div className="pagination">
+                <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
+                <span>{t('common.page', { current: page, total: totalPages })}</span>
+                <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div style={{ flex: 1, width: '100%' }}>
+            {buildersLoading ? (
+                <div style={{ textAlign: 'center', padding: '3rem' }}>
+                    <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                </div>
+            ) : filteredBuilders.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
+                    {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : "No builders found"}
+                </div>
+            ) : (
+                <div className={`builders-layout-${memberViewType}`}>
+                    {filteredBuilders.map((builder) => {
+                        const targetUserId = builder.user?.id || builder.userId;
+                        const avatarContent = builder.avatar || builder.image ? (
+                            <img src={builder.avatar || builder.image} alt={builder.name} className="builder-avatar-img w-full h-full object-cover" />
+                        ) : (
+                            <div className="builder-avatar-fallback w-full h-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <User size={memberViewType === 'icons' ? 32 : 48} style={{ color: 'var(--color-gray-300)' }} />
+                            </div>
+                        );
+                        
+                        const tags = builder.skills || builder.tags || [];
+
+                        if (memberViewType === 'icons') {
+                            return (
+                                <Link to={`/builder/${builder.id}`} key={builder.id} className="builder-card-link-icons" title={builder.name}>
+                                    <div className="builder-card-icons">
+                                        <div className="builder-avatar-wrap-icons">{avatarContent}</div>
+                                        <h3 className="builder-name-icons">{builder.name}</h3>
+                                    </div>
+                                </Link>
+                            );
+                        }
+
+                        if (memberViewType === 'list') {
+                            return (
+                                <Link to={`/builder/${builder.id}`} key={builder.id} className="builder-card-link-list">
+                                    <div className="builder-card-list">
+                                        <div className="builder-avatar-wrap-list">{avatarContent}</div>
+                                        <div className="builder-info-list" style={{ flex: 1, overflow: 'hidden' }}>
+                                            <h3 className="font-semibold text-lg" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{builder.name}</h3>
+                                            {(builder.company || builder.role) && (
+                                                <p className="text-primary font-medium text-sm" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                    {builder.company || builder.role}
+                                                </p>
+                                            )}
+                                            {tags.length > 0 && (
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '8px' }}>
+                                                    {tags.map((tag, i) => (
+                                                        <span key={i} className="builder-tag" style={{ padding: '2px 8px', fontSize: '0.75rem' }}>{tag}</span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="builder-actions-list" style={{ display: 'flex', gap: '8px' }}>
+                                            {builder.user?.nostrPubkey && <ZapButton recipients={[{ pubkey: builder.user.nostrPubkey, name: builder.name, avatar: builder.avatar }]} size="sm" />}
+                                            {user && targetUserId && user.id !== targetUserId && (
+                                                <FollowIconButton
+                                                    targetUserId={targetUserId}
+                                                    isFollowing={followingIds.has(targetUserId)}
+                                                    onToggle={(isFollowing) => {
+                                                        const newSet = new Set(followingIds);
+                                                        if (isFollowing) newSet.add(targetUserId);
+                                                        else newSet.delete(targetUserId);
+                                                        setFollowingIds(newSet);
+                                                    }}
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                </Link>
+                            );
+                        }
+
+                        return (
+                            <Link to={`/builder/${builder.id}`} key={builder.id} className="builder-card-link">
+                                <div className="builder-card">
+                                    <div className="h-48 bg-gray-100 relative builder-avatar-wrap-standard">
+                                        {avatarContent}
+                                    </div>
+                                    <div className="p-5 flex-1 flex flex-col">
+                                        <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>
+                                        {(builder.company || builder.role) && <p className="text-primary font-medium text-sm mb-2">{builder.company || builder.role}</p>}
+                                        <p className="text-sm text-gray-500 line-clamp-2 mb-4">{stripHtml(builder.bio || '')}</p>
+
+                                        {tags.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                {tags.map((tag, i) => (
+                                                    <span key={i} className="builder-tag">{tag}</span>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="builder-actions mt-auto">
+                                            {user && targetUserId && user.id !== targetUserId && (
+                                                <FollowIconButton
+                                                    targetUserId={targetUserId}
+                                                    isFollowing={followingIds.has(targetUserId)}
+                                                    onToggle={(isFollowing) => {
+                                                        const newSet = new Set(followingIds);
+                                                        if (isFollowing) newSet.add(targetUserId);
+                                                        else newSet.delete(targetUserId);
+                                                        setFollowingIds(newSet);
+                                                    }}
+                                                />
+                                            )}
+                                            {builder.user?.nostrPubkey && (
+                                                <ZapButton
+                                                    recipients={[{ pubkey: builder.user.nostrPubkey, name: builder.name, avatar: builder.avatar }]}
+                                                    size="sm"
+                                                />
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            </Link>
+                        );
+                    })}
+                </div>
+            )}
+            {buildersTotalPages > 1 && (
+                <div className="pagination">
+                    <button className="btn btn-outline" disabled={buildersPage <= 1} onClick={() => setBuildersPage(p => p - 1)}>{t('common.previous')}</button>
+                    <span>{t('common.page', { current: buildersPage, total: buildersTotalPages })}</span>
+                    <button className="btn btn-outline" disabled={buildersPage >= buildersTotalPages} onClick={() => setBuildersPage(p => p + 1)}>{t('common.next')}</button>
+                </div>
+            )}
           </div>
         )}
       </div>
@@ -736,7 +1086,7 @@ const Discover = () => {
         @media (max-width: 768px) {
           .search-row { flex-direction: column; align-items: stretch; gap: 1rem; }
           .search-left-column { display: none !important; }
-          .content-layout { flex-direction: column; }
+          .content-layout { flex-direction: column; align-items: stretch; }
           .filters-column {
             width: 100%;
             display: none;
@@ -749,6 +1099,185 @@ const Discover = () => {
           .mobile-filter-toggle { display: flex; }
           .search-btn-desktop { display: none; }
         }
+
+        .discover-mobile-tabs {
+          display: none;
+          gap: 0.5rem;
+          margin-bottom: 0;
+          background: var(--color-gray-100);
+          border: 1px solid #e5e7eb;
+          border-radius: var(--radius-xl, 12px);
+          padding: 0.25rem;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        @media (max-width: 768px) {
+          .discover-mobile-tabs {
+            display: flex;
+          }
+        }
+        .discover-tab {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.375rem;
+          padding: 0.625rem 1rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+          transition: all 0.2s;
+          background: transparent;
+          color: #9ca3af;
+        }
+        .discover-tab:hover {
+          color: #6b7280;
+          background: #f9fafb;
+        }
+        .discover-tab.active {
+          background: #7c3aed;
+          color: white;
+          box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+        }
+        .discover-tab.active:nth-child(2) {
+          background: #2563eb;
+          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+        }
+
+        .builders-layout-standard {
+          display: grid;
+          gap: 1.5rem;
+          grid-template-columns: repeat(1, 1fr);
+        }
+        @media (min-width: 640px) {
+          .builders-layout-standard {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (min-width: 1024px) {
+          .builders-layout-standard {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+
+        .builders-layout-icons {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+          gap: 1.5rem;
+          justify-items: center;
+          padding: 1rem 0;
+        }
+        .builders-layout-list {
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
+        }
+
+        /* List View Styles */
+        .builder-card-link-list { text-decoration: none; color: inherit; display: block; }
+        .builder-card-list {
+          display: flex;
+          align-items: center;
+          padding: 1rem;
+          background: var(--color-surface);
+          border-radius: var(--radius-xl);
+          border: 1px solid var(--color-gray-200);
+          gap: 1.25rem;
+          transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+        }
+        .builder-card-list:hover {
+          border-color: var(--color-primary-light);
+          box-shadow: var(--shadow-sm);
+        }
+        .builder-avatar-wrap-list {
+          width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--color-gray-100); flex-shrink: 0;
+        }
+
+        /* Icons View Styles */
+        .builder-card-link-icons { text-decoration: none; color: inherit; display: block; }
+        .builder-card-icons {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          width: 100%;
+          max-width: 100px;
+          gap: 0.5rem;
+          text-align: center;
+          transition: all 0.2s;
+        }
+        .builder-card-icons:hover {
+          transform: translateY(-2px);
+        }
+        .builder-avatar-wrap-icons {
+          width: 72px; height: 72px; border-radius: 50%; overflow: hidden; background: var(--color-gray-100); border: 2px solid transparent; transition: border-color 0.2s;
+        }
+        .builder-card-icons:hover .builder-avatar-wrap-icons { border-color: var(--color-primary); }
+        .builder-name-icons {
+          font-size: 0.8rem;
+          font-weight: 500;
+          line-height: 1.2;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          margin: 0;
+        }
+
+        .builder-card {
+          background: var(--color-surface);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+          transition: transform 0.2s, box-shadow 0.2s;
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+        }
+        .builder-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+        .builder-card-link { display: block; text-decoration: none; color: inherit; height: 100%; }
+        .h-48 { height: 12rem; }
+        .bg-gray-100 { background: var(--color-gray-100); }
+        .w-full { width: 100%; }
+        .object-cover { object-fit: cover; }
+        .builder-tag {
+          font-size: 0.75rem;
+          padding: 2px 10px;
+          background: var(--color-surface-raised);
+          border-radius: 99px;
+          color: var(--color-gray-600);
+          font-weight: 500;
+        }
+        .line-clamp-2 {
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .builder-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 0.75rem;
+          align-items: center;
+          margin-top: auto;
+        }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .flex-1 { flex: 1; }
+        .flex-wrap { flex-wrap: wrap; }
+        .gap-2 { gap: 0.5rem; }
+        .p-5 { padding: 1.25rem; }
+        .mb-1 { margin-bottom: 0.25rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .mb-4 { margin-bottom: 1rem; }
+        .mt-auto { margin-top: auto; }
+        .font-semibold { font-weight: 600; }
+        .font-medium { font-weight: 500; }
+        .text-xl { font-size: 1.25rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-primary { color: var(--color-primary); }
+        .text-gray-500 { color: var(--color-gray-500); }
       `}</style>
     </div>
   );
