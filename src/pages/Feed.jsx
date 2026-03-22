@@ -176,6 +176,8 @@ const Feed = () => {
         fetchedProfiles.current.clear();
         fetchedComments.current.clear();
 
+        let cancelled = false;
+        let reconnectTimer = null;
         const timeout = setTimeout(() => setLoading(false), 15000);
 
         // Collect pubkeys during streaming, batch-fetch profiles after EOSE.
@@ -270,14 +272,25 @@ const Feed = () => {
                         });
                     }
                 },
-                onclose: () => setLoading(false),
+                onclose: () => {
+                    setLoading(false);
+                    // Auto-reconnect when the WebSocket drops unexpectedly
+                    // (nginx timeout, mobile network switch, cell handoff).
+                    if (!cancelled) {
+                        reconnectTimer = setTimeout(() => {
+                            setRefreshKey(k => k + 1);
+                        }, 2000);
+                    }
+                },
                 onauth: async (evt) => nostrSigner.signEvent(evt),
             }
         );
 
         return () => {
+            cancelled = true;
             clearTimeout(timeout);
             clearTimeout(debounceTimer);
+            clearTimeout(reconnectTimer);
             if (sub) sub.close();
         };
     }, [feedMode, refreshKey]);
