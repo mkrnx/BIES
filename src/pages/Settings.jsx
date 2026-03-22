@@ -3,6 +3,8 @@ import { Moon, Bell, Lock, Globe, Eye, Zap } from 'lucide-react';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../context/AuthContext';
+import { investorApi } from '../services/api';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
@@ -10,6 +12,26 @@ const Settings = () => {
 
     const handleLanguageChange = (e) => {
         i18n.changeLanguage(e.target.value);
+    };
+
+    const { user } = useAuth();
+    const [investorMessage, setInvestorMessage] = React.useState('');
+    const [submittingInvestor, setSubmittingInvestor] = React.useState(false);
+    const [investorRequested, setInvestorRequested] = React.useState(false);
+    const [investorError, setInvestorError] = React.useState('');
+
+    const handleApplyInvestor = async () => {
+        if (!user) return;
+        setSubmittingInvestor(true);
+        setInvestorError('');
+        try {
+            await investorApi.requestRole({ message: investorMessage });
+            setInvestorRequested(true);
+        } catch (err) {
+            setInvestorError(err.message || 'Failed to submit application.');
+        } finally {
+            setSubmittingInvestor(false);
+        }
     };
 
     return (
@@ -85,6 +107,58 @@ const Settings = () => {
                     <button className="toggle-btn active">{t('common.on')}</button>
                 </div>
             </div>
+
+            <div className="settings-section">
+                <h2>Account Roles</h2>
+                {user?.role === 'INVESTOR' ? (
+                    <div className="setting-item">
+                        <div className="setting-info">
+                            <div className="icon-box" style={{ background: 'var(--color-primary-light)', color: 'white' }}><Globe size={20} /></div>
+                            <div>
+                                <p className="setting-label">Investor Status</p>
+                                <p className="setting-desc">You are currently verified as an Investor.</p>
+                            </div>
+                        </div>
+                        <span className="badge-shield" style={{ position: 'static', padding: '4px 12px', background: 'var(--color-primary)', color: 'white', borderRadius: '99px', fontSize: '0.85rem' }}>Verified</span>
+                    </div>
+                ) : (
+                    <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '1rem' }}>
+                        <div className="setting-info" style={{ width: '100%' }}>
+                            <div className="icon-box"><Globe size={20} /></div>
+                            <div>
+                                <p className="setting-label">Apply for Investor Role</p>
+                                <p className="setting-desc">Investors must be vetted. Submit an application to gain the Investor badge.</p>
+                            </div>
+                        </div>
+                        {investorRequested ? (
+                            <div style={{ background: 'var(--color-green-tint)', color: 'var(--color-green-700)', padding: '0.75rem 1rem', borderRadius: '12px', width: '100%', fontSize: '0.9rem', fontWeight: 500 }}>
+                                Your application has been submitted and is pending review!
+                            </div>
+                        ) : (
+                            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                <textarea
+                                    className="select-input"
+                                    placeholder="Briefly describe your investment focus or background (optional)"
+                                    value={investorMessage}
+                                    onChange={(e) => setInvestorMessage(e.target.value)}
+                                    rows={3}
+                                    style={{ width: '100%', resize: 'none', fontFamily: 'inherit' }}
+                                />
+                                {investorError && <p style={{ color: 'var(--color-danger)', fontSize: '0.85rem', margin: 0 }}>{investorError}</p>}
+                                <button
+                                    onClick={handleApplyInvestor}
+                                    disabled={submittingInvestor}
+                                    className="btn btn-outline btn-sm"
+                                    style={{ alignSelf: 'flex-end', marginLeft: 'auto' }}
+                                >
+                                    {submittingInvestor ? 'Submitting...' : 'Submit Request'}
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+            </div>
+
 
             <div className="settings-section">
                 <h2>{t('settings.security')}</h2>

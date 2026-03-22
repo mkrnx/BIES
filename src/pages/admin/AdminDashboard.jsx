@@ -30,6 +30,9 @@ const AdminDashboard = () => {
             <NavLink to="/admin/news-settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <Newspaper size={18} /> News Settings
             </NavLink>
+            <NavLink to="/admin/investor-vetting" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              <Users size={18} /> Investor Vetting
+            </NavLink>
           </div>
 
           <div className="menu-group mt-auto">

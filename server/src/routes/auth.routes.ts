@@ -9,7 +9,6 @@ import {
     nostrLogin,
     getNostrChallenge,
     getMe,
-    updateRole,
     logout,
     demoLogin,
 } from '../controllers/auth.controller';
@@ -25,7 +24,6 @@ router.post('/demo-login', demoLogin); // TODO: Remove before production
 
 // Protected routes
 router.get('/me', authenticate, getMe);
-router.put('/role', authenticate, updateRole);
 router.post('/logout', authenticate, logout);
 
 export default router;

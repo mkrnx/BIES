@@ -21,7 +21,7 @@ model User {
   passwordHash     String?  @map("password_hash")
   nostrPubkey      String   @unique @map("nostr_pubkey")
   encryptedPrivkey String?  @map("encrypted_privkey")
-  role             String   @default("BUILDER") // BUILDER | INVESTOR | MOD | ADMIN
+  role             String   @default("MEMBER") // BUILDER | INVESTOR | MOD | ADMIN | MEMBER | EDUCATOR | EVENT_HOST
   isVerified       Boolean  @default(false) @map("is_verified")
   isBanned         Boolean  @default(false) @map("is_banned")
   deletedAt        DateTime? @map("deleted_at")
@@ -43,6 +43,7 @@ model User {
   projectViews     ProjectView[]
   teamMemberships  ProjectTeamMember[]
   deckRequests     DeckRequest[]
+  investorRequests InvestorRequest[]
   eventRSVPs      EventAttendee[]
   settings         UserSettings?
   fingerprints     BrowserFingerprint[]
@@ -553,4 +554,22 @@ model BrowserFingerprint {
   @@index([fingerprintHash])
   @@index([userId])
   @@map("browser_fingerprints")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Investor Role Requests
+// ─────────────────────────────────────────────────────────────────────────────
+
+model InvestorRequest {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  status    String   @default("PENDING") // PENDING | APPROVED | DENIED
+  message   String   @default("") // optional pitch or linkedin link
+  reviewedAt DateTime? @map("reviewed_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("investor_requests")
 }

@@ -12,8 +12,6 @@ import ModeSelectionModal from './components/ModeSelectionModal';
 // Pages
 import Landing from './pages/Landing';
 import Feed from './pages/Feed';
-import BuilderDashboard from './pages/builder/Dashboard';
-import InvestorDashboard from './pages/investor/Dashboard';
 import Discover from './pages/Discover';
 import Members from './pages/Members';
 import Builders from './pages/Builders';
@@ -37,20 +35,15 @@ import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProfileSetup from './pages/ProfileSetup';
-import BuilderOverview from './pages/builder/Overview';
+import Dashboard from './pages/Dashboard';
+import Overview from './pages/Overview';
+import Following from './pages/Following';
+
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
-import BuilderFollowing from './pages/builder/Following';
-import InvestorFollowing from './pages/investor/Following';
-import InvestorWatchlist from './pages/investor/Watchlist';
-import EducatorDashboard from './pages/educator/Dashboard';
-import EducatorOverview from './pages/educator/Overview';
 import MyCourses from './pages/educator/MyCourses';
 import NewCourse from './pages/educator/NewCourse';
-import MemberDashboard from './pages/member/Dashboard';
-import MemberOverview from './pages/member/Overview';
-import MemberMyCourses from './pages/member/MyCourses';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -60,6 +53,7 @@ import AdminEvents from './pages/admin/AdminEvents';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
+import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -93,24 +87,6 @@ const AdminRoute = ({ children }) => {
     if (!isStaff) return <Navigate to="/dashboard" replace />;
 
     return children;
-};
-
-// Dashboard Redirect based on Role or Mode switch
-const DashboardRedirect = () => {
-    const { user } = useAuth();
-    const { mode } = useUserMode();
-
-    if (mode === 'admin') return <Navigate to="/admin" replace />;
-    if (mode === 'builder') return <Navigate to="/dashboard/builder" replace />;
-    if (mode === 'investor') return <Navigate to="/dashboard/investor" replace />;
-    if (mode === 'educator') return <Navigate to="/dashboard/educator" replace />;
-    if (mode === 'member') return <Navigate to="/dashboard/member" replace />;
-
-    if (user?.role?.toUpperCase() === 'ADMIN') return <Navigate to="/admin" replace />;
-    if (user?.role?.toUpperCase() === 'BUILDER') return <Navigate to="/dashboard/builder" replace />;
-    if (user?.role?.toUpperCase() === 'EDUCATOR') return <Navigate to="/dashboard/educator" replace />;
-    if (user?.role?.toUpperCase() === 'MEMBER') return <Navigate to="/dashboard/member" replace />;
-    return <Navigate to="/dashboard/investor" replace />;
 };
 
 const AppContent = () => {
@@ -155,63 +131,23 @@ const AppContent = () => {
                     <Route path="/about" element={<Team />} />
 
                     {/* Protected Routes */}
+                    {/* Specific Dashboard Routes */}
                     <Route path="/dashboard" element={
                         <ProtectedRoute>
-                            <DashboardRedirect />
-                        </ProtectedRoute>
-                    } />
-
-                    {/* Specific Dashboard Routes */}
-                    <Route path="/dashboard/builder" element={
-                        <ProtectedRoute>
-                            <BuilderDashboard />
+                            <Dashboard />
                         </ProtectedRoute>
                     }>
-                        <Route index element={<BuilderOverview />} />
+                        <Route index element={<Overview />} />
                         <Route path="projects" element={<MyProjects />} />
-                        <Route path="my-events" element={<MyEvents />} />
+                        <Route path="events" element={<MyEvents />} />
+                        <Route path="courses" element={<MyCourses />} />
+                        <Route path="following" element={<Following />} />
                         <Route path="messages" element={<Messages />} />
                         <Route path="analytics" element={<Analytics />} />
-                        <Route path="following" element={<BuilderFollowing />} />
                         <Route path="settings" element={<Settings />} />
+                        {/* Sub-routes */}
                         <Route path="new-project" element={<NewProject />} />
-                    </Route>
-                    <Route path="/dashboard/investor" element={
-                        <ProtectedRoute>
-                            <InvestorDashboard />
-                        </ProtectedRoute>
-                    }>
-                        <Route path="watchlist" element={<InvestorWatchlist />} />
-                        <Route path="my-events" element={<MyEvents />} />
-                        <Route path="following" element={<InvestorFollowing />} />
-                        <Route path="messages" element={<Messages />} />
-                        <Route path="deal-flow" element={<Discover />} />
-                        <Route path="settings" element={<Settings />} />
-                    </Route>
-
-                    {/* Educator Dashboard */}
-                    <Route path="/dashboard/educator" element={
-                        <ProtectedRoute><EducatorDashboard /></ProtectedRoute>
-                    }>
-                        <Route index element={<EducatorOverview />} />
-                        <Route path="courses" element={<MyCourses />} />
                         <Route path="new-course" element={<NewCourse />} />
-                        <Route path="my-events" element={<MyEvents />} />
-                        <Route path="following" element={<BuilderFollowing />} />
-                        <Route path="messages" element={<Messages />} />
-                        <Route path="settings" element={<Settings />} />
-                    </Route>
-
-                    {/* Member Dashboard */}
-                    <Route path="/dashboard/member" element={
-                        <ProtectedRoute><MemberDashboard /></ProtectedRoute>
-                    }>
-                        <Route index element={<MemberOverview />} />
-                        <Route path="courses" element={<MemberMyCourses />} />
-                        <Route path="my-events" element={<MyEvents />} />
-                        <Route path="following" element={<BuilderFollowing />} />
-                        <Route path="messages" element={<Messages />} />
-                        <Route path="settings" element={<Settings />} />
                     </Route>
 
                     {/* Admin Routes */}
@@ -226,6 +162,7 @@ const AppContent = () => {
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
+                        <Route path="investor-vetting" element={<AdminInvestorVetting />} />
                     </Route>
 
                     <Route path="/project/:id" element={

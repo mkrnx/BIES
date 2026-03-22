@@ -10,7 +10,7 @@ import { PASSKEY_ENABLED } from '../config/featureFlags';
 import { keyfileService } from '../services/keyfileService';
 
 const Signup = () => {
-    const { loginWithNsec, updateRole } = useAuth();
+    const { loginWithNsec } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -18,7 +18,7 @@ const Signup = () => {
     // Steps: 0 = Intro, 1 = Key Gen, 2 = Backup, 3 = Profile
     const [step, setStep] = useState(0);
     const [keys, setKeys] = useState(null); // { nsec, npub, sk, pk, mnemonic }
-    const [profile, setProfile] = useState({ name: '', role: 'investor' });
+    const [profile, setProfile] = useState({ name: '' });
     const [copiedItem, setCopiedItem] = useState(null);
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [passkeySaved, setPasskeySaved] = useState(false);
@@ -123,10 +123,6 @@ const Signup = () => {
             const result = await loginWithNsec(keys.nsec);
 
             if (result.success) {
-                // Update role to match their selection
-                const role = profile.role.toUpperCase();
-                await updateRole(role);
-
                 // Update profile name via API
                 const { authService } = await import('../services/authService.js');
                 await authService.completeNostrProfile({ name: profile.name });
@@ -345,7 +341,7 @@ const Signup = () => {
                         <h2 className="text-2xl font-bold mb-6 text-center">Complete Profile</h2>
 
                         <p className="text-sm text-gray-500 mb-4 text-center">
-                            Set up your display name and role to get started.
+                            Set up your display name to get started.
                         </p>
 
                         {error && (
@@ -365,40 +361,6 @@ const Signup = () => {
                                 value={profile.name}
                                 onChange={e => setProfile({ ...profile, name: e.target.value })}
                             />
-                        </div>
-
-                        <div className="mb-6" style={{ marginBottom: '3rem' }}>
-                            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--color-gray-700)' }}>I am a...</label>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div
-                                    className={`role-card ${profile.role === 'investor' ? 'active' : ''}`}
-                                    onClick={() => setProfile({ ...profile, role: 'investor' })}
-                                >
-                                    <div className="font-bold">Investor</div>
-                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> looking for opportunities</div>
-                                </div>
-                                <div
-                                    className={`role-card ${profile.role === 'builder' ? 'active' : ''}`}
-                                    onClick={() => setProfile({ ...profile, role: 'builder' })}
-                                >
-                                    <div className="font-bold">Builder</div>
-                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> building a project</div>
-                                </div>
-                                <div
-                                    className={`role-card ${profile.role === 'educator' ? 'active' : ''}`}
-                                    onClick={() => setProfile({ ...profile, role: 'educator' })}
-                                >
-                                    <div className="font-bold">Educator</div>
-                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> teaching & community</div>
-                                </div>
-                                <div
-                                    className={`role-card ${profile.role === 'member' ? 'active' : ''}`}
-                                    onClick={() => setProfile({ ...profile, role: 'member' })}
-                                >
-                                    <div className="font-bold">Member</div>
-                                    <div className="text-xs" style={{ color: 'var(--color-gray-500)' }}> supporting the ecosystem</div>
-                                </div>
-                            </div>
                         </div>
 
                         <button type="submit" className="btn-primary w-full py-3 rounded-full flex items-center justify-center gap-2">
@@ -500,22 +462,6 @@ const Signup = () => {
                     width: 100%;
                 }
 
-                .role-card {
-                    border: 1px solid var(--color-gray-200);
-                    background: var(--color-surface);
-                    border-radius: 1rem;
-                    padding: 1rem;
-                    cursor: pointer;
-                    text-align: center;
-                    transition: all 0.2s;
-                }
-                .role-card:hover {
-                    background: var(--color-gray-50);
-                }
-                .role-card.active {
-                    border-color: var(--color-primary);
-                    background: var(--color-blue-tint);
-                }
                 .spin {
                     animation: spin 1s linear infinite;
                 }

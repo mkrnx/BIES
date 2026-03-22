@@ -10,12 +10,11 @@ import NostrIcon from '../components/NostrIcon';
 
 const ProfileSetup = () => {
     const { t } = useTranslation();
-    const { user, updateRole, refreshUser } = useAuth();
+    const { user, refreshUser } = useAuth();
     const navigate = useNavigate();
     const [nostrProfile, setNostrProfile] = useState(null);
     const [loadingNostr, setLoadingNostr] = useState(true);
     const [biesName, setBiesName] = useState('');
-    const [role, setRole] = useState('BUILDER');
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
     const [showNostrEdit, setShowNostrEdit] = useState(false);
@@ -72,7 +71,6 @@ const ProfileSetup = () => {
             if (nostrForm.website || nostrProfile?.website) updateData.website = nostrForm.website || nostrProfile?.website;
 
             await profilesApi.update(updateData);
-            await updateRole(role);
 
             // Publish Nostr profile if user edited it
             if (showNostrEdit && nostrForm.name) {
@@ -224,39 +222,6 @@ const ProfileSetup = () => {
                         )}
                     </div>
 
-                    <div className="mb-6">
-                        <label className="block text-sm font-medium text-gray-700 mb-2">{t('profileSetup.iAmA')}</label>
-                        <div className="role-grid">
-                            <div
-                                className={`role-card ${role === 'BUILDER' ? 'active' : ''}`}
-                                onClick={() => setRole('BUILDER')}
-                            >
-                                <div className="font-bold">{t('signup.builder')}</div>
-                                <div className="text-xs text-gray-500">{t('profileSetup.buildingProject')}</div>
-                            </div>
-                            <div
-                                className={`role-card ${role === 'INVESTOR' ? 'active' : ''}`}
-                                onClick={() => setRole('INVESTOR')}
-                            >
-                                <div className="font-bold">{t('signup.investor')}</div>
-                                <div className="text-xs text-gray-500">{t('profileSetup.lookingOpportunities')}</div>
-                            </div>
-                            <div
-                                className={`role-card ${role === 'EDUCATOR' ? 'active' : ''}`}
-                                onClick={() => setRole('EDUCATOR')}
-                            >
-                                <div className="font-bold">{t('signup.educator')}</div>
-                                <div className="text-xs text-gray-500">{t('profileSetup.teachingCommunity')}</div>
-                            </div>
-                            <div
-                                className={`role-card ${role === 'MEMBER' ? 'active' : ''}`}
-                                onClick={() => setRole('MEMBER')}
-                            >
-                                <div className="font-bold">{t('signup.member')}</div>
-                                <div className="text-xs text-gray-500">{t('profileSetup.supportingEcosystem')}</div>
-                            </div>
-                        </div>
-                    </div>
 
                     <button
                         type="submit"
@@ -409,28 +374,6 @@ const ProfileSetup = () => {
                 }
                 .input-field:focus {
                     border-color: var(--color-primary);
-                }
-
-                .role-grid {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1rem;
-                }
-                .role-card {
-                    border: 1px solid var(--color-gray-200);
-                    background: var(--color-surface);
-                    border-radius: 1rem;
-                    padding: 1rem;
-                    cursor: pointer;
-                    text-align: center;
-                    transition: all 0.2s;
-                }
-                .role-card:hover {
-                    background: var(--color-gray-50);
-                }
-                .role-card.active {
-                    border-color: var(--color-primary);
-                    background: var(--color-blue-tint);
                 }
 
                 .btn-primary {
