@@ -265,45 +265,50 @@ const Navbar = () => {
               <img src={logoIconDark} alt="BIES" style={{ height: '32px' }} />
               <button onClick={() => setIsMenuOpen(false)} style={{ color: 'white', background: 'none', border: 'none', fontSize: '1.5rem', padding: '8px', cursor: 'pointer' }}>✕</button>
             </div>
-            <div style={{ overflowY: 'auto', padding: '0.75rem 0', display: 'flex', flexDirection: 'column' }}>
-              {navLinks.map((link) => {
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 0', display: 'flex', flexDirection: 'column' }}>
+              {/* Top Section: Profile, Messages, News, About */}
+              {[
+                { to: '/profile', label: t('nav.profile') },
+                { to: '/messages', label: t('nav.messages') },
+                { to: '/news', label: t('nav.news') },
+                { to: '/about', label: t('nav.about') },
+              ].map((link) => {
+                const active = isActive(link.to);
                 const linkStyle = {
                   display: 'block',
                   padding: '0.9rem 1.5rem',
-                  color: isActive(link.path) ? 'white' : 'rgba(255,255,255,0.8)',
+                  color: active ? 'white' : 'rgba(255,255,255,0.8)',
                   fontSize: '1rem',
-                  fontWeight: isActive(link.path) ? 700 : 500,
+                  fontWeight: active ? 700 : 500,
                   textDecoration: 'none',
-                  borderLeft: isActive(link.path) ? '3px solid var(--color-secondary)' : '3px solid transparent',
-                  background: isActive(link.path) ? 'rgba(255,255,255,0.1)' : 'none',
+                  borderLeft: active ? '3px solid var(--color-secondary)' : '3px solid transparent',
+                  background: active ? 'rgba(255,255,255,0.1)' : 'none',
                 };
                 return (
-                  <Link key={link.path} to={link.path} style={linkStyle} onClick={() => setIsMenuOpen(false)}>
+                  <Link key={link.to} to={link.to} style={linkStyle} onClick={() => setIsMenuOpen(false)}>
                     {link.label}
                   </Link>
                 );
               })}
             </div>
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', paddingBottom: '2rem' }}>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0))' }}>
+              {/* Bottom Section: FAQ, Settings, Log Out */}
+              {[
+                { to: '/about', label: 'FAQ' }, // FAQ points to About for now
+                { to: '/settings', label: t('nav.settings') },
+              ].map(item => (
+                <Link key={item.to} to={item.to} style={{ display: 'block', padding: '0.9rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500, textDecoration: 'none', borderLeft: '3px solid transparent' }} onClick={() => setIsMenuOpen(false)}>
+                  {item.label}
+                </Link>
+              ))}
+              
               {isAuthenticated ? (
-                <>
-                  {[
-                    { to: user?.role === 'INVESTOR' ? `/investor/${user.id}` : `/builder/${user?.id || ''}`, label: 'Profile' },
-                    { to: '/dashboard', label: 'Dashboard' },
-                    { to: '/messages', label: 'Messages' },
-                    { to: '/settings', label: 'Settings' },
-                  ].map(item => (
-                    <Link key={item.to} to={item.to} style={{ display: 'block', padding: '0.9rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500, textDecoration: 'none', borderLeft: '3px solid transparent' }} onClick={() => setIsMenuOpen(false)}>
-                      {item.label}
-                    </Link>
-                  ))}
-                  <button onClick={() => { logout(); clearMode(); setIsMenuOpen(false); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.9rem 1.5rem', color: '#ef4444', fontSize: '1rem', fontWeight: 500, background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left' }}>
-                    <LogOut size={16} /> Log Out
-                  </button>
-                </>
+                <button onClick={() => { logout(); clearMode(); setIsMenuOpen(false); navigate('/'); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.9rem 1.5rem', color: '#ef4444', fontSize: '1rem', fontWeight: 500, background: 'none', border: 'none', borderLeft: '3px solid transparent', cursor: 'pointer', fontFamily: 'inherit', width: '100%', textAlign: 'left' }}>
+                  <LogOut size={16} /> {t('common.logOut')}
+                </button>
               ) : (
                 <Link to="/login" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0.9rem 1.5rem', color: 'rgba(255,255,255,0.8)', fontSize: '1rem', fontWeight: 500, textDecoration: 'none', borderLeft: '3px solid transparent' }} onClick={() => setIsMenuOpen(false)}>
-                  <NostrIcon size={16} /> Log In
+                  <NostrIcon size={16} /> {t('common.logIn')}
                 </Link>
               )}
             </div>

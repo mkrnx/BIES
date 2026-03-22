@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, Calendar, Newspaper, User } from 'lucide-react';
+import { Home, Compass, Calendar, Play, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -38,7 +38,7 @@ const MobileBottomNav = () => {
     { path: '/feed', icon: Home, label: t('mobileNav.home') },
     { path: '/discover', icon: Compass, label: t('mobileNav.discover') },
     { path: '/events', icon: Calendar, label: t('mobileNav.events') },
-    { path: '/news', icon: Newspaper, label: t('mobileNav.news') },
+    { path: '/media', icon: Play, label: t('nav.media') },
     { path: '/dashboard', icon: User, label: t('mobileNav.dashboard'), auth: true },
   ];
 
