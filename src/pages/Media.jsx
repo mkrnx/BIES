@@ -245,8 +245,9 @@ const Media = () => {
           box-shadow: 0 1px 3px rgba(255, 0, 0, 0.3);
         }
         .tab-btn.active:nth-child(3) {
-          background: #059669;
-          box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
+          background: white;
+          color: #EF4444;
+          box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
         }
 
         /* Substack Cards */
@@ -355,7 +356,7 @@ const Media = () => {
           display: inline-block;
           width: 6px;
           height: 6px;
-          background: #fca5a5;
+          background: #EF4444;
           border-radius: 50%;
           margin-right: 4px;
           animation: pulse 1.5s ease-in-out infinite;
