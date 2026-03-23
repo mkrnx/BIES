@@ -351,6 +351,13 @@ export const newsApi = {
     updateSettings: (data) => put('/news/settings', data),
 };
 
+// ─── Media (Live Feeds) ──────────────────────────────────────────────────────
+
+export const mediaApi = {
+    substack: () => get('/media/substack'),
+    youtube: () => get('/media/youtube'),
+};
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export const healthApi = {

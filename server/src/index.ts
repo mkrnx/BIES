@@ -31,6 +31,7 @@ import statsRoutes from './routes/stats.routes';
 import settingsRoutes from './routes/settings.routes';
 import contentRoutes from './routes/content.routes';
 import newsRoutes from './routes/news.routes';
+import mediaRoutes from './routes/media.routes';
 import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
 
@@ -171,6 +172,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/news', newsRoutes);
+app.use('/api/media', mediaRoutes);
 app.use('/api/match', matchRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
