@@ -206,14 +206,13 @@ const Media = () => {
             <style jsx>{`
         .tabs {
           display: flex;
-          gap: 0.5rem;
+          gap: 0.25rem;
           margin-bottom: 0;
           background: var(--color-gray-100);
           border: 1px solid #e5e7eb;
           border-radius: var(--radius-xl, 12px);
           padding: 0.25rem;
           width: 100%;
-          justify-content: space-evenly;
         }
 
         .tab-btn {
@@ -230,6 +229,7 @@ const Media = () => {
           transition: all 0.2s;
           background: transparent;
           color: #9ca3af;
+          flex: 1;
         }
         .tab-btn:hover {
           color: #6b7280;
