@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { mediaApi } from '../services/api';
+import { mediaApi, newsApi } from '../services/api';
 
 const Media = () => {
     const [activeTab, setActiveTab] = useState('substack');
     const [substackItems, setSubstackItems] = useState([]);
     const [youtubeItems, setYoutubeItems] = useState([]);
+    const [liveSettings, setLiveSettings] = useState({ livestreamUrl: '', livestreamActive: false });
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -21,6 +22,8 @@ const Media = () => {
                     const result = await mediaApi.youtube();
                     const list = result?.data || result || [];
                     setYoutubeItems(Array.isArray(list) ? list : []);
+                } else if (activeTab === 'live') {
+                    // Live tab doesn't need additional fetching
                 }
             } catch (error) {
                 console.error(`[Media] Error fetching ${activeTab}:`, error);
@@ -31,6 +34,15 @@ const Media = () => {
         fetchContent();
     }, [activeTab]);
 
+    // Fetch livestream settings once on mount
+    useEffect(() => {
+        newsApi.settings()
+            .then(data => {
+                setLiveSettings({ livestreamUrl: data.livestreamUrl || '', livestreamActive: data.livestreamActive || false });
+            })
+            .catch(() => {});
+    }, []);
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -38,6 +50,12 @@ const Media = () => {
         } catch {
             return dateStr;
         }
+    };
+
+    const extractVideoId = (url) => {
+        if (!url) return '';
+        const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        return match?.[1] || '';
     };
 
     return (
@@ -60,6 +78,13 @@ const Media = () => {
                     onClick={() => setActiveTab('youtube')}
                 >
                     YouTube
+                </button>
+                <button
+                    className={`tab-btn ${activeTab === 'live' ? 'active' : ''}`}
+                    onClick={() => setActiveTab('live')}
+                >
+                    {liveSettings.livestreamActive && <span className="live-dot" />}
+                    Live
                 </button>
             </div>
 
@@ -135,6 +160,45 @@ const Media = () => {
                                 </div>
                             )
                         )}
+
+                        {/* Live Tab */}
+                        {activeTab === 'live' && (() => {
+                            const videoId = extractVideoId(liveSettings.livestreamUrl);
+                            const embedDomain = window.location.hostname;
+
+                            if (!liveSettings.livestreamActive || !videoId) {
+                                return (
+                                    <div className="live-placeholder">
+                                        <div className="live-icon">📺</div>
+                                        <h3>No livestream currently scheduled</h3>
+                                        <p>Check back soon for live content from the Build In El Salvador community.</p>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="live-layout">
+                                    <div className="live-player">
+                                        <div className="youtube-embed">
+                                            <iframe
+                                                src={`https://www.youtube.com/embed/${videoId}?autoplay=1`}
+                                                title="Live Stream"
+                                                frameBorder="0"
+                                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                allowFullScreen
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="live-chat">
+                                        <iframe
+                                            src={`https://www.youtube.com/live_chat?v=${videoId}&embed_domain=${embedDomain}`}
+                                            title="Live Chat"
+                                            frameBorder="0"
+                                        />
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </>
                 )}
             </div>
@@ -267,6 +331,67 @@ const Media = () => {
           overflow: hidden;
         }
 
+        /* Live Tab - Pulsing Dot */
+        .live-dot {
+          display: inline-block;
+          width: 8px;
+          height: 8px;
+          background: #ef4444;
+          border-radius: 50%;
+          margin-right: 6px;
+          animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(1.3); }
+        }
+
+        /* Live Layout: player left (65%), chat right (35%) */
+        .live-layout {
+          display: grid;
+          grid-template-columns: 65fr 35fr;
+          gap: 1.5rem;
+          align-items: start;
+        }
+        .live-player {
+          width: 100%;
+        }
+        .live-player .youtube-embed {
+          width: 100%;
+          padding-bottom: 56.25%;
+          position: relative;
+          height: 0;
+        }
+        .live-player .youtube-embed iframe {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+        }
+        .live-chat iframe {
+          width: 100%;
+          height: 600px;
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-lg);
+        }
+
+        /* Live Placeholder */
+        .live-placeholder {
+          text-align: center;
+          padding: 4rem 2rem;
+          color: var(--color-gray-500);
+        }
+        .live-icon {
+          font-size: 3rem;
+          margin-bottom: 1rem;
+        }
+        .live-placeholder h3 {
+          font-size: 1.25rem;
+          margin-bottom: 0.5rem;
+          color: var(--color-neutral-dark);
+        }
+
         @media (max-width: 768px) {
           .grid-cols-3,
           .grid-cols-2 {
@@ -274,6 +399,12 @@ const Media = () => {
           }
           .page-header {
             display: none !important;
+          }
+          .live-layout {
+            grid-template-columns: 1fr;
+          }
+          .live-chat iframe {
+            height: 400px;
           }
         }
       `}</style>

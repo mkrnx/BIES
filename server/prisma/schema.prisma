@@ -447,10 +447,12 @@ model UserSettings {
 // ─────────────────────────────────────────────────────────────────────────────
 
 model SiteSettings {
-  id              String   @id @default("default")
-  nostrNpubs      String   @default("[]") @map("nostr_npubs")
-  twitterHandles  String   @default("[]") @map("twitter_handles")
-  updatedAt       DateTime @updatedAt @map("updated_at")
+  id               String   @id @default("default")
+  nostrNpubs       String   @default("[]") @map("nostr_npubs")
+  twitterHandles   String   @default("[]") @map("twitter_handles")
+  livestreamUrl    String   @default("") @map("livestream_url")
+  livestreamActive Boolean  @default(false) @map("livestream_active")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("site_settings")
 }
