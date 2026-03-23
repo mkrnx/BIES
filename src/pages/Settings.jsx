@@ -1,13 +1,15 @@
 import React from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid } from 'lucide-react';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
+import { useViewPreference } from '../context/ViewContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { investorApi } from '../services/api';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
+    const { defaultView, setDefaultView } = useViewPreference();
     const { t, i18n } = useTranslation();
 
     const handleLanguageChange = (e) => {
@@ -80,6 +82,23 @@ const Settings = () => {
                     >
                         <option value="en">English</option>
                         <option value="es">Espanol</option>
+                    </select>
+                </div>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><LayoutGrid size={20} /></div>
+                        <div>
+                            <p className="setting-label">Default View</p>
+                            <p className="setting-desc">Choose your preferred layout for Projects and Events</p>
+                        </div>
+                    </div>
+                    <select
+                        className="select-input"
+                        value={defaultView}
+                        onChange={(e) => setDefaultView(e.target.value)}
+                    >
+                        <option value="list">List View</option>
+                        <option value="standard">Grid / Card View</option>
                     </select>
                 </div>
             </div>

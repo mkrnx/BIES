@@ -31,7 +31,6 @@ const Navbar = () => {
 
   const navLinks = [
     { label: t('nav.discover'), path: '/discover' },
-    { label: t('nav.members'), path: '/members' },
     { label: t('nav.events'), path: '/events' },
     { label: t('nav.media'), path: '/media' },
     { label: t('nav.news'), path: '/news' },
@@ -44,7 +43,7 @@ const Navbar = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/' || path === '/feed') return t('pageTitles.biesFeed');
-    if (path.startsWith('/discover')) return t('pageTitles.discoverProjects');
+    if (path.startsWith('/discover')) return t('pageTitles.discover', 'Discover');
     if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
     if (path.startsWith('/news')) return t('pageTitles.news');
     if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return t('pageTitles.members');

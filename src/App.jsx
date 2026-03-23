@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { ViewProvider } from './context/ViewContext';
 import './i18n';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -120,10 +121,10 @@ const AppContent = () => {
                         <ProtectedRoute><EditEvent /></ProtectedRoute>
                     } />
                     <Route path="/events/:id" element={<EventDetail />} />
-                    <Route path="/members" element={<Members />} />
-                    <Route path="/builders" element={<Navigate to="/members" replace />} />
+                    <Route path="/members" element={<Navigate to="/discover" replace />} />
+                    <Route path="/builders" element={<Navigate to="/discover" replace />} />
                     <Route path="/builder/:id" element={<PublicProfile type="builder" />} />
-                    <Route path="/investors" element={<Navigate to="/members" replace />} />
+                    <Route path="/investors" element={<Navigate to="/discover" replace />} />
                     <Route path="/investor/:id" element={<PublicProfile type="investor" />} />
                     <Route path="/media" element={<Media />} />
                     <Route path="/news" element={<News />} />
@@ -213,11 +214,13 @@ function App() {
     return (
         <AuthProvider>
             <ThemeProvider>
-                <UserModeProvider>
-                    <Router basename="/">
-                        <AppContent />
-                    </Router>
-                </UserModeProvider>
+                <ViewProvider>
+                    <UserModeProvider>
+                        <Router basename="/">
+                            <AppContent />
+                        </Router>
+                    </UserModeProvider>
+                </ViewProvider>
             </ThemeProvider>
         </AuthProvider>
     );
