@@ -213,7 +213,7 @@ const Media = () => {
           border-radius: var(--radius-xl, 12px);
           padding: 0.25rem;
           width: 100%;
-          justify-content: center;
+          justify-content: space-evenly;
         }
 
         .tab-btn {
