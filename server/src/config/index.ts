@@ -56,6 +56,9 @@ export const config = {
     // ─── News Feed (gnews.io API) ───────────────────────────────────────────
     gnewsApiKey: process.env.GNEWS_API_KEY || '',
 
+    // ─── Media Feeds (YouTube, etc.) ─────────────────────────────────────────
+    youtubeChannelId: process.env.YOUTUBE_CHANNEL_ID || '',
+
     // ─── Email (optional, for notification emails) ───────────────────────────
     smtp: {
         host: process.env.SMTP_HOST || '',

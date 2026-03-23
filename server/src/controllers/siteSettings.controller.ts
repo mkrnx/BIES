@@ -10,6 +10,8 @@ import { getLiveNewsFeed, filterByKeyword } from '../services/newsfeed.service';
 export const updateSiteSettingsSchema = z.object({
     nostrNpubs: z.array(z.string().startsWith('npub1')).max(50).optional(),
     twitterHandles: z.array(z.string().min(1).max(15)).max(50).optional(),
+    livestreamUrl: z.string().url().or(z.literal('')).optional(),
+    livestreamActive: z.boolean().optional(),
 });
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -22,6 +24,8 @@ async function getOrCreateSettings() {
     return {
         nostrNpubs: JSON.parse(settings.nostrNpubs || '[]'),
         twitterHandles: JSON.parse(settings.twitterHandles || '[]'),
+        livestreamUrl: settings.livestreamUrl || '',
+        livestreamActive: settings.livestreamActive ?? false,
         updatedAt: settings.updatedAt,
     };
 }
@@ -50,11 +54,13 @@ export async function getSiteSettings(req: Request, res: Response): Promise<void
 
 export async function updateSiteSettings(req: Request, res: Response): Promise<void> {
     try {
-        const { nostrNpubs, twitterHandles } = req.body;
+        const { nostrNpubs, twitterHandles, livestreamUrl, livestreamActive } = req.body;
 
         const data: any = {};
         if (nostrNpubs !== undefined) data.nostrNpubs = JSON.stringify(nostrNpubs);
         if (twitterHandles !== undefined) data.twitterHandles = JSON.stringify(twitterHandles);
+        if (livestreamUrl !== undefined) data.livestreamUrl = livestreamUrl;
+        if (livestreamActive !== undefined) data.livestreamActive = livestreamActive;
 
         await prisma.siteSettings.upsert({
             where: { id: 'default' },

@@ -6,6 +6,8 @@ import { nip19 } from 'nostr-tools';
 const AdminNewsSettings = () => {
     const [npubs, setNpubs] = useState([]);
     const [handles, setHandles] = useState([]);
+    const [livestreamUrl, setLivestreamUrl] = useState('');
+    const [livestreamActive, setLivestreamActive] = useState(false);
     const [newNpub, setNewNpub] = useState('');
     const [newHandle, setNewHandle] = useState('');
     const [npubError, setNpubError] = useState('');
@@ -19,6 +21,8 @@ const AdminNewsSettings = () => {
             .then(res => {
                 setNpubs(res?.nostrNpubs || []);
                 setHandles(res?.twitterHandles || []);
+                setLivestreamUrl(res?.livestreamUrl || '');
+                setLivestreamActive(res?.livestreamActive || false);
             })
             .catch(() => {})
             .finally(() => setLoading(false));
@@ -66,13 +70,19 @@ const AdminNewsSettings = () => {
         setSaving(true);
         setStatus(null);
         try {
-            await newsApi.updateSettings({ nostrNpubs: npubs, twitterHandles: handles });
+            await newsApi.updateSettings({ nostrNpubs: npubs, twitterHandles: handles, livestreamUrl, livestreamActive });
             setStatus({ type: 'success', message: 'Settings saved.' });
         } catch {
             setStatus({ type: 'error', message: 'Failed to save settings.' });
         } finally {
             setSaving(false);
         }
+    };
+
+    const extractVideoId = (url) => {
+        if (!url) return '';
+        const match = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+        return match?.[1] || '';
     };
 
     if (loading) {
@@ -164,6 +174,37 @@ const AdminNewsSettings = () => {
                 {handleError && <p className="field-error">{handleError}</p>}
             </div>
 
+            {/* Livestream */}
+            <div className="settings-card">
+                <h3>Livestream</h3>
+                <p className="card-desc">Paste a YouTube video/livestream URL. Toggle "Active" to show it on the Media page.</p>
+
+                <div className="livestream-row">
+                    <input
+                        type="url"
+                        placeholder="https://www.youtube.com/watch?v=..."
+                        value={livestreamUrl}
+                        onChange={(e) => setLivestreamUrl(e.target.value)}
+                        className="livestream-input"
+                    />
+                    <label className="toggle-label">
+                        <input
+                            type="checkbox"
+                            checked={livestreamActive}
+                            onChange={(e) => setLivestreamActive(e.target.checked)}
+                        />
+                        Active
+                    </label>
+                </div>
+
+                {livestreamUrl && extractVideoId(livestreamUrl) && (
+                    <p className="video-id-preview">✓ Video ID: {extractVideoId(livestreamUrl)}</p>
+                )}
+                {livestreamUrl && !extractVideoId(livestreamUrl) && (
+                    <p className="field-error">⚠ No valid YouTube URL detected</p>
+                )}
+            </div>
+
             <style jsx>{`
                 .header {
                     display: flex;
@@ -245,6 +286,40 @@ const AdminNewsSettings = () => {
                 .btn-outline:hover { background: var(--color-gray-50); }
 
                 .field-error { color: var(--color-error); font-size: 0.8rem; margin-top: 0.25rem; }
+
+                .livestream-row {
+                    display: flex;
+                    gap: 0.75rem;
+                    align-items: center;
+                    margin-bottom: 0.75rem;
+                }
+                .livestream-input {
+                    flex: 1;
+                    padding: 0.5rem 0.75rem;
+                    border: 1px solid var(--color-gray-300);
+                    border-radius: var(--radius-md);
+                    font-size: 0.9rem;
+                }
+                .livestream-input:focus { outline: none; border-color: var(--color-primary); }
+
+                .toggle-label {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    cursor: pointer;
+                    font-weight: 500;
+                }
+                .toggle-label input[type="checkbox"] {
+                    cursor: pointer;
+                    width: 18px;
+                    height: 18px;
+                }
+
+                .video-id-preview {
+                    color: var(--color-success);
+                    font-size: 0.85rem;
+                    margin-top: 0.5rem;
+                }
             `}</style>
         </>
     );
