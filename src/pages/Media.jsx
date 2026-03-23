@@ -206,28 +206,48 @@ const Media = () => {
             <style jsx>{`
         .tabs {
           display: flex;
-          justify-content: center;
-          gap: 1rem;
-          border-bottom: 1px solid var(--color-gray-200);
-          padding-bottom: 1px;
+          gap: 0.5rem;
+          margin-bottom: 0;
+          background: var(--color-gray-100);
+          border: 1px solid #e5e7eb;
+          border-radius: var(--radius-xl, 12px);
+          padding: 0.25rem;
+          width: fit-content;
+          margin-left: auto;
+          margin-right: auto;
         }
 
         .tab-btn {
-          padding: 0.75rem 1.5rem;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.375rem;
+          padding: 0.625rem 1rem;
+          border-radius: 10px;
+          font-size: 0.85rem;
           font-weight: 600;
-          color: var(--color-gray-500);
-          border-bottom: 2px solid transparent;
-          cursor: pointer;
-          background: none;
           border: none;
+          cursor: pointer;
           transition: all 0.2s;
+          background: transparent;
+          color: #9ca3af;
         }
         .tab-btn:hover {
-          color: var(--color-neutral-dark);
+          color: #6b7280;
+          background: #f9fafb;
         }
         .tab-btn.active {
-          color: var(--color-primary);
-          border-bottom-color: var(--color-primary);
+          background: #7c3aed;
+          color: white;
+          box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+        }
+        .tab-btn.active:nth-child(2) {
+          background: #2563eb;
+          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+        }
+        .tab-btn.active:nth-child(3) {
+          background: #059669;
+          box-shadow: 0 1px 3px rgba(5, 150, 105, 0.3);
         }
 
         /* Substack Cards */
@@ -334,16 +354,16 @@ const Media = () => {
         /* Live Tab - Pulsing Dot */
         .live-dot {
           display: inline-block;
-          width: 8px;
-          height: 8px;
-          background: #ef4444;
+          width: 6px;
+          height: 6px;
+          background: #fca5a5;
           border-radius: 50%;
-          margin-right: 6px;
+          margin-right: 4px;
           animation: pulse 1.5s ease-in-out infinite;
         }
         @keyframes pulse {
           0%, 100% { opacity: 1; transform: scale(1); }
-          50% { opacity: 0.5; transform: scale(1.3); }
+          50% { opacity: 0.6; transform: scale(1.4); }
         }
 
         /* Live Layout: player left (65%), chat right (35%) */
