@@ -212,9 +212,8 @@ const Media = () => {
           border: 1px solid #e5e7eb;
           border-radius: var(--radius-xl, 12px);
           padding: 0.25rem;
-          width: fit-content;
-          margin-left: auto;
-          margin-right: auto;
+          width: 100%;
+          justify-content: center;
         }
 
         .tab-btn {
