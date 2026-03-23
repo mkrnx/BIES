@@ -53,13 +53,13 @@ const Media = () => {
                     className={`tab-btn ${activeTab === 'substack' ? 'active' : ''}`}
                     onClick={() => setActiveTab('substack')}
                 >
-                    Substack (Blogs)
+                    Substack
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'youtube' ? 'active' : ''}`}
                     onClick={() => setActiveTab('youtube')}
                 >
-                    YouTube (Interviews)
+                    YouTube
                 </button>
             </div>
 
