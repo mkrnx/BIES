@@ -78,6 +78,7 @@
   },
   "pageTitles": {
     "biesFeed": "BIES Feed",
+    "discover": "Descubrir",
     "discoverProjects": "Descubrir Proyectos",
     "ecosystemEvents": "Eventos del Ecosistema",
     "news": "Noticias",
@@ -222,7 +223,7 @@
     "enterDashboard": "Entrar al Panel"
   },
   "discover": {
-    "title": "Descubrir Proyectos",
+    "title": "Descubrir",
     "newProject": "Nuevo Proyecto",
     "searchPlaceholder": "Buscar por nombre, industria o etiqueta...",
     "industry": "Industria",

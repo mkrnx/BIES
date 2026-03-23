@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck, Search, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { eventsApi } from '../services/api';
@@ -112,6 +112,7 @@ const MyEvents = () => {
     const navigate = useNavigate();
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [showSearch, setShowSearch] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
 
@@ -161,7 +162,7 @@ const MyEvents = () => {
 
     const formatDate = (d) => {
         if (!d) return '—';
-        try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+        try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
         catch { return d; }
     };
 
@@ -214,13 +215,23 @@ const MyEvents = () => {
                         </button>
                     </div>
                     <div className="search-wrapper">
-                        <input
-                            type="text"
-                            placeholder="Search events..."
-                            className="search-input"
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                        />
+                        <button 
+                            className="search-toggle-btn hide-on-desktop" 
+                            onClick={() => setShowSearch(!showSearch)}
+                            aria-label="Toggle search"
+                        >
+                            {showSearch ? <X size={20} /> : <Search size={20} />}
+                        </button>
+                        <div className={`search-input-container ${showSearch ? 'mobile-visible' : ''}`}>
+                            <Search className="search-icon hide-on-mobile" size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search events..."
+                                className="search-input"
+                                value={search}
+                                onChange={e => setSearch(e.target.value)}
+                            />
+                        </div>
                     </div>
                 </div>
 
@@ -233,7 +244,7 @@ const MyEvents = () => {
                         <table className="events-table">
                             <thead>
                                 <tr>
-                                    <th>Event Name</th>
+                                    <th style={{ minWidth: '160px' }}>Event Name</th>
                                     <th>Category</th>
                                     <th>Date</th>
                                     <th>Visibility</th>
@@ -246,28 +257,14 @@ const MyEvents = () => {
                                 {filteredEvents.map(event => (
                                     <tr key={event.id} style={{ opacity: actionLoading === event.id ? 0.5 : 1 }}>
                                         <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                {event.thumbnail && (
-                                                    <img
-                                                        src={getAssetUrl(event.thumbnail)}
-                                                        alt=""
-                                                        style={{ width: 36, height: 30, borderRadius: 4, objectFit: 'cover', flexShrink: 0 }}
-                                                    />
-                                                )}
-                                                <div>
-                                                    <Link to={`/events/${event.id}`} className="event-name-link">
-                                                        {event.title}
-                                                    </Link>
-                                                    {event.location && (
-                                                        <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-400)', marginTop: 1 }}>{event.location}</div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                            <Link to={`/events/${event.id}`} className="event-name-link">
+                                                {event.title}
+                                            </Link>
                                         </td>
                                         <td style={{ color: 'var(--color-gray-600)', fontSize: '0.88rem' }}>
                                             {categoryLabel(event.category)}
                                         </td>
-                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem' }}>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
                                             {formatDate(event.startDate)}
                                         </td>
                                         <td>
@@ -349,14 +346,68 @@ const MyEvents = () => {
                     background: none;
                 }
                 .tab.active { background: var(--color-gray-100); color: #F97316; font-weight: 600; }
-
-                .search-input {
-                    padding: 0.5rem 1rem;
+                
+                .search-wrapper { display: flex; align-items: center; gap: 0.5rem; }
+                .search-toggle-btn {
+                    padding: 0.5rem;
+                    border: none;
+                    background: none;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: var(--radius-md);
+                }
+                .search-toggle-btn:hover { background: var(--color-gray-100); }
+                
+                .search-input-container {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-300);
                     border-radius: var(--radius-md);
+                    padding: 0 0.75rem;
+                    transition: all 0.2s ease;
+                }
+                .search-input-container:focus-within {
+                    border-color: var(--color-primary);
+                    box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.1);
+                }
+                .search-icon { color: var(--color-gray-400); }
+                .search-input {
+                    padding: 0.5rem 0;
+                    border: none;
                     font-size: 0.9rem;
-                    width: 220px;
+                    width: 180px;
                     outline: none;
+                    background: transparent;
+                }
+                
+                @media (max-width: 768px) {
+                    .search-input-container {
+                        position: absolute;
+                        top: 100%;
+                        left: 0;
+                        right: 0;
+                        z-index: 10;
+                        background: var(--color-surface);
+                        border-top: 1px solid var(--color-gray-100);
+                        border-radius: 0;
+                        padding: 0.75rem 1rem;
+                        opacity: 0;
+                        visibility: hidden;
+                        transform: translateY(-10px);
+                        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    }
+                    .search-input-container.mobile-visible {
+                        opacity: 1;
+                        visibility: visible;
+                        transform: translateY(0);
+                    }
+                    .search-input { width: 100%; }
+                    .toolbar { position: relative; }
                 }
 
                 .table-wrapper { overflow-x: auto; overflow-y: visible; }

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2 } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2, Ticket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAssetUrl } from '../utils/assets';
 import { stripHtml } from '../utils/text';
 import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useViewPreference } from '../context/ViewContext';
 
 const MOCK_OFFICIAL_EVENTS = [
     {
@@ -97,7 +98,7 @@ const MOCK_COMMUNITY_EVENTS = [
     },
 ];
 
-const CATEGORY_COLORS = {
+const EVENT_CATEGORY_COLORS = {
     CONFERENCE: 'var(--color-blue-tint)',
     HACKATHON: 'var(--color-amber-tint)',
     WORKSHOP: 'var(--color-blue-tint)',
@@ -106,17 +107,183 @@ const CATEGORY_COLORS = {
     DEMO_DAY: 'var(--color-orange-tint)',
 };
 
-const EventCard = ({ event, isOfficial }) => {
+const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
     const { t } = useTranslation();
-    const bgColor = CATEGORY_COLORS[event.category] || 'var(--color-gray-100)';
+    const bgColor = EVENT_CATEGORY_COLORS[event.category] || 'var(--color-gray-100)';
     const hasImage = event.coverImage || event.image || event.thumbnail;
     const categoryLabel = (event.category || '').replace(/_/g, ' ');
-    const dateStr = (() => {
+    const dateStrList = (() => {
         const d = event.startDate || event.date;
         if (!d) return '';
-        try { return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+        try {
+            const date = new Date(d);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase().replace(' ', '');
+            return `${dateStr}, ${timeStr}`;
+        }
         catch { return d; }
     })();
+
+    const dateStrFull = (() => {
+        const d = event.startDate || event.date;
+        if (!d) return '';
+        try {
+            const date = new Date(d);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+            return `${dateStr} at ${timeStr}`;
+        }
+        catch { return d; }
+    })();
+
+    const displayLocation = useMemo(() => {
+        if (!event.location) return 'El Salvador';
+        const parts = event.location.split(',');
+        if (parts.length > 1) return parts[0].trim();
+        return event.location;
+    }, [event.location]);
+
+    if (viewType === 'list') {
+        const tags = [
+            categoryLabel,
+            isOfficial ? t('common.official') : null,
+            event.isOnline ? t('common.online') : null,
+            event.isEndorsed ? t('common.endorsed') : null
+        ].filter(Boolean);
+
+        return (
+            <Link to={`/events/${event.id}`} className="event-card-link-list">
+                <div className="event-list-card" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1.25rem', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-xl)', border: `1px solid ${isOfficial ? '#fed7aa' : 'var(--color-gray-200)'}`, position: 'relative', overflow: 'hidden', boxSizing: 'border-box', width: '100%', minWidth: 0 }}>
+                    <div className="event-list-avatar relative" style={{ width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', background: 'var(--color-gray-100)', flexShrink: 0 }}>
+                        {hasImage ? (
+                            <img 
+                                src={getAssetUrl(event.coverImage || event.image || event.thumbnail)} 
+                                alt={event.title} 
+                                className="w-full h-full object-cover" 
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <div className="w-full h-full" style={{ width: '100%', height: '100%', backgroundColor: bgColor, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <CalendarIcon size={24} style={{ color: 'var(--color-gray-400)' }} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="event-list-info" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <h3 className="font-semibold text-lg" style={{ fontSize: '1.1rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, margin: 0 }}>{event.title}</h3>
+                        <div className="event-list-meta" style={{ display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px', fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                                <CalendarIcon size={13} style={{ flexShrink: 0 }} />
+                                <span>{dateStrList}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', overflow: 'hidden', minWidth: 0 }}>
+                                <MapPin size={13} style={{ flexShrink: 0 }} />
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{displayLocation}</span>
+                            </div>
+                        </div>
+
+                        {tags.length > 0 && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                                {tags.map((tag, i) => (
+                                    <span key={i} className="event-list-tag" style={{ padding: '2px 8px', fontSize: '0.7rem', background: 'var(--color-surface-raised)', borderRadius: '99px', color: 'var(--color-gray-600)', fontWeight: 500 }}>{tag}</span>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                    <div className="event-list-actions" style={{ flexShrink: 0 }}>
+                        {/* Desktop: text pill button */}
+                        {(event.ticketUrl || event.externalUrl) ? (
+                            <>
+                                <a
+                                    href={event.ticketUrl || event.externalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="btn btn-primary btn-xs ticket-btn-text"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {t('common.getTickets')}
+                                </a>
+                                <a
+                                    href={event.ticketUrl || event.externalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ticket-btn-icon"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <Ticket size={18} />
+                                </a>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    to={`/events/${event.id}`}
+                                    className="btn btn-primary btn-xs ticket-btn-text"
+                                >
+                                    {t('common.getTickets')}
+                                </Link>
+                                <Link
+                                    to={`/events/${event.id}`}
+                                    className="ticket-btn-icon"
+                                >
+                                    <Ticket size={18} />
+                                </Link>
+                            </>
+                        )}
+                    </div>
+                </div>
+                <style jsx>{`
+                    .event-card-link-list { text-decoration: none; color: inherit; display: flex; width: 100%; }
+                    .event-list-card {
+                        transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+                    }
+                    .event-list-card:hover {
+                        border-color: var(--color-primary-light);
+                        box-shadow: var(--shadow-sm);
+                    }
+                    .event-list-tag {
+                        font-size: 0.75rem;
+                        padding: 2px 10px;
+                        background: var(--color-surface-raised);
+                        border-radius: 99px;
+                        color: var(--color-gray-600);
+                        font-weight: 500;
+                    }
+                    .ticket-btn-text {
+                        display: inline-flex;
+                        align-items: center;
+                        height: 32px;
+                        font-size: 0.8rem;
+                        border-radius: var(--radius-full);
+                        white-space: nowrap;
+                        text-decoration: none;
+                    }
+                    .ticket-btn-icon {
+                        display: none;
+                        align-items: center;
+                        justify-content: center;
+                        width: 36px;
+                        height: 36px;
+                        min-width: 36px;
+                        border-radius: 8px;
+                        border: 1.5px solid var(--color-gray-200);
+                        background: transparent;
+                        color: var(--color-gray-500);
+                        text-decoration: none;
+                        transition: all 0.2s ease;
+                        cursor: pointer;
+                    }
+                    .ticket-btn-icon:hover {
+                        color: var(--color-primary);
+                        border-color: var(--color-primary);
+                        background: rgba(99, 102, 241, 0.06);
+                    }
+                    @media (max-width: 768px) {
+                        .ticket-btn-text { display: none !important; }
+                        .ticket-btn-icon { display: inline-flex !important; }
+                    }
+                `}</style>
+            </Link>
+        );
+    }
 
     return (
         <div className="event-card">
@@ -129,6 +296,7 @@ const EventCard = ({ event, isOfficial }) => {
                     }}
                 >
                     <span className="cat-badge">{categoryLabel}</span>
+                    <span className="date-badge"><CalendarIcon size={11} /> {dateStrFull}</span>
                     {isOfficial && (
                         <span className="official-badge"><ShieldCheck size={11} /> {t('common.official')}</span>
                     )}
@@ -146,7 +314,7 @@ const EventCard = ({ event, isOfficial }) => {
                 </Link>
                 <p className="description">{stripHtml(event.description)}</p>
                 <div className="meta-rows">
-                    <div className="meta-item"><CalendarIcon size={13} /><span>{dateStr}</span></div>
+                    <div className="meta-item"><CalendarIcon size={13} /><span>{dateStrFull}</span></div>
                     <div className="meta-item"><MapPin size={13} /><span>{event.location}</span></div>
                 </div>
                 <div className="actions">
@@ -191,7 +359,7 @@ const EventCard = ({ event, isOfficial }) => {
                 }
                 .official-badge {
                     position: absolute;
-                    top: 1rem;
+                    bottom: 1rem;
                     right: 1rem;
                     background: var(--color-secondary);
                     color: white;
@@ -199,6 +367,20 @@ const EventCard = ({ event, isOfficial }) => {
                     border-radius: 4px;
                     font-size: 0.7rem;
                     font-weight: 700;
+                    display: flex;
+                    align-items: center;
+                    gap: 3px;
+                }
+                .date-badge {
+                    position: absolute;
+                    top: 1rem;
+                    right: 1rem;
+                    background: rgba(0,0,0,0.7);
+                    color: white;
+                    padding: 3px 8px;
+                    border-radius: 4px;
+                    font-size: 0.7rem;
+                    font-weight: 600;
                     display: flex;
                     align-items: center;
                     gap: 3px;
@@ -258,6 +440,7 @@ const EventCard = ({ event, isOfficial }) => {
                     white-space: nowrap;
                     text-decoration: none;
                 }
+
             `}</style>
         </div>
     );
@@ -266,6 +449,7 @@ const EventCard = ({ event, isOfficial }) => {
 const Events = () => {
     const { t } = useTranslation();
     const { user } = useAuth();
+    const { defaultView } = useViewPreference();
     const [rawOfficialEvents, setRawOfficialEvents] = useState([]);
     const [rawCommunityEvents, setRawCommunityEvents] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -275,6 +459,8 @@ const Events = () => {
     const [showOfficial, setShowOfficial] = useState(true);
     const [showCommunity, setShowCommunity] = useState(true);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+    const [eventViewType, setEventViewType] = useState(defaultView);
+    const [viewMenuOpen, setViewMenuOpen] = useState(false);
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
     const categories = [
@@ -442,7 +628,29 @@ const Events = () => {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+                        <div className="view-toggle-container" style={{ position: 'relative' }}>
+                            <button className="mobile-filter-toggle" style={{ display: 'flex', marginRight: '0.25rem' }} onClick={() => setViewMenuOpen(!viewMenuOpen)} aria-label="Toggle View">
+                                {eventViewType === 'list' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>}
+                                {eventViewType === 'standard' && <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>}
+                            </button>
+                            {viewMenuOpen && (
+                            <div className="view-menu-dropdown" style={{
+                                position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem',
+                                background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)',
+                                borderRadius: 'var(--radius-md)', padding: '0.5rem', zIndex: 50,
+                                boxShadow: 'var(--shadow-md)', minWidth: '160px',
+                                display: 'flex', flexDirection: 'column', gap: '4px'
+                            }}>
+                                <button onClick={() => { setEventViewType('list'); setViewMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: eventViewType==='list'?'var(--color-primary)':'transparent', color: eventViewType==='list'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg> List
+                                </button>
+                                <button onClick={() => { setEventViewType('standard'); setViewMenuOpen(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: eventViewType==='standard'?'var(--color-primary)':'transparent', color: eventViewType==='standard'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg> Grid
+                                </button>
+                            </div>
+                            )}
+                        </div>
+                        <button className="mobile-filter-toggle" style={{ display: 'flex' }} onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
                             <SlidersHorizontal size={20} />
                         </button>
                         <button className="btn btn-primary search-btn-desktop">{t('common.search')}</button>
@@ -523,9 +731,9 @@ const Events = () => {
                                         <ShieldCheck size={24} className="text-secondary" />
                                         <h2>{t('events.officialBIES')}</h2>
                                     </div>
-                                    <div className="events-grid">
+                                    <div className={eventViewType === 'list' ? 'events-list-layout' : 'events-grid'}>
                                         {officialEvents.map(event => (
-                                            <EventCard key={event.id} event={event} isOfficial={true} />
+                                            <EventCard key={event.id} event={event} isOfficial={true} viewType={eventViewType} />
                                         ))}
                                     </div>
                                 </section>
@@ -541,9 +749,9 @@ const Events = () => {
                                     {communityEvents.length === 0 ? (
                                         <div className="empty-state">{t('events.noCommunityEvents')}</div>
                                     ) : (
-                                        <div className="events-grid">
+                                        <div className={eventViewType === 'list' ? 'events-list-layout' : 'events-grid'}>
                                             {communityEvents.map(event => (
-                                                <EventCard key={event.id} event={event} isOfficial={false} />
+                                                <EventCard key={event.id} event={event} isOfficial={false} viewType={eventViewType} />
                                             ))}
                                         </div>
                                     )}
@@ -801,6 +1009,22 @@ const Events = () => {
                     gap: 1.5rem;
                 }
 
+                .events-list-layout {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 1rem;
+                }
+                
+                @media (max-width: 768px) {
+                    .events-list-layout {
+                        padding: 0;
+                        overflow: hidden;
+                        max-width: 100%;
+                        width: 100%;
+                        box-sizing: border-box;
+                    }
+                }
+
                 @media (max-width: 1150px) {
                     .events-grid { grid-template-columns: repeat(2, 1fr); }
                 }
@@ -842,6 +1066,15 @@ const Events = () => {
                     .events-grid { grid-template-columns: 1fr; }
                     .mobile-filter-toggle { display: flex; }
                     .search-btn-desktop { display: none; }
+                }
+
+                @media (max-width: 768px) {
+                    :global(.ticket-btn-text) { display: none !important; }
+                    :global(.ticket-btn-icon) { display: inline-flex !important; }
+                    :global(.event-list-card) { gap: 0.75rem !important; padding: 0.75rem !important; }
+                    :global(.event-list-avatar) { width: 52px !important; height: 52px !important; }
+                    .content-layout { gap: 0 !important; }
+                    .main-content { width: 100% !important; }
                 }
             `}</style>
         </div>

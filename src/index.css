@@ -673,12 +673,8 @@ textarea {
   }
 }
 
-/* On mobile, make body blue so the area below bottom nav matches the nav color */
+/* On mobile, ensure app-content covers the full viewport with the correct background */
 @media (max-width: 768px) {
-  body {
-    background-color: #0047AB !important;
-  }
-
   .app-content {
     background-color: var(--color-gray-50);
   }

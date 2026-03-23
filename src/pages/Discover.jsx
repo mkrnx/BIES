@@ -7,10 +7,11 @@ import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
+import { useViewPreference } from '../context/ViewContext';
 import { getAssetUrl } from '../utils/assets';
 import { stripHtml } from '../utils/text';
 
-const ProjectCard = ({ project, t }) => {
+const ProjectCard = ({ project, t, viewType = 'standard' }) => {
   const [isLiked, setIsLiked] = useState(project._watchlisted || false);
 
   useEffect(() => {
@@ -33,9 +34,9 @@ const ProjectCard = ({ project, t }) => {
 
   const formatFunding = (val) => {
     if (!val) return '—';
-    if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}M`;
-    if (val >= 1000) return `$${(val / 1000).toFixed(0)}K`;
-    return `$${val}`;
+    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 1000) return `${(val / 1000).toFixed(0)}K`;
+    return `${val}`;
   };
 
   const categoryLabel = (c) => {
@@ -51,66 +52,135 @@ const ProjectCard = ({ project, t }) => {
   const builderId = project.ownerId || project.owner?.id;
   const builderAvatar = project.owner?.profile?.avatar || project.owner?.avatar;
 
+  const tags = [categoryLabel(project.category || project.industry), project.stage].filter(Boolean);
+  const hasImage = project.thumbnail || project.coverImage || project.image;
+
   return (
-    <div className="project-card">
-      <Link to={`/project/${project.id}`} className="card-image-link">
-        <div
-          className="card-image"
-          style={{
-            backgroundColor: project.color || 'var(--color-blue-tint)',
-            backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${getAssetUrl(project.thumbnail || project.coverImage || project.image)})` : 'none'
-          }}
-        >
-          <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
-          <span className="stage-badge">{project.stage || '—'}</span>
-        </div>
-      </Link>
-      <div className="card-body">
-        <Link to={`/project/${project.id}`} className="card-title-link">
-          <h3>{project.title || project.name}</h3>
+    <>
+      {viewType === 'list' ? (
+        <Link to={`/project/${project.id}`} className="project-card-link-list">
+          <div className="project-list-card" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '1.25rem', padding: '1rem', background: 'var(--color-surface)', borderRadius: 'var(--radius-xl)', border: '1px solid var(--color-gray-200)', position: 'relative' }}>
+            <div className="project-list-avatar relative" style={{ width: '64px', height: '64px', borderRadius: '50%', overflow: 'hidden', background: 'var(--color-gray-100)', flexShrink: 0 }}>
+              {hasImage ? (
+                <img 
+                  src={getAssetUrl(project.thumbnail || project.coverImage || project.image)} 
+                  alt={project.title || project.name} 
+                  className="w-full h-full object-cover" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+              ) : (
+                <div 
+                  className="w-full h-full"
+                  style={{
+                    width: '100%', height: '100%',
+                    backgroundColor: project.color || 'var(--color-blue-tint)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }} 
+                >
+                  <LayoutGrid size={24} style={{ color: 'rgba(255,255,255,0.7)' }} />
+                </div>
+              )}
+            </div>
+            <div className="project-list-info" style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <h3 className="font-semibold text-lg" style={{ fontSize: '1.1rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', marginBottom: 2, margin: 0 }}>{project.title || project.name}</h3>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '4px', fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <MapPin size={13} />
+                  <span>{project.location || 'El Salvador'}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <DollarSign size={13} />
+                  <span>{formatFunding(project.fundingGoal || project.funding)}</span>
+                </div>
+              </div>
+              
+              {tags.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                  {tags.map((tag, i) => (
+                    <span key={i} className="project-list-tag" style={{ padding: '2px 8px', fontSize: '0.7rem', background: 'var(--color-surface-raised)', borderRadius: '99px', color: 'var(--color-gray-600)', fontWeight: 500 }}>{tag}</span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="project-list-actions" style={{ display: 'flex', gap: '8px', flexShrink: 0, marginLeft: 'auto' }}>
+              <button
+                className={`icon-btn ${isLiked ? 'liked' : ''}`}
+                title={t('discover.addToWatchlist')}
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleWatchlist(); }}
+              >
+                <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+              {project.owner?.nostrPubkey && (
+                <ZapButton
+                  recipients={[{ pubkey: project.owner.nostrPubkey, name: builderName || 'Builder', avatar: builderAvatar || '' }]}
+                  size="sm"
+                />
+              )}
+            </div>
+          </div>
         </Link>
-        <p className="description">{stripHtml(project.description || '')}</p>
-
-        <div className="meta-row">
-          <div className="meta-item">
-            <MapPin size={14} />
-            <span>{project.location || 'El Salvador'}</span>
-          </div>
-          <div className="meta-item">
-            <DollarSign size={14} />
-            <span>{formatFunding(project.fundingGoal || project.funding)}</span>
-          </div>
-        </div>
-
-        {builderName && (
-          <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem', marginBottom: '0.85rem' }}>
-            {builderAvatar ? (
-              <img src={getAssetUrl(builderAvatar)} alt={builderName} className="avatar-img" />
-            ) : (
-              <div className="avatar">{(builderName || '?')[0]}</div>
-            )}
-            <span className="builder-name-text" style={{ marginTop: '-6px' }}>{builderName}</span>
+      ) : (
+        <div className="project-card">
+          <Link to={`/project/${project.id}`} className="card-image-link">
+            <div
+              className="card-image"
+              style={{
+                backgroundColor: project.color || 'var(--color-blue-tint)',
+                backgroundImage: (project.thumbnail || project.coverImage || project.image) ? `url(${getAssetUrl(project.thumbnail || project.coverImage || project.image)})` : 'none'
+              }}
+            >
+              <span className="industry-badge">{categoryLabel(project.category || project.industry)}</span>
+              <span className="stage-badge">{project.stage || '—'}</span>
+            </div>
           </Link>
-        )}
-
-        <div className="actions">
-          <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">{t('common.details')}</Link>
-          <button
-            className={`icon-btn ${isLiked ? 'liked' : ''}`}
-            title={t('discover.addToWatchlist')}
-            onClick={toggleWatchlist}
-          >
-            <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
-          </button>
-          <button className="icon-btn btn-secondary-icon" title={t('discover.requestPitchDeck')}><Download size={18} /></button>
-          {project.owner?.nostrPubkey && (
-            <ZapButton
-              recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '' }]}
-              size="sm"
-            />
-          )}
+          <div className="card-body">
+            <Link to={`/project/${project.id}`} className="card-title-link">
+              <h3>{project.title || project.name}</h3>
+            </Link>
+            <p className="description">{stripHtml(project.description || '')}</p>
+    
+            <div className="meta-row">
+              <div className="meta-item">
+                <MapPin size={14} />
+                <span>{project.location || 'El Salvador'}</span>
+              </div>
+              <div className="meta-item">
+                <DollarSign size={14} />
+                <span>{formatFunding(project.fundingGoal || project.funding)}</span>
+              </div>
+            </div>
+    
+            {builderName && (
+              <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem', marginBottom: '0.85rem' }}>
+                {builderAvatar ? (
+                  <img src={getAssetUrl(builderAvatar)} alt={builderName} className="avatar-img" />
+                ) : (
+                  <div className="avatar">{(builderName || '?')[0]}</div>
+                )}
+                <span className="builder-name-text" style={{ marginTop: '-6px' }}>{builderName}</span>
+              </Link>
+            )}
+    
+            <div className="actions">
+              <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">{t('common.details')}</Link>
+              <button
+                className={`icon-btn ${isLiked ? 'liked' : ''}`}
+                title={t('discover.addToWatchlist')}
+                onClick={toggleWatchlist}
+              >
+                <Heart size={18} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+              <button className="icon-btn btn-secondary-icon" title={t('discover.requestPitchDeck')}><Download size={18} /></button>
+              {project.owner?.nostrPubkey && (
+                <ZapButton
+                  recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '' }]}
+                  size="sm"
+                />
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+      )}
       <style jsx>{`
         .project-card {
           background: var(--color-surface);
@@ -269,7 +339,7 @@ const ProjectCard = ({ project, t }) => {
           width: 36px;
           height: 36px;
           border-radius: var(--radius-md);
-          border: 1px solid var(--color-gray-200);
+          border: 1.5px solid var(--color-gray-200);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -285,8 +355,39 @@ const ProjectCard = ({ project, t }) => {
           border-color: var(--color-secondary); 
           color: white; 
         }
+
+        /* List View Styles */
+        .project-card-link-list { text-decoration: none; color: inherit; display: block; }
+        .project-list-avatar {
+          width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: var(--color-gray-100); flex-shrink: 0;
+        }
+
+        .project-list-card {
+          display: flex;
+          align-items: center;
+          padding: 1rem;
+          background: var(--color-surface);
+          border-radius: var(--radius-xl);
+          border: 1px solid var(--color-gray-200);
+          gap: 1.25rem;
+          transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+          position: relative;
+        }
+        .project-list-card:hover {
+          border-color: var(--color-primary-light);
+          box-shadow: var(--shadow-sm);
+        }
+        .project-list-tag {
+          font-size: 0.7rem;
+          padding: 2px 10px;
+          background: var(--color-surface-raised);
+          border-radius: 99px;
+          color: var(--color-gray-600);
+          font-weight: 500;
+        }
+
       `}</style>
-    </div>
+    </>
   );
 };
 
@@ -295,6 +396,7 @@ const Discover = () => {
   const location = useLocation();
   const { user } = useAuth();
   const { mode } = useUserMode();
+  const { defaultView } = useViewPreference();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
@@ -302,8 +404,10 @@ const Discover = () => {
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [minFunding, setMinFunding] = useState('');
   const [maxFunding, setMaxFunding] = useState('');
-  const [memberViewType, setMemberViewType] = useState('standard');
+  const [memberViewType, setMemberViewType] = useState(defaultView);
+  const [projectViewType, setProjectViewType] = useState(defaultView);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
+  const [viewMenuOpenProjects, setViewMenuOpenProjects] = useState(false);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -312,6 +416,8 @@ const Discover = () => {
   const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
   const [discoverView, setDiscoverView] = useState('projects');
+  const [showProjects, setShowProjects] = useState(true);
+  const [showMembers, setShowMembers] = useState(true);
   const [builders, setBuilders] = useState([]);
   const [buildersLoading, setBuildersLoading] = useState(false);
   const [buildersPage, setBuildersPage] = useState(1);
@@ -325,7 +431,8 @@ const Discover = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const currentView = isMobile ? discoverView : 'projects';
+  // On mobile: use tab toggle. On desktop: use checkboxes (show both if both checked).
+  const currentView = isMobile ? discoverView : (showProjects && !showMembers ? 'projects' : !showProjects && showMembers ? 'members' : 'both');
 
   const categories = [
     { id: 'FINTECH', label: 'Fintech' },
@@ -419,7 +526,7 @@ const Discover = () => {
   }, [searchQuery, selectedIndustries, selectedStages, minFunding, maxFunding, page, user?.id]);
 
   useEffect(() => {
-    if (currentView !== 'members') return;
+    if (currentView !== 'members' && currentView !== 'both') return;
     const fetchBuilders = async () => {
       setBuildersLoading(true);
       try {
@@ -501,9 +608,9 @@ const Discover = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="search-input"
             />
-            {currentView === 'members' && (
+            {(currentView === 'members') && (
               <div className="view-toggle-container" style={{ position: 'relative' }}>
-                <button className="mobile-filter-toggle" onClick={() => setViewMenuOpen(!viewMenuOpen)} aria-label="Toggle View" style={{ marginRight: '0.25rem' }}>
+                <button className="mobile-filter-toggle" style={{ display: 'flex', marginRight: '0.25rem' }} onClick={() => setViewMenuOpen(!viewMenuOpen)} aria-label="Toggle View">
                   {memberViewType === 'icons' && <LayoutGrid size={20} />}
                   {memberViewType === 'list' && <ListIcon size={20} />}
                   {memberViewType === 'standard' && <Columns size={20} />}
@@ -529,8 +636,32 @@ const Discover = () => {
                 )}
               </div>
             )}
+            {(currentView === 'projects' || currentView === 'both') && (
+              <div className="view-toggle-container" style={{ position: 'relative' }}>
+                <button className="mobile-filter-toggle" style={{ display: 'flex', marginRight: '0.25rem' }} onClick={() => setViewMenuOpenProjects(!viewMenuOpenProjects)} aria-label="Toggle View">
+                  {projectViewType === 'list' && <ListIcon size={20} />}
+                  {projectViewType === 'standard' && <LayoutGrid size={20} />}
+                </button>
+                {viewMenuOpenProjects && (
+                  <div className="view-menu-dropdown" style={{
+                    position: 'absolute', top: '100%', right: 0, marginTop: '0.5rem',
+                    background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)',
+                    borderRadius: 'var(--radius-md)', padding: '0.5rem', zIndex: 50,
+                    boxShadow: 'var(--shadow-md)', minWidth: '160px',
+                    display: 'flex', flexDirection: 'column', gap: '4px'
+                  }}>
+                    <button onClick={() => { setProjectViewType('list'); setViewMenuOpenProjects(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: projectViewType==='list'?'var(--color-primary)':'transparent', color: projectViewType==='list'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                      <ListIcon size={16}/> List
+                    </button>
+                    <button onClick={() => { setProjectViewType('standard'); setViewMenuOpenProjects(false); }} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px', border: 'none', background: projectViewType==='standard'?'var(--color-primary)':'transparent', color: projectViewType==='standard'?'white':'inherit', borderRadius: '4px', cursor:'pointer', fontWeight: 500 }}>
+                      <LayoutGrid size={16}/> Grid
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
             
-            <button className="mobile-filter-toggle" onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
+            <button className="mobile-filter-toggle" style={{ display: 'flex' }} onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}>
               <SlidersHorizontal size={20} />
               {(selectedIndustries.length + selectedStages.length + selectedLocations.length + selectedRoles.length) > 0 && (
                 <span className="filter-badge">{selectedIndustries.length + selectedStages.length + selectedLocations.length + selectedRoles.length}</span>
@@ -594,7 +725,37 @@ const Discover = () => {
               )}
             </div>
 
-            {currentView === 'projects' ? (
+            <div className="filter-group type-filter-desktop">
+              <label>{t('discover.type', 'Type')}</label>
+              <div className="checkbox-list">
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showProjects}
+                    onChange={() => {
+                      const next = !showProjects;
+                      if (!next && !showMembers) return;
+                      setShowProjects(next);
+                    }}
+                  />
+                  {t('discover.projects', 'Projects')}
+                </label>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={showMembers}
+                    onChange={() => {
+                      const next = !showMembers;
+                      if (!next && !showProjects) return;
+                      setShowMembers(next);
+                    }}
+                  />
+                  {t('discover.members', 'Members')}
+                </label>
+              </div>
+            </div>
+
+            {(currentView === 'projects' || currentView === 'both') && (
               <>
             <div className="filter-group">
               <label>{t('discover.industry')}</label>
@@ -631,8 +792,8 @@ const Discover = () => {
             <div className="filter-group">
               <label>{t('discover.fundingGoal')}</label>
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <select 
-                  value={minFunding} 
+                <select
+                  value={minFunding}
                   onChange={(e) => { setMinFunding(e.target.value); setPage(1); }}
                   style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)', fontSize: '0.85rem' }}
                 >
@@ -646,8 +807,8 @@ const Discover = () => {
                   <option value="5000000">$5M</option>
                 </select>
                 <span style={{ color: 'var(--color-gray-500)' }}>-</span>
-                <select 
-                  value={maxFunding} 
+                <select
+                  value={maxFunding}
                   onChange={(e) => { setMaxFunding(e.target.value); setPage(1); }}
                   style={{ flex: 1, padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)', fontSize: '0.85rem' }}
                 >
@@ -662,7 +823,9 @@ const Discover = () => {
               </div>
             </div>
               </>
-            ) : (
+            )}
+
+            {(currentView === 'members' || currentView === 'both') && (
               <>
                 <div className="filter-group">
                   <label>{t('discover.role', 'Role')}</label>
@@ -711,31 +874,36 @@ const Discover = () => {
         </div>
 
         {/* Content Section */}
-        {currentView === 'projects' ? (
-          <div style={{ flex: 1, width: '100%' }}>
-            <div className="project-grid">
-              {loading ? (
-                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
-                  <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
-                </div>
-              ) : filteredProjects.length > 0 ? (
-                filteredProjects.map(p => <ProjectCard key={p.id} project={p} t={t} />)
-              ) : (
-                <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                  {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noProjects')}
+        <div style={{ flex: 1, width: '100%' }}>
+          {(currentView === 'projects' || currentView === 'both') && (
+            <>
+              {currentView === 'both' && <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>{t('discover.projects', 'Projects')}</h3>}
+              <div className={projectViewType === 'list' ? 'project-list-layout' : 'project-grid'}>
+                {loading ? (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
+                    <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
+                  </div>
+                ) : filteredProjects.length > 0 ? (
+                  filteredProjects.map(p => <ProjectCard key={p.id} project={p} t={t} viewType={projectViewType} />)
+                ) : (
+                  <div className="no-results" style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
+                    {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noProjects')}
+                  </div>
+                )}
+              </div>
+              {totalPages > 1 && (
+                <div className="pagination">
+                  <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
+                  <span>{t('common.page', { current: page, total: totalPages })}</span>
+                  <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
                 </div>
               )}
-            </div>
-            {totalPages > 1 && (
-              <div className="pagination">
-                <button className="btn btn-outline" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>{t('common.previous')}</button>
-                <span>{t('common.page', { current: page, total: totalPages })}</span>
-                <button className="btn btn-outline" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>{t('common.next')}</button>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ flex: 1, width: '100%' }}>
+            </>
+          )}
+
+          {(currentView === 'members' || currentView === 'both') && (
+            <>
+              {currentView === 'both' && <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2.5rem', marginBottom: '1rem' }}>{t('discover.members', 'Members')}</h3>}
             {buildersLoading ? (
                 <div style={{ textAlign: 'center', padding: '3rem' }}>
                     <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
@@ -880,8 +1048,9 @@ const Discover = () => {
                     <button className="btn btn-outline" disabled={buildersPage >= buildersTotalPages} onClick={() => setBuildersPage(p => p + 1)}>{t('common.next')}</button>
                 </div>
             )}
-          </div>
-        )}
+            </>
+          )}
+        </div>
       </div>
 
       <style jsx>{`
@@ -988,6 +1157,10 @@ const Discover = () => {
           margin-bottom: 0.75rem;
         }
 
+        @media (max-width: 768px) {
+          .type-filter-desktop { display: none; }
+        }
+
         .checkbox-list {
           display: flex;
           flex-direction: column;
@@ -1050,6 +1223,13 @@ const Discover = () => {
           grid-template-columns: repeat(3, 1fr);
           gap: 1.5rem;
           align-content: flex-start;
+        }
+
+        .project-list-layout {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 1rem;
         }
 
         @media (max-width: 1024px) {
