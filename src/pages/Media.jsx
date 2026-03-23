@@ -236,13 +236,13 @@ const Media = () => {
           background: #f9fafb;
         }
         .tab-btn.active {
-          background: #7c3aed;
+          background: #FF9500;
           color: white;
-          box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+          box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
         }
         .tab-btn.active:nth-child(2) {
-          background: #2563eb;
-          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+          background: #FF0000;
+          box-shadow: 0 1px 3px rgba(255, 0, 0, 0.3);
         }
         .tab-btn.active:nth-child(3) {
           background: #059669;
