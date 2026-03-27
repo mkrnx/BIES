@@ -26,6 +26,13 @@ import { PUBLIC_RELAYS } from './nostrService.js';
 
 const STORAGE_KEY = 'bies_keytr_credentials';
 
+// Passkey gateways — each rpId produces a separate kind:30079 event.
+// Users get one biometric prompt per gateway during setup.
+const KEYTR_GATEWAYS = [
+    { rpId: 'keytr.org', rpName: 'keytr' },
+    { rpId: 'nostkey.org', rpName: 'nostkey' },
+];
+
 // ─── localStorage credential index ─────────────────────────────────────────
 
 function getStored() {
@@ -109,45 +116,44 @@ export const keytrService = {
      */
     async saveWithPasskey(nsec, pubkey) {
         const nsecBytes = decodeNsec(nsec);
+        const { nostrSigner } = await import('./nostrSigner.js');
 
-        // 1. Create passkey credential with PRF
-        const { credential, prfOutput } = await registerPasskey({
-            userName: pubkey.slice(0, 16),
-            userDisplayName: 'BIES Account',
-            rpId: 'sovit.xyz',
-            rpName: 'sovit.xyz',
-        });
-
-        let encryptedBlob;
-        try {
-            // 2. Encrypt the existing nsec
-            encryptedBlob = encryptNsec({
-                nsecBytes,
-                prfOutput,
-                credentialId: credential.credentialId,
+        // Register a passkey + publish a kind:30079 event for each gateway.
+        // Each gateway gets its own biometric prompt.
+        for (const { rpId, rpName } of KEYTR_GATEWAYS) {
+            const { credential, prfOutput } = await registerPasskey({
+                userName: pubkey.slice(0, 16),
+                userDisplayName: 'BIES Account',
+                rpId,
+                rpName,
             });
-        } finally {
-            prfOutput.fill(0);
+
+            let encryptedBlob;
+            try {
+                encryptedBlob = encryptNsec({
+                    nsecBytes,
+                    prfOutput,
+                    credentialId: credential.credentialId,
+                });
+            } finally {
+                prfOutput.fill(0);
+            }
+
+            const eventTemplate = buildKeytrEvent({
+                credential,
+                encryptedBlob,
+                clientName: 'bies',
+            });
+
+            const signedEvent = await nostrSigner.signEvent({
+                ...eventTemplate,
+                pubkey,
+            });
+
+            await publishKeytrEvent(signedEvent, PUBLIC_RELAYS);
         }
 
-        // 3. Build the unsigned kind:30079 event
-        const eventTemplate = buildKeytrEvent({
-            credential,
-            encryptedBlob,
-            clientName: 'bies',
-        });
-
-        // 4. Sign the event — lazy import to avoid circular dependency
-        const { nostrSigner } = await import('./nostrSigner.js');
-        const signedEvent = await nostrSigner.signEvent({
-            ...eventTemplate,
-            pubkey,
-        });
-
-        // 5. Publish to public relays
-        await publishKeytrEvent(signedEvent, PUBLIC_RELAYS);
-
-        // 6. Track credential locally for sync hasCredential() checks
+        // Track credential locally for sync hasCredential() checks
         const creds = getStored().filter(c => c.pubkey !== pubkey);
         creds.push({ pubkey, createdAt: new Date().toISOString() });
         setStored(creds);
