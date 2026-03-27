@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
 import DOMPurify from 'dompurify';
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
+import { Bold, Italic, Underline, List, ListOrdered, AlignLeft, AlignCenter, AlignRight, AlignJustify } from 'lucide-react';
 
 const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) => {
     const editorRef = useRef(null);
@@ -8,6 +8,8 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
         bold: false,
         italic: false,
         underline: false,
+        unorderedList: false,
+        orderedList: false,
         justifyLeft: false,
         justifyCenter: false,
         justifyRight: false,
@@ -20,6 +22,8 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
             bold: document.queryCommandState('bold'),
             italic: document.queryCommandState('italic'),
             underline: document.queryCommandState('underline'),
+            unorderedList: document.queryCommandState('insertUnorderedList'),
+            orderedList: document.queryCommandState('insertOrderedList'),
             justifyLeft: document.queryCommandState('justifyLeft'),
             justifyCenter: document.queryCommandState('justifyCenter'),
             justifyRight: document.queryCommandState('justifyRight'),
@@ -70,6 +74,13 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                 </button>
                 <button type="button" className={formats.underline ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('underline'); }} title="Underline">
                     <Underline size={16} />
+                </button>
+                <div className="rte-divider" />
+                <button type="button" className={formats.unorderedList ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('insertUnorderedList'); }} title="Bullet List">
+                    <List size={16} />
+                </button>
+                <button type="button" className={formats.orderedList ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('insertOrderedList'); }} title="Numbered List">
+                    <ListOrdered size={16} />
                 </button>
                 <div className="rte-divider" />
                 <button type="button" className={formats.justifyLeft ? 'active' : ''} onMouseDown={(e) => { e.preventDefault(); execCmd('justifyLeft'); }} title="Align Left">
