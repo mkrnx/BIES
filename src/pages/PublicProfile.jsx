@@ -33,6 +33,7 @@ const PublicProfile = ({ type }) => {
     const [nostrFollowers, setNostrFollowers] = useState(null);
     const [nostrFollowing, setNostrFollowing] = useState(null);
     const [npubCopied, setNpubCopied] = useState(false);
+    const [lnAddrCopied, setLnAddrCopied] = useState(false);
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -346,6 +347,31 @@ const PublicProfile = ({ type }) => {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Lightning Address */}
+                            {profile.lightningAddress && (
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(profile.lightningAddress);
+                                        setLnAddrCopied(true);
+                                        setTimeout(() => setLnAddrCopied(false), 2000);
+                                    }}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                        background: 'linear-gradient(135deg, rgba(247,147,26,0.08), rgba(247,147,26,0.15))',
+                                        border: '1px solid rgba(247,147,26,0.25)',
+                                        borderRadius: '999px', padding: '0.35rem 0.85rem', cursor: 'pointer',
+                                        fontSize: '0.85rem', color: 'var(--color-gray-700)',
+                                        marginBottom: '1.5rem', transition: 'all 0.2s',
+                                    }}
+                                    title="Click to copy Lightning Address"
+                                >
+                                    <Zap size={14} style={{ color: '#f7931a', flexShrink: 0 }} />
+                                    <span style={{ color: 'var(--color-gray-500)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Lightning Address</span>
+                                    <span style={{ fontFamily: 'monospace' }}>{profile.lightningAddress}</span>
+                                    {lnAddrCopied ? <Check size={14} style={{ color: '#15803d' }} /> : <Copy size={14} style={{ color: 'var(--color-gray-400)' }} />}
+                                </button>
+                            )}
 
                             {/* Follower Stats */}
                             <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
