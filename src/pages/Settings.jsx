@@ -1,11 +1,16 @@
-import React from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid } from 'lucide-react';
+import React, { useState, useCallback } from 'react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Key, Copy, CheckCircle, EyeOff, Download, AlertTriangle, Fingerprint } from 'lucide-react';
+import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
 import { useViewPreference } from '../context/ViewContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { investorApi } from '../services/api';
+import { nostrSigner } from '../services/nostrSigner';
+import { keytrService } from '../services/keytrService';
+import { keyfileService } from '../services/keyfileService';
+import { PASSKEY_ENABLED } from '../config/featureFlags';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
@@ -21,6 +26,83 @@ const Settings = () => {
     const [submittingInvestor, setSubmittingInvestor] = React.useState(false);
     const [investorRequested, setInvestorRequested] = React.useState(false);
     const [investorError, setInvestorError] = React.useState('');
+
+    // Nostr key management state
+    const [nsecRevealed, setNsecRevealed] = useState(false);
+    const [nsecValue, setNsecValue] = useState(null);
+    const [nsecLoading, setNsecLoading] = useState(false);
+    const [nsecError, setNsecError] = useState('');
+    const [copiedKey, setCopiedKey] = useState(null);
+    const [keyfilePassword, setKeyfilePassword] = useState('');
+    const [keyfileConfirm, setKeyfileConfirm] = useState('');
+    const [showKeyfileForm, setShowKeyfileForm] = useState(false);
+    const [keyfileError, setKeyfileError] = useState('');
+
+    const npub = user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : null;
+    const loginMethod = nostrSigner.storedMethod; // 'extension' | 'nsec' | 'bunker' | null
+
+    const copyToClipboard = useCallback((text, label) => {
+        navigator.clipboard.writeText(text);
+        setCopiedKey(label);
+        setTimeout(() => setCopiedKey(null), 2000);
+    }, []);
+
+    const handleRevealNsec = useCallback(async () => {
+        setNsecError('');
+        // Key already in memory
+        const inMemory = nostrSigner.getNsec();
+        if (inMemory) {
+            setNsecValue(inMemory);
+            setNsecRevealed(true);
+            return;
+        }
+        // Try re-acquiring via passkey
+        if (PASSKEY_ENABLED && keytrService.hasCredential()) {
+            setNsecLoading(true);
+            try {
+                const nsec = await keytrService.loginWithPasskey();
+                nostrSigner.setNsec(nsec);
+                setNsecValue(nsec);
+                setNsecRevealed(true);
+            } catch {
+                setNsecError('Passkey authentication failed. Try logging in again with your nsec or seed phrase to access your key.');
+            } finally {
+                setNsecLoading(false);
+            }
+            return;
+        }
+        setNsecError('Your secret key is not available in this session. Log in with your nsec or seed phrase, or use your passkey to reveal it.');
+    }, []);
+
+    const handleHideNsec = useCallback(() => {
+        setNsecRevealed(false);
+        setNsecValue(null);
+    }, []);
+
+    const handleDownloadKeyfile = useCallback(() => {
+        setKeyfileError('');
+        const nsec = nsecValue || nostrSigner.getNsec();
+        if (!nsec) {
+            setKeyfileError('Reveal your secret key first before downloading a backup.');
+            return;
+        }
+        if (keyfilePassword.length < 16 || !/[a-zA-Z]/.test(keyfilePassword) || !/[0-9]/.test(keyfilePassword)) {
+            setKeyfileError('Password must be at least 16 characters with letters and numbers.');
+            return;
+        }
+        if (keyfilePassword !== keyfileConfirm) {
+            setKeyfileError('Passwords do not match.');
+            return;
+        }
+        try {
+            keyfileService.encryptAndDownload(nsec, keyfilePassword);
+            setShowKeyfileForm(false);
+            setKeyfilePassword('');
+            setKeyfileConfirm('');
+        } catch (err) {
+            setKeyfileError(err.message || 'Failed to create backup file.');
+        }
+    }, [nsecValue, keyfilePassword, keyfileConfirm]);
 
     const handleApplyInvestor = async () => {
         if (!user) return;
@@ -193,6 +275,130 @@ const Settings = () => {
                 </div>
             </div>
 
+            {npub && (
+            <div className="settings-section">
+                <h2><Key size={16} /> Nostr Keys</h2>
+
+                {/* Public Key (npub) */}
+                <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div className="setting-info" style={{ width: '100%' }}>
+                        <div className="icon-box"><Globe size={20} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p className="setting-label">Public Key (npub)</p>
+                            <p className="setting-desc">Your Nostr public identity</p>
+                        </div>
+                    </div>
+                    <div className="key-display">
+                        <code className="key-value">{npub}</code>
+                        <button onClick={() => copyToClipboard(npub, 'npub')} className="key-copy-btn">
+                            {copiedKey === 'npub' ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Secret Key (nsec) */}
+                <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div className="setting-info" style={{ width: '100%' }}>
+                        <div className="icon-box" style={{ background: 'var(--color-danger-light, #fef2f2)', color: 'var(--color-danger, #dc2626)' }}><Lock size={20} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p className="setting-label">Secret Key (nsec)</p>
+                            <p className="setting-desc">
+                                {loginMethod === 'extension'
+                                    ? 'Your key is managed by your browser extension'
+                                    : loginMethod === 'bunker'
+                                    ? 'Your key is managed by your remote signer'
+                                    : 'Reveal your private key for backup'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {loginMethod === 'extension' ? (
+                        <div className="key-info-banner">
+                            <AlertTriangle size={16} />
+                            <span>Your secret key lives in your Nostr browser extension. Check your extension settings to export it.</span>
+                        </div>
+                    ) : loginMethod === 'bunker' ? (
+                        <div className="key-info-banner">
+                            <AlertTriangle size={16} />
+                            <span>Your secret key is held by your remote signer (NIP-46). Check your signer app to manage it.</span>
+                        </div>
+                    ) : nsecRevealed && nsecValue ? (
+                        <>
+                            <div className="key-warning">
+                                <AlertTriangle size={14} />
+                                <span>Never share your nsec. Anyone with this key has full control of your Nostr identity.</span>
+                            </div>
+                            <div className="key-display">
+                                <code className="key-value nsec-value">{nsecValue}</code>
+                                <button onClick={() => copyToClipboard(nsecValue, 'nsec')} className="key-copy-btn">
+                                    {copiedKey === 'nsec' ? <><CheckCircle size={14} /> Copied</> : <><Copy size={14} /> Copy</>}
+                                </button>
+                            </div>
+                            <button onClick={handleHideNsec} className="btn btn-outline btn-sm" style={{ alignSelf: 'flex-end' }}>
+                                <EyeOff size={14} style={{ marginRight: '0.4rem' }} /> Hide Key
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            {nsecError && <p className="key-error">{nsecError}</p>}
+                            <button onClick={handleRevealNsec} disabled={nsecLoading} className="btn btn-outline btn-sm btn-danger-outline">
+                                {nsecLoading ? (
+                                    <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Authenticating...</>
+                                ) : (
+                                    <><Eye size={14} style={{ marginRight: '0.4rem' }} /> Reveal Secret Key</>
+                                )}
+                            </button>
+                        </>
+                    )}
+                </div>
+
+                {/* Encrypted Backup Download */}
+                {loginMethod !== 'extension' && loginMethod !== 'bunker' && (
+                <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div className="setting-info" style={{ width: '100%' }}>
+                        <div className="icon-box"><Download size={20} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p className="setting-label">Encrypted Key Backup</p>
+                            <p className="setting-desc">Download a password-protected .nostrkey file (NIP-49)</p>
+                        </div>
+                    </div>
+                    {showKeyfileForm ? (
+                        <div className="keyfile-form">
+                            <input
+                                type="password"
+                                placeholder="Encryption password (min 16 chars, letters + numbers)"
+                                value={keyfilePassword}
+                                onChange={(e) => setKeyfilePassword(e.target.value)}
+                                className="select-input"
+                                style={{ width: '100%' }}
+                            />
+                            <input
+                                type="password"
+                                placeholder="Confirm password"
+                                value={keyfileConfirm}
+                                onChange={(e) => setKeyfileConfirm(e.target.value)}
+                                className="select-input"
+                                style={{ width: '100%' }}
+                            />
+                            {keyfileError && <p className="key-error">{keyfileError}</p>}
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <button onClick={() => { setShowKeyfileForm(false); setKeyfilePassword(''); setKeyfileConfirm(''); setKeyfileError(''); }} className="btn btn-outline btn-sm">Cancel</button>
+                                <button onClick={handleDownloadKeyfile} className="btn btn-outline btn-sm">
+                                    <Download size={14} style={{ marginRight: '0.4rem' }} /> Download
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        <button onClick={() => { if (!nsecRevealed && !nostrSigner.getNsec()) { setKeyfileError('Reveal your secret key first.'); return; } setShowKeyfileForm(true); setKeyfileError(''); }} className="btn btn-outline btn-sm">
+                            <Download size={14} style={{ marginRight: '0.4rem' }} /> Download Encrypted Backup
+                        </button>
+                    )}
+                    {keyfileError && !showKeyfileForm && <p className="key-error">{keyfileError}</p>}
+                </div>
+                )}
+            </div>
+            )}
+
             <style jsx>{`
                 .max-w-3xl { max-width: 48rem; }
 
@@ -222,6 +428,25 @@ const Settings = () => {
 
                 .select-input { padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-gray-300); }
                 .btn-sm { font-size: 0.85rem; padding: 0.5rem 1rem; }
+
+                .key-display { display: flex; align-items: center; gap: 0.5rem; width: 100%; background: var(--color-gray-50); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); padding: 0.5rem 0.75rem; overflow: hidden; }
+                .key-value { font-size: 0.8rem; word-break: break-all; flex: 1; min-width: 0; color: var(--color-gray-700); background: none; padding: 0; }
+                .nsec-value { color: var(--color-danger, #dc2626); }
+                .key-copy-btn { display: flex; align-items: center; gap: 0.3rem; font-size: 0.8rem; font-weight: 600; background: transparent; border: none; color: var(--color-primary); cursor: pointer; white-space: nowrap; padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); }
+                .key-copy-btn:hover { background: var(--color-gray-100); }
+
+                .key-warning { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.8rem; color: var(--color-danger, #dc2626); background: var(--color-danger-light, #fef2f2); padding: 0.6rem 0.75rem; border-radius: var(--radius-md); width: 100%; line-height: 1.4; }
+                .key-warning svg { flex-shrink: 0; margin-top: 1px; }
+
+                .key-info-banner { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.85rem; color: var(--color-gray-600); background: var(--color-gray-50); padding: 0.75rem; border-radius: var(--radius-md); width: 100%; line-height: 1.4; border: 1px solid var(--color-gray-200); }
+                .key-info-banner svg { flex-shrink: 0; margin-top: 2px; color: var(--color-gray-400); }
+
+                .key-error { font-size: 0.8rem; color: var(--color-danger, #dc2626); margin: 0; }
+
+                .btn-danger-outline { border-color: var(--color-danger, #dc2626); color: var(--color-danger, #dc2626); }
+                .btn-danger-outline:hover { background: var(--color-danger-light, #fef2f2); }
+
+                .keyfile-form { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
             `}</style>
         </div>
     );

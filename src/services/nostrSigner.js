@@ -84,6 +84,15 @@ class NostrSigner {
     /** Current public key (hex). Null if not yet signed in or key not in memory. */
     get pubkey() { return this._pubkey; }
 
+    /**
+     * Return the bech32 nsec if the secret key is currently in memory.
+     * Returns null if the key is not available (extension/bunker mode or post-refresh).
+     */
+    getNsec() {
+        if (!this._sk) return null;
+        return nip19.nsecEncode(this._sk);
+    }
+
     /** What login method was used (persists across refreshes) */
     get storedMethod() {
         return localStorage.getItem(LOGIN_METHOD_KEY);

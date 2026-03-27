@@ -26,6 +26,14 @@ import { PUBLIC_RELAYS } from './nostrService.js';
 
 const STORAGE_KEY = 'bies_keytr_credentials';
 
+// Passkey gateways — each rpId produces a separate kind:30079 event.
+// Users get one biometric prompt per gateway during setup.
+// keytr.org is the primary gateway; nostkey.org is the fallback.
+const KEYTR_GATEWAYS = [
+    { rpId: 'keytr.org', rpName: 'keytr', primary: true },
+    { rpId: 'nostkey.org', rpName: 'nostkey' },
+];
+
 // ─── localStorage credential index ─────────────────────────────────────────
 
 function getStored() {
@@ -96,29 +104,41 @@ export const keytrService = {
     },
 
     /**
-     * Encrypt an existing nsec with a new passkey and publish to relays.
-     *
-     * Uses keytr sub-modules (registerPasskey → encryptNsec → buildKeytrEvent)
-     * so the user's existing nsec is encrypted — not a newly generated one.
-     *
-     * The event must be signed before publishing. We import nostrSigner lazily
-     * to avoid circular dependency (nostrSigner also imports this service).
+     * Register on the primary gateway (keytr.org) only — one biometric prompt.
+     * Use addBackupGateway() afterwards to add nostkey.org as a fallback.
      *
      * @param {string} nsec - bech32-encoded nsec
      * @param {string} pubkey - hex-encoded public key
      */
     async saveWithPasskey(nsec, pubkey) {
-        const nsecBytes = decodeNsec(nsec);
+        const gateway = KEYTR_GATEWAYS.find(g => g.primary);
+        await this._registerOnGateway(nsec, pubkey, gateway);
+    },
 
-        // 1. Create passkey credential with PRF
+    /**
+     * Register on a backup gateway (nostkey.org) — one additional biometric prompt.
+     * Call after saveWithPasskey() to add redundancy.
+     */
+    async addBackupGateway(nsec, pubkey) {
+        const gateway = KEYTR_GATEWAYS.find(g => !g.primary);
+        if (!gateway) throw new Error('No backup gateway configured.');
+        await this._registerOnGateway(nsec, pubkey, gateway);
+    },
+
+    /** @private Register a passkey + publish kind:30079 for a single gateway. */
+    async _registerOnGateway(nsec, pubkey, { rpId, rpName }) {
+        const nsecBytes = decodeNsec(nsec);
+        const { nostrSigner } = await import('./nostrSigner.js');
+
         const { credential, prfOutput } = await registerPasskey({
             userName: pubkey.slice(0, 16),
             userDisplayName: 'BIES Account',
+            rpId,
+            rpName,
         });
 
         let encryptedBlob;
         try {
-            // 2. Encrypt the existing nsec
             encryptedBlob = encryptNsec({
                 nsecBytes,
                 prfOutput,
@@ -128,24 +148,19 @@ export const keytrService = {
             prfOutput.fill(0);
         }
 
-        // 3. Build the unsigned kind:30079 event
         const eventTemplate = buildKeytrEvent({
             credential,
             encryptedBlob,
             clientName: 'bies',
         });
 
-        // 4. Sign the event
-        const { nostrSigner } = await import('./nostrSigner.js');
         const signedEvent = await nostrSigner.signEvent({
             ...eventTemplate,
             pubkey,
         });
 
-        // 5. Publish to public relays
         await publishKeytrEvent(signedEvent, PUBLIC_RELAYS);
 
-        // 6. Track credential locally for sync hasCredential() checks
         const creds = getStored().filter(c => c.pubkey !== pubkey);
         creds.push({ pubkey, createdAt: new Date().toISOString() });
         setStored(creds);
@@ -177,13 +192,30 @@ export const keytrService = {
             throw new Error('Could not find your encrypted key on Nostr relays. You may need to log in with your nsec and re-save the passkey.');
         }
 
-        // Decrypt — keytr handles the WebAuthn PRF ceremony internally
-        const { nsecBytes } = await loginWithKeytr(events[0]);
-        try {
-            return encodeNsec(nsecBytes);
-        } finally {
-            nsecBytes.fill(0);
+        // Sort so primary gateway (keytr.org) events are tried first.
+        const primaryRpId = KEYTR_GATEWAYS.find(g => g.primary)?.rpId;
+        events.sort((a, b) => {
+            const aRp = a.tags?.find(t => t[0] === 'rp')?.[1];
+            const bRp = b.tags?.find(t => t[0] === 'rp')?.[1];
+            return (aRp === primaryRpId ? -1 : 0) - (bRp === primaryRpId ? -1 : 0);
+        });
+
+        // Try each event (one per gateway) until a passkey matches.
+        // The browser only offers passkeys whose rpId matches the event's gateway.
+        let lastError;
+        for (const event of events) {
+            try {
+                const { nsecBytes } = await loginWithKeytr(event);
+                try {
+                    return encodeNsec(nsecBytes);
+                } finally {
+                    nsecBytes.fill(0);
+                }
+            } catch (err) {
+                lastError = err;
+            }
         }
+        throw lastError;
     },
 
     /** Remove credential metadata for a specific pubkey. */
