@@ -6,8 +6,9 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { keytrService } from '../services/keytrService';
-import { PASSKEY_ENABLED } from '../config/featureFlags';
+import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
 import { keyfileService } from '../services/keyfileService';
+import { walletApi } from '../services/api';
 
 const Signup = () => {
     const { loginWithNsec } = useAuth();
@@ -41,6 +42,10 @@ const Signup = () => {
     const [encrypting, setEncrypting] = useState(false);
     const [showSeedPhrase, setShowSeedPhrase] = useState(false);
     const [keyfileDownloaded, setKeyfileDownloaded] = useState(false);
+    // Coinos wallet (signup)
+    const [enableCoinos, setEnableCoinos] = useState(false);
+    const [coinosUsername, setCoinosUsername] = useState('');
+    const [coinosError, setCoinosError] = useState('');
 
     const truncateKey = (key) => key ? `${key.slice(0, 10)}...${key.slice(-10)}` : '';
 
@@ -111,6 +116,16 @@ const Signup = () => {
         e.preventDefault();
         if (!profile.name || submitting) return;
 
+        // Validate Coinos username if opted in
+        if (enableCoinos && COINOS_SIGNUP_WALLET) {
+            const u = coinosUsername.trim();
+            if (!u || u.length < 2 || u.length > 24 || !/^[a-zA-Z0-9]+$/.test(u)) {
+                setCoinosError('Username must be 2-24 alphanumeric characters');
+                return;
+            }
+            setCoinosError('');
+        }
+
         setError('');
         setSubmitting(true);
 
@@ -122,6 +137,16 @@ const Signup = () => {
                 // Update profile name via API
                 const { authService } = await import('../services/authService.js');
                 await authService.completeNostrProfile({ name: profile.name });
+
+                // Optionally create Coinos wallet
+                if (enableCoinos && COINOS_SIGNUP_WALLET && coinosUsername.trim()) {
+                    try {
+                        await walletApi.createCoinos(coinosUsername.trim());
+                    } catch (err) {
+                        // Non-fatal — user can set up wallet later in Settings
+                        console.warn('Coinos wallet creation failed:', err.message);
+                    }
+                }
 
                 navigate('/dashboard');
             } else {
@@ -358,6 +383,44 @@ const Signup = () => {
                                 onChange={e => setProfile({ ...profile, name: e.target.value })}
                             />
                         </div>
+
+                        {COINOS_SIGNUP_WALLET && (
+                            <div className="mb-4" style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', background: 'var(--color-surface)' }}>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 600, color: 'var(--color-gray-700)' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={enableCoinos}
+                                        onChange={(e) => { setEnableCoinos(e.target.checked); setCoinosError(''); }}
+                                        style={{ accentColor: '#f7931a', width: 18, height: 18 }}
+                                    />
+                                    Enable Instant Wallet (Coinos)
+                                </label>
+                                <p className="text-xs" style={{ color: 'var(--color-gray-400)', marginTop: 4, lineHeight: 1.4 }}>
+                                    Get a Lightning wallet instantly so you can send and receive sats right away. You can also connect your own wallet later in Settings.
+                                </p>
+                                {enableCoinos && (
+                                    <div style={{ marginTop: '0.5rem' }}>
+                                        <input
+                                            type="text"
+                                            className="w-full p-2 border input-box"
+                                            placeholder="Choose a wallet username (2-24 chars, alphanumeric)"
+                                            value={coinosUsername}
+                                            onChange={(e) => { setCoinosUsername(e.target.value.replace(/[^a-zA-Z0-9]/g, '')); setCoinosError(''); }}
+                                            maxLength={24}
+                                            style={{ fontSize: '0.85rem' }}
+                                        />
+                                        {coinosUsername && (
+                                            <p className="text-xs" style={{ color: 'var(--color-gray-500)', marginTop: 4 }}>
+                                                Your Lightning address: <strong>{coinosUsername}@coinos.io</strong>
+                                            </p>
+                                        )}
+                                        {coinosError && (
+                                            <p className="text-xs" style={{ color: 'var(--color-error)', marginTop: 4 }}>{coinosError}</p>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )}
 
                         <button type="submit" className="btn-primary w-full py-3 rounded-full flex items-center justify-center gap-2">
                             Enter Dashboard <ArrowRight size={18} />

@@ -34,6 +34,7 @@ import newsRoutes from './routes/news.routes';
 import mediaRoutes from './routes/media.routes';
 import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
+import walletRoutes from './routes/wallet.routes';
 
 const app = express();
 
@@ -174,6 +175,7 @@ app.use('/api/content', contentRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/match', matchRoutes);
+app.use('/api/wallet', walletRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

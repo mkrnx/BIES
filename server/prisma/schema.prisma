@@ -103,6 +103,9 @@ model Profile {
   // NIP-05 & Lightning
   nip05Name        String?  @unique @map("nip05_name")
   lightningAddress String   @default("") @map("lightning_address")
+  // Coinos custodial wallet
+  coinosUsername   String?  @unique @map("coinos_username")
+  coinosToken      String?  @map("coinos_token") // Encrypted JWT for Coinos API
   // Misc
   isPublic     Boolean  @default(true) @map("is_public")
   viewCount    Int      @default(0) @map("view_count")

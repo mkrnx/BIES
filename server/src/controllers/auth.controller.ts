@@ -559,13 +559,16 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             }
         }
 
+        // Strip sensitive Coinos token from profile before sending to client
+        const profileData = user.profile ? { ...user.profile, coinosToken: undefined } : null;
+
         res.json({
             id: user.id,
             email: user.email,
             nostrPubkey: user.nostrPubkey,
             role: user.role,
             isAdmin: user.role === 'ADMIN',
-            profile: user.profile,
+            profile: profileData,
             ...(nostrNsec ? { nostrNsec } : {}),
         });
     } catch (error) {
