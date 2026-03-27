@@ -147,8 +147,8 @@ const AppContent = () => {
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="settings" element={<Settings />} />
                         {/* Sub-routes */}
-                        <Route path="new-project" element={<NewProject />} />
-                        <Route path="new-course" element={<NewCourse />} />
+                        <Route path="builder/new-project" element={<NewProject />} />
+                        <Route path="builder/new-course" element={<NewCourse />} />
                     </Route>
 
                     {/* Admin Routes */}
