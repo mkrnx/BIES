@@ -13,6 +13,7 @@ services:
       NOSTR_PUBLIC_RELAY: "wss://bies.sovit.xyz/relay"
       BASE_PATH: ""
       CORS_ORIGIN: "https://bies.sovit.xyz"
+      YOUTUBE_CHANNEL_ID: "UCBgvGPST3o9QWCqiSZOgjmQ"
       TWITTER_COOKIES_PATH: "/app/twitter-cookies.txt"
       ADMIN_PUBKEYS: "85ea5f36ad90cb6e9100fb3e445c9a100d945563e07913100c84664dbfef2250,de7ab932ca17278b2144a6628c3531a0628fcc7b58074111d6e5b949ecb0e377"
     volumes:
