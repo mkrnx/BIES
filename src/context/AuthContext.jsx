@@ -3,6 +3,10 @@ import { authService } from '../services/authService';
 import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import { notifyIncomingMessage } from '../utils/notificationManager';
+import { nostrSigner } from '../services/nostrSigner';
+import { keytrService } from '../services/keytrService';
+import { PASSKEY_ENABLED } from '../config/featureFlags';
+import PasskeySavePrompt from '../components/PasskeySavePrompt';
 
 const AuthContext = createContext();
 
@@ -14,6 +18,34 @@ export const AuthProvider = ({ children }) => {
     const [wsClient, setWsClient] = useState(null);
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
+    const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+
+    // ─── Passkey save prompt ─────────────────────────────────────────────────
+
+    /**
+     * After a successful login that gives us the nsec in memory, check whether
+     * we should prompt the user to save a passkey for easier future logins.
+     */
+    const maybePromptPasskeySave = useCallback(async () => {
+        if (!PASSKEY_ENABLED) return;
+        if (!nostrSigner.hasKey || !nostrSigner.getNsec()) return;
+        if (keytrService.hasCredential(nostrSigner.pubkey)) return;
+        if (sessionStorage.getItem('bies_passkey_prompt_dismissed')) return;
+
+        const supported = await keytrService.checkSupport();
+        if (!supported) return;
+
+        setShowPasskeyPrompt(true);
+    }, []);
+
+    const dismissPasskeyPrompt = useCallback(() => {
+        sessionStorage.setItem('bies_passkey_prompt_dismissed', '1');
+        setShowPasskeyPrompt(false);
+    }, []);
+
+    const handlePasskeySaved = useCallback(() => {
+        setShowPasskeyPrompt(false);
+    }, []);
 
     // ─── Session restore on mount ──────────────────────────────────────────
 
@@ -95,6 +127,7 @@ export const AuthProvider = ({ children }) => {
             const user = await authService.loginWithNsec(nsec);
             setUser(user);
             initWebSocket(user);
+            maybePromptPasskeySave();
             return { success: true, user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -106,6 +139,7 @@ export const AuthProvider = ({ children }) => {
             const user = await authService.loginWithSeedPhrase(mnemonic);
             setUser(user);
             initWebSocket(user);
+            maybePromptPasskeySave();
             return { success: true, user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -195,6 +229,7 @@ export const AuthProvider = ({ children }) => {
             const user = await authService.loginWithEmail(email, password);
             setUser(user);
             initWebSocket(user);
+            maybePromptPasskeySave();
             return { success: true, user };
         } catch (error) {
             return { success: false, error: error.message };
@@ -326,6 +361,12 @@ export const AuthProvider = ({ children }) => {
             isStaff: user?.role === 'ADMIN' || user?.role === 'MOD',
         }}>
             {children}
+            {showPasskeyPrompt && (
+                <PasskeySavePrompt
+                    onClose={dismissPasskeyPrompt}
+                    onSaved={handlePasskeySaved}
+                />
+            )}
         </AuthContext.Provider>
     );
 };

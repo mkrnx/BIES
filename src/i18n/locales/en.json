@@ -222,6 +222,19 @@
     "memberDesc": "supporting the ecosystem",
     "enterDashboard": "Enter Dashboard"
   },
+  "passkeySave": {
+    "title": "Save your login?",
+    "description": "Save a passkey so you can log in next time with just your fingerprint or face — no need to enter your key again.",
+    "benefitEncrypted": "Your key is encrypted and stored on Nostr relays via NIP-K1",
+    "benefitBiometric": "Log in instantly with fingerprint or face on any device",
+    "saveButton": "Save with Passkey",
+    "notNow": "Not now",
+    "saving": "Complete the biometric prompt on your device...",
+    "saved": "Passkey Saved!",
+    "savedDesc": "You can now log in with just your fingerprint or face.",
+    "tryAgain": "Try Again",
+    "skip": "Skip"
+  },
   "discover": {
     "title": "Discover",
     "newProject": "New Project",

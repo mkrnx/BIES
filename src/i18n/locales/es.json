@@ -222,6 +222,19 @@
     "memberDesc": "apoyando el ecosistema",
     "enterDashboard": "Entrar al Panel"
   },
+  "passkeySave": {
+    "title": "Guardar tu inicio de sesion?",
+    "description": "Guarda una passkey para iniciar sesion la proxima vez con solo tu huella o rostro, sin necesidad de ingresar tu clave.",
+    "benefitEncrypted": "Tu clave se cifra y almacena en relays Nostr via NIP-K1",
+    "benefitBiometric": "Inicia sesion al instante con huella o rostro en cualquier dispositivo",
+    "saveButton": "Guardar con Passkey",
+    "notNow": "Ahora no",
+    "saving": "Completa la verificacion biometrica en tu dispositivo...",
+    "saved": "Passkey Guardada!",
+    "savedDesc": "Ahora puedes iniciar sesion con solo tu huella o rostro.",
+    "tryAgain": "Intentar de nuevo",
+    "skip": "Omitir"
+  },
   "discover": {
     "title": "Descubrir",
     "newProject": "Nuevo Proyecto",
