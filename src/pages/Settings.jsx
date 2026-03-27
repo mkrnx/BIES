@@ -38,6 +38,19 @@ const Settings = () => {
     const [showKeyfileForm, setShowKeyfileForm] = useState(false);
     const [keyfileError, setKeyfileError] = useState('');
 
+    // Passkey management state
+    const [passkeySupported, setPasskeySupported] = useState(false);
+    const [hasPasskey, setHasPasskey] = useState(() => keytrService.hasCredential(user?.nostrPubkey));
+    const [savingPasskey, setSavingPasskey] = useState(false);
+    const [savingBackup, setSavingBackup] = useState(false);
+    const [removingPasskey, setRemovingPasskey] = useState(false);
+    const [passkeyError, setPasskeyError] = useState('');
+    const [passkeySuccess, setPasskeySuccess] = useState('');
+
+    React.useEffect(() => {
+        keytrService.checkSupport().then(setPasskeySupported);
+    }, []);
+
     const npub = user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : null;
     const loginMethod = nostrSigner.storedMethod; // 'extension' | 'nsec' | 'bunker' | null
 
@@ -103,6 +116,67 @@ const Settings = () => {
             setKeyfileError(err.message || 'Failed to create backup file.');
         }
     }, [nsecValue, keyfilePassword, keyfileConfirm]);
+
+    const getNsecForPasskey = useCallback(() => {
+        const nsec = nsecValue || nostrSigner.getNsec();
+        if (!nsec) {
+            setPasskeyError('Reveal your secret key first so it can be encrypted with your passkey.');
+            return null;
+        }
+        return nsec;
+    }, [nsecValue]);
+
+    const handleSavePasskey = useCallback(async () => {
+        setPasskeyError('');
+        setPasskeySuccess('');
+        const nsec = getNsecForPasskey();
+        if (!nsec) return;
+        setSavingPasskey(true);
+        try {
+            await keytrService.saveWithPasskey(nsec, user.nostrPubkey);
+            setHasPasskey(true);
+            setPasskeySuccess('Passkey saved! Your key is encrypted and stored on Nostr relays.');
+        } catch (err) {
+            if (!err.cancelled) {
+                setPasskeyError(err.message || 'Failed to save passkey.');
+            }
+        } finally {
+            setSavingPasskey(false);
+        }
+    }, [getNsecForPasskey, user?.nostrPubkey]);
+
+    const handleAddBackupGateway = useCallback(async () => {
+        setPasskeyError('');
+        setPasskeySuccess('');
+        const nsec = getNsecForPasskey();
+        if (!nsec) return;
+        setSavingBackup(true);
+        try {
+            await keytrService.addBackupGateway(nsec, user.nostrPubkey);
+            setPasskeySuccess('Backup gateway added (nostkey.org). You now have redundant passkey recovery.');
+        } catch (err) {
+            if (!err.cancelled) {
+                setPasskeyError(err.message || 'Failed to add backup gateway.');
+            }
+        } finally {
+            setSavingBackup(false);
+        }
+    }, [getNsecForPasskey, user?.nostrPubkey]);
+
+    const handleRemovePasskey = useCallback(() => {
+        setPasskeyError('');
+        setPasskeySuccess('');
+        setRemovingPasskey(true);
+        try {
+            keytrService.removeCredential(user.nostrPubkey);
+            setHasPasskey(false);
+            setPasskeySuccess('Passkey credential removed from this device.');
+        } catch (err) {
+            setPasskeyError(err.message || 'Failed to remove passkey.');
+        } finally {
+            setRemovingPasskey(false);
+        }
+    }, [user?.nostrPubkey]);
 
     const handleApplyInvestor = async () => {
         if (!user) return;
@@ -396,6 +470,66 @@ const Settings = () => {
                     {keyfileError && !showKeyfileForm && <p className="key-error">{keyfileError}</p>}
                 </div>
                 )}
+
+                {/* Passkey Quick Login (keytr) */}
+                {PASSKEY_ENABLED && loginMethod !== 'extension' && loginMethod !== 'bunker' && (
+                <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
+                    <div className="setting-info" style={{ width: '100%' }}>
+                        <div className="icon-box" style={{ background: 'var(--color-primary-light, #eff6ff)', color: 'var(--color-primary)' }}><Fingerprint size={20} /></div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <p className="setting-label">Passkey Quick Login</p>
+                            <p className="setting-desc">
+                                {hasPasskey
+                                    ? 'Your key is encrypted with a passkey via keytr.org'
+                                    : 'Save your key to a passkey for quick biometric login on any device'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {!passkeySupported ? (
+                        <div className="key-info-banner">
+                            <AlertTriangle size={16} />
+                            <span>Your browser or device does not support passkeys with PRF. Try a browser like Chrome or Edge with a compatible authenticator.</span>
+                        </div>
+                    ) : hasPasskey ? (
+                        <>
+                            <div className="passkey-status">
+                                <CheckCircle size={14} />
+                                <span>Passkey active for this account</span>
+                            </div>
+                            {passkeySuccess && <p className="passkey-success">{passkeySuccess}</p>}
+                            {passkeyError && <p className="key-error">{passkeyError}</p>}
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                <button onClick={handleAddBackupGateway} disabled={savingBackup} className="btn btn-outline btn-sm">
+                                    {savingBackup ? (
+                                        <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Saving...</>
+                                    ) : (
+                                        <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Add Backup Gateway</>
+                                    )}
+                                </button>
+                                <button onClick={handleRemovePasskey} disabled={removingPasskey} className="btn btn-outline btn-sm btn-danger-outline">
+                                    Remove Passkey
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            {passkeySuccess && <p className="passkey-success">{passkeySuccess}</p>}
+                            {passkeyError && <p className="key-error">{passkeyError}</p>}
+                            <button onClick={handleSavePasskey} disabled={savingPasskey} className="btn btn-outline btn-sm">
+                                {savingPasskey ? (
+                                    <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Saving...</>
+                                ) : (
+                                    <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Save to Passkey</>
+                                )}
+                            </button>
+                            <p className="setting-desc" style={{ fontSize: '0.8rem', lineHeight: 1.4 }}>
+                                Your key is encrypted with your passkey and stored on Nostr relays via keytr.org. You can recover it from any device using the same passkey.
+                            </p>
+                        </>
+                    )}
+                </div>
+                )}
             </div>
             )}
 
@@ -447,6 +581,9 @@ const Settings = () => {
                 .btn-danger-outline:hover { background: var(--color-danger-light, #fef2f2); }
 
                 .keyfile-form { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
+
+                .passkey-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: var(--color-green-700, #15803d); background: var(--color-green-tint, #f0fdf4); padding: 0.5rem 0.75rem; border-radius: var(--radius-md); width: 100%; }
+                .passkey-success { font-size: 0.8rem; color: var(--color-green-700, #15803d); margin: 0; }
             `}</style>
         </div>
     );
