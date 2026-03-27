@@ -17,6 +17,7 @@
     "i18next-browser-languagedetector": "^8.2.1",
     "lucide-react": "^0.300.0",
     "nostr-tools": "^2.23.0",
+    "qrcode.react": "^4.2.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-easy-crop": "^5.5.6",
