@@ -56,11 +56,14 @@ const Feed = () => {
     const fetchedProfiles = useRef(new Set());
 
     // Re-subscribe to the private relay when the page regains visibility.
-    // Mobile browsers kill WebSocket connections when backgrounded; bumping
-    // refreshKey re-triggers the subscription effect so the feed reconnects.
+    // Mobile browsers kill WebSocket connections when backgrounded; the pool
+    // can't detect the dead WebSocket until a TCP timeout fires (seconds to
+    // minutes).  Force-closing the relay drops the stale connection so the
+    // next subscribeMany creates a fresh WebSocket and re-authenticates.
     useEffect(() => {
         const onVisible = () => {
             if (document.visibilityState === 'visible' && feedMode === 'private') {
+                nostrService.pool.close([BIES_RELAY]);
                 setRefreshKey(k => k + 1);
             }
         };
@@ -457,13 +460,18 @@ const Feed = () => {
         }
     };
 
-    // Refresh feed — bumps refreshKey to re-trigger subscription/fetch effects
+    // Refresh feed — bumps refreshKey to re-trigger subscription/fetch effects.
+    // Force-close the relay first so the pool drops any stale WebSocket and
+    // establishes a fresh authenticated connection.
     const handleRefreshFeed = useCallback(() => {
         if (loading || refreshing) return;
         setRefreshing(true);
+        if (feedMode === 'private') {
+            nostrService.pool.close([BIES_RELAY]);
+        }
         setRefreshKey(k => k + 1);
         setTimeout(() => setRefreshing(false), 1500);
-    }, [loading, refreshing]);
+    }, [loading, refreshing, feedMode]);
 
     const handleFileSelect = async (e) => {
         const files = Array.from(e.target.files || []);
