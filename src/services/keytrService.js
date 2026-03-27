@@ -114,6 +114,8 @@ export const keytrService = {
         const { credential, prfOutput } = await registerPasskey({
             userName: pubkey.slice(0, 16),
             userDisplayName: 'BIES Account',
+            rpId: 'sovit.xyz',
+            rpName: 'sovit.xyz',
         });
 
         let encryptedBlob;
