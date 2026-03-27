@@ -1646,11 +1646,13 @@ const Feed = () => {
                                         </button>
                                         <button
                                             className="action-btn action-zap"
+                                            data-testid="zap-btn"
                                             title="Zap"
                                             onClick={() => setZapTarget({
                                                 pubkey: post.pubkey,
                                                 name: getDisplayName(post.pubkey),
                                                 avatar: getAvatar(post.pubkey),
+                                                lud16: profiles[post.pubkey]?.lud16,
                                                 eventId: post.id,
                                             })}
                                         >
@@ -1874,7 +1876,7 @@ const Feed = () => {
                 {/* Zap Modal */}
                 {zapTarget && (
                     <ZapModal
-                        recipients={[{ pubkey: zapTarget.pubkey, name: zapTarget.name, avatar: zapTarget.avatar }]}
+                        recipients={[{ pubkey: zapTarget.pubkey, name: zapTarget.name, avatar: zapTarget.avatar, lud16: zapTarget.lud16 }]}
                         eventId={zapTarget.eventId}
                         onClose={() => setZapTarget(null)}
                     />

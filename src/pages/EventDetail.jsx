@@ -323,7 +323,7 @@ const EventDetail = () => {
                                 </p>
                                 {event.host?.nostrPubkey && (
                                     <ZapButton
-                                        recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: getAssetUrl(event.host?.profile?.avatar) || '' }]}
+                                        recipients={[{ pubkey: event.host.nostrPubkey, name: event.host?.profile?.name || event.organizer, avatar: getAssetUrl(event.host?.profile?.avatar) || '', lud16: event.host?.profile?.lightningAddress }]}
                                         size="sm"
                                     />
                                 )}

@@ -229,7 +229,7 @@ const PublicProfile = ({ type }) => {
                             {/* Zap — only on other people's profiles */}
                             {profile.user?.nostrPubkey && currentUser?.id !== targetUserId && (
                                 <ZapButton
-                                    recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar }]}
+                                    recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar, lud16: profile.lightningAddress }]}
                                     size={isMobile ? 'sm' : 'md'}
                                     variant="bitcoin"
                                 />

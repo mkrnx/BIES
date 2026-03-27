@@ -19,11 +19,11 @@ export default defineConfig({
         host: true,
         proxy: {
             '/api': {
-                target: 'http://localhost:3001',
+                target: process.env.VITE_API_TARGET || 'http://localhost:3001',
                 changeOrigin: true,
             },
             '/ws': {
-                target: 'ws://localhost:3001',
+                target: process.env.VITE_API_TARGET?.replace('http', 'ws') || 'ws://localhost:3001',
                 ws: true,
             },
             '/relay': {
@@ -32,7 +32,7 @@ export default defineConfig({
                 rewrite: () => '/',
             },
             '/uploads': {
-                target: 'http://localhost:3001',
+                target: process.env.VITE_API_TARGET || 'http://localhost:3001',
                 changeOrigin: true,
             },
             '/translate': {
