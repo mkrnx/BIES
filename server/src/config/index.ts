@@ -59,6 +59,9 @@ export const config = {
     // ─── Media Feeds (YouTube, etc.) ─────────────────────────────────────────
     youtubeChannelId: process.env.YOUTUBE_CHANNEL_ID || '',
 
+    // ─── Coinos (custodial Lightning wallet) ─────────────────────────────────
+    coinosApiUrl: process.env.COINOS_API_URL || 'https://coinos.io/api',
+
     // ─── Email (optional, for notification emails) ───────────────────────────
     smtp: {
         host: process.env.SMTP_HOST || '',

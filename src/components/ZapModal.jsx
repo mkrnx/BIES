@@ -18,7 +18,10 @@ const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
  * @param {function} props.onClose
  */
 const ZapModal = ({ recipients = [], eventId, onClose }) => {
-    const { connected: nwcConnected, payInvoice: nwcPayInvoice } = useWallet();
+    const { connected: walletConnected, walletType, payInvoice: walletPayInvoice } = useWallet();
+    // Backwards-compat aliases used throughout the component
+    const nwcConnected = walletConnected;
+    const nwcPayInvoice = walletPayInvoice;
     const [phase, setPhase] = useState('resolving'); // resolving | ready | paying | qr | success | error
     const [resolvedRecipients, setResolvedRecipients] = useState([]);
     const [selectedAmount, setSelectedAmount] = useState(100);
@@ -281,7 +284,9 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                                 Zap {amount?.toLocaleString() || 0} sats
                             </button>
                             {nwcConnected && (
-                                <p className="zap-wallet-hint">Paying with connected wallet</p>
+                                <p className="zap-wallet-hint">
+                                    Paying with {walletType === 'coinos' ? 'Coinos wallet' : 'connected wallet'}
+                                </p>
                             )}
                         </>
                     )}

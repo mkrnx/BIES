@@ -364,6 +364,16 @@ export const healthApi = {
     check: () => get('/health'),
 };
 
+// ─── Coinos Wallet ───────────────────────────────────────────────────────────
+
+export const walletApi = {
+    createCoinos: (username) => post('/wallet/coinos/create', { username }),
+    connectCoinos: (username, password) => post('/wallet/coinos/connect', { username, password }),
+    disconnectCoinos: () => post('/wallet/coinos/disconnect'),
+    coinosBalance: () => get('/wallet/coinos/balance'),
+    coinosPay: (bolt11) => post('/wallet/coinos/pay', { bolt11 }),
+};
+
 // ─── WebSocket client ─────────────────────────────────────────────────────────
 
 export class BiesWebSocket {
