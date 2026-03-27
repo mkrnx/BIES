@@ -535,6 +535,11 @@ textarea {
 }
 
 /* Rich Text Content */
+.rich-text-content,
+.rich-text-content * {
+  font-family: var(--font-sans) !important;
+}
+
 .rich-text-content {
   color: var(--color-gray-700);
   line-height: 1.75;
