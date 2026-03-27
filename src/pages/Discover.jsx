@@ -138,7 +138,7 @@ const ProjectCard = ({ project, t, viewType = 'standard' }) => {
               <h3>{project.title || project.name}</h3>
             </Link>
             <p className="description">{stripHtml(project.description || '')}</p>
-    
+
             <div className="meta-row">
               <div className="meta-item">
                 <MapPin size={14} />
@@ -149,7 +149,7 @@ const ProjectCard = ({ project, t, viewType = 'standard' }) => {
                 <span>{formatFunding(project.fundingGoal || project.funding)}</span>
               </div>
             </div>
-    
+
             {builderName && (
               <Link to={builderId ? `/builder/${builderId}` : '#'} className="builder-row builder-link" style={{ display: 'flex', alignItems: 'center', marginTop: '0.35rem', marginBottom: '0.85rem' }}>
                 {builderAvatar ? (
@@ -160,7 +160,7 @@ const ProjectCard = ({ project, t, viewType = 'standard' }) => {
                 <span className="builder-name-text" style={{ marginTop: '-6px' }}>{builderName}</span>
               </Link>
             )}
-    
+
             <div className="actions">
               <Link to={`/project/${project.id}`} className="btn btn-outline btn-xs view-details-btn">{t('common.details')}</Link>
               <button
@@ -173,7 +173,7 @@ const ProjectCard = ({ project, t, viewType = 'standard' }) => {
               <button className="icon-btn btn-secondary-icon" title={t('discover.requestPitchDeck')}><Download size={18} /></button>
               {project.owner?.nostrPubkey && (
                 <ZapButton
-                  recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '' }]}
+                  recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '', lud16: project.owner?.profile?.lightningAddress }]}
                   size="sm"
                 />
               )}

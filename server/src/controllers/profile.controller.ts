@@ -175,7 +175,11 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 
         const profile = await prisma.profile.findFirst({
             where: {
-                OR: [{ userId: req.params.id }, { id: req.params.id }],
+                OR: [
+                    { userId: req.params.id },
+                    { id: req.params.id },
+                    { user: { nostrPubkey: req.params.id } },
+                ],
                 isPublic: true,
             },
             include: {

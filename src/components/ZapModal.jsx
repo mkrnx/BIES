@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
 import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
+import { profilesApi } from '../services/api';
 import { useWallet } from '../hooks/useWallet';
 
 const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
@@ -30,17 +31,36 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
     const amount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
 
-    // Resolve lud16 for all recipients on mount
+    // Resolve lud16 for all recipients on mount.
+    // Priority: 1) lud16 passed from parent, 2) Nostr profile, 3) BIES API profile
     useEffect(() => {
         let cancelled = false;
         (async () => {
             const resolved = [];
             for (const r of recipients) {
                 if (!r.pubkey) continue;
+
+                // 1. Use lud16 already provided by parent (from cached Nostr profile)
+                if (r.lud16) {
+                    resolved.push({ ...r, lud16: r.lud16 });
+                    continue;
+                }
+
+                // 2. Fetch from Nostr relays
                 try {
                     const profile = await nostrService.getProfile(r.pubkey);
                     if (profile?.lud16) {
                         resolved.push({ ...r, lud16: profile.lud16 });
+                        continue;
+                    }
+                } catch { /* skip */ }
+
+                // 3. Fallback: check BIES API profile (lightningAddress)
+                try {
+                    const biesProfile = await profilesApi.get(r.pubkey);
+                    if (biesProfile?.lightningAddress) {
+                        resolved.push({ ...r, lud16: biesProfile.lightningAddress });
+                        continue;
                     }
                 } catch { /* skip */ }
             }
@@ -153,7 +173,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const truncatedInvoice = bolt11 ? `${bolt11.slice(0, 30)}...${bolt11.slice(-10)}` : '';
 
     return (
-        <div className="zap-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div className="zap-card">
                 {/* Header */}
                 <div className="zap-header">
@@ -169,7 +189,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 {/* Body */}
                 <div className="zap-body">
                     {phase === 'resolving' && (
-                        <div className="zap-center">
+                        <div className="zap-center" data-testid="zap-resolving">
                             <Loader2 size={28} className="zap-spin" />
                             <p className="zap-status-text">Resolving Lightning addresses...</p>
                         </div>
@@ -219,6 +239,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                                     <button
                                         key={a}
                                         className={`zap-amount-chip ${!customAmount && selectedAmount === a ? 'active' : ''}`}
+                                        data-testid={`zap-amount-${a}`}
                                         onClick={() => { setSelectedAmount(a); setCustomAmount(''); }}
                                     >
                                         {a >= 1000 ? `${a / 1000}k` : a}
@@ -230,6 +251,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                             <input
                                 type="number"
                                 className="zap-custom-input"
+                                data-testid="zap-custom-amount"
                                 placeholder="Custom amount"
                                 value={customAmount}
                                 onChange={(e) => setCustomAmount(e.target.value)}
@@ -240,6 +262,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                             <input
                                 type="text"
                                 className="zap-comment-input"
+                                data-testid="zap-comment"
                                 placeholder="Add a comment (optional)"
                                 value={comment}
                                 onChange={(e) => setComment(e.target.value)}
@@ -249,6 +272,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                             {/* Zap button */}
                             <button
                                 className="zap-send-btn"
+                                data-testid="zap-send-btn"
                                 onClick={handleZap}
                                 disabled={!amount || amount < 1}
                             >
@@ -263,7 +287,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     )}
 
                     {phase === 'paying' && (
-                        <div className="zap-center">
+                        <div className="zap-center" data-testid="zap-paying">
                             <Loader2 size={28} className="zap-spin" />
                             <p className="zap-status-text">
                                 {progress.total > 1
@@ -277,12 +301,12 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     )}
 
                     {phase === 'qr' && (
-                        <div className="zap-qr-section">
+                        <div className="zap-qr-section" data-testid="zap-qr">
                             <p className="zap-status-text">Scan or copy the invoice to pay</p>
                             <div className="zap-invoice-box">
                                 <code className="zap-invoice-text">{truncatedInvoice}</code>
                             </div>
-                            <button className="zap-copy-btn" onClick={copyInvoice}>
+                            <button className="zap-copy-btn" data-testid="zap-copy-invoice" onClick={copyInvoice}>
                                 {copied ? <Check size={14} /> : <Copy size={14} />}
                                 {copied ? 'Copied!' : 'Copy Invoice'}
                             </button>
@@ -311,7 +335,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     )}
 
                     {phase === 'success' && (
-                        <div className="zap-center">
+                        <div className="zap-center" data-testid="zap-success">
                             <div className="zap-success-icon">
                                 <Zap size={32} />
                             </div>
@@ -334,7 +358,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     )}
 
                     {phase === 'error' && (
-                        <div className="zap-center">
+                        <div className="zap-center" data-testid="zap-error">
                             <AlertCircle size={28} style={{ color: '#ef4444' }} />
                             <p className="zap-status-text" style={{ color: '#ef4444' }}>{errorMsg}</p>
                             <button className="zap-done-btn" onClick={() => {
