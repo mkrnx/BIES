@@ -5,6 +5,14 @@ import { nodePolyfills } from 'vite-plugin-node-polyfills'
 // https://vitejs.dev/config/
 export default defineConfig({
     base: '/',
+    resolve: {
+        // @scure/base is used by both nostr-tools (v2) and @sovit.xyz/keytr (v1).
+        // Without deduplication Vite can bundle two copies whose internal
+        // bech32 instances are distinct objects, leading to cross-version type
+        // mismatches ("e is not iterable").  The v1 and v2 APIs are identical,
+        // so forcing a single copy is safe.
+        dedupe: ['@scure/base'],
+    },
     plugins: [
         react({
             babel: {
