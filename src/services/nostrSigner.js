@@ -250,10 +250,10 @@ class NostrSigner {
     }
 
     /**
-     * Attempt to re-acquire nsec from passkey.
+     * Attempt to re-acquire nsec from keytr passkey.
      * Called lazily when an operation needs signing but no key is in memory.
      * Only tries if the stored login method was 'nsec' (passkey/nsec/seed)
-     * and a passkey credential exists.
+     * and a keytr credential exists.
      */
     async _tryReacquire() {
         if (this._sk) return true; // already have it
@@ -263,10 +263,10 @@ class NostrSigner {
         if (!PASSKEY_ENABLED) return false;
 
         try {
-            const { passkeyService } = await import('./passkeyService.js');
-            if (!passkeyService.hasCredential()) return false;
+            const { keytrService } = await import('./keytrService.js');
+            if (!keytrService.hasCredential()) return false;
 
-            const nsec = await passkeyService.loginWithPasskey();
+            const nsec = await keytrService.loginWithPasskey();
             this.setNsec(nsec);
             return true;
         } catch {

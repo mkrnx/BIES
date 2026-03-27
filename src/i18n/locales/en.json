@@ -175,7 +175,7 @@
     "keyFileDownloaded": "Key file downloaded",
     "quickLoginPasskey": "Quick login with passkey",
     "savePasskey": "Save Passkey",
-    "passkeyWarning": "Passkeys are device-specific and may not work on other devices",
+    "passkeyWarning": "Your key is encrypted and stored on Nostr relays. Recover it from any device with the same passkey.",
     "continueToDashboard": "Continue to Dashboard",
     "downloadToContiue": "Download to Continue"
   },
@@ -203,7 +203,7 @@
     "quickLogin": "Quick Login (Optional)",
     "passkeySaved": "Passkey Saved",
     "saveToPasskey": "Save to Passkey",
-    "passkeyWarning": "Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup above.",
+    "passkeyWarning": "Your key is encrypted with your passkey and stored on Nostr relays. You can recover it from any device using the same passkey. Always keep a separate backup above.",
     "downloadFirst": "You must download your encrypted key file before continuing.",
     "continueKeys": "Continue — I've Saved My Keys",
     "downloadToContinue": "Download Key File to Continue",

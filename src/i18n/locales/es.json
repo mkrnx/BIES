@@ -175,7 +175,7 @@
     "keyFileDownloaded": "Archivo de clave descargado",
     "quickLoginPasskey": "Inicio rapido con passkey",
     "savePasskey": "Guardar Passkey",
-    "passkeyWarning": "Los passkeys son especificos del dispositivo y pueden no funcionar en otros dispositivos",
+    "passkeyWarning": "Tu clave esta encriptada y almacenada en relays Nostr. Recuperala desde cualquier dispositivo con la misma passkey.",
     "continueToDashboard": "Continuar al Panel",
     "downloadToContiue": "Descargar para Continuar"
   },
@@ -203,7 +203,7 @@
     "quickLogin": "Inicio Rapido (Opcional)",
     "passkeySaved": "Passkey Guardada",
     "saveToPasskey": "Guardar en Passkey",
-    "passkeyWarning": "Passkey NO guarda tu nsec. Encripta tu clave en este dispositivo usando tu huella dactilar o PIN solo para inicio rapido. Si pierdes este dispositivo, la passkey se pierde. Siempre mantiene un respaldo separado.",
+    "passkeyWarning": "Tu clave esta encriptada con tu passkey y almacenada en relays Nostr. Puedes recuperarla desde cualquier dispositivo usando la misma passkey. Siempre mantiene un respaldo separado.",
     "downloadFirst": "Debes descargar tu archivo de clave encriptado antes de continuar.",
     "continueKeys": "Continuar — He Guardado Mis Claves",
     "downloadToContinue": "Descarga el Archivo de Clave para Continuar",

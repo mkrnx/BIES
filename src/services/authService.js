@@ -186,8 +186,8 @@ export const authService = {
      * challenge-response flow as nsec login.
      */
     loginWithPasskey: async () => {
-        const { passkeyService } = await import('./passkeyService.js');
-        const nsec = await passkeyService.loginWithPasskey();
+        const { keytrService } = await import('./keytrService.js');
+        const nsec = await keytrService.loginWithPasskey();
         return authService.loginWithNsec(nsec);
     },
 

@@ -1,11 +1,11 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getPublicKey, nip19 } from 'nostr-tools';
 import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
-import { passkeyService } from '../services/passkeyService';
+import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 import { keyfileService } from '../services/keyfileService';
 
@@ -22,6 +22,12 @@ const Signup = () => {
     const [copiedItem, setCopiedItem] = useState(null);
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [passkeySaved, setPasskeySaved] = useState(false);
+    const [passkeySupported, setPasskeySupported] = useState(false);
+
+    useEffect(() => {
+        if (!PASSKEY_ENABLED) return;
+        keytrService.checkSupport().then(setPasskeySupported);
+    }, []);
     const [showKeyPassword, setShowKeyPassword] = useState(false);
     const [keyPasswordValid, setKeyPasswordValid] = useState(false);
     const keyPasswordRef = useRef(null);
@@ -89,24 +95,14 @@ const Signup = () => {
         if (!keys) return;
         setSavingPasskey(true);
         setError('');
-        // Temporarily change URL so password managers associate the passkey with /login
-        const originalPath = window.location.pathname;
-        const loginPath = originalPath.replace(/\/signup\/?$/, '/login');
-        if (loginPath !== originalPath) {
-            window.history.replaceState(null, '', loginPath);
-        }
         try {
-            await passkeyService.saveWithPasskey(keys.nsec, keys.pk);
+            await keytrService.saveWithPasskey(keys.nsec, keys.pk);
             setPasskeySaved(true);
         } catch (err) {
             if (!err.cancelled) {
                 setError(err.message || 'Failed to save passkey.');
             }
         } finally {
-            // Restore the original URL
-            if (loginPath !== originalPath) {
-                window.history.replaceState(null, '', originalPath);
-            }
             setSavingPasskey(false);
         }
     };
@@ -303,7 +299,7 @@ const Signup = () => {
                             </div>
 
                             {/* ── Quick Login section (separate from backup) ── */}
-                            {PASSKEY_ENABLED && passkeyService.isSupported() && (
+                            {PASSKEY_ENABLED && passkeySupported && (
                                 <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                     <p className="text-sm font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-600)' }}>Quick Login (Optional)</p>
                                     <button
@@ -320,7 +316,7 @@ const Signup = () => {
                                         )}
                                     </button>
                                     <p className="text-xs" style={{ color: 'var(--color-warning)', lineHeight: 1.3 }}>
-                                        Passkey does NOT save your nsec. It encrypts your key on this device using your fingerprint or PIN for quick login only. If you lose this device, the passkey is gone. Always keep a separate backup above.
+                                        Your key is encrypted with your passkey and stored on Nostr relays. You can recover it from any device using the same passkey. Always keep a separate backup above.
                                     </p>
                                 </div>
                             )}
