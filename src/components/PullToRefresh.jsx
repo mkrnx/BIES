@@ -10,29 +10,30 @@ const PullToRefresh = ({ children, onRefresh }) => {
     const startY = useRef(0);
     const currentY = useRef(0);
     const containerRef = useRef(null);
+    const pullDistanceRef = useRef(0);
+    const refreshingRef = useRef(false);
+    const onRefreshRef = useRef(onRefresh);
 
-    const isAtTop = useCallback(() => {
-        return window.scrollY <= 0;
-    }, []);
+    useEffect(() => { onRefreshRef.current = onRefresh; }, [onRefresh]);
+    useEffect(() => { refreshingRef.current = refreshing; }, [refreshing]);
 
-    const handleRefresh = useCallback(async () => {
+    const doRefresh = useCallback(async () => {
         setRefreshing(true);
         try {
-            if (onRefresh) {
-                await onRefresh();
+            if (onRefreshRef.current) {
+                await onRefreshRef.current();
             } else {
                 window.location.reload();
             }
         } catch {
-            // fallback reload on error
             window.location.reload();
         }
-        // If onRefresh didn't reload, reset state after a delay
         setTimeout(() => {
             setRefreshing(false);
             setPullDistance(0);
+            pullDistanceRef.current = 0;
         }, 500);
-    }, [onRefresh]);
+    }, []);
 
     useEffect(() => {
         const container = containerRef.current;
@@ -41,20 +42,20 @@ const PullToRefresh = ({ children, onRefresh }) => {
         let isPulling = false;
 
         const onTouchStart = (e) => {
-            if (refreshing) return;
-            if (!isAtTop()) return;
+            if (refreshingRef.current) return;
+            if (window.scrollY > 0) return;
             startY.current = e.touches[0].clientY;
             isPulling = true;
         };
 
         const onTouchMove = (e) => {
-            if (!isPulling || refreshing) return;
+            if (!isPulling || refreshingRef.current) return;
             currentY.current = e.touches[0].clientY;
             const distance = currentY.current - startY.current;
 
-            if (distance > 0 && isAtTop()) {
-                // Apply resistance curve
+            if (distance > 0 && window.scrollY <= 0) {
                 const dampened = Math.min(distance * 0.5, MAX_PULL);
+                pullDistanceRef.current = dampened;
                 setPullDistance(dampened);
                 setPulling(true);
 
@@ -62,6 +63,7 @@ const PullToRefresh = ({ children, onRefresh }) => {
                     e.preventDefault();
                 }
             } else {
+                pullDistanceRef.current = 0;
                 setPulling(false);
                 setPullDistance(0);
             }
@@ -71,9 +73,10 @@ const PullToRefresh = ({ children, onRefresh }) => {
             if (!isPulling) return;
             isPulling = false;
 
-            if (pullDistance >= THRESHOLD && !refreshing) {
-                handleRefresh();
+            if (pullDistanceRef.current >= THRESHOLD && !refreshingRef.current) {
+                doRefresh();
             } else {
+                pullDistanceRef.current = 0;
                 setPulling(false);
                 setPullDistance(0);
             }
@@ -88,7 +91,7 @@ const PullToRefresh = ({ children, onRefresh }) => {
             container.removeEventListener('touchmove', onTouchMove);
             container.removeEventListener('touchend', onTouchEnd);
         };
-    }, [isAtTop, refreshing, pullDistance, handleRefresh]);
+    }, [doRefresh]);
 
     const progress = Math.min(pullDistance / THRESHOLD, 1);
     const rotation = progress * 360;
