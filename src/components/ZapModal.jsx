@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
 import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
 import { profilesApi } from '../services/api';
@@ -169,8 +170,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    // Render QR code as text-based display (simple approach without external QR library)
-    const truncatedInvoice = bolt11 ? `${bolt11.slice(0, 30)}...${bolt11.slice(-10)}` : '';
+    const invoiceUri = bolt11 ? `lightning:${bolt11}` : '';
 
     return (
         <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
@@ -303,8 +303,18 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     {phase === 'qr' && (
                         <div className="zap-qr-section" data-testid="zap-qr">
                             <p className="zap-status-text">Scan or copy the invoice to pay</p>
+                            <div className="zap-qr-wrapper">
+                                <QRCodeSVG
+                                    value={invoiceUri}
+                                    size={220}
+                                    level="M"
+                                    marginSize={2}
+                                    bgColor="#ffffff"
+                                    fgColor="#000000"
+                                />
+                            </div>
                             <div className="zap-invoice-box">
-                                <code className="zap-invoice-text">{truncatedInvoice}</code>
+                                <code className="zap-invoice-text">{bolt11}</code>
                             </div>
                             <button className="zap-copy-btn" data-testid="zap-copy-invoice" onClick={copyInvoice}>
                                 {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -632,6 +642,15 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     align-items: center;
                     gap: 0.75rem;
                     padding: 1rem 0;
+                }
+
+                .zap-qr-wrapper {
+                    background: #ffffff;
+                    border-radius: 12px;
+                    padding: 0.5rem;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                 }
 
                 .zap-invoice-box {
