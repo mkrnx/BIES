@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, Lock, Eye, EyeOff, ArrowLeft, Smartphone } from 'lucide-react';
-import { passkeyService } from '../services/passkeyService';
+import { keytrService } from '../services/keytrService';
 import { keyfileService } from '../services/keyfileService';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
@@ -24,8 +24,15 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey state — only show button if feature is enabled and user has a stored encrypted key
-    const [hasPasskey] = useState(() => PASSKEY_ENABLED && passkeyService.isSupported() && passkeyService.hasCredential());
+    // Passkey state — async PRF check since keytr detection is async
+    const [hasPasskey, setHasPasskey] = useState(false);
+
+    useEffect(() => {
+        if (!PASSKEY_ENABLED) return;
+        keytrService.checkSupport().then(supported => {
+            if (supported && keytrService.hasCredential()) setHasPasskey(true);
+        });
+    }, []);
 
     // Keyfile unlock state
     const [keyfilePayload, setKeyfilePayload] = useState(null);
