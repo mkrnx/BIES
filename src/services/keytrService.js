@@ -19,7 +19,6 @@ import {
     publishKeytrEvent,
     fetchKeytrEvents,
     loginWithKeytr,
-    discoverAndLogin,
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { PUBLIC_RELAYS } from './nostrService.js';
@@ -204,8 +203,12 @@ export const keytrService = {
             throw new Error('Could not find your encrypted key on Nostr relays. You may need to re-save your passkey.');
         }
 
-        // Discoverable — browser shows available passkeys, no pubkey needed
-        const { nsecBytes, pubkey } = await discoverAndLogin(PUBLIC_RELAYS);
+        // Discoverable — fetch all keytr events and attempt login
+        const allEvents = await fetchKeytrEvents(PUBLIC_RELAYS);
+        if (!allEvents || allEvents.length === 0) {
+            throw new Error('No passkey credentials found on relays.');
+        }
+        const { nsecBytes, pubkey } = await loginWithKeytr(allEvents);
         try {
             const nsec = encodeNsec(nsecBytes);
             // Index credential locally for fast path next time

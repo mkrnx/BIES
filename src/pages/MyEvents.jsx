@@ -334,7 +334,7 @@ const MyEvents = () => {
                     align-items: center;
                 }
 
-                .tabs { display: flex; gap: 1rem; }
+                .tabs { display: flex; gap: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
                 .tab {
                     padding: 0.5rem 1rem;
                     border-radius: var(--radius-md);
@@ -344,6 +344,8 @@ const MyEvents = () => {
                     cursor: pointer;
                     border: none;
                     background: none;
+                    white-space: nowrap;
+                    flex-shrink: 0;
                 }
                 .tab.active { background: var(--color-gray-100); color: #F97316; font-weight: 600; }
                 
@@ -410,8 +412,8 @@ const MyEvents = () => {
                     .toolbar { position: relative; }
                 }
 
-                .table-wrapper { overflow-x: auto; overflow-y: visible; }
-                .events-table { width: 100%; border-collapse: collapse; }
+                .table-wrapper { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+                .events-table { width: 100%; min-width: 700px; border-collapse: collapse; }
 
                 .events-table th {
                     text-align: left;
@@ -421,9 +423,10 @@ const MyEvents = () => {
                     text-transform: uppercase;
                     color: var(--color-gray-500);
                     font-weight: 600;
+                    white-space: nowrap;
                 }
 
-                .events-table td { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); font-size: 0.9rem; vertical-align: middle; }
+                .events-table td { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); font-size: 0.9rem; vertical-align: middle; white-space: nowrap; }
                 .events-table tr:last-child td { border-bottom: none; }
 
                 .badge-sm {

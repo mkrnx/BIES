@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Folder, CalendarDays, BookOpen, Heart, MessageSquare, Settings, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -22,6 +22,11 @@ const Dashboard = () => {
     ];
 
     const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
+
+    // Scroll to top when switching tabs
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [location.pathname]);
 
     return (
         <div className="dashboard-layout">
@@ -112,6 +117,8 @@ const Dashboard = () => {
           display: flex;
           min-height: calc(100vh - 70px);
           background: var(--color-gray-50);
+          margin: 0;
+          padding: 0;
         }
 
         .desktop-sidebar {
@@ -175,25 +182,39 @@ const Dashboard = () => {
           flex: 1;
           padding: 2rem;
           overflow-y: auto;
+          overflow-x: hidden;
         }
 
         .mobile-tab-bar { display: none; }
 
         @media (max-width: 768px) {
-          .dashboard-layout { flex-direction: column; }
+          .dashboard-layout {
+            flex-direction: column;
+            margin-top: 0;
+            padding-top: 0;
+          }
           .desktop-sidebar { display: none; }
           .mobile-tab-bar {
             display: flex !important;
             justify-content: space-evenly;
             align-items: flex-start;
-            background: var(--color-surface);
+            background: var(--color-gray-50);
             border-bottom: 1px solid var(--color-gray-200);
             padding: 6px 0;
-            position: sticky;
+            position: fixed;
             top: 70px;
-            z-index: 50;
+            left: 0;
+            right: 0;
+            z-index: 90;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
           }
-          .dashboard-content { padding: 1rem; }
+          .dashboard-content {
+            padding: 1rem;
+            padding-top: calc(100px + 1rem);
+            flex: 1;
+            min-height: 0;
+          }
         }
       `}</style>
         </div>
