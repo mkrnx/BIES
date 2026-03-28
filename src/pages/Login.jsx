@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, Lock, Eye, EyeOff, ArrowLeft, Smartphone } from 'lucide-react';
-import { keytrService } from '../services/keytrService';
 import { keyfileService } from '../services/keyfileService';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
@@ -24,15 +23,8 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey state — async PRF check since keytr detection is async
-    const [hasPasskey, setHasPasskey] = useState(false);
-
-    useEffect(() => {
-        if (!PASSKEY_ENABLED) return;
-        keytrService.checkSupport().then(supported => {
-            if (supported && keytrService.hasCredential()) setHasPasskey(true);
-        });
-    }, []);
+    // Passkey — always available when feature flag is on.
+    // discoverAndLogin handles both stored-credential and discoverable flows.
 
     // Keyfile unlock state
     const [keyfilePayload, setKeyfilePayload] = useState(null);
@@ -332,9 +324,23 @@ const Login = () => {
                     </div>
                 )}
 
-                {/* Quick login methods */}
-                {(hasNostrExtension || hasPasskey) && (
+                {/* Quick login methods — passkey always shown */}
+                {(hasNostrExtension || PASSKEY_ENABLED) && (
                     <div className="quick-login-buttons">
+                        {PASSKEY_ENABLED && (
+                            <button
+                                onClick={handlePasskeyLogin}
+                                disabled={loading}
+                                className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full"
+                            >
+                                {loading ? (
+                                    <Loader2 size={20} className="spin" />
+                                ) : (
+                                    <Fingerprint size={20} />
+                                )}
+                                <span>{t('login.loginWithPasskey')}</span>
+                            </button>
+                        )}
                         {hasNostrExtension && (
                             <button
                                 onClick={handleExtensionLogin}
@@ -349,25 +355,11 @@ const Login = () => {
                                 <span>{loading && !nsecInput.trim() ? t('common.connecting') : t('login.loginWithExtension')}</span>
                             </button>
                         )}
-                        {hasPasskey && (
-                            <button
-                                onClick={handlePasskeyLogin}
-                                disabled={loading}
-                                className="w-full btn-passkey flex items-center justify-center gap-3 py-3 rounded-full"
-                            >
-                                {loading ? (
-                                    <Loader2 size={20} className="spin" />
-                                ) : (
-                                    <Fingerprint size={20} />
-                                )}
-                                <span>{t('login.loginWithPasskey')}</span>
-                            </button>
-                        )}
                     </div>
                 )}
 
                 {/* Divider between quick methods and manual methods */}
-                {(hasNostrExtension || hasPasskey) && (
+                {(hasNostrExtension || PASSKEY_ENABLED) && (
                     <div className="divider"><span>{t('common.or')}</span></div>
                 )}
 
