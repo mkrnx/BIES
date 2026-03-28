@@ -245,14 +245,14 @@ const Media = () => {
           box-shadow: 0 1px 3px rgba(255, 0, 0, 0.3);
         }
         .tab-btn.active:nth-child(3) {
-          background: white;
+          background: var(--color-surface);
           color: #EF4444;
           box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
         }
 
         /* Substack Cards */
         .substack-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           overflow: hidden;
           border: 1px solid var(--color-gray-200);
@@ -282,7 +282,7 @@ const Media = () => {
           font-size: 1.25rem;
           margin-bottom: 0.75rem;
           line-height: 1.3;
-          color: var(--color-neutral-dark);
+          color: var(--color-gray-900);
         }
         .substack-card p {
           font-size: 0.95rem;
@@ -306,7 +306,7 @@ const Media = () => {
 
         /* YouTube Cards */
         .youtube-card {
-          background: white;
+          background: var(--color-surface);
           border-radius: var(--radius-lg);
           overflow: hidden;
           border: 1px solid var(--color-gray-200);
@@ -339,7 +339,7 @@ const Media = () => {
           font-size: 1.15rem;
           margin-bottom: 0.5rem;
           line-height: 1.3;
-          color: var(--color-neutral-dark);
+          color: var(--color-gray-900);
         }
         .youtube-card p {
           font-size: 0.9rem;

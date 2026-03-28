@@ -9,6 +9,7 @@ import ZapButton from '../components/ZapButton';
 import DOMPurify from 'dompurify';
 import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
+import { useLightbox } from '../context/LightboxContext';
 
 const MOCK_EVENT_DATA = {
     'mock-off-1': {
@@ -176,6 +177,7 @@ const EventDetail = () => {
     const { id } = useParams();
     const { t } = useTranslation();
     const { isAuthenticated } = useAuth();
+    const lightbox = useLightbox();
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -290,7 +292,12 @@ const EventDetail = () => {
             <div className="container">
                 <div className="hero-image">
                     {(event.coverImage || event.thumbnail || event.image) && (
-                        <img src={getAssetUrl(event.coverImage || event.thumbnail || event.image)} alt={event.title} />
+                        <img
+                            src={getAssetUrl(event.coverImage || event.thumbnail || event.image)}
+                            alt={event.title}
+                            onClick={() => lightbox.open(getAssetUrl(event.coverImage || event.thumbnail || event.image))}
+                            style={{ cursor: 'pointer' }}
+                        />
                     )}
                     <Link to="/events" style={{
                         position: 'absolute', top: '24px', left: '24px',
@@ -787,10 +794,10 @@ const EventSection = ({ section, isSidebar }) => {
                 </>
             )}
             {stype === 'PHOTO' && section.imageUrl && (
-                <img src={section.imageUrl} alt={section.title || ''} style={{ width: '100%', borderRadius: '10px', objectFit: 'cover' }} />
+                <img src={section.imageUrl} alt={section.title || ''} onClick={() => lightbox.open(section.imageUrl)} style={{ width: '100%', borderRadius: '10px', objectFit: 'cover', cursor: 'pointer' }} />
             )}
             {stype === 'CAROUSEL' && section.images?.length > 0 && (
-                <EventCarousel images={section.images} />
+                <EventCarousel images={section.images} onImageClick={(img, imgs) => lightbox.open(img, imgs)} />
             )}
             {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
                 <div style={{ width: '100%', height: isSidebar ? '240px' : '340px', marginTop: section.title ? '0.5rem' : '0' }}>
@@ -829,14 +836,14 @@ const EventSection = ({ section, isSidebar }) => {
     );
 };
 
-const EventCarousel = ({ images }) => {
+const EventCarousel = ({ images, onImageClick }) => {
     const [idx, setIdx] = useState(0);
     if (!images?.length) return null;
     return (
         <div style={{ position: 'relative', borderRadius: '10px', overflow: 'hidden', background: '#f3f4f6' }}>
             <div style={{ display: 'flex', transition: 'transform 0.4s ease', transform: `translateX(-${idx * 100}%)`, height: '320px' }}>
                 {images.map((img, i) => (
-                    <img key={i} src={img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', flexShrink: 0 }} />
+                    <img key={i} src={img} alt="" onClick={() => onImageClick && onImageClick(img, images)} style={{ width: '100%', height: '100%', objectFit: 'cover', flexShrink: 0, cursor: 'pointer' }} />
                 ))}
             </div>
             {images.length > 1 && (

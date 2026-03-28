@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Fingerprint, X, Loader2, Check, Shield } from 'lucide-react';
-import { keytrService } from '../services/keytrService';
+import { Fingerprint, X, Loader2, Check, Shield, AlertTriangle } from 'lucide-react';
+import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
 
 /**
@@ -102,6 +102,12 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                 {phase === 'error' && (
                     <div className="psp-content psp-center">
                         <p className="psp-error">{errorMsg}</p>
+                        {isLikelyExtensionInterference(errorMsg) && (
+                            <div className="psp-ext-hint">
+                                <AlertTriangle size={16} />
+                                <span>This error is usually caused by a password manager browser extension (such as Bitwarden, 1Password, or Dashlane) intercepting the passkey request. Try disabling your password manager's passkey/WebAuthn feature and retry.</span>
+                            </div>
+                        )}
                         <button className="psp-save-btn" onClick={handleSave}>
                             {t('passkeySave.tryAgain')}
                         </button>
@@ -284,6 +290,22 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                     text-align: center;
                     margin: 0 0 1rem;
                 }
+
+                .psp-ext-hint {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-600);
+                    background: var(--color-gray-100, #f3f4f6);
+                    padding: 0.75rem;
+                    border-radius: 0.6rem;
+                    width: 100%;
+                    line-height: 1.4;
+                    text-align: left;
+                    margin-bottom: 0.5rem;
+                }
+                .psp-ext-hint svg { flex-shrink: 0; margin-top: 2px; color: var(--color-gray-400); }
             `}</style>
         </div>
     );

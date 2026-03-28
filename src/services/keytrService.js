@@ -19,20 +19,12 @@ import {
     publishKeytrEvent,
     fetchKeytrEvents,
     loginWithKeytr,
-    PrfNotSupportedError,
-    WebAuthnError,
+    discoverAndLogin,
+    KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { PUBLIC_RELAYS } from './nostrService.js';
 
 const STORAGE_KEY = 'bies_keytr_credentials';
-
-// Passkey gateways — each rpId produces a separate kind:30079 event.
-// Users get one biometric prompt per gateway during setup.
-// keytr.org is the primary gateway; nostkey.org is the fallback.
-const KEYTR_GATEWAYS = [
-    { rpId: 'keytr.org', rpName: 'keytr', primary: true },
-    { rpId: 'nostkey.org', rpName: 'nostkey' },
-];
 
 // ─── localStorage credential index ─────────────────────────────────────────
 
@@ -77,6 +69,22 @@ ensurePrfChecked();
     }
 })();
 
+// ─── Extension-interference detection ───────────────────────────────────────
+
+/**
+ * Detect whether a WebAuthn error was likely caused by a password manager
+ * extension intercepting the credentials API without supporting Related
+ * Origin Requests (cross-origin rpId like keytr.org / nostkey.org).
+ */
+export function isLikelyExtensionInterference(message) {
+    if (typeof message !== 'string') return false;
+    const lower = message.toLowerCase();
+    return (
+        lower.includes('relying party id') &&
+        (lower.includes('registrable domain') || lower.includes('equal to the current domain'))
+    );
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export const keytrService = {
@@ -111,8 +119,7 @@ export const keytrService = {
      * @param {string} pubkey - hex-encoded public key
      */
     async saveWithPasskey(nsec, pubkey) {
-        const gateway = KEYTR_GATEWAYS.find(g => g.primary);
-        await this._registerOnGateway(nsec, pubkey, gateway);
+        await this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[0]);
     },
 
     /**
@@ -120,21 +127,21 @@ export const keytrService = {
      * Call after saveWithPasskey() to add redundancy.
      */
     async addBackupGateway(nsec, pubkey) {
-        const gateway = KEYTR_GATEWAYS.find(g => !g.primary);
-        if (!gateway) throw new Error('No backup gateway configured.');
-        await this._registerOnGateway(nsec, pubkey, gateway);
+        if (KEYTR_GATEWAYS.length < 2) throw new Error('No backup gateway configured.');
+        await this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[1]);
     },
 
     /** @private Register a passkey + publish kind:30079 for a single gateway. */
-    async _registerOnGateway(nsec, pubkey, { rpId, rpName }) {
+    async _registerOnGateway(nsec, pubkey, rpId) {
         const nsecBytes = decodeNsec(nsec);
         const { nostrSigner } = await import('./nostrSigner.js');
 
         const { credential, prfOutput } = await registerPasskey({
             userName: pubkey.slice(0, 16),
             userDisplayName: 'BIES Account',
+            pubkey,
             rpId,
-            rpName,
+            rpName: rpId.split('.')[0],
         });
 
         let encryptedBlob;
@@ -167,55 +174,50 @@ export const keytrService = {
     },
 
     /**
-     * Fetch keytr event from relays and decrypt nsec with passkey.
+     * Login with passkey.
+     *
+     * Fast path: if stored credentials exist, fetch events by pubkey and
+     * authenticate with explicit allowCredentials (one prompt).
+     *
+     * Discoverable path: if no stored credentials, the browser shows all
+     * available passkeys for the gateway rpId. The user picks one and we
+     * recover the pubkey from userHandle, fetch events, and decrypt.
      *
      * @returns {Promise<string>} bech32-encoded nsec
      */
     async loginWithPasskey() {
-        // Read the stored pubkey so we know what to fetch
         const creds = getStored();
-        if (creds.length === 0) {
-            throw new Error('No passkey credential found. Log in with your nsec first and save a passkey.');
-        }
 
-        // Fetch kind:30079 events for all stored pubkeys, use the first match
-        let events = [];
-        for (const { pubkey } of creds) {
-            const fetched = await fetchKeytrEvents(pubkey, PUBLIC_RELAYS);
-            if (fetched.length > 0) {
-                events = fetched;
-                break;
-            }
-        }
-
-        if (events.length === 0) {
-            throw new Error('Could not find your encrypted key on Nostr relays. You may need to log in with your nsec and re-save the passkey.');
-        }
-
-        // Sort so primary gateway (keytr.org) events are tried first.
-        const primaryRpId = KEYTR_GATEWAYS.find(g => g.primary)?.rpId;
-        events.sort((a, b) => {
-            const aRp = a.tags?.find(t => t[0] === 'rp')?.[1];
-            const bRp = b.tags?.find(t => t[0] === 'rp')?.[1];
-            return (aRp === primaryRpId ? -1 : 0) - (bRp === primaryRpId ? -1 : 0);
-        });
-
-        // Try each event (one per gateway) until a passkey matches.
-        // The browser only offers passkeys whose rpId matches the event's gateway.
-        let lastError;
-        for (const event of events) {
-            try {
-                const { nsecBytes } = await loginWithKeytr(event);
-                try {
-                    return encodeNsec(nsecBytes);
-                } finally {
-                    nsecBytes.fill(0);
+        if (creds.length > 0) {
+            // Fast path — we know which pubkey to look up
+            for (const { pubkey } of creds) {
+                const events = await fetchKeytrEvents(pubkey, PUBLIC_RELAYS);
+                if (events.length > 0) {
+                    const { nsecBytes } = await loginWithKeytr(events);
+                    try {
+                        return encodeNsec(nsecBytes);
+                    } finally {
+                        nsecBytes.fill(0);
+                    }
                 }
-            } catch (err) {
-                lastError = err;
             }
+            throw new Error('Could not find your encrypted key on Nostr relays. You may need to re-save your passkey.');
         }
-        throw lastError;
+
+        // Discoverable — browser shows available passkeys, no pubkey needed
+        const { nsecBytes, pubkey } = await discoverAndLogin(PUBLIC_RELAYS);
+        try {
+            const nsec = encodeNsec(nsecBytes);
+            // Index credential locally for fast path next time
+            if (pubkey && !this.hasCredential(pubkey)) {
+                const stored = getStored();
+                stored.push({ pubkey, createdAt: new Date().toISOString() });
+                setStored(stored);
+            }
+            return nsec;
+        } finally {
+            nsecBytes.fill(0);
+        }
     },
 
     /** Remove credential metadata for a specific pubkey. */

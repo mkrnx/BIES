@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation } from 'react-router-dom';
+import { useLocation, Link as RouterLink } from 'react-router-dom';
 import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX, RefreshCw } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
@@ -13,6 +13,7 @@ import ZapModal from '../components/ZapModal';
 import EmojiPicker from '../components/EmojiPicker';
 import NostrGifPicker from '../components/NostrGifPicker';
 import TranslatableText from '../components/TranslatableText';
+import { useLightbox } from '../context/LightboxContext';
 import { nip19 } from 'nostr-tools';
 
 const EXPLORE_ICONS = {
@@ -886,7 +887,10 @@ const Feed = () => {
         if (diff < 60) return 'just now';
         if (diff < 3600) return `${Math.floor(diff / 60)}m`;
         if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-        return `${Math.floor(diff / 86400)}d`;
+        if (diff < 604800) return `${Math.floor(diff / 86400)}d`;
+        if (diff < 2592000) return `${Math.floor(diff / 604800)}w`;
+        if (diff < 31536000) return `${Math.floor(diff / 2592000)}mo`;
+        return `${Math.floor(diff / 31536000)}y`;
     };
 
     const getDisplayName = (pubkey) => {
@@ -1098,28 +1102,9 @@ const Feed = () => {
         return () => document.removeEventListener('mousedown', handler);
     }, [repostMenu, postMenu]);
 
-    // Lightbox state
-    const [lightboxSrc, setLightboxSrc] = useState(null);
-    const [lightboxGallery, setLightboxGallery] = useState([]);
-    const [lightboxIndex, setLightboxIndex] = useState(0);
-
-    const openLightbox = (src, gallery = []) => {
-        setLightboxSrc(src);
-        setLightboxGallery(gallery);
-        setLightboxIndex(gallery.indexOf(src));
-    };
-    const lightboxPrev = () => {
-        if (lightboxGallery.length < 2) return;
-        const idx = (lightboxIndex - 1 + lightboxGallery.length) % lightboxGallery.length;
-        setLightboxIndex(idx);
-        setLightboxSrc(lightboxGallery[idx]);
-    };
-    const lightboxNext = () => {
-        if (lightboxGallery.length < 2) return;
-        const idx = (lightboxIndex + 1) % lightboxGallery.length;
-        setLightboxIndex(idx);
-        setLightboxSrc(lightboxGallery[idx]);
-    };
+    // Lightbox (global)
+    const lightbox = useLightbox();
+    const openLightbox = (src, gallery = []) => lightbox.open(src, gallery);
 
     // Parse note content: separate text, images, and other media
     const parseNoteContent = (content) => {
@@ -1577,10 +1562,10 @@ const Feed = () => {
                                     {post._repostedBy && (
                                         <div className="repost-label">
                                             <Repeat size={13} />
-                                            <span>{getDisplayName(post._repostedBy)} {t('feed.reposted')}</span>
+                                            <span>{getDisplayName(post._repostedBy)} {t('feed.reposted')} {formatTime(post._repostTime)}</span>
                                         </div>
                                     )}
-                                    <div className="note-header">
+                                    <RouterLink to={`/builder/${post.pubkey}`} className="note-header" style={{ textDecoration: 'none', color: 'inherit' }}>
                                         <div className="note-avatar">
                                             {getAvatar(post.pubkey) ? (
                                                 <img src={getAvatar(post.pubkey)} alt="" />
@@ -1590,9 +1575,9 @@ const Feed = () => {
                                         </div>
                                         <div className="note-meta">
                                             <span className="note-name">{getDisplayName(post.pubkey)}</span>
-                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post._repostTime || post.created_at)}</span>
+                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
                                         </div>
-                                    </div>
+                                    </RouterLink>
                                     {text && (
                                         <div className="note-content">
                                             {renderContent(text)}
@@ -1883,28 +1868,6 @@ const Feed = () => {
                 )}
             </div>
 
-            {/* Lightbox */}
-            {lightboxSrc && (
-                <div className="lightbox-overlay" onClick={() => setLightboxSrc(null)}>
-                    <button className="lightbox-close" onClick={() => setLightboxSrc(null)}>
-                        <X size={24} />
-                    </button>
-                    {lightboxGallery.length > 1 && (
-                        <button className="lightbox-arrow lightbox-prev" onClick={(e) => { e.stopPropagation(); lightboxPrev(); }}>
-                            <ChevronLeft size={32} />
-                        </button>
-                    )}
-                    <img src={lightboxSrc} alt="" className="lightbox-img" onClick={(e) => e.stopPropagation()} />
-                    {lightboxGallery.length > 1 && (
-                        <button className="lightbox-arrow lightbox-next" onClick={(e) => { e.stopPropagation(); lightboxNext(); }}>
-                            <ChevronRight size={32} />
-                        </button>
-                    )}
-                    {lightboxGallery.length > 1 && (
-                        <div className="lightbox-counter">{lightboxIndex + 1} / {lightboxGallery.length}</div>
-                    )}
-                </div>
-            )}
 
             <style jsx>{`
                 .feed-page {
