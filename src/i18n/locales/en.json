@@ -1300,7 +1300,7 @@
     "deleteConfirm": "Delete \"{{title}}\"? This cannot be undone."
   },
   "mobileNav": {
-    "home": "Home",
+    "home": "Feed",
     "discover": "Discover",
     "events": "Events",
     "news": "News",

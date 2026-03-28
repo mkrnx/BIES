@@ -1298,7 +1298,7 @@
     "noInvestorsSearch": "No se encontraron inversionistas para \"{{query}}\""
   },
   "mobileNav": {
-    "home": "Inicio",
+    "home": "Feed",
     "discover": "Descubrir",
     "events": "Eventos",
     "news": "Noticias",

@@ -171,49 +171,6 @@ const Navbar = () => {
 
                     <div className="dropdown-divider"></div>
 
-                    <div className="dropdown-header">
-                      <p className="text-sm font-semibold">{t('nav.switchView')}</p>
-                    </div>
-                    <button
-                      className={`dropdown-item ${mode === 'builder' ? 'active' : ''}`}
-                      onClick={() => { selectMode('builder'); setIsUserMenuOpen(false); navigate('/dashboard/builder'); }}
-                    >
-                      <div className="dot builder"></div>
-                      {t('nav.builderView')}
-                    </button>
-                    <button
-                      className={`dropdown-item ${mode === 'investor' ? 'active' : ''}`}
-                      onClick={() => { selectMode('investor'); setIsUserMenuOpen(false); navigate('/dashboard/investor'); }}
-                    >
-                      <div className="dot investor"></div>
-                      {t('nav.investorView')}
-                    </button>
-                    <button
-                      className={`dropdown-item ${mode === 'educator' ? 'active' : ''}`}
-                      onClick={() => { selectMode('educator'); setIsUserMenuOpen(false); navigate('/dashboard/educator'); }}
-                    >
-                      <div className="dot educator"></div>
-                      {t('nav.educatorView')}
-                    </button>
-                    <button
-                      className={`dropdown-item ${mode === 'member' ? 'active' : ''}`}
-                      onClick={() => { selectMode('member'); setIsUserMenuOpen(false); navigate('/dashboard/member'); }}
-                    >
-                      <div className="dot member"></div>
-                      {t('nav.memberView')}
-                    </button>
-                    {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
-                      <button
-                        className={`dropdown-item ${mode === 'admin' ? 'active' : ''}`}
-                        onClick={() => { selectMode('admin'); setIsUserMenuOpen(false); navigate('/admin'); }}
-                      >
-                        <div className="dot admin"></div>
-                        {t('nav.adminView')}
-                      </button>
-                    )}
-
-                    <div className="dropdown-divider"></div>
-
                     {isAuthenticated ? (
                       <button onClick={() => { logout(); clearMode(); setIsUserMenuOpen(false); navigate('/'); }} className="dropdown-item text-error">
                         <LogOut size={14} style={{ marginRight: 8 }} /> {t('common.logOut')}

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Home, Compass, Calendar, Play, User } from 'lucide-react';
+import { MessageSquare, Compass, Calendar, Play, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 
@@ -35,7 +35,7 @@ const MobileBottomNav = () => {
   const { t } = useTranslation();
 
   const tabs = [
-    { path: '/feed', icon: Home, label: t('mobileNav.home') },
+    { path: '/feed', icon: MessageSquare, label: t('mobileNav.home') },
     { path: '/discover', icon: Compass, label: t('mobileNav.discover') },
     { path: '/events', icon: Calendar, label: t('mobileNav.events') },
     { path: '/media', icon: Play, label: t('nav.media') },
