@@ -78,9 +78,13 @@ const Login = () => {
         }
         if (/PRF.*not (available|supported)|not support.*PRF/i.test(msg)) {
             const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            return isIOS
-                ? 'Passkey login requires Safari on iOS. Chrome and other browsers on iPhone/iPad don\'t support the required security feature (PRF).'
-                : 'This browser doesn\'t support the WebAuthn PRF extension required for passkey login. Please use Chrome 116+, Edge 116+, or Safari 18+.';
+            if (isIOS) {
+                const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS/.test(navigator.userAgent);
+                return isSafari
+                    ? 'Passkey login failed — the required security feature (PRF) is unavailable. If you have Lockdown Mode enabled, it blocks this feature. Disable Lockdown Mode in Settings > Privacy & Security, then try again.'
+                    : 'Passkey login requires Safari on iOS. Chrome and other browsers on iPhone/iPad don\'t support the required security feature (PRF).';
+            }
+            return 'This browser doesn\'t support the WebAuthn PRF extension required for passkey login. Please use Chrome 116+, Edge 116+, or Safari 18+.';
         }
         return msg || 'Passkey login failed.';
     };
