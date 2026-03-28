@@ -7,6 +7,7 @@ import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useLightbox } from '../context/LightboxContext';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
@@ -34,6 +35,7 @@ const PublicProfile = ({ type }) => {
     const [nostrFollowing, setNostrFollowing] = useState(null);
     const [npubCopied, setNpubCopied] = useState(false);
     const [lnAddrCopied, setLnAddrCopied] = useState(false);
+    const lightbox = useLightbox();
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -147,13 +149,17 @@ const PublicProfile = ({ type }) => {
                 {/* Header Card */}
                 <div className="profile-card mb-8" style={{ padding: 0, overflow: 'hidden' }}>
                     {/* Cover Banner */}
-                    <div style={{
-                        position: 'relative',
-                        height: '240px',
-                        background: (profile.banner || nostrProfile?.banner)
-                            ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
-                            : 'linear-gradient(to right, #0052cc, #0a192f)'
-                    }}>
+                    <div
+                        onClick={() => (profile.banner || nostrProfile?.banner) && lightbox.open(profile.banner || nostrProfile?.banner)}
+                        style={{
+                            position: 'relative',
+                            height: '240px',
+                            background: (profile.banner || nostrProfile?.banner)
+                                ? `url(${profile.banner || nostrProfile?.banner}) center/cover no-repeat`
+                                : 'linear-gradient(to right, #0052cc, #0a192f)',
+                            cursor: (profile.banner || nostrProfile?.banner) ? 'pointer' : 'default',
+                        }}
+                    >
                         <Link to={type === 'builder' ? '/builders' : '/investors'} style={{
                             position: 'absolute', top: '24px', left: '24px',
                             borderRadius: '50%', background: 'var(--color-surface-raised)', border: '1px solid var(--color-gray-200)',
@@ -279,10 +285,16 @@ const PublicProfile = ({ type }) => {
                         {/* Avatar */}
                         <div style={{ marginTop: '-80px', position: 'relative', zIndex: 5 }}>
                             {(profile.avatar || nostrProfile?.picture) ? (
-                                <img src={profile.avatar || nostrProfile?.picture} alt={profile.name} style={{
-                                    width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover',
-                                    border: '5px solid var(--color-surface)', boxShadow: 'var(--shadow-md)', background: 'var(--color-surface)',
-                                }} />
+                                <img
+                                    src={profile.avatar || nostrProfile?.picture}
+                                    alt={profile.name}
+                                    onClick={() => lightbox.open(profile.avatar || nostrProfile?.picture)}
+                                    style={{
+                                        width: '168px', height: '168px', borderRadius: '50%', objectFit: 'cover',
+                                        border: '5px solid var(--color-surface)', boxShadow: 'var(--shadow-md)', background: 'var(--color-surface)',
+                                        cursor: 'pointer',
+                                    }}
+                                />
                             ) : (
                                 <div style={{
                                     width: '168px', height: '168px', borderRadius: '50%', border: '5px solid var(--color-surface)',
@@ -294,6 +306,7 @@ const PublicProfile = ({ type }) => {
                                 </div>
                             )}
                         </div>
+
 
                         {/* Name & Title */}
                         <div style={{ marginTop: '16px' }}>

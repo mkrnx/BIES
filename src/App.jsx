@@ -4,6 +4,7 @@ import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ViewProvider } from './context/ViewContext';
+import { LightboxProvider } from './context/LightboxContext';
 import './i18n';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
@@ -216,9 +217,11 @@ function App() {
             <ThemeProvider>
                 <ViewProvider>
                     <UserModeProvider>
-                        <Router basename="/">
-                            <AppContent />
-                        </Router>
+                        <LightboxProvider>
+                            <Router basename="/">
+                                <AppContent />
+                            </Router>
+                        </LightboxProvider>
                     </UserModeProvider>
                 </ViewProvider>
             </ThemeProvider>
