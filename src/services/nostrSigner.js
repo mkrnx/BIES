@@ -23,6 +23,7 @@ class NostrSigner {
         this._sk = null;      // Uint8Array secret key (in-memory only)
         this._pubkey = null;   // hex public key
         this._mode = null;     // 'extension' | 'nsec' | 'bunker' | null
+        this._reacquirePromise = null; // dedup concurrent _tryReacquire calls
     }
 
     // ─── Configuration ──────────────────────────────────────────────────────
@@ -268,6 +269,19 @@ class NostrSigner {
         if (this._sk) return true; // already have it
         if (this.storedMethod !== 'nsec') return false;
 
+        // Dedup: if a reacquire is already in flight, piggyback on it
+        // instead of triggering a second WebAuthn prompt.
+        if (this._reacquirePromise) return this._reacquirePromise;
+
+        this._reacquirePromise = this._doReacquire();
+        try {
+            return await this._reacquirePromise;
+        } finally {
+            this._reacquirePromise = null;
+        }
+    }
+
+    async _doReacquire() {
         const { PASSKEY_ENABLED } = await import('../config/featureFlags.js');
         if (!PASSKEY_ENABLED) return false;
 
