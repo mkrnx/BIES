@@ -77,6 +77,22 @@ ensurePrfChecked();
     }
 })();
 
+// ─── Extension-interference detection ───────────────────────────────────────
+
+/**
+ * Detect whether a WebAuthn error was likely caused by a password manager
+ * extension intercepting the credentials API without supporting Related
+ * Origin Requests (cross-origin rpId like keytr.org / nostkey.org).
+ */
+export function isLikelyExtensionInterference(message) {
+    if (typeof message !== 'string') return false;
+    const lower = message.toLowerCase();
+    return (
+        lower.includes('relying party id') &&
+        (lower.includes('registrable domain') || lower.includes('equal to the current domain'))
+    );
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export const keytrService = {
