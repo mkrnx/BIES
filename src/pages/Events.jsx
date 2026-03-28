@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2, Ticket } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAssetUrl } from '../utils/assets';
@@ -109,6 +109,7 @@ const EVENT_CATEGORY_COLORS = {
 
 const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
     const { t } = useTranslation();
+    const navigate = useNavigate();
     const bgColor = EVENT_CATEGORY_COLORS[event.category] || 'var(--color-gray-100)';
     const hasImage = event.coverImage || event.image || event.thumbnail;
     const categoryLabel = (event.category || '').replace(/_/g, ' ');
@@ -214,18 +215,18 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                             </>
                         ) : (
                             <>
-                                <Link
-                                    to={`/events/${event.id}`}
+                                <button
                                     className="btn btn-primary btn-xs ticket-btn-text"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/events/${event.id}`); }}
                                 >
                                     {t('common.getTickets')}
-                                </Link>
-                                <Link
-                                    to={`/events/${event.id}`}
+                                </button>
+                                <button
                                     className="ticket-btn-icon"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/events/${event.id}`); }}
                                 >
                                     <Ticket size={18} />
-                                </Link>
+                                </button>
                             </>
                         )}
                     </div>

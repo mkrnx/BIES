@@ -108,6 +108,8 @@ services:
     restart: unless-stopped
     ports:
       - "127.0.0.1:8082:8080"
+    volumes:
+      - bies-uploads:/app/uploads:ro
     depends_on:
       bies-server:
         condition: service_healthy

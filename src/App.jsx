@@ -98,20 +98,20 @@ const AppContent = () => {
 
     return (
         <>
-            <Navbar />
+            {user && <Navbar />}
             <PullToRefresh>
             <div className="app-content">
                 <Routes>
                     {/* Public Routes */}
-                    <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Landing />} />
+                    <Route path="/" element={user ? <Navigate to="/feed" replace /> : <Navigate to="/login" replace />} />
                     <Route path="/feed" element={
                         <ProtectedRoute><Feed /></ProtectedRoute>
                     } />
                     <Route path="/login" element={<Login />} />
-                    <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+                    <Route path="/signup" element={<Signup />} />
 
-                    <Route path="/discover" element={<Discover />} />
-                    <Route path="/events" element={<Events />} />
+                    <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
+                    <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
                     <Route path="/events/create" element={
                         <ProtectedRoute><CreateEvent /></ProtectedRoute>
                     } />
@@ -121,16 +121,16 @@ const AppContent = () => {
                     <Route path="/events/edit/:id" element={
                         <ProtectedRoute><EditEvent /></ProtectedRoute>
                     } />
-                    <Route path="/events/:id" element={<EventDetail />} />
+                    <Route path="/events/:id" element={<ProtectedRoute><EventDetail /></ProtectedRoute>} />
                     <Route path="/members" element={<Navigate to="/discover" replace />} />
                     <Route path="/builders" element={<Navigate to="/discover" replace />} />
-                    <Route path="/builder/:id" element={<PublicProfile type="builder" />} />
+                    <Route path="/builder/:id" element={<ProtectedRoute><PublicProfile type="builder" /></ProtectedRoute>} />
                     <Route path="/investors" element={<Navigate to="/discover" replace />} />
-                    <Route path="/investor/:id" element={<PublicProfile type="investor" />} />
-                    <Route path="/media" element={<Media />} />
-                    <Route path="/news" element={<News />} />
-                    <Route path="/news/:slug" element={<ArticleDetail />} />
-                    <Route path="/about" element={<Team />} />
+                    <Route path="/investor/:id" element={<ProtectedRoute><PublicProfile type="investor" /></ProtectedRoute>} />
+                    <Route path="/media" element={<ProtectedRoute><Media /></ProtectedRoute>} />
+                    <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
+                    <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
+                    <Route path="/about" element={<ProtectedRoute><Team /></ProtectedRoute>} />
 
                     {/* Protected Routes */}
                     {/* Specific Dashboard Routes */}
@@ -206,7 +206,7 @@ const AppContent = () => {
                 </Routes>
             </div>
             </PullToRefresh>
-            <MobileBottomNav />
+            {user && <MobileBottomNav />}
         </>
     );
 };
@@ -218,7 +218,7 @@ function App() {
                 <ViewProvider>
                     <UserModeProvider>
                         <LightboxProvider>
-                            <Router basename="/">
+                            <Router basename="/" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
                                 <AppContent />
                             </Router>
                         </LightboxProvider>
