@@ -145,7 +145,7 @@
     "remote": "Remote",
     "connectExtension": "Connect Extension",
     "loginWithExtension": "Login with Extension",
-    "loginWithPasskey": "Login with Passkey",
+    "loginWithPasskey": "Login with Passkey (NIP-K1)",
     "pasteNsec": "Paste your nsec private key",
     "enterSeedPhrase": "Enter your 12-word seed phrase",
     "uploadKeyFile": "Upload .nostrkey File",

@@ -145,7 +145,7 @@
     "remote": "Remoto",
     "connectExtension": "Conectar Extension",
     "loginWithExtension": "Iniciar con Extension",
-    "loginWithPasskey": "Iniciar con Passkey",
+    "loginWithPasskey": "Iniciar con Passkey (NIP-K1)",
     "pasteNsec": "Pega tu clave privada nsec",
     "enterSeedPhrase": "Ingresa tu frase semilla de 12 palabras",
     "uploadKeyFile": "Subir Archivo .nostrkey",
