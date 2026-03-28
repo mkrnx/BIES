@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import ReactDOM from 'react-dom';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, Send, MoreHorizontal, FolderPlus } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, Send, MoreHorizontal, FolderPlus, Search, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApiQuery } from '../../hooks/useApi';
@@ -68,6 +68,7 @@ const MyProjects = () => {
     const [view, setView] = useState('projects'); // 'projects' | 'requests'
     const [filter, setFilter] = useState('all');
     const [search, setSearch] = useState('');
+    const [searchOpen, setSearchOpen] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
 
     const { data: projects, loading: projectsLoading, refetch: refetchProjects } = useApiQuery(projectsApi.list, { ownerId: user?.id });
@@ -198,9 +199,18 @@ const MyProjects = () => {
                         </button>
                     </div>
                     {view === 'projects' && (
-                        <div className="search-wrapper">
-                            <input type="text" placeholder="Search projects..." className="search-input" value={search} onChange={e => setSearch(e.target.value)} />
-                        </div>
+                        searchOpen ? (
+                            <div className="search-wrapper" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <input type="text" placeholder="Search..." className="search-input" value={search} onChange={e => setSearch(e.target.value)} autoFocus />
+                                <button className="search-toggle" onClick={() => { setSearchOpen(false); setSearch(''); }}>
+                                    <X size={16} />
+                                </button>
+                            </div>
+                        ) : (
+                            <button className="search-toggle" onClick={() => setSearchOpen(true)}>
+                                <Search size={16} />
+                            </button>
+                        )
                     )}
                 </div>
 
@@ -381,7 +391,7 @@ const MyProjects = () => {
                     align-items: center;
                 }
 
-                .tabs { display: flex; gap: 1rem; }
+                .tabs { display: flex; gap: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
                 .tab {
                     padding: 0.5rem 1rem;
                     border-radius: var(--radius-md);
@@ -391,6 +401,8 @@ const MyProjects = () => {
                     cursor: pointer;
                     border: none;
                     background: none;
+                    white-space: nowrap;
+                    flex-shrink: 0;
                 }
                 .tab.active { background: var(--color-gray-100); color: #F97316; font-weight: 600; }
 
@@ -399,11 +411,28 @@ const MyProjects = () => {
                     border: 1px solid var(--color-gray-300);
                     border-radius: var(--radius-md);
                     font-size: 0.9rem;
-                    width: 250px;
+                    width: 180px;
+                }
+                .search-toggle {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: var(--radius-md);
+                    border: 1px solid var(--color-gray-300);
+                    background: none;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    flex-shrink: 0;
+                }
+                .search-toggle:hover {
+                    background: var(--color-gray-100);
+                    color: var(--color-gray-700);
                 }
 
-                .table-wrapper { overflow-x: auto; overflow-y: visible; }
-                .projects-table { width: 100%; border-collapse: collapse; }
+                .table-wrapper { overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; }
+                .projects-table { width: 100%; min-width: 700px; border-collapse: collapse; }
 
                 .projects-table th {
                     text-align: left;
@@ -413,9 +442,10 @@ const MyProjects = () => {
                     text-transform: uppercase;
                     color: var(--color-gray-500);
                     font-weight: 600;
+                    white-space: nowrap;
                 }
 
-                .projects-table td { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); font-size: 0.9rem; }
+                .projects-table td { padding: 1rem; border-bottom: 1px solid var(--color-gray-100); font-size: 0.9rem; white-space: nowrap; }
                 .projects-table tr:last-child td { border-bottom: none; }
 
                 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }

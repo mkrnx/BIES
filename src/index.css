@@ -179,6 +179,10 @@
   font-family: inherit;
 }
 
+html {
+  background-color: var(--color-gray-50);
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);
@@ -187,9 +191,12 @@ body {
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
   overscroll-behavior-y: contain;
-  overflow-x: clip;
   word-break: break-word;
   overflow-wrap: break-word;
+}
+
+.app-content {
+  overflow-x: hidden;
 }
 
 input,
@@ -630,7 +637,7 @@ textarea {
 
 @media (max-width: 768px) {
   .messages-page {
-    top: 73px;
+    top: 170px;
     bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     padding: 0;
   }
