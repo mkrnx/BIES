@@ -10,11 +10,13 @@ import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
+import { useLightbox } from '../context/LightboxContext';
 
 const ProjectDetails = () => {
     const { id } = useParams();
     const { t } = useTranslation();
     const { user } = useAuth();
+    const lightbox = useLightbox();
     const { mode } = useUserMode();
     const [project, setProject] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -186,7 +188,7 @@ const ProjectDetails = () => {
                 <main className="pd-main">
                     {/* Cover Image */}
                     {coverImage && (
-                        <div className="pd-cover">
+                        <div className="pd-cover" onClick={() => lightbox.open(coverImage)} style={{ cursor: 'pointer' }}>
                             <img src={coverImage} alt={title} />
                         </div>
                     )}
@@ -799,13 +801,13 @@ const ProjectSection = ({ section, pieColors, isSidebar }) => {
             )}
 
             {stype === 'PHOTO' && section.imageUrl && (
-                <div className="pd-photo-section">
+                <div className="pd-photo-section" onClick={() => lightbox.open(section.imageUrl)} style={{ cursor: 'pointer' }}>
                     <img src={section.imageUrl} alt={section.title || 'Project Image'} style={{ width: '100%', borderRadius: '12px', objectFit: 'cover' }} />
                 </div>
             )}
 
             {stype === 'CAROUSEL' && section.images?.length > 0 && (
-                <CarouselViewer images={section.images} />
+                <CarouselViewer images={section.images} onImageClick={(img, imgs) => lightbox.open(img, imgs)} />
             )}
 
             {stype === 'GRAPH' && section.dataPoints?.length > 0 && (
@@ -856,7 +858,7 @@ const ProjectSection = ({ section, pieColors, isSidebar }) => {
 
 // ─── Subcomponents ──────────────────────────────────────────────────────────
 
-const CarouselViewer = ({ images }) => {
+const CarouselViewer = ({ images, onImageClick }) => {
     const [currentIndex, setCurrentIndex] = useState(0);
 
     if (!images || images.length === 0) return null;
@@ -886,7 +888,8 @@ const CarouselViewer = ({ images }) => {
                         key={idx}
                         src={img}
                         alt={`Slide ${idx + 1}`}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', flexShrink: 0, display: 'block' }}
+                        onClick={() => onImageClick && onImageClick(img, images)}
+                        style={{ width: '100%', height: '100%', objectFit: 'contain', flexShrink: 0, display: 'block', cursor: 'pointer' }}
                     />
                 ))}
             </div>
