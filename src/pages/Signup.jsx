@@ -1,13 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getPublicKey, nip19 } from 'nostr-tools';
 import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Copy, Download, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { Copy, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
-import { keyfileService } from '../services/keyfileService';
 import { walletApi } from '../services/api';
 
 const Signup = () => {
@@ -29,27 +28,13 @@ const Signup = () => {
         if (!PASSKEY_ENABLED) return;
         keytrService.checkSupport().then(setPasskeySupported);
     }, []);
-    const [showKeyPassword, setShowKeyPassword] = useState(false);
-    const [keyPasswordValid, setKeyPasswordValid] = useState(false);
-    const keyPasswordRef = useRef(null);
-    const keyPasswordConfirmRef = useRef(null);
-
-    const syncKeyPasswordValid = () => {
-        const pw = keyPasswordRef.current?.value ?? '';
-        const confirm = keyPasswordConfirmRef.current?.value ?? '';
-        setKeyPasswordValid(isKeyPasswordValid(pw) && pw === confirm);
-    };
-    const [encrypting, setEncrypting] = useState(false);
     const [showSeedPhrase, setShowSeedPhrase] = useState(false);
-    const [keyfileDownloaded, setKeyfileDownloaded] = useState(false);
     // Coinos wallet (signup)
     const [enableCoinos, setEnableCoinos] = useState(false);
     const [coinosUsername, setCoinosUsername] = useState('');
     const [coinosError, setCoinosError] = useState('');
 
     const truncateKey = (key) => key ? `${key.slice(0, 10)}...${key.slice(-10)}` : '';
-
-    const isKeyPasswordValid = (p) => p.length >= 16 && /[a-zA-Z]/.test(p) && /[0-9]/.test(p);
 
     const generateKeys = () => {
         const mnemonic = generateSeedWords();
@@ -67,29 +52,6 @@ const Signup = () => {
         navigator.clipboard.writeText(text);
         setCopiedItem(type);
         setTimeout(() => setCopiedItem(null), 2000);
-    };
-
-    const downloadKeys = async () => {
-        if (!keys) return;
-        const pw = keyPasswordRef.current?.value ?? '';
-        const confirm = keyPasswordConfirmRef.current?.value ?? '';
-        if (!isKeyPasswordValid(pw)) { setError('Password must be at least 16 characters and include both letters and numbers.'); return; }
-        if (pw !== confirm) { setError('Passwords do not match.'); return; }
-        setError('');
-        setEncrypting(true);
-        try {
-            await new Promise(r => setTimeout(r, 50));
-            const { json, filename } = keyfileService.buildKeyfile(keys.sk, pw);
-            keyfileService.triggerDownload(json, filename);
-            if (keyPasswordRef.current) keyPasswordRef.current.value = '';
-            if (keyPasswordConfirmRef.current) keyPasswordConfirmRef.current.value = '';
-            setKeyPasswordValid(false);
-            setKeyfileDownloaded(true);
-        } catch (err) {
-            setError(err.message || 'Encryption failed.');
-        } finally {
-            setEncrypting(false);
-        }
     };
 
     const handleBackupConfirm = () => {
@@ -276,50 +238,7 @@ const Signup = () => {
                             <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '0.75rem', marginTop: '0.25rem' }}>
                                 <p className="text-sm font-bold" style={{ marginBottom: 4, color: 'var(--color-gray-600)' }}>Backup Your Keys</p>
                                 <p className="text-xs" style={{ marginBottom: '0.75rem', color: 'var(--color-gray-400)' }}>
-                                    Choose one or more ways to back up. Copy the nsec or seed phrase above, or download an encrypted key file:
-                                </p>
-                            </div>
-                            <div style={{ border: '1px solid var(--color-gray-200)', borderRadius: 12, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'var(--color-surface)' }}>
-                                <p className="text-xs font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-500)' }}>Encrypted Key File (.nostrkey)</p>
-                                <form onSubmit={(e) => { e.preventDefault(); downloadKeys(); }} style={{ display: 'contents' }}>
-                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                    <input
-                                        ref={keyPasswordRef}
-                                        type={showKeyPassword ? 'text' : 'password'}
-                                        id="nostrkey-signup-password"
-                                        name="new-password"
-                                        defaultValue=""
-                                        onInput={syncKeyPasswordValid}
-                                        placeholder="Password (min 16 chars, letters & numbers)"
-                                        style={{ width: '100%', padding: '0.5rem 2.25rem 0.5rem 0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: '0.5rem', fontSize: '0.8rem', background: 'var(--color-surface)', color: 'var(--color-text, inherit)' }}
-                                        autoComplete="new-password"
-                                    />
-                                    <button type="button" onClick={() => setShowKeyPassword(!showKeyPassword)} style={{ position: 'absolute', right: 6, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-500)', padding: 2 }}>
-                                        {showKeyPassword ? <EyeOff size={14} /> : <Eye size={14} />}
-                                    </button>
-                                </div>
-                                <input
-                                    ref={keyPasswordConfirmRef}
-                                    type={showKeyPassword ? 'text' : 'password'}
-                                    id="nostrkey-signup-password-confirm"
-                                    name="new-password"
-                                    defaultValue=""
-                                    onInput={syncKeyPasswordValid}
-                                    placeholder="Confirm password"
-                                    style={{ width: '100%', padding: '0.5rem', border: '1px solid var(--color-gray-200)', borderRadius: '0.5rem', fontSize: '0.8rem', background: 'var(--color-surface)', color: 'var(--color-text, inherit)' }}
-                                    autoComplete="new-password"
-                                />
-                                <button
-                                    type="submit"
-                                    disabled={encrypting || !keyPasswordValid}
-                                    className="w-full btn-outline py-2 rounded-full flex items-center justify-center gap-2"
-                                    style={{ opacity: (encrypting || !keyPasswordValid) ? 0.5 : 1 }}
-                                >
-                                    {encrypting ? <><Loader2 size={14} className="spin" /> Encrypting...</> : keyfileDownloaded ? <><CheckCircle size={14} style={{ color: 'var(--color-success)' }} /> Downloaded — Download Again</> : <><Download size={14} /> Download .nostrkey File</>}
-                                </button>
-                                </form>
-                                <p className="text-xs" style={{ lineHeight: 1.3, color: 'var(--color-gray-400)' }}>
-                                    Password must be <strong>at least 16 characters</strong> and include both <strong>letters and numbers</strong>. All other characters are welcome too. Store the file somewhere safe — you'll need this password to unlock it.
+                                    Copy the nsec or seed phrase above to back up your keys.
                                 </p>
                             </div>
 
