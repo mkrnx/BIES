@@ -15,6 +15,15 @@ import ZapButton from '../components/ZapButton';
 import ProfileSection from '../components/ProfileSection';
 import TranslatableText from '../components/TranslatableText';
 
+function isSafeUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 const PublicProfile = ({ type }) => {
     const { id } = useParams();
     const { t } = useTranslation();
@@ -608,7 +617,7 @@ const PublicProfile = ({ type }) => {
                             <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
                                 <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '1rem' }}>{t('publicProfile.links', 'Links')}</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                    {profile.website && (
+                                    {profile.website && isSafeUrl(profile.website) && (
                                         <a href={profile.website} target="_blank" rel="noopener noreferrer" className="social-link">
                                             <Globe size={18} /> {profile.website.replace(/^https?:\/\//, '')}
                                         </a>
@@ -618,11 +627,14 @@ const PublicProfile = ({ type }) => {
                                             <Twitter size={18} /> {profile.twitter}
                                         </a>
                                     )}
-                                    {profile.linkedin && (
-                                        <a href={profile.linkedin.startsWith('http') ? profile.linkedin : `https://linkedin.com/in/${profile.linkedin}`} target="_blank" rel="noopener noreferrer" className="social-link">
-                                            <Linkedin size={18} /> LinkedIn
-                                        </a>
-                                    )}
+                                    {profile.linkedin && (() => {
+                                        const url = profile.linkedin.startsWith('https://') ? profile.linkedin : `https://linkedin.com/in/${encodeURIComponent(profile.linkedin)}`;
+                                        return isSafeUrl(url) ? (
+                                            <a href={url} target="_blank" rel="noopener noreferrer" className="social-link">
+                                                <Linkedin size={18} /> LinkedIn
+                                            </a>
+                                        ) : null;
+                                    })()}
                                 </div>
                             </div>
                         )}

@@ -12,6 +12,15 @@ import NostrIcon from '../components/NostrIcon';
 import ZapButton from '../components/ZapButton';
 import ProfileSection from '../components/ProfileSection';
 
+function isSafeUrl(url) {
+    try {
+        const parsed = new URL(url);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch {
+        return false;
+    }
+}
+
 const Profile = () => {
     const { t } = useTranslation();
     const { user } = useAuth();
@@ -370,7 +379,7 @@ const Profile = () => {
                             <div className="profile-card">
                                 <h3 className="h3-title mb-4">Links</h3>
                                 <div className="flex flex-col gap-3">
-                                    {profile.website && (
+                                    {profile.website && isSafeUrl(profile.website) && (
                                         <a href={profile.website} target="_blank" rel="noopener noreferrer" className="social-link">
                                             <Globe size={18} /> {profile.website.replace(/^https?:\/\//, '')}
                                         </a>
@@ -381,7 +390,7 @@ const Profile = () => {
                                         </a >
                                     )}
                                     {
-                                        profile.linkedin && (
+                                        profile.linkedin && isSafeUrl(profile.linkedin) && (
                                             <a href={profile.linkedin} target="_blank" rel="noopener noreferrer" className="social-link">
                                                 <Linkedin size={18} /> LinkedIn Profile
                                             </a>

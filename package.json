@@ -10,7 +10,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@sovit.xyz/keytr": "^0.2.0",
+    "@sovit.xyz/keytr": "^0.2.1",
     "buffer": "^6.0.3",
     "dompurify": "^3.3.1",
     "i18next": "^25.8.20",
