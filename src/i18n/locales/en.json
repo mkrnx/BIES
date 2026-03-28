@@ -237,6 +237,9 @@
   },
   "discover": {
     "title": "Discover",
+    "projects": "Projects",
+    "members": "Members",
+    "noMembersFound": "No members found",
     "newProject": "New Project",
     "searchPlaceholder": "Search by name, industry, or tag...",
     "industry": "Industry",
@@ -246,6 +249,13 @@
     "noProjectsSearch": "No projects found matching \"{{query}}\"",
     "addToWatchlist": "Add to Watchlist",
     "requestPitchDeck": "Request Pitch Deck",
+    "roles": {
+      "builders": "Builders",
+      "investors": "Investors",
+      "educators": "Educators",
+      "eventHosts": "Event Hosts",
+      "members": "Members"
+    },
     "categories": {
       "fintech": "Fintech",
       "infrastructure": "Infrastructure",

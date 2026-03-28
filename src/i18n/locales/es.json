@@ -237,6 +237,9 @@
   },
   "discover": {
     "title": "Descubrir",
+    "projects": "Proyectos",
+    "members": "Miembros",
+    "noMembersFound": "No se encontraron miembros",
     "newProject": "Nuevo Proyecto",
     "searchPlaceholder": "Buscar por nombre, industria o etiqueta...",
     "industry": "Industria",
@@ -246,6 +249,13 @@
     "noProjectsSearch": "No se encontraron proyectos para \"{{query}}\"",
     "addToWatchlist": "Agregar a Lista de Seguimiento",
     "requestPitchDeck": "Solicitar Presentacion",
+    "roles": {
+      "builders": "Constructores",
+      "investors": "Inversionistas",
+      "educators": "Educadores",
+      "eventHosts": "Organizadores",
+      "members": "Miembros"
+    },
     "categories": {
       "fintech": "Fintech",
       "infrastructure": "Infraestructura",
@@ -590,8 +600,8 @@
     "uploading": "Subiendo...",
     "nostrFeed": "Feed Nostr",
     "biesFeed": "BIES Feed",
-    "privateRelay": "Private nostr",
-    "explore": "Public nostr",
+    "privateRelay": "Nostr privado",
+    "explore": "Nostr publico",
     "public": "Publico",
     "private": "Privado",
     "broadcastingPublic": "Transmitiendo a todos los relays",
@@ -1260,16 +1270,19 @@
   },
   "articleDetail": {
     "articleNotFound": "Articulo no encontrado",
+    "articleRemovedDesc": "Este articulo pudo haber sido eliminado.",
     "articleNotFoundDesc": "Este articulo pudo haber sido eliminado.",
     "backToNews": "Volver a Noticias"
   },
   "publicProfile": {
     "profileNotFound": "Perfil no encontrado",
+    "editProfile": "Editar Perfil",
     "follow": "Seguir",
     "connect": "Conectar",
     "shareProfile": "Compartir Perfil",
     "noProjectsListed": "No hay proyectos listados.",
     "noUpcomingEvents": "No hay eventos proximos.",
+    "nostrIdentity": "Identidad Nostr",
     "at": "en",
     "loadingNostrProfile": "Cargando perfil de Nostr...",
     "following": "Siguiendo",
