@@ -69,8 +69,9 @@ export async function translateHtml(html, source = 'en', target = 'es') {
     if (!plainText.trim()) return html;
 
     const translated = await callTranslateApi(plainText, source, target, 'text');
-    // Wrap in a paragraph since we lost HTML formatting
-    const result = `<p>${translated}</p>`;
+    // Wrap in a paragraph since we lost HTML formatting — escape to prevent injection
+    const escaped = translated.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    const result = `<p>${escaped}</p>`;
     cache.set(cacheKey, result);
     return result;
 }
