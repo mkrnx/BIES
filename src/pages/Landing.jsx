@@ -201,7 +201,7 @@ const Landing = () => {
         .features { padding: 4rem var(--spacing-md); }
         
         .feature-card {
-          background: white;
+          background: var(--color-surface);
           padding: 2rem;
           border-radius: var(--radius-lg);
           border: 1px solid var(--color-gray-100);

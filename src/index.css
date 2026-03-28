@@ -187,6 +187,9 @@ body {
   -webkit-font-smoothing: antialiased;
   line-height: 1.5;
   overscroll-behavior-y: contain;
+  overflow-x: clip;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 input,
