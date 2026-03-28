@@ -185,29 +185,6 @@ export const keytrService = {
             throw new Error('Could not find your encrypted key on Nostr relays. You may need to re-save your passkey.');
         }
 
-        // Try cached BIES user pubkey before broad discoverable fetch
-        try {
-            const raw = localStorage.getItem('bies_user');
-            const cached = raw ? JSON.parse(raw) : null;
-            if (cached?.nostrPubkey) {
-                const events = await fetchKeytrEvents(cached.nostrPubkey, PUBLIC_RELAYS);
-                if (events.length > 0) {
-                    const { nsecBytes, pubkey: recoveredPk } = await loginWithKeytr(events);
-                    try {
-                        const nsec = encodeNsec(nsecBytes);
-                        if (recoveredPk && !this.hasCredential(recoveredPk)) {
-                            const stored = getStored();
-                            stored.push({ pubkey: recoveredPk, createdAt: new Date().toISOString() });
-                            setStored(stored);
-                        }
-                        return nsec;
-                    } finally {
-                        nsecBytes.fill(0);
-                    }
-                }
-            }
-        } catch { /* fall through to discoverable */ }
-
         // Discoverable — browser shows available passkeys, no pubkey needed
         const { nsecBytes, pubkey } = await discoverAndLogin(PUBLIC_RELAYS);
         try {
