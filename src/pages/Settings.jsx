@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { investorApi } from '../services/api';
 import { nostrSigner } from '../services/nostrSigner';
-import { keytrService } from '../services/keytrService';
+import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
 import { keyfileService } from '../services/keyfileService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 
@@ -498,7 +498,17 @@ const Settings = () => {
                                 <span>Passkey active for this account</span>
                             </div>
                             {passkeySuccess && <p className="passkey-success">{passkeySuccess}</p>}
-                            {passkeyError && <p className="key-error">{passkeyError}</p>}
+                            {passkeyError && (
+                                <>
+                                    <p className="key-error">{passkeyError}</p>
+                                    {isLikelyExtensionInterference(passkeyError) && (
+                                        <div className="key-info-banner">
+                                            <AlertTriangle size={16} />
+                                            <span>This error is usually caused by a password manager browser extension (such as Bitwarden, 1Password, or Dashlane) intercepting the passkey request. Try disabling your password manager's passkey/WebAuthn feature and retry.</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                 <button onClick={handleAddBackupGateway} disabled={savingBackup} className="btn btn-outline btn-sm">
                                     {savingBackup ? (
@@ -515,7 +525,17 @@ const Settings = () => {
                     ) : (
                         <>
                             {passkeySuccess && <p className="passkey-success">{passkeySuccess}</p>}
-                            {passkeyError && <p className="key-error">{passkeyError}</p>}
+                            {passkeyError && (
+                                <>
+                                    <p className="key-error">{passkeyError}</p>
+                                    {isLikelyExtensionInterference(passkeyError) && (
+                                        <div className="key-info-banner">
+                                            <AlertTriangle size={16} />
+                                            <span>This error is usually caused by a password manager browser extension (such as Bitwarden, 1Password, or Dashlane) intercepting the passkey request. Try disabling your password manager's passkey/WebAuthn feature and retry.</span>
+                                        </div>
+                                    )}
+                                </>
+                            )}
                             <button onClick={handleSavePasskey} disabled={savingPasskey} className="btn btn-outline btn-sm">
                                 {savingPasskey ? (
                                     <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Saving...</>
