@@ -88,7 +88,24 @@ const Login = () => {
             if (result.cancelled) return;
             handleResult(result);
         } catch (err) {
-            setError(err.message || 'Passkey login failed.');
+            const msg = err.message || '';
+            if (/rp\.?id.*origin|origin.*rp\.?id/i.test(msg)) {
+                // Browser doesn't support WebAuthn Related Origin Requests
+                setError(
+                    'This browser doesn\'t support cross-origin passkeys. ' +
+                    'Please use Chrome, Edge, or Safari instead.'
+                );
+            } else if (/PRF.*not (available|supported)|not support.*PRF/i.test(msg)) {
+                // PRF extension not supported (iOS Chrome / older browsers)
+                const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+                setError(
+                    isIOS
+                        ? 'Passkey login requires Safari on iOS. Chrome and other browsers on iPhone/iPad don\'t support the required security feature (PRF).'
+                        : 'This browser doesn\'t support the WebAuthn PRF extension required for passkey login. Please use Chrome 116+, Edge 116+, or Safari 18+.'
+                );
+            } else {
+                setError(err.message || 'Passkey login failed.');
+            }
         } finally {
             setLoading(false);
         }
