@@ -197,13 +197,6 @@ const Settings = () => {
             <h1 className="mb-8">{t('settings.title')}</h1>
 
             <div className="settings-section">
-                <h2><Zap size={16} /> {t('settings.lightningWallet')}</h2>
-                <div className="setting-item">
-                    <WalletConnect />
-                </div>
-            </div>
-
-            <div className="settings-section">
                 <h2>{t('settings.preferences')}</h2>
                 <div className="setting-item">
                     <div className="setting-info">
@@ -346,6 +339,13 @@ const Settings = () => {
                         </div>
                     </div>
                     <button className="btn btn-outline btn-sm">{t('common.update')}</button>
+                </div>
+            </div>
+
+            <div className="settings-section">
+                <h2><Zap size={16} /> {t('settings.lightningWallet')}</h2>
+                <div className="setting-item">
+                    <WalletConnect />
                 </div>
             </div>
 
