@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText, Upload, Fingerprint, Lock, Eye, EyeOff, ArrowLeft, Smartphone } from 'lucide-react';
-import { keyfileService } from '../services/keyfileService';
+import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone } from 'lucide-react';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
@@ -16,22 +15,14 @@ const Login = () => {
     const [loading, setLoading] = useState(false);
     const [nsecInput, setNsecInput] = useState('');
     const [seedInput, setSeedInput] = useState('');
-    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', 'file', or 'bunker'
+    const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', or 'bunker'
     const [bunkerInput, setBunkerInput] = useState('');
-    const [keyFileName, setKeyFileName] = useState('');
     const [hasNostrExtension, setHasNostrExtension] = useState(
         typeof window !== 'undefined' && !!window.nostr
     );
 
     // Passkey — always available when feature flag is on.
     // discoverAndLogin handles both stored-credential and discoverable flows.
-
-    // Keyfile unlock state
-    const [keyfilePayload, setKeyfilePayload] = useState(null);
-    const [keyfileFilename, setKeyfileFilename] = useState('');
-    const [unlockPassword, setUnlockPassword] = useState('');
-    const [showUnlockPassword, setShowUnlockPassword] = useState(false);
-    const [unlocking, setUnlocking] = useState(false);
 
     useEffect(() => {
         if (hasNostrExtension) return;
@@ -160,62 +151,6 @@ const Login = () => {
         }
     };
 
-    const handleFileLogin = async (file) => {
-        setError('');
-        setKeyFileName('');
-        try {
-            const text = await file.text();
-            const parsed = keyfileService.parseKeyfile(text);
-
-            if (!parsed) {
-                setError('Invalid file. Expected a .nostrkey or key file.');
-                return;
-            }
-
-            // Legacy .txt file with raw nsec — log in directly
-            if (parsed.legacyNsec) {
-                setKeyFileName(file.name);
-                setLoading(true);
-                const result = await loginWithNsecAndCheckNew(parsed.legacyNsec);
-                handleResult(result);
-                setLoading(false);
-                return;
-            }
-
-            // .nostrkey file — show password unlock prompt
-            setKeyfilePayload(parsed);
-            setKeyfileFilename(file.name);
-        } catch (err) {
-            setError(err.message || 'Failed to read key file.');
-            setLoading(false);
-        }
-    };
-
-    const handleUnlockKeyfile = async (e) => {
-        e.preventDefault();
-        if (!keyfilePayload || !unlockPassword) return;
-        setError('');
-        setUnlocking(true);
-        try {
-            await new Promise(r => setTimeout(r, 50));
-            const { nsec } = keyfileService.decrypt(keyfilePayload.ncryptsec, unlockPassword, keyfilePayload.npub);
-            setUnlockPassword('');
-            const result = await loginWithNsecAndCheckNew(nsec);
-            handleResult(result);
-        } catch (err) {
-            setError(err.message || 'Wrong password or corrupted file.');
-        } finally {
-            setUnlocking(false);
-        }
-    };
-
-    const resetKeyfileState = () => {
-        setKeyfilePayload(null);
-        setKeyfileFilename('');
-        setUnlockPassword('');
-        setError('');
-    };
-
     // TODO: Remove before production
     const handleDemoLogin = () => {
         const demoUser = {
@@ -229,98 +164,6 @@ const Login = () => {
         localStorage.setItem('bies_user', JSON.stringify(demoUser));
         window.location.href = '/biestest/feed';
     };
-
-    // ─── Keyfile unlock prompt (shown after uploading a .nostrkey file) ───
-    if (keyfilePayload) {
-        return (
-            <div className="login-container">
-                <div className="login-card">
-                    <div className="passkey-prompt-icon">
-                        <Lock size={40} />
-                    </div>
-
-                    <h2 className="login-heading">{t('login.unlockYourKey')}</h2>
-
-                    {keyfilePayload.npub && (
-                        <p className="login-subtext" style={{ marginBottom: '0.25rem' }}>
-                            {t('login.identity')}: <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{keyfilePayload.npub.slice(0, 16)}...{keyfilePayload.npub.slice(-6)}</span>
-                        </p>
-                    )}
-                    {keyfileFilename && (
-                        <p className="login-hint" style={{ marginBottom: '1rem' }}>{t('login.file')}: {keyfileFilename}</p>
-                    )}
-
-                    {error && (
-                        <div className="error-banner">
-                            <AlertCircle size={16} />
-                            <span>{error}</span>
-                        </div>
-                    )}
-
-                    <form onSubmit={handleUnlockKeyfile} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div>
-                            <label className="login-label">
-                                {t('login.enterKeyFilePassword')}
-                            </label>
-                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                                <input
-                                    type={showUnlockPassword ? 'text' : 'password'}
-                                    id="nostrkey-unlock-password"
-                                    name="password"
-                                    value={unlockPassword}
-                                    onChange={(e) => setUnlockPassword(e.target.value)}
-                                    placeholder={t('login.password')}
-                                    className="login-input"
-                                    style={{ paddingLeft: '0.75rem', paddingRight: '2.5rem' }}
-                                    autoComplete="current-password"
-                                    autoFocus
-                                />
-                                <button type="button" onClick={() => setShowUnlockPassword(!showUnlockPassword)} className="login-eye-btn">
-                                    {showUnlockPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                                </button>
-                            </div>
-                        </div>
-                        <button
-                            type="submit"
-                            disabled={unlocking || !unlockPassword}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
-                        >
-                            {unlocking ? (
-                                <><Loader2 size={20} className="spin" /> {t('login.unlocking')}</>
-                            ) : (
-                                <><Lock size={20} /> {t('login.unlockAndLogIn')}</>
-                            )}
-                        </button>
-                    </form>
-
-                    <button onClick={resetKeyfileState} className="login-back-btn">
-                        <ArrowLeft size={14} /> {t('login.chooseDifferentFile')}
-                    </button>
-                </div>
-
-                <style jsx>{`
-                    .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: var(--color-gray-50); padding: 1rem; }
-                    .login-card { background: var(--color-surface); color: var(--color-text, inherit); padding: 2.5rem; border-radius: 1.5rem; box-shadow: 0 4px 24px rgba(0,0,0,0.08); border: 1px solid var(--color-gray-200); width: 100%; max-width: 440px; display: flex; flex-direction: column; align-items: center; }
-                    .login-heading { font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem; color: var(--color-text, inherit); }
-                    .login-subtext { font-size: 0.875rem; color: var(--color-gray-500); }
-                    .login-hint { font-size: 0.75rem; color: var(--color-gray-500); }
-                    .login-label { display: block; margin-bottom: 4px; font-size: 0.875rem; color: var(--color-gray-500); }
-                    .login-input { width: 100%; padding: 0.75rem; border: 1px solid var(--color-gray-200); border-radius: 1rem; font-size: 0.875rem; outline: none; transition: border-color 0.2s; background: var(--color-surface); color: var(--color-text, inherit); }
-                    .login-input:focus { border-color: var(--color-primary); }
-                    .login-eye-btn { position: absolute; right: 10px; background: none; border: none; cursor: pointer; color: var(--color-gray-500); padding: 4px; }
-                    .login-back-btn { margin-top: 0.75rem; font-size: 0.875rem; color: var(--color-gray-500); display: flex; align-items: center; gap: 4px; background: none; border: none; cursor: pointer; }
-                    .login-back-btn:hover { color: var(--color-primary); }
-                    .passkey-prompt-icon { width: 72px; height: 72px; border-radius: 50%; background: var(--color-blue-tint); color: var(--color-primary); display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem; }
-                    .btn-login { background: var(--color-primary); color: white; font-weight: 600; transition: all 0.2s; border: none; cursor: pointer; border-radius: 9999px; padding: 1rem 1.5rem; }
-                    .btn-login:hover { opacity: 0.9; }
-                    .btn-login:disabled { opacity: 0.5; cursor: not-allowed; }
-                    .error-banner { display: flex; align-items: center; gap: 8px; background: var(--color-red-tint); color: var(--color-error); padding: 0.75rem 1rem; border-radius: 0.75rem; font-size: 0.875rem; width: 100%; margin-bottom: 1rem; border: 1px solid var(--badge-error-bg); }
-                    .spin { animation: spin 1s linear infinite; }
-                    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-                `}</style>
-            </div>
-        );
-    }
 
     // ─── Main login form ─────────────────────────────────────────────────────
     return (
@@ -395,12 +238,6 @@ const Login = () => {
                     >
                         <FileText size={14} /> {t('login.seedPhrase')}
                     </button>
-                    <button
-                        className={`mode-tab ${loginMode === 'file' ? 'active' : ''}`}
-                        onClick={() => { setLoginMode('file'); setError(''); setKeyFileName(''); }}
-                    >
-                        <Upload size={14} /> {t('login.keyFile')}
-                    </button>
                     {NIP46_ENABLED && (
                         <button
                             className={`mode-tab ${loginMode === 'bunker' ? 'active' : ''}`}
@@ -464,46 +301,6 @@ const Login = () => {
                             <span>{loading && seedInput.trim() ? 'Connecting...' : 'Login with Seed Phrase'}</span>
                         </button>
                     </form>
-                )}
-
-                {/* Login with key file */}
-                {loginMode === 'file' && (
-                    <div className="w-full">
-                        <label
-                            className="file-drop-zone"
-                            onDragOver={(e) => e.preventDefault()}
-                            onDrop={(e) => {
-                                e.preventDefault();
-                                const file = e.dataTransfer.files[0];
-                                if (file) handleFileLogin(file);
-                            }}
-                        >
-                            <input
-                                type="file"
-                                accept=".nostrkey,.json,.txt"
-                                className="hidden-file-input"
-                                onChange={(e) => {
-                                    const file = e.target.files[0];
-                                    if (file) handleFileLogin(file);
-                                }}
-                            />
-                            {loading ? (
-                                <Loader2 size={24} className="spin" style={{ color: 'var(--color-gray-400)' }} />
-                            ) : (
-                                <Upload size={24} style={{ color: 'var(--color-gray-400)' }} />
-                            )}
-                            {keyFileName ? (
-                                <span className="text-sm font-medium" style={{ color: 'var(--color-primary)' }}>{keyFileName}</span>
-                            ) : (
-                                <>
-                                    <span className="text-sm font-medium" style={{ color: 'var(--color-gray-500)' }}>
-                                        Drop your <strong>.nostrkey</strong> file here
-                                    </span>
-                                    <span className="text-xs" style={{ color: 'var(--color-gray-400)' }}>or click to browse</span>
-                                </>
-                            )}
-                        </label>
-                    </div>
                 )}
 
                 {/* Login with remote signer (NIP-46) */}
@@ -793,27 +590,6 @@ const Login = () => {
                 }
                 .seed-input:focus {
                     border-color: var(--color-primary);
-                }
-                .file-drop-zone {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                    padding: 2rem 1rem;
-                    border: 2px dashed var(--color-gray-200);
-                    border-radius: 0.75rem;
-                    cursor: pointer;
-                    transition: border-color 0.2s, background 0.2s;
-                    margin-bottom: 0.75rem;
-                }
-                .file-drop-zone:hover {
-                    border-color: var(--color-primary);
-                    background: var(--color-gray-100);
-                }
-                .hidden-file-input {
-                    display: none;
                 }
                 .extension-links {
                     margin-top: 0.75rem;

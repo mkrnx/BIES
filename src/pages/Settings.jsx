@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Key, Copy, CheckCircle, EyeOff, Download, AlertTriangle, Fingerprint } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
@@ -9,7 +9,6 @@ import { useAuth } from '../context/AuthContext';
 import { investorApi } from '../services/api';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
-import { keyfileService } from '../services/keyfileService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 
 const Settings = () => {
@@ -33,10 +32,6 @@ const Settings = () => {
     const [nsecLoading, setNsecLoading] = useState(false);
     const [nsecError, setNsecError] = useState('');
     const [copiedKey, setCopiedKey] = useState(null);
-    const [keyfilePassword, setKeyfilePassword] = useState('');
-    const [keyfileConfirm, setKeyfileConfirm] = useState('');
-    const [showKeyfileForm, setShowKeyfileForm] = useState(false);
-    const [keyfileError, setKeyfileError] = useState('');
 
     // Passkey management state
     const [passkeySupported, setPasskeySupported] = useState(false);
@@ -91,31 +86,6 @@ const Settings = () => {
         setNsecRevealed(false);
         setNsecValue(null);
     }, []);
-
-    const handleDownloadKeyfile = useCallback(() => {
-        setKeyfileError('');
-        const nsec = nsecValue || nostrSigner.getNsec();
-        if (!nsec) {
-            setKeyfileError('Reveal your secret key first before downloading a backup.');
-            return;
-        }
-        if (keyfilePassword.length < 16 || !/[a-zA-Z]/.test(keyfilePassword) || !/[0-9]/.test(keyfilePassword)) {
-            setKeyfileError('Password must be at least 16 characters with letters and numbers.');
-            return;
-        }
-        if (keyfilePassword !== keyfileConfirm) {
-            setKeyfileError('Passwords do not match.');
-            return;
-        }
-        try {
-            keyfileService.encryptAndDownload(nsec, keyfilePassword);
-            setShowKeyfileForm(false);
-            setKeyfilePassword('');
-            setKeyfileConfirm('');
-        } catch (err) {
-            setKeyfileError(err.message || 'Failed to create backup file.');
-        }
-    }, [nsecValue, keyfilePassword, keyfileConfirm]);
 
     const getNsecForPasskey = useCallback(() => {
         const nsec = nsecValue || nostrSigner.getNsec();
@@ -426,51 +396,6 @@ const Settings = () => {
                     )}
                 </div>
 
-                {/* Encrypted Backup Download */}
-                {loginMethod !== 'extension' && loginMethod !== 'bunker' && (
-                <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
-                    <div className="setting-info" style={{ width: '100%' }}>
-                        <div className="icon-box"><Download size={20} /></div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <p className="setting-label">Encrypted Key Backup</p>
-                            <p className="setting-desc">Download a password-protected .nostrkey file (NIP-49)</p>
-                        </div>
-                    </div>
-                    {showKeyfileForm ? (
-                        <div className="keyfile-form">
-                            <input
-                                type="password"
-                                placeholder="Encryption password (min 16 chars, letters + numbers)"
-                                value={keyfilePassword}
-                                onChange={(e) => setKeyfilePassword(e.target.value)}
-                                className="select-input"
-                                style={{ width: '100%' }}
-                            />
-                            <input
-                                type="password"
-                                placeholder="Confirm password"
-                                value={keyfileConfirm}
-                                onChange={(e) => setKeyfileConfirm(e.target.value)}
-                                className="select-input"
-                                style={{ width: '100%' }}
-                            />
-                            {keyfileError && <p className="key-error">{keyfileError}</p>}
-                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-                                <button onClick={() => { setShowKeyfileForm(false); setKeyfilePassword(''); setKeyfileConfirm(''); setKeyfileError(''); }} className="btn btn-outline btn-sm">Cancel</button>
-                                <button onClick={handleDownloadKeyfile} className="btn btn-outline btn-sm">
-                                    <Download size={14} style={{ marginRight: '0.4rem' }} /> Download
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <button onClick={() => { if (!nsecRevealed && !nostrSigner.getNsec()) { setKeyfileError('Reveal your secret key first.'); return; } setShowKeyfileForm(true); setKeyfileError(''); }} className="btn btn-outline btn-sm">
-                            <Download size={14} style={{ marginRight: '0.4rem' }} /> Download Encrypted Backup
-                        </button>
-                    )}
-                    {keyfileError && !showKeyfileForm && <p className="key-error">{keyfileError}</p>}
-                </div>
-                )}
-
                 {/* Passkey Quick Login (keytr) */}
                 {PASSKEY_ENABLED && loginMethod !== 'extension' && loginMethod !== 'bunker' && (
                 <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
@@ -599,8 +524,6 @@ const Settings = () => {
 
                 .btn-danger-outline { border-color: var(--color-danger, #dc2626); color: var(--color-danger, #dc2626); }
                 .btn-danger-outline:hover { background: var(--color-danger-light, #fef2f2); }
-
-                .keyfile-form { display: flex; flex-direction: column; gap: 0.75rem; width: 100%; }
 
                 .passkey-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: var(--color-green-700, #15803d); background: var(--color-green-tint, #f0fdf4); padding: 0.5rem 0.75rem; border-radius: var(--radius-md); width: 100%; }
                 .passkey-success { font-size: 0.8rem; color: var(--color-green-700, #15803d); margin: 0; }
