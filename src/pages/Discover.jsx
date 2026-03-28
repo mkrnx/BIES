@@ -453,11 +453,11 @@ const Discover = () => {
   ];
 
   const memberRoles = [
-    { id: 'BUILDER', label: 'Builders' },
-    { id: 'INVESTOR', label: 'Investors' },
-    { id: 'EDUCATOR', label: 'Educators' },
-    { id: 'EVENT_HOST', label: 'Event Hosts' },
-    { id: 'MEMBER', label: 'Members' }
+    { id: 'BUILDER', label: t('discover.roles.builders', 'Builders') },
+    { id: 'INVESTOR', label: t('discover.roles.investors', 'Investors') },
+    { id: 'EDUCATOR', label: t('discover.roles.educators', 'Educators') },
+    { id: 'EVENT_HOST', label: t('discover.roles.eventHosts', 'Event Hosts') },
+    { id: 'MEMBER', label: t('discover.roles.members', 'Members') }
   ];
 
   const handleIndustryChange = (industryId) => {
@@ -910,7 +910,7 @@ const Discover = () => {
                 </div>
             ) : filteredBuilders.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
-                    {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : "No builders found"}
+                    {searchQuery ? t('discover.noProjectsSearch', { query: searchQuery }) : t('discover.noMembersFound', 'No members found')}
                 </div>
             ) : (
                 <div className={`builders-layout-${memberViewType}`}>
