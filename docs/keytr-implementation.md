@@ -9,7 +9,7 @@
 - Cross-device recovery via WebAuthn discoverable credentials
 - Gateway-based registration (keytr.org primary, nostkey.org backup)
 
-Current version: `@sovit.xyz/keytr@0.2.1`
+Current version: `@sovit.xyz/keytr@0.3.1`
 
 ---
 
@@ -110,7 +110,7 @@ This runs lazily — only triggered when an operation actually needs the signing
 
 ## Dependency Note: @scure/base Deduplication
 
-`nostr-tools@2.23.0` depends on `@scure/base@^2.0.0` while `@sovit.xyz/keytr@0.2.1` bundles `@scure/base@^1.2.4`. Without Vite deduplication, two copies get bundled and their bech32 codec instances are distinct objects, causing "e is not iterable" at runtime.
+Both `nostr-tools@2.23.0` and `@sovit.xyz/keytr@0.3.1` depend on `@scure/base@^2.0.0`. The Vite dedupe ensures a single copy is bundled — without it, two instances can cause "e is not iterable" at runtime when bech32 codec objects cross module boundaries.
 
 Fix in `vite.config.js`:
 ```js
@@ -118,8 +118,6 @@ resolve: {
     dedupe: ['@scure/base'],
 }
 ```
-
-v1 and v2 APIs are identical, so forcing a single copy is safe.
 
 ---
 
@@ -143,3 +141,5 @@ v1 and v2 APIs are identical, so forcing a single copy is safe.
 | 0.1.3 | YubiKey PRF registration support |
 | 0.2.0 | Discoverable credential flow, always-visible passkey button |
 | 0.2.1 | Parallel relay operations (~25s → ~5s login) |
+| 0.3.0 | Upgraded to noble/scure v2, internal parallel relay via Promise.allSettled |
+| 0.3.1 | Simplified _registerOnGateway using keytr's high-level addBackupGateway |

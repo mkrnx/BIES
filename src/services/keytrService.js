@@ -11,11 +11,9 @@
 
 import {
     checkPrfSupport,
-    registerPasskey,
-    encryptNsec,
     decodeNsec,
     encodeNsec,
-    buildKeytrEvent,
+    addBackupGateway as keytrRegisterGateway,
     publishKeytrEvent,
     fetchKeytrEvents,
     loginWithKeytr,
@@ -136,28 +134,11 @@ export const keytrService = {
         const nsecBytes = decodeNsec(nsec);
         const { nostrSigner } = await import('./nostrSigner.js');
 
-        const { credential, prfOutput } = await registerPasskey({
+        const { eventTemplate } = await keytrRegisterGateway(nsecBytes, {
             userName: pubkey.slice(0, 16),
             userDisplayName: 'BIES Account',
-            pubkey,
             rpId,
             rpName: rpId.split('.')[0],
-        });
-
-        let encryptedBlob;
-        try {
-            encryptedBlob = encryptNsec({
-                nsecBytes,
-                prfOutput,
-                credentialId: credential.credentialId,
-            });
-        } finally {
-            prfOutput.fill(0);
-        }
-
-        const eventTemplate = buildKeytrEvent({
-            credential,
-            encryptedBlob,
             clientName: 'bies',
         });
 
