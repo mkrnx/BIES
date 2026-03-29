@@ -16,7 +16,7 @@ const AdminInvestorVetting = () => {
         setLoading(true);
         try {
             const res = await adminApi.investorRequests({ limit: 50 });
-            setRequests(res.data || res || []);
+            setRequests(Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : []);
         } catch (err) {
             setError(err.message || 'Failed to fetch requests');
         } finally {

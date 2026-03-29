@@ -36,7 +36,7 @@ const Builders = () => {
                 setTotalPages(result?.totalPages || 1);
 
                 if (followingRes) {
-                    const fList = followingRes?.data || followingRes || [];
+                    const fList = Array.isArray(followingRes?.data) ? followingRes.data : Array.isArray(followingRes) ? followingRes : [];
                     setFollowingIds(new Set(fList.map(u => u.id)));
                 }
             } catch (err) {

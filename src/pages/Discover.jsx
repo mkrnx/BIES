@@ -504,7 +504,7 @@ const Discover = () => {
         ]);
 
         const list = result?.data || result || [];
-        const wl = wlRes?.data || wlRes || [];
+        const wl = Array.isArray(wlRes?.data) ? wlRes.data : Array.isArray(wlRes) ? wlRes : [];
         const wlIds = new Set(wl.map(w => w.projectId || w.project?.id));
 
         const listWithWatchlist = (Array.isArray(list) ? list : []).map(p => ({
@@ -546,7 +546,7 @@ const Discover = () => {
         setBuildersTotalPages(result?.totalPages || 1);
 
         if (followingRes) {
-          const fList = followingRes?.data || followingRes || [];
+          const fList = Array.isArray(followingRes?.data) ? followingRes.data : Array.isArray(followingRes) ? followingRes : [];
           setFollowingIds(new Set(fList.map(u => u.id)));
         }
       } catch (err) {

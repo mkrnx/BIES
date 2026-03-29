@@ -25,7 +25,7 @@ const AdminProjects = () => {
             if (tab) params.status = tab;
             if (search) params.search = search;
             const res = await adminApi.listProjects(params);
-            setProjects(res?.data || []);
+            setProjects(Array.isArray(res?.data) ? res.data : []);
             setPagination(res?.pagination || { page: 1, total: 0, totalPages: 1 });
         } catch (err) {
             console.error('Failed to fetch projects:', err);

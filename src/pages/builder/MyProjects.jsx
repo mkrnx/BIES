@@ -74,8 +74,8 @@ const MyProjects = () => {
     const { data: projects, loading: projectsLoading, refetch: refetchProjects } = useApiQuery(projectsApi.list, { ownerId: user?.id });
     const { data: requestsData, loading: requestsLoading, refetch: refetchRequests } = useApiQuery(projectsApi.getAllDeckRequests);
 
-    const projectList = projects?.data || projects || [];
-    const requestList = requestsData?.data || requestsData || [];
+    const projectList = Array.isArray(projects?.data) ? projects.data : Array.isArray(projects) ? projects : [];
+    const requestList = Array.isArray(requestsData?.data) ? requestsData.data : Array.isArray(requestsData) ? requestsData : [];
 
     const filteredProjects = projectList.filter(p => {
         if (filter !== 'all' && (p.status || 'draft').toLowerCase() !== filter) return false;
