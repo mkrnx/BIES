@@ -62,7 +62,7 @@ const Note = ({
         </button>
         {postMenuOpen && (
           <div className="primal-note-menu">
-            <button className="primal-note-menu-item" onClick={() => { onShare(); }}>
+            <button className="primal-note-menu-item" onClick={() => { onShare(); onPostMenuToggle(); }}>
               <Share size={14} /> {t('feed.shareNote', 'Share')}
             </button>
             <button className="primal-note-menu-item" onClick={onCopyLink}>

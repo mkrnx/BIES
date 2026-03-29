@@ -878,6 +878,28 @@
   margin-left: auto;
 }
 
+/* ---------- Copy toast -------------------------------------------------- */
+.primal-copy-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--feed-card-bg);
+  color: var(--feed-text);
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 9999;
+  animation: toast-in 0.2s ease-out;
+  pointer-events: none;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
 /* ---------- Image grid -------------------------------------------------- */
 .primal-image-grid {
   margin-top: 8px;
