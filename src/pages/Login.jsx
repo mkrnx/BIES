@@ -167,7 +167,7 @@ const Login = () => {
         };
         localStorage.setItem('bies_token', 'demo-token');
         localStorage.setItem('bies_user', JSON.stringify(demoUser));
-        window.location.href = '/biestest/feed';
+        window.location.href = '/feed';
     };
 
     // ─── Main login form ─────────────────────────────────────────────────────
