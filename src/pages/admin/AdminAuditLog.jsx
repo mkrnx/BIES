@@ -133,13 +133,13 @@ const AdminAuditLog = () => {
                     padding: 0.5rem 0.75rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     font-size: 0.875rem;
                     color: var(--color-gray-600);
                     cursor: pointer;
                 }
                 .empty-state {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     padding: 3rem;
                     text-align: center;
@@ -147,7 +147,7 @@ const AdminAuditLog = () => {
                     border: 1px solid var(--color-gray-200);
                 }
                 .table-container {
-                    background: white;
+                    background: var(--color-surface);
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
                     overflow-x: auto;
@@ -204,7 +204,7 @@ const AdminAuditLog = () => {
                     padding: 0.5rem 1rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     cursor: pointer;
                     font-size: 0.875rem;
                 }

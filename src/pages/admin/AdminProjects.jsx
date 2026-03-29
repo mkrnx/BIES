@@ -290,9 +290,9 @@ const AdminProjects = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .status-badge.active { background: var(--color-green-tint); color: #166534; }
+                .status-badge.active { background: var(--color-green-tint); color: var(--badge-success-text); }
                 .status-badge.draft { background: var(--badge-draft-bg); color: var(--color-gray-600); }
-                .status-badge.pending-review { background: var(--color-amber-tint); color: #854D0E; }
+                .status-badge.pending-review { background: var(--color-amber-tint); color: var(--badge-warning-text); }
                 .action-group { display: flex; gap: 0.25rem; align-items: center; }
                 .icon-btn {
                     display: inline-flex;

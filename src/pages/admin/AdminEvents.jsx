@@ -214,7 +214,7 @@ const AdminEvents = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .status-badge.active { background: var(--color-green-tint); color: #166534; }
+                .status-badge.active { background: var(--color-green-tint); color: var(--badge-success-text); }
                 .status-badge.draft { background: var(--badge-draft-bg); color: var(--color-gray-600); }
                 .action-group { display: flex; gap: 0.25rem; align-items: center; }
                 .icon-btn {

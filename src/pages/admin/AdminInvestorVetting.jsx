@@ -131,21 +131,21 @@ const AdminInvestorVetting = () => {
               .w-full { width: 100%; }
               .text-left { text-align: left; }
               .border-collapse { border-collapse: collapse; }
-              .bg-gray-50 { background-color: #f9fafb; }
+              .bg-gray-50 { background-color: var(--color-gray-50); }
               .border-b { border-bottom-width: 1px; }
-              .border-gray-200 { border-color: #e5e7eb; }
-              .border-gray-100 { border-color: #f3f4f6; }
+              .border-gray-200 { border-color: var(--color-gray-200); }
+              .border-gray-100 { border-color: var(--color-gray-100); }
               .p-4 { padding: 1rem; }
               .font-semibold { font-weight: 600; }
-              .text-gray-700 { color: #374151; }
+              .text-gray-700 { color: var(--color-gray-700); }
               .text-right { text-align: right; }
-              .hover\\:bg-gray-50\\/50:hover { background-color: rgba(249, 250, 251, 0.5); }
+              .hover\\:bg-gray-50\\/50:hover { background-color: var(--color-gray-100); }
               .font-medium { font-weight: 500; }
               .text-xs { font-size: 0.75rem; }
               .text-sm { font-size: 0.875rem; }
-              .text-gray-500 { color: #6b7280; }
-              .text-gray-600 { color: #4b5563; }
-              .text-gray-400 { color: #9ca3af; }
+              .text-gray-500 { color: var(--color-gray-500); }
+              .text-gray-600 { color: var(--color-gray-600); }
+              .text-gray-400 { color: var(--color-gray-400); }
               .font-mono { font-family: monospace; }
               .mt-1 { margin-top: 0.25rem; }
               .max-w-md { max-width: 28rem; }
@@ -160,27 +160,27 @@ const AdminInvestorVetting = () => {
               .py-0\\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
               .rounded-full { border-radius: 9999px; }
               .rounded-lg { border-radius: 0.5rem; }
-              .bg-green-100 { background-color: #d1fae5; }
-              .text-green-800 { color: #065f46; }
-              .bg-red-100 { background-color: #fee2e2; }
-              .text-red-800 { color: #991b1b; }
-              .bg-yellow-100 { background-color: #fef3c7; }
-              .text-yellow-800 { color: #92400e; }
-              .bg-green-50 { background-color: #ecfdf5; }
-              .text-green-600 { color: #059669; }
-              .hover\\:bg-green-100:hover { background-color: #d1fae5; }
-              .bg-red-50 { background-color: #fef2f2; }
-              .text-red-600 { color: #dc2626; }
-              .hover\\:bg-red-100:hover { background-color: #fee2e2; }
+              .bg-green-100 { background-color: var(--badge-success-bg); }
+              .text-green-800 { color: var(--badge-success-text); }
+              .bg-red-100 { background-color: var(--badge-error-bg); }
+              .text-red-800 { color: var(--badge-error-text); }
+              .bg-yellow-100 { background-color: var(--badge-warning-bg); }
+              .text-yellow-800 { color: var(--badge-warning-text); }
+              .bg-green-50 { background-color: var(--color-green-tint); }
+              .text-green-600 { color: var(--badge-success-text); }
+              .hover\\:bg-green-100:hover { background-color: var(--badge-success-bg); }
+              .bg-red-50 { background-color: var(--color-red-tint); }
+              .text-red-600 { color: var(--badge-error-text); }
+              .hover\\:bg-red-100:hover { background-color: var(--badge-error-bg); }
               .transition-colors { transition-property: color, background-color, border-color, text-decoration-color, fill, stroke; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
               .flex { display: flex; }
               .gap-2 { gap: 0.5rem; }
               .p-1\\.5 { padding: 0.375rem; }
               .disabled\\:opacity-50:disabled { opacity: 0.5; }
-              .bg-white { background-color: #ffffff; }
+              .bg-white { background-color: var(--color-surface); }
               .rounded-xl { border-radius: 0.75rem; }
               .overflow-hidden { overflow: hidden; }
-              .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+              .shadow-sm { box-shadow: var(--shadow-sm); }
               .text-2xl { font-size: 1.5rem; line-height: 2rem; }
               .font-bold { font-weight: 700; }
               .mb-6 { margin-bottom: 1.5rem; }
