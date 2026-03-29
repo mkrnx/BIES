@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -93,8 +93,12 @@ const AdminRoute = ({ children }) => {
 
 const AppContent = () => {
     const { user } = useAuth();
-    // Only show Navbar if logged in? Or always? Let's show always for now except maybe login/signup
-    // But for simplicity, existing layout had Navbar always.
+    const location = useLocation();
+
+    // Scroll to top on route change (bottom nav, links, etc.)
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, [location.pathname]);
 
     return (
         <>
