@@ -83,7 +83,7 @@ const NostrNotifications = ({ mobile = false }) => {
                 oneose: () => {
                     setMyPostIds(postIds);
                 },
-                onauth: async (evt) => nostrSigner.signEvent(evt),
+                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
             }
         );
         postsSubRef.current = sub;
@@ -148,7 +148,7 @@ const NostrNotifications = ({ mobile = false }) => {
                         profileQueue.clear();
                     }
                 },
-                onauth: async (evt) => nostrSigner.signEvent(evt),
+                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
             }
         );
 

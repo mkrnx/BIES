@@ -17,6 +17,7 @@ import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 
 const LOGIN_METHOD_KEY = 'bies_login_method'; // 'extension' | 'nsec' | 'bunker'
+const SESSION_SK_KEY = 'bies_sk_session'; // sessionStorage — survives refresh, cleared on tab close
 
 class NostrSigner {
     constructor() {
@@ -24,6 +25,31 @@ class NostrSigner {
         this._pubkey = null;   // hex public key
         this._mode = null;     // 'extension' | 'nsec' | 'bunker' | null
         this._reacquirePromise = null; // dedup concurrent _tryReacquire calls
+
+        // Restore key from sessionStorage so page refreshes don't lose it.
+        this._restoreFromSession();
+    }
+
+    /** Restore secret key from sessionStorage (page refresh recovery). */
+    _restoreFromSession() {
+        try {
+            const hex = sessionStorage.getItem(SESSION_SK_KEY);
+            if (!hex) return;
+            const sk = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+            this._sk = sk;
+            this._pubkey = getPublicKey(sk);
+            this._mode = 'nsec';
+        } catch {
+            sessionStorage.removeItem(SESSION_SK_KEY);
+        }
+    }
+
+    /** Persist secret key hex to sessionStorage. */
+    _persistToSession(sk) {
+        try {
+            const hex = Array.from(sk).map(b => b.toString(16).padStart(2, '0')).join('');
+            sessionStorage.setItem(SESSION_SK_KEY, hex);
+        } catch { /* quota exceeded or unavailable — silent fail */ }
     }
 
     // ─── Configuration ──────────────────────────────────────────────────────
@@ -43,6 +69,7 @@ class NostrSigner {
         this._pubkey = getPublicKey(this._sk);
         this._mode = 'nsec';
         localStorage.setItem(LOGIN_METHOD_KEY, 'nsec');
+        this._persistToSession(this._sk);
     }
 
     /** Configure signer to use browser extension */
@@ -70,6 +97,7 @@ class NostrSigner {
         this._pubkey = null;
         this._mode = null;
         localStorage.removeItem(LOGIN_METHOD_KEY);
+        try { sessionStorage.removeItem(SESSION_SK_KEY); } catch { /* ignore */ }
         // Disconnect bunker if active
         import('./nostrConnectService.js').then(({ nostrConnectService }) => {
             nostrConnectService.disconnect();
@@ -97,6 +125,18 @@ class NostrSigner {
     /** What login method was used (persists across refreshes) */
     get storedMethod() {
         return localStorage.getItem(LOGIN_METHOD_KEY);
+    }
+
+    /**
+     * Whether we can sign right now without triggering a passkey/WebAuthn prompt.
+     * Used by background operations (relay AUTH) to avoid surprise prompts.
+     */
+    get canSignSilently() {
+        if (this._sk) return true;
+        if (this._mode === 'bunker' || this.storedMethod === 'bunker') return true;
+        if (this._mode === 'extension' && window.nostr) return true;
+        if (window.nostr) return true;
+        return false;
     }
 
     // ─── Core operations ────────────────────────────────────────────────────
