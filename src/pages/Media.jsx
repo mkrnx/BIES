@@ -1,16 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import { Loader2, LayoutGrid, List, Grid3X3 } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, LayoutGrid, List, Grid3X3, Columns, Check } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { mediaApi, newsApi } from '../services/api';
+
+const VIEW_OPTIONS = [
+    { id: 'card', icon: Columns, label: 'Cards' },
+    { id: 'list', icon: List, label: 'List' },
+    { id: 'icon', icon: LayoutGrid, label: 'Icons' },
+];
+
+const WATCHED_KEY = 'bies_watched_videos';
+const READ_KEY = 'bies_read_substacks';
+function getStoredSet(key) {
+    try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
+}
+function saveStoredSet(key, s) {
+    localStorage.setItem(key, JSON.stringify([...s]));
+}
 
 const Media = () => {
     const [activeTab, setActiveTab] = useState('substack');
     const [substackItems, setSubstackItems] = useState([]);
     const [youtubeItems, setYoutubeItems] = useState([]);
     const [liveSettings, setLiveSettings] = useState({ livestreamUrl: '', livestreamActive: false });
-    const [viewMode, setViewMode] = useState('card'); // 'card' | 'list' | 'icon'
+    const [viewMode, setViewMode] = useState(() => localStorage.getItem('bies_media_view') || 'card');
+    const [viewMenuOpen, setViewMenuOpen] = useState(false);
     const [playingVideoId, setPlayingVideoId] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [watchedIds, setWatchedIds] = useState(() => getStoredSet(WATCHED_KEY));
+    const [readIds, setReadIds] = useState(() => getStoredSet(READ_KEY));
+    const [contextMenu, setContextMenu] = useState(null); // { id, type, x, y }  type: 'video' | 'article'
+    const viewRef = useRef(null);
+    const longPressTimer = useRef(null);
+    const contextMenuRef = useRef(null);
+
+    const toggleWatched = useCallback((videoId) => {
+        setWatchedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(videoId)) next.delete(videoId); else next.add(videoId);
+            saveStoredSet(WATCHED_KEY, next);
+            return next;
+        });
+        setContextMenu(null);
+    }, []);
+
+    const toggleRead = useCallback((link) => {
+        setReadIds(prev => {
+            const next = new Set(prev);
+            if (next.has(link)) next.delete(link); else next.add(link);
+            saveStoredSet(READ_KEY, next);
+            return next;
+        });
+        setContextMenu(null);
+    }, []);
+
+    // Long-press handlers for touch + mouse
+    const openContextMenu = useCallback((e, id, type) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const x = e.clientX || rect.left + rect.width / 2;
+        setContextMenu({
+            id, type,
+            x: Math.max(10, Math.min(x, window.innerWidth - 200)),
+            y: Math.min((e.clientY || rect.top) + 4, window.innerHeight - 60),
+        });
+    }, []);
+
+    const handlePointerDown = useCallback((e, id, type) => {
+        const target = e.currentTarget;
+        longPressTimer.current = setTimeout(() => {
+            openContextMenu({ currentTarget: target, clientX: e.clientX, clientY: e.clientY, preventDefault: () => {} }, id, type);
+        }, 500);
+    }, [openContextMenu]);
+
+    const handlePointerUp = useCallback(() => {
+        clearTimeout(longPressTimer.current);
+    }, []);
+
+    // Clean up long-press timer on unmount
+    useEffect(() => {
+        return () => clearTimeout(longPressTimer.current);
+    }, []);
+
+    // Close dropdowns on outside click
+    useEffect(() => {
+        const handler = (e) => {
+            if (viewMenuOpen && viewRef.current && !viewRef.current.contains(e.target)) {
+                setViewMenuOpen(false);
+            }
+            if (contextMenu && contextMenuRef.current && !contextMenuRef.current.contains(e.target)) {
+                setContextMenu(null);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, [viewMenuOpen, contextMenu]);
 
     useEffect(() => {
         const fetchContent = async () => {
@@ -88,28 +171,30 @@ const Media = () => {
                     {liveSettings.livestreamActive && <span className="live-dot" />}
                     Live
                 </button>
-                <div className="view-toggles">
+                <div className="view-toggle-container" ref={viewRef}>
                     <button
-                        className={`view-btn ${viewMode === 'card' ? 'active' : ''}`}
-                        onClick={() => { setViewMode('card'); setPlayingVideoId(null); }}
-                        title="Card view"
+                        className="view-trigger"
+                        onClick={() => setViewMenuOpen(!viewMenuOpen)}
+                        title="Change view"
                     >
-                        <LayoutGrid size={16} />
+                        {VIEW_OPTIONS.find(v => v.id === viewMode)?.icon && (() => {
+                            const Icon = VIEW_OPTIONS.find(v => v.id === viewMode).icon;
+                            return <Icon size={16} />;
+                        })()}
                     </button>
-                    <button
-                        className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
-                        onClick={() => { setViewMode('list'); setPlayingVideoId(null); }}
-                        title="List view"
-                    >
-                        <List size={16} />
-                    </button>
-                    <button
-                        className={`view-btn ${viewMode === 'icon' ? 'active' : ''}`}
-                        onClick={() => { setViewMode('icon'); setPlayingVideoId(null); }}
-                        title="Icon view"
-                    >
-                        <Grid3X3 size={16} />
-                    </button>
+                    {viewMenuOpen && (
+                        <div className="view-menu-dropdown">
+                            {VIEW_OPTIONS.map(v => (
+                                <button
+                                    key={v.id}
+                                    onClick={() => { setViewMode(v.id); setPlayingVideoId(null); setViewMenuOpen(false); }}
+                                    className={viewMode === v.id ? 'active' : ''}
+                                >
+                                    <v.icon size={16} /> {v.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -129,50 +214,80 @@ const Media = () => {
                                 </div>
                             ) : viewMode === 'card' ? (
                                 <div className="grid grid-cols-3 gap-lg">
-                                    {substackItems.map((item, idx) => (
-                                        <div key={idx} className="substack-card">
-                                            {item.thumbnail && (
-                                                <div className="card-img" style={{ backgroundImage: `url(${item.thumbnail})` }}></div>
-                                            )}
-                                            <div className="card-body">
-                                                <div className="meta">{formatDate(item.date)} • {item.author || 'Build In El Salvador'}</div>
-                                                <h3>{item.title}</h3>
-                                                <p>{item.excerpt}</p>
-                                                <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
-                                                    Read on Substack →
-                                                </a>
+                                    {substackItems.map((item, idx) => {
+                                        const isRead = readIds.has(item.link);
+                                        return (
+                                            <div key={idx} className="substack-card"
+                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
+                                            >
+                                                {item.thumbnail && (
+                                                    <div className="card-img" style={{ backgroundImage: `url(${item.thumbnail})` }}>
+                                                        {isRead && <div className="watched-tag">Read</div>}
+                                                    </div>
+                                                )}
+                                                <div className="card-body">
+                                                    <div className="meta">{formatDate(item.date)} • {item.author || 'Build In El Salvador'}</div>
+                                                    <h3>{item.title}</h3>
+                                                    <p>{item.excerpt}</p>
+                                                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
+                                                        Read on Substack →
+                                                    </a>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : viewMode === 'list' ? (
                                 <div className="list-view">
-                                    {substackItems.map((item, idx) => (
-                                        <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="list-row">
-                                            {item.thumbnail && (
-                                                <div className="list-thumb" style={{ backgroundImage: `url(${item.thumbnail})` }} />
-                                            )}
-                                            <div className="list-info">
-                                                <h3>{item.title}</h3>
-                                                <p>{item.excerpt}</p>
-                                            </div>
-                                            <div className="list-meta">
-                                                <span>{formatDate(item.date)}</span>
-                                                <span>{item.author || 'Build In El Salvador'}</span>
-                                            </div>
-                                        </a>
-                                    ))}
+                                    {substackItems.map((item, idx) => {
+                                        const isRead = readIds.has(item.link);
+                                        return (
+                                            <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="list-row"
+                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
+                                            >
+                                                <div className="list-thumb-wrap">
+                                                    {item.thumbnail && (
+                                                        <div className="list-thumb" style={{ backgroundImage: `url(${item.thumbnail})` }} />
+                                                    )}
+                                                    {isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                </div>
+                                                <div className="list-info">
+                                                    <h3>{item.title}</h3>
+                                                    <p>{item.excerpt}</p>
+                                                </div>
+                                                <div className="list-meta">
+                                                    <span>{formatDate(item.date)}</span>
+                                                    <span>{item.author || 'Build In El Salvador'}</span>
+                                                </div>
+                                            </a>
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="icon-grid">
-                                    {substackItems.map((item, idx) => (
-                                        <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="icon-tile">
-                                            <div className="icon-thumb" style={{ backgroundImage: item.thumbnail ? `url(${item.thumbnail})` : 'none' }}>
-                                                {!item.thumbnail && <span className="icon-placeholder">📝</span>}
-                                            </div>
-                                            <div className="icon-label">{item.title}</div>
-                                        </a>
-                                    ))}
+                                    {substackItems.map((item, idx) => {
+                                        const isRead = readIds.has(item.link);
+                                        return (
+                                            <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="icon-tile"
+                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
+                                            >
+                                                <div className="icon-thumb" style={{ backgroundImage: item.thumbnail ? `url(${item.thumbnail})` : 'none' }}>
+                                                    {!item.thumbnail && <span className="icon-placeholder">📝</span>}
+                                                    {isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                </div>
+                                                <div className="icon-label">{item.title}</div>
+                                            </a>
+                                        );
+                                    })}
                                 </div>
                             )
                         )}
@@ -187,10 +302,16 @@ const Media = () => {
                                 <div className="grid grid-cols-2 gap-lg">
                                     {youtubeItems.map((item, idx) => {
                                         const autoplay = playingVideoId === item.videoId ? 1 : 0;
+                                        const watched = watchedIds.has(item.videoId);
                                         return (
                                             <div key={idx} className={`youtube-card${autoplay ? ' yt-highlighted' : ''}`} ref={autoplay ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : undefined}>
                                                 {item.videoId && (
-                                                    <div className="youtube-embed">
+                                                    <div className="youtube-embed"
+                                                        onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
+                                                        onPointerUp={handlePointerUp}
+                                                        onPointerLeave={handlePointerUp}
+                                                        onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                                    >
                                                         <iframe
                                                             width="100%"
                                                             height="100%"
@@ -200,6 +321,7 @@ const Media = () => {
                                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                             allowFullScreen
                                                         ></iframe>
+                                                        {watched && <div className="watched-tag">Watched</div>}
                                                     </div>
                                                 )}
                                                 <div className="card-body">
@@ -216,27 +338,52 @@ const Media = () => {
                                 </div>
                             ) : viewMode === 'list' ? (
                                 <div className="list-view">
-                                    {youtubeItems.map((item, idx) => (
-                                        <div key={idx} className="list-row" onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }} style={{ cursor: 'pointer' }}>
-                                            <div className="list-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
-                                            <div className="list-info">
-                                                <h3>{item.title}</h3>
-                                                {item.description && <p>{item.description}</p>}
+                                    {youtubeItems.map((item, idx) => {
+                                        const watched = watchedIds.has(item.videoId);
+                                        return (
+                                            <div key={idx} className="list-row"
+                                                onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }}
+                                                onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <div className="list-thumb-wrap">
+                                                    <div className="list-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
+                                                    {watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                </div>
+                                                <div className="list-info">
+                                                    <h3>{item.title}</h3>
+                                                    {item.description && <p>{item.description}</p>}
+                                                </div>
+                                                <div className="list-meta">
+                                                    <span>{formatDate(item.date)}</span>
+                                                </div>
                                             </div>
-                                            <div className="list-meta">
-                                                <span>{formatDate(item.date)}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             ) : (
                                 <div className="icon-grid">
-                                    {youtubeItems.map((item, idx) => (
-                                        <div key={idx} className="icon-tile" onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }} style={{ cursor: 'pointer' }}>
-                                            <div className="icon-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
-                                            <div className="icon-label">{item.title}</div>
-                                        </div>
-                                    ))}
+                                    {youtubeItems.map((item, idx) => {
+                                        const watched = watchedIds.has(item.videoId);
+                                        return (
+                                            <div key={idx} className="icon-tile"
+                                                onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }}
+                                                onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
+                                                onPointerUp={handlePointerUp}
+                                                onPointerLeave={handlePointerUp}
+                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                                style={{ cursor: 'pointer' }}
+                                            >
+                                                <div className="icon-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }}>
+                                                    {watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                </div>
+                                                <div className="icon-label">{item.title}</div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             )
                         )}
@@ -282,6 +429,23 @@ const Media = () => {
                     </>
                 )}
             </div>
+
+            {/* Context menu for Watched / Read */}
+            {contextMenu && (
+                <div ref={contextMenuRef} className="watched-context-menu" style={{ top: contextMenu.y, left: contextMenu.x }}>
+                    {contextMenu.type === 'video' ? (
+                        <button onClick={() => toggleWatched(contextMenu.id)}>
+                            <Check size={14} />
+                            {watchedIds.has(contextMenu.id) ? 'Mark as Unwatched' : 'Mark as Watched'}
+                        </button>
+                    ) : (
+                        <button onClick={() => toggleRead(contextMenu.id)}>
+                            <Check size={14} />
+                            {readIds.has(contextMenu.id) ? 'Mark as Unread' : 'Mark as Read'}
+                        </button>
+                    )}
+                </div>
+            )}
 
             <style jsx>{`
         .tabs {
@@ -343,6 +507,7 @@ const Media = () => {
           box-shadow: var(--shadow-md);
         }
         .card-img {
+          position: relative;
           height: 200px;
           background: var(--color-gray-200);
           background-size: cover;
@@ -497,16 +662,15 @@ const Media = () => {
           box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-md);
         }
 
-        /* View Toggle Buttons */
-        .view-toggles {
-          display: flex;
-          gap: 2px;
+        /* View Toggle Dropdown */
+        .view-toggle-container {
+          position: relative;
           margin-left: auto;
           padding-left: 0.5rem;
           border-left: 1px solid var(--color-gray-300);
           flex-shrink: 0;
         }
-        .view-btn {
+        .view-trigger {
           display: flex;
           align-items: center;
           justify-content: center;
@@ -517,15 +681,124 @@ const Media = () => {
           cursor: pointer;
           background: transparent;
           color: #9ca3af;
-          transition: all 0.2s;
+          transition: all 0.15s;
         }
-        .view-btn:hover {
-          color: #6b7280;
-          background: #f3f4f6;
-        }
-        .view-btn.active {
+        .view-trigger:hover {
           color: var(--color-primary);
-          background: var(--color-primary-50, rgba(0, 71, 171, 0.08));
+          background: var(--color-gray-100);
+        }
+        .view-menu-dropdown {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          background: var(--color-surface);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-md);
+          padding: 0.25rem;
+          z-index: 50;
+          box-shadow: var(--shadow-md);
+          min-width: 140px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          animation: viewDropIn 0.15s ease-out;
+        }
+        .view-menu-dropdown button {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 8px 10px;
+          border: none;
+          background: transparent;
+          color: inherit;
+          border-radius: var(--radius-md);
+          cursor: pointer;
+          font-weight: 500;
+          font-size: 0.85rem;
+          width: 100%;
+          transition: background 0.1s;
+        }
+        .view-menu-dropdown button:hover {
+          background: var(--color-gray-100);
+        }
+        .view-menu-dropdown button.active {
+          background: var(--color-primary);
+          color: white;
+        }
+        @keyframes viewDropIn {
+          from { opacity: 0; transform: translateY(-4px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Watched Tag (card view) */
+        .watched-tag {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          background: #16a34a;
+          color: white;
+          font-size: 0.7rem;
+          font-weight: 700;
+          padding: 3px 8px;
+          border-radius: 4px;
+          letter-spacing: 0.03em;
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        /* Watched Check (list + icon thumbnails) */
+        .watched-check {
+          position: absolute;
+          bottom: 4px;
+          right: 4px;
+          width: 20px;
+          height: 20px;
+          background: #16a34a;
+          color: white;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid white;
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        /* List thumb wrapper for positioning the check */
+        .list-thumb-wrap {
+          position: relative;
+          flex-shrink: 0;
+        }
+
+        /* Context Menu */
+        .watched-context-menu {
+          position: fixed;
+          z-index: 9999;
+          background: var(--color-surface);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-md);
+          box-shadow: var(--shadow-lg);
+          padding: 0.25rem;
+          min-width: 180px;
+          animation: viewDropIn 0.12s ease-out;
+        }
+        .watched-context-menu button {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          padding: 10px 12px;
+          border: none;
+          background: transparent;
+          color: inherit;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          font-size: 0.875rem;
+          font-weight: 500;
+          transition: background 0.1s;
+        }
+        .watched-context-menu button:hover {
+          background: var(--color-gray-100);
         }
 
         /* List View */
@@ -610,6 +883,7 @@ const Media = () => {
           transform: translateY(-2px);
         }
         .icon-thumb {
+          position: relative;
           width: 100%;
           aspect-ratio: 1;
           border-radius: var(--radius-lg);
