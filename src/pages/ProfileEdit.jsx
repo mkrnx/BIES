@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, Send, AtSign, Zap, HelpCircle, ChevronDown, ChevronUp, User, Link as LinkIcon, Trash2, GripVertical, Upload, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon } from 'lucide-react';
+import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, AtSign, Zap, User, Link as LinkIcon, Trash2, GripVertical, Upload, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon, Copy, Check } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
@@ -36,53 +36,6 @@ const SectionHeader = ({ icon, title, children }) => (
     </div>
 );
 
-const CollapsibleSub = ({ title, icon, open, onToggle, children }) => (
-    <div style={{
-        border: '1px solid var(--color-gray-200, #e5e7eb)',
-        borderRadius: 'var(--radius-md, 6px)',
-        marginBottom: '0.5rem',
-        overflow: 'hidden',
-    }}>
-        <button
-            type="button"
-            onClick={onToggle}
-            style={{
-                width: '100%',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '0.75rem 0.875rem',
-                background: 'var(--color-surface-raised, #fafbfc)',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: 'var(--color-gray-800, #1f2937)',
-                transition: 'background 0.15s',
-            }}
-        >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                {icon}
-                <span>{title}</span>
-            </div>
-            {open
-                ? <ChevronUp size={16} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
-                : <ChevronDown size={16} style={{ color: 'var(--color-gray-400)', flexShrink: 0 }} />
-            }
-        </button>
-        {open && (
-            <div style={{
-                padding: '0.875rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.75rem',
-                borderTop: '1px solid var(--color-gray-200, #e5e7eb)',
-            }}>
-                {children}
-            </div>
-        )}
-    </div>
-);
 
 const ProfileEdit = () => {
     const { user, refreshUser, updateRole } = useAuth();
@@ -115,35 +68,23 @@ const ProfileEdit = () => {
         tags: [],
         showExperience: true,
         showNostrFeed: true,
-        nostrFeedSource: 'private',
         experience: [],
         biesProjects: [],
         nostrNpub: '',
+        nostrName: '',
         nip05Name: '',
         lightningAddress: '',
         customSections: [],
     });
+    const [npubCopied, setNpubCopied] = useState(false);
 
     // NIP-05 availability check
     const [nip05Available, setNip05Available] = useState(null);
     const [nip05Checking, setNip05Checking] = useState(false);
 
-    // Nostr profile form
+    // Nostr profile (fetched from relays)
     const [nostrProfile, setNostrProfile] = useState(null);
     const [loadingNostr, setLoadingNostr] = useState(false);
-    const [savingNostr, setSavingNostr] = useState(false);
-    const [nostrSaved, setNostrSaved] = useState(false);
-    const [nostrForm, setNostrForm] = useState({
-        display_name: '', name: '', about: '', picture: '', website: '', nip05: '', lud16: '', banner: ''
-    });
-    const [publishMode, setPublishMode] = useState('bies'); // 'bies' or 'all'
-    const [showPublishHelp, setShowPublishHelp] = useState(false);
-    const [showFeedHelp, setShowFeedHelp] = useState(false);
-
-    // Collapsible section state
-    const [nostrIdentityOpen, setNostrIdentityOpen] = useState(true);
-    const [nostrProfileOpen, setNostrProfileOpen] = useState(false);
-    const [nostrPublishOpen, setNostrPublishOpen] = useState(false);
 
     // Project search
     const [projectSearch, setProjectSearch] = useState('');
@@ -176,6 +117,8 @@ const ProfileEdit = () => {
             }
             if (!prev.bio && nostrProfile.about) updates.bio = nostrProfile.about;
             if (!prev.website && nostrProfile.website) updates.website = nostrProfile.website;
+            if (!prev.nostrName && nostrProfile.name) updates.nostrName = nostrProfile.name;
+            if (!prev.lightningAddress && nostrProfile.lud16) updates.lightningAddress = nostrProfile.lud16;
             if (Object.keys(updates).length === 0) return prev;
             return { ...prev, ...updates };
         });
@@ -272,7 +215,6 @@ const ProfileEdit = () => {
                     tags: profile.tags || [],
                     showExperience: profile.showExperience ?? true,
                     showNostrFeed: profile.showNostrFeed ?? true,
-                    nostrFeedSource: profile.nostrFeedSource || 'private',
                     experience: (profile.experience || []).map(exp => {
                         // Parse fromYear/toYear from existing date string like "2020 - Present"
                         let fromYear = exp.fromYear || '';
@@ -316,17 +258,8 @@ const ProfileEdit = () => {
         try {
             const profile = await nostrService.getProfile(user.nostrPubkey);
             setNostrProfile(profile);
-            if (profile) {
-                setNostrForm({
-                    display_name: profile.display_name || '',
-                    name: profile.name || '',
-                    about: profile.about || '',
-                    picture: profile.picture || '',
-                    website: profile.website || '',
-                    nip05: profile.nip05 || '',
-                    lud16: profile.lud16 || '',
-                    banner: profile.banner || '',
-                });
+            if (profile?.name) {
+                setForm(prev => prev.nostrName ? prev : { ...prev, nostrName: profile.name });
             }
         } catch (err) {
             console.error('Failed to fetch Nostr profile:', err);
@@ -364,7 +297,6 @@ const ProfileEdit = () => {
                 customSections: form.customSections,
                 showExperience: form.showExperience,
                 showNostrFeed: form.showNostrFeed,
-                nostrFeedSource: form.nostrFeedSource,
                 nostrNpub: form.nostrNpub,
                 nip05Name: form.nip05Name || undefined,
                 lightningAddress: form.lightningAddress,
@@ -380,12 +312,15 @@ const ProfileEdit = () => {
             // optionally also broadcast to public relays
             try {
                 const nostrData = {};
-                if (form.name) { nostrData.display_name = form.name; nostrData.name = form.name; }
+                if (form.name) nostrData.display_name = form.name;
+                if (form.nostrName) nostrData.name = form.nostrName;
+                else if (form.name) nostrData.name = form.name;
                 if (form.bio) nostrData.about = form.bio;
                 if (form.avatar) nostrData.picture = form.avatar;
                 if (form.banner) nostrData.banner = form.banner;
                 if (form.website) nostrData.website = form.website;
                 if (form.lightningAddress) nostrData.lud16 = form.lightningAddress;
+                if (form.nip05Name) nostrData.nip05 = `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`;
                 if (publishPublic) {
                     await nostrService.updateProfile(nostrData);
                 } else {
@@ -688,66 +623,6 @@ const ProfileEdit = () => {
             .filter(s => placement === 'LEFT' ? (s.placement === 'LEFT' || !s.placement) : s.placement === 'RIGHT')
             .map(s => renderSection(s, s._idx));
 
-    // Nostr
-    const handleNostrFormChange = (field) => (e) => {
-        setNostrForm(prev => ({ ...prev, [field]: e.target.value }));
-        setNostrSaved(false);
-    };
-
-    const handleSaveToNostr = async () => {
-        setSavingNostr(true);
-        setError('');
-        try {
-            const data = {};
-            Object.entries(nostrForm).forEach(([k, v]) => { if (v) data[k] = v; });
-            if (publishMode === 'bies') {
-                await nostrService.updateProfileToBiesRelay(data);
-            } else {
-                await nostrService.updateProfile(data);
-            }
-            setNostrSaved(true);
-            setTimeout(() => setNostrSaved(false), 3000);
-            await fetchNostrProfile();
-        } catch (err) {
-            setError(err.message || 'Failed to publish to Nostr.');
-        } finally {
-            setSavingNostr(false);
-        }
-    };
-
-    const handleSyncFromNostr = () => {
-        if (!nostrProfile) return;
-        setForm(prev => ({
-            ...prev,
-            name: nostrProfile.display_name || nostrProfile.name || prev.name,
-            bio: nostrProfile.about || prev.bio,
-            avatar: nostrProfile.picture || prev.avatar,
-            banner: nostrProfile.banner || prev.banner,
-            website: nostrProfile.website || prev.website,
-        }));
-    };
-
-    const handlePushBiesToNostr = async () => {
-        setSavingNostr(true);
-        setError('');
-        try {
-            const data = {};
-            if (form.name) data.display_name = form.name;
-            if (form.name) data.name = form.name;
-            if (form.bio) data.about = form.bio;
-            if (form.avatar) data.picture = form.avatar;
-            if (form.website) data.website = form.website;
-            if (form.banner) data.banner = form.banner;
-            await nostrService.updateProfile(data);
-            setNostrSaved(true);
-            setTimeout(() => setNostrSaved(false), 3000);
-            await fetchNostrProfile();
-        } catch (err) {
-            setError(err.message || 'Failed to push BIES profile to Nostr.');
-        } finally {
-            setSavingNostr(false);
-        }
-    };
 
     // ─── Render ───
 
@@ -794,10 +669,16 @@ const ProfileEdit = () => {
                             <span className="pe-banner-edit-text">Edit</span>
                             <input type="file" accept="image/*" onChange={handleBannerSelect} style={{ display: 'none' }} />
                         </label>
-                        <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn pe-banner-save">
-                            {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
-                            {saving ? 'Saving...' : 'Save'}
-                        </button>
+                        <div className="pe-banner-save-group">
+                            <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn pe-banner-save-bies">
+                                {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={14} />}
+                                {saving ? 'Saving...' : 'Save to BIES'}
+                            </button>
+                            <button onClick={(e) => handleSave(e, { publishPublic: true })} type="button" disabled={saving} className="pe-save-btn pe-banner-save-nostr">
+                                {saving ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : <NostrIcon size={14} />}
+                                {saving ? 'Saving...' : 'Save to public Nostr'}
+                            </button>
+                        </div>
                     </div>
 
                     <div className="pe-avatar-row">
@@ -822,6 +703,23 @@ const ProfileEdit = () => {
                             </label>
                         </div>
                     </div>
+                    {/* Image URL Fields */}
+                    <div style={{ padding: '0 1.25rem 1rem', display: 'flex', gap: '0.75rem' }}>
+                        <div className="pe-field" style={{ flex: 1 }}>
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Picture URL
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <input type="url" value={form.avatar} onChange={handleChange('avatar')} className="pe-input pe-input-sm" placeholder="https://..." />
+                        </div>
+                        <div className="pe-field" style={{ flex: 1 }}>
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Banner URL
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <input type="url" value={form.banner} onChange={handleChange('banner')} className="pe-input pe-input-sm" placeholder="https://..." />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Two-Column Grid - Main + Sidebar */}
@@ -834,8 +732,45 @@ const ProfileEdit = () => {
                     <SectionHeader icon={<User size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Basic Info" />
                     <div className="pe-field-grid">
                         <div className="pe-field">
-                            <label className="pe-label">Name</label>
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Name
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
                             <input type="text" value={form.name} onChange={handleChange('name')} className="pe-input" placeholder="Your Name" />
+                        </div>
+                        {user?.nostrPubkey && (
+                            <div className="pe-field">
+                                <label className="pe-label">Nostr Public Key (npub)</label>
+                                <div style={{ position: 'relative' }}>
+                                    <input
+                                        type="text" readOnly
+                                        value={nip19.npubEncode(user.nostrPubkey)}
+                                        className="pe-input pe-input-readonly"
+                                        style={{ paddingRight: '2.5rem' }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText(nip19.npubEncode(user.nostrPubkey));
+                                            setNpubCopied(true);
+                                            setTimeout(() => setNpubCopied(false), 2000);
+                                        }}
+                                        style={{ position: 'absolute', right: '0.5rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '0.25rem' }}
+                                    >
+                                        {npubCopied ? <Check size={14} style={{ color: '#16a34a' }} /> : <Copy size={14} />}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        <div className="pe-field">
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Nostr @Name
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <div className="pe-input-icon">
+                                <AtSign size={16} className="pe-icon" />
+                                <input type="text" value={form.nostrName} onChange={handleChange('nostrName')} className="pe-input pe-input-with-icon" placeholder="username" />
+                            </div>
                         </div>
                         <div className="pe-field">
                             <label className="pe-label">Current Role / Title</label>
@@ -875,7 +810,10 @@ const ProfileEdit = () => {
                         </div>
                     </div>
                     <div className="pe-field" style={{ marginTop: '0.25rem' }}>
-                        <label className="pe-label">Bio</label>
+                        <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            Bio
+                            <NostrIcon size={12} color="#8b5cf6" />
+                        </label>
                         <textarea
                             rows="3"
                             className="pe-input"
@@ -906,7 +844,10 @@ const ProfileEdit = () => {
                     <SectionHeader icon={<LinkIcon size={18} style={{ color: 'var(--color-gray-400)' }} />} title="Links & Social" />
                     <div className="pe-field-grid">
                         <div className="pe-field">
-                            <label className="pe-label">Website</label>
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Website
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
                             <div className="pe-input-icon">
                                 <Globe size={16} className="pe-icon" />
                                 <input type="url" value={form.website} onChange={handleChange('website')} className="pe-input pe-input-with-icon" placeholder="https://" />
@@ -927,6 +868,43 @@ const ProfileEdit = () => {
                                 <Linkedin size={16} className="pe-icon" />
                                 <input type="text" value={form.linkedin} onChange={handleChange('linkedin')} className="pe-input pe-input-with-icon" placeholder="LinkedIn URL" />
                             </div>
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Lightning Address (LUD-16)
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <div className="pe-input-icon">
+                                <Zap size={16} className="pe-icon" />
+                                <input type="text" value={form.lightningAddress} onChange={handleChange('lightningAddress')} className="pe-input pe-input-with-icon" placeholder="you@getalby.com" />
+                            </div>
+                            <p className="pe-hint">For zaps — Alby, WoS, Strike, etc.</p>
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                NIP-05 Identity
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                <div className="pe-input-icon" style={{ flex: 1 }}>
+                                    <AtSign size={16} className="pe-icon" />
+                                    <input
+                                        type="text"
+                                        value={form.nip05Name}
+                                        onChange={handleChange('nip05Name')}
+                                        className="pe-input pe-input-with-icon"
+                                        placeholder="alice"
+                                    />
+                                </div>
+                                {nip05Checking && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
+                                {!nip05Checking && nip05Available === true && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
+                                {!nip05Checking && nip05Available === false && <X size={14} style={{ color: '#ef4444' }} />}
+                            </div>
+                            {form.nip05Name && (
+                                <p className="pe-hint" style={{ color: nip05Available === false ? '#ef4444' : undefined }}>
+                                    {nip05Available === false ? 'Taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                </p>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1134,206 +1112,27 @@ const ProfileEdit = () => {
                         </div>
 
                 {/* Nostr */}
-                <div className="pe-card pe-nostr-card">
-                    <SectionHeader
-                        icon={<NostrIcon size={18} color="#8b5cf6" />}
-                        title="Nostr"
-                    />
-                    <p className="pe-section-desc">Manage your Nostr identity, profile, and relay publishing.</p>
-
-                    {/* Identity & Lightning */}
-                    <CollapsibleSub
-                        title="Identity & Lightning"
-                        icon={<Zap size={15} style={{ color: '#f59e0b' }} />}
-                        open={nostrIdentityOpen}
-                        onToggle={() => setNostrIdentityOpen(v => !v)}
-                    >
-                        {user?.nostrPubkey && (
-                            <div className="pe-field">
-                                <label className="pe-label">Public Key (npub)</label>
-                                <input
-                                    type="text" readOnly
-                                    value={nip19.npubEncode(user.nostrPubkey)}
-                                    className="pe-input pe-input-readonly"
-                                />
-                            </div>
-                        )}
-                        <div className="pe-nostr-fields">
-                            <div className="pe-field">
-                                <label className="pe-label">NIP-05 Identity</label>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                    <div className="pe-input-icon" style={{ flex: 1 }}>
-                                        <AtSign size={14} className="pe-icon" />
-                                        <input
-                                            type="text"
-                                            value={form.nip05Name}
-                                            onChange={handleChange('nip05Name')}
-                                            className="pe-input pe-input-with-icon pe-input-sm"
-                                            placeholder="alice"
-                                        />
-                                    </div>
-                                    {nip05Checking && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite', color: 'var(--color-gray-400)' }} />}
-                                    {!nip05Checking && nip05Available === true && <CheckCircle size={14} style={{ color: '#16a34a' }} />}
-                                    {!nip05Checking && nip05Available === false && <X size={14} style={{ color: '#ef4444' }} />}
-                                </div>
-                                {form.nip05Name && (
-                                    <p className="pe-hint" style={{ color: nip05Available === false ? '#ef4444' : undefined }}>
-                                        {nip05Available === false ? 'Taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="pe-field">
-                                <label className="pe-label">Lightning</label>
-                                <div className="pe-input-icon">
-                                    <Zap size={14} className="pe-icon" />
-                                    <input
-                                        type="text"
-                                        value={form.lightningAddress}
-                                        onChange={handleChange('lightningAddress')}
-                                        className="pe-input pe-input-with-icon pe-input-sm"
-                                        placeholder="you@getalby.com"
-                                    />
-                                </div>
-                                <p className="pe-hint">For zaps — Alby, WoS, Strike, etc.</p>
-                            </div>
-                        </div>
-                    </CollapsibleSub>
-
-                    {/* Nostr Profile Editor */}
-                    <CollapsibleSub
-                        title="Profile Editor"
-                        icon={<User size={15} style={{ color: '#8b5cf6' }} />}
-                        open={nostrProfileOpen}
-                        onToggle={() => setNostrProfileOpen(v => !v)}
-                    >
-                        {loadingNostr ? (
-                            <div style={{ textAlign: 'center', padding: '1rem 0' }}>
-                                <Loader2 size={18} style={{ animation: 'spin 1s linear infinite', margin: '0 auto', display: 'block' }} />
-                                <p className="pe-hint" style={{ marginTop: '0.5rem' }}>Fetching from relays...</p>
-                            </div>
-                        ) : (
-                            <>
-                                <div className="pe-field-grid">
-                                    <div className="pe-field">
-                                        <label className="pe-label">Display Name</label>
-                                        <input type="text" value={nostrForm.display_name} onChange={handleNostrFormChange('display_name')} className="pe-input" placeholder="Display name" />
-                                    </div>
-                                    <div className="pe-field">
-                                        <label className="pe-label">@Name</label>
-                                        <div className="pe-input-icon">
-                                            <AtSign size={14} className="pe-icon" />
-                                            <input type="text" value={nostrForm.name} onChange={handleNostrFormChange('name')} className="pe-input pe-input-with-icon" placeholder="username" />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="pe-field">
-                                    <label className="pe-label">About</label>
-                                    <textarea rows="2" className="pe-input" style={{ resize: 'vertical' }} value={nostrForm.about} onChange={handleNostrFormChange('about')} placeholder="Bio on Nostr" />
-                                </div>
-                                <div className="pe-field-grid">
-                                    <div className="pe-field">
-                                        <label className="pe-label">Picture URL</label>
-                                        <input type="url" value={nostrForm.picture} onChange={handleNostrFormChange('picture')} className="pe-input" placeholder="https://..." />
-                                    </div>
-                                    <div className="pe-field">
-                                        <label className="pe-label">Banner URL</label>
-                                        <input type="url" value={nostrForm.banner} onChange={handleNostrFormChange('banner')} className="pe-input" placeholder="https://..." />
-                                    </div>
-                                    <div className="pe-field">
-                                        <label className="pe-label">Website</label>
-                                        <input type="url" value={nostrForm.website} onChange={handleNostrFormChange('website')} className="pe-input" placeholder="https://..." />
-                                    </div>
-                                    <div className="pe-field">
-                                        <label className="pe-label">NIP-05</label>
-                                        <input type="text" value={nostrForm.nip05} onChange={handleNostrFormChange('nip05')} className="pe-input" placeholder="you@domain.com" />
-                                    </div>
-                                    <div className="pe-field pe-field-full">
-                                        <label className="pe-label">LUD-16 (Lightning)</label>
-                                        <input type="text" value={nostrForm.lud16} onChange={handleNostrFormChange('lud16')} className="pe-input" placeholder="you@wallet.com" />
-                                    </div>
-                                </div>
-                            </>
-                        )}
-                    </CollapsibleSub>
-
-                    {/* Publishing & Feed */}
-                    <CollapsibleSub
-                        title="Publishing & Feed"
-                        icon={<Send size={15} style={{ color: '#16a34a' }} />}
-                        open={nostrPublishOpen}
-                        onToggle={() => setNostrPublishOpen(v => !v)}
-                    >
-                        <div className="pe-publish-section">
-                            <div className="pe-segmented">
-                                <button type="button" onClick={() => setPublishMode('bies')} className={publishMode === 'bies' ? 'active' : ''}>
-                                    BIES relay only
-                                </button>
-                                <button type="button" onClick={() => setPublishMode('all')} className={publishMode === 'all' ? 'active' : ''}>
-                                    BIES + public relays
-                                </button>
-                                <button type="button" onClick={() => setShowPublishHelp(prev => !prev)} className="pe-help-btn-inline">
-                                    <HelpCircle size={15} />
-                                </button>
-                            </div>
-
-                            {showPublishHelp && (
-                                <div className="pe-help-box">
-                                    <p><strong>BIES relay only</strong> — Saves to the private BIES relay. Only visible within BIES.</p>
-                                    <p><strong>BIES + public relays</strong> — Broadcasts to BIES relay + public relays (Damus, Primal, etc).</p>
-                                    <p style={{ marginTop: '0.5rem' }}><strong>Fetch</strong> — Pull latest Nostr profile from relays. <strong>Apply</strong> — Copy Nostr data to BIES form. <strong>Push</strong> — Publish BIES data to all relays.</p>
-                                </div>
-                            )}
-
-                            <button type="button" onClick={handleSaveToNostr} disabled={savingNostr} className="pe-publish-btn">
-                                {savingNostr ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={15} />}
-                                {savingNostr ? 'Publishing...' : nostrSaved ? 'Published!' : publishMode === 'bies' ? 'Publish to BIES relay' : 'Publish to all relays'}
-                                {nostrSaved && <CheckCircle size={15} />}
-                            </button>
-
-                            <div className="pe-action-row">
-                                <button type="button" onClick={fetchNostrProfile} className="pe-action-btn pe-action-purple">
-                                    <RefreshCw size={14} /> Fetch
-                                </button>
-                                <button type="button" onClick={handleSyncFromNostr} className="pe-action-btn pe-action-blue">
-                                    Apply to BIES
-                                </button>
-                                <button type="button" onClick={handlePushBiesToNostr} disabled={savingNostr} className="pe-action-btn pe-action-green">
-                                    <Send size={14} /> Push to relays
-                                </button>
-                            </div>
-
-                            <div className="pe-feed-toggle">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                                    <span className="pe-label" style={{ padding: 0 }}>Show Nostr feed on profile</span>
-                                    <button type="button" onClick={() => setShowFeedHelp(prev => !prev)} className="pe-help-btn-inline" style={{ borderLeft: 'none', padding: '0.25rem' }}>
-                                        <HelpCircle size={14} />
-                                    </button>
-                                </div>
-                                <label className="toggle-switch">
-                                    <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
-                                    <span className="toggle-slider"></span>
-                                </label>
-                            </div>
-
-                            {showFeedHelp && (
-                                <div className="pe-help-box">
-                                    <p>When enabled, your recent Nostr notes are shown on your BIES profile.</p>
-                                    <p><strong>Private only</strong> — BIES relay notes. <strong>Private + public</strong> — All Nostr activity.</p>
-                                </div>
-                            )}
-
-                            {form.showNostrFeed && (
-                                <div className="pe-segmented" style={{ marginTop: '0.5rem' }}>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'private' }))} className={form.nostrFeedSource === 'private' ? 'active' : ''}>
-                                        Private relay only
-                                    </button>
-                                    <button type="button" onClick={() => setForm(prev => ({ ...prev, nostrFeedSource: 'all' }))} className={form.nostrFeedSource === 'all' ? 'active' : ''}>
-                                        Private + public
-                                    </button>
-                                </div>
-                            )}
-                        </div>
-                    </CollapsibleSub>
+                <div className="pe-card">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <NostrIcon size={18} color="#8b5cf6" />
+                        <h3 style={{ fontSize: '1.05rem', fontWeight: 700, fontFamily: 'var(--font-display)', margin: 0, color: 'var(--color-gray-900)' }}>Nostr</h3>
+                    </div>
+                    <button type="button" onClick={fetchNostrProfile} disabled={loadingNostr} style={{
+                        width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                        padding: '0.6rem 0.75rem', background: 'none', border: '1px solid #e9d5ff', borderRadius: 'var(--radius-md, 6px)',
+                        color: '#8b5cf6', fontWeight: 600, fontSize: '0.85rem', cursor: loadingNostr ? 'not-allowed' : 'pointer', marginBottom: '0.75rem',
+                        opacity: loadingNostr ? 0.6 : 1,
+                    }}>
+                        {loadingNostr ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={15} />}
+                        {loadingNostr ? 'Fetching...' : 'Fetch from public Nostr'}
+                    </button>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span className="pe-label" style={{ padding: 0 }}>Show Nostr feed on profile</span>
+                        <label className="toggle-switch">
+                            <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
+                            <span className="toggle-slider"></span>
+                        </label>
+                    </div>
                 </div>
 
                     </div>
@@ -1417,13 +1216,6 @@ const ProfileEdit = () => {
                     border-radius: var(--radius-xl, 12px);
                     box-shadow: 0 1px 3px rgba(0,0,0,0.04);
                     border: 1px solid var(--color-gray-200, #e5e7eb);
-                }
-                .pe-nostr-card {
-                    border-left: 3px solid #8b5cf6;
-                    background: var(--color-surface, white);
-                }
-                .pe-nostr-card .pe-section-desc {
-                    color: var(--color-gray-500, #6b7280);
                 }
 
                 /* ── Section Headers ── */
@@ -1568,13 +1360,22 @@ const ProfileEdit = () => {
                     box-shadow: 0 1px 3px rgba(0,0,0,0.15);
                     border: none;
                 }
-                .pe-banner-save {
+                .pe-banner-save-group {
                     position: absolute;
                     top: 0.75rem;
                     right: 0.75rem;
                     z-index: 10;
+                    display: flex;
+                    gap: 0.35rem;
+                }
+                .pe-banner-save-bies {
                     box-shadow: 0 2px 6px rgba(0,0,0,0.25);
                 }
+                .pe-banner-save-nostr {
+                    background: #8b5cf6;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+                }
+                .pe-banner-save-nostr:hover { background: #7c3aed; }
                 .pe-avatar-row {
                     padding: 0 1.25rem 1rem;
                     position: relative;
@@ -1721,130 +1522,6 @@ const ProfileEdit = () => {
                 }
 
                 /* ── Collapsible Sections ── */
-                .pe-collapsible {
-                    border: 1px solid var(--color-gray-200, #e5e7eb);
-                    border-radius: var(--radius-md, 6px);
-                    margin-bottom: 0.5rem;
-                    overflow: hidden;
-                }
-                .pe-collapsible-trigger {
-                    width: 100%;
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 0.7rem 0.875rem;
-                    background: var(--color-surface-raised, #fafbfc);
-                    border: none;
-                    cursor: pointer;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    color: var(--color-gray-700, #374151);
-                    transition: background 0.15s;
-                }
-                .pe-collapsible-trigger:hover { background: var(--color-gray-100, #f5f6f8); }
-                .pe-collapsible-label { display: flex; align-items: center; gap: 0.5rem; }
-                .pe-collapsible-body {
-                    padding: 0.875rem;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
-                    border-top: 1px solid var(--color-gray-200, #e5e7eb);
-                }
-
-                /* ── Nostr Publishing ── */
-                .pe-publish-section { display: flex; flex-direction: column; gap: 0.75rem; }
-                .pe-segmented {
-                    display: flex;
-                    border-radius: var(--radius-md, 6px);
-                    overflow: hidden;
-                    border: 1px solid var(--color-gray-200, #e5e7eb);
-                }
-                .pe-segmented button {
-                    flex: 1;
-                    padding: 0.45rem 0.5rem;
-                    border: none;
-                    cursor: pointer;
-                    font-weight: 500;
-                    font-size: 0.78rem;
-                    background: transparent;
-                    color: var(--color-gray-500, #6b7280);
-                    transition: all 0.15s;
-                    white-space: nowrap;
-                }
-                .pe-segmented button + button { border-left: 1px solid var(--color-gray-200, #e5e7eb); }
-                .pe-segmented button.active { background: #7c3aed; color: white; }
-                .pe-help-btn-inline {
-                    flex: 0 0 auto;
-                    padding: 0.25rem 0.5rem;
-                    background: none;
-                    border: none;
-                    border-left: 1px solid var(--color-gray-200, #e5e7eb);
-                    color: var(--color-gray-400, #9ca3af);
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                }
-                .pe-help-box {
-                    background: var(--color-gray-100, #f9fafb);
-                    border: 1px solid var(--color-gray-200, #e5e7eb);
-                    border-radius: var(--radius-md, 6px);
-                    padding: 0.65rem 0.85rem;
-                    font-size: 0.75rem;
-                    color: var(--color-gray-600, #4b5563);
-                    line-height: 1.5;
-                }
-                .pe-help-box p { margin: 0 0 0.25rem; }
-                .pe-help-box strong { color: var(--color-gray-800, #1f2937); }
-                .pe-publish-btn {
-                    width: 100%;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.4rem;
-                    padding: 0.65rem 0.75rem;
-                    background: #7c3aed;
-                    color: white;
-                    border: none;
-                    border-radius: var(--radius-full, 9999px);
-                    font-weight: 600;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    transition: background 0.15s;
-                }
-                .pe-publish-btn:hover { background: #6d28d9; }
-                .pe-publish-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-                .pe-action-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
-                .pe-action-btn {
-                    flex: 1;
-                    min-width: 0;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.3rem;
-                    padding: 0.5rem 0.5rem;
-                    border-radius: var(--radius-md, 6px);
-                    background: none;
-                    cursor: pointer;
-                    font-weight: 500;
-                    font-size: 0.78rem;
-                    white-space: nowrap;
-                    transition: background 0.15s;
-                }
-                .pe-action-purple { border: 1px solid var(--color-gray-200, #e9d5ff); color: #a78bfa; }
-                .pe-action-purple:hover { background: rgba(139, 92, 246, 0.08); }
-                .pe-action-blue { border: 1px solid var(--color-gray-200, #bfdbfe); color: var(--color-primary, #2563eb); }
-                .pe-action-blue:hover { background: rgba(37, 99, 235, 0.08); }
-                .pe-action-green { border: 1px solid var(--color-gray-200, #bbf7d0); color: #22c55e; }
-                .pe-action-green:hover { background: rgba(22, 163, 106, 0.08); }
-                .pe-feed-toggle {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding-top: 0.75rem;
-                    border-top: 1px solid var(--color-gray-200, #e5e7eb);
-                    margin-top: 0.25rem;
-                }
-
                 /* ── Projects ── */
                 .pe-project-grid {
                     display: grid;
@@ -1972,10 +1649,9 @@ const ProfileEdit = () => {
                     .pe-avatar-placeholder { font-size: 1.5rem; }
                     .pe-avatar-edit { width: 26px; height: 26px; }
                     .pe-banner-edit-text { display: none; }
-                    .pe-action-row { flex-direction: column; }
-                    .pe-action-btn { min-width: 100%; }
                     .pe-page-title { font-size: 1.25rem; }
-                    .pe-segmented button { font-size: 0.72rem; padding: 0.35rem 0.25rem; }
+                    .pe-banner-save-group { flex-direction: column; gap: 0.25rem; }
+                    .pe-banner-save-group .pe-save-btn { font-size: 0.72rem; height: 30px; padding: 0 0.75rem; }
                 }
 
                 @keyframes spin { to { transform: rotate(360deg); } }
@@ -1983,21 +1659,6 @@ const ProfileEdit = () => {
                     0% { width: 0%; margin-left: 0%; }
                     50% { width: 60%; margin-left: 20%; }
                     100% { width: 0%; margin-left: 100%; }
-                }
-
-                /* ── Nostr sidebar fields ── */
-                .pe-nostr-fields {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 0.5rem;
-                    align-items: start;
-                }
-                .pe-nostr-fields .pe-label {
-                    font-size: 0.72rem;
-                    white-space: nowrap;
-                }
-                .pe-nostr-fields .pe-hint {
-                    font-size: 0.68rem;
                 }
 
                 /* ── Dark Mode Overrides ── */
@@ -2019,29 +1680,6 @@ const ProfileEdit = () => {
                     background: #1E293B;
                     border-color: #334155;
                 }
-                [data-theme="dark"] .pe-segmented {
-                    border-color: #475569;
-                }
-                [data-theme="dark"] .pe-segmented button {
-                    color: #94A3B8;
-                }
-                [data-theme="dark"] .pe-segmented button + button {
-                    border-left-color: #475569;
-                }
-                [data-theme="dark"] .pe-help-box {
-                    background: #253349;
-                    border-color: #334155;
-                    color: #CBD5E1;
-                }
-                [data-theme="dark"] .pe-help-box strong { color: #F1F5F9; }
-                [data-theme="dark"] .pe-help-btn-inline {
-                    color: #64748B;
-                    border-left-color: #475569;
-                }
-                [data-theme="dark"] .pe-action-purple { border-color: #4c1d95; color: #a78bfa; }
-                [data-theme="dark"] .pe-action-blue { border-color: #1e3a5f; color: #93C5FD; }
-                [data-theme="dark"] .pe-action-green { border-color: #064E3B; color: #6EE7B7; }
-                [data-theme="dark"] .pe-feed-toggle { border-top-color: #334155; }
                 [data-theme="dark"] .pe-toggle-label { color: #94A3B8; }
                 [data-theme="dark"] .pe-icon { color: #64748B; }
                 [data-theme="dark"] .pe-tag { background: #052E16; color: #6EE7B7; }
