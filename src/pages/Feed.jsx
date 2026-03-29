@@ -183,6 +183,8 @@ const Feed = () => {
     }, []);
 
     // Subscribe to private relay feed
+    const reconnectAttempts = useRef(0);
+
     useEffect(() => {
         if (feedMode !== 'private') return;
 
@@ -197,7 +199,8 @@ const Feed = () => {
 
         let cancelled = false;
         let reconnectTimer = null;
-        const timeout = setTimeout(() => setLoading(false), 15000);
+        let sub = null;
+        let timeout = null;
 
         // Collect pubkeys during streaming, batch-fetch profiles after EOSE.
         // Post-EOSE live arrivals are debounced (300ms) and batched too.
@@ -222,88 +225,116 @@ const Feed = () => {
             }
         };
 
-        const sub = nostrService.pool.subscribeMany(
-            [BIES_RELAY],
-            { kinds: [1, 6], limit: 50 },
-            {
-                onevent: (event) => {
-                    // Handle reposts (kind 6) — parse the embedded original post
-                    if (event.kind === 6) {
-                        let original;
-                        try { original = JSON.parse(event.content); } catch { return; }
-                        if (!original?.id || !original?.pubkey || !original?.content) return;
-                        // Mark as a repost so we can render "X reposted" label
-                        const repostEvent = { ...original, _repostedBy: event.pubkey, _repostTime: event.created_at, _repostId: event.id };
+        // Ensure the signer is ready before subscribing so the NIP-42
+        // AUTH handshake can complete immediately (prevents proxy timeout).
+        const startSubscription = async () => {
+            try {
+                await nostrSigner.tryRestore();
+            } catch {
+                // Signer restore failed — subscribe anyway; the relay may
+                // still work if the extension is available.
+            }
+
+            if (cancelled) return;
+
+            timeout = setTimeout(() => setLoading(false), 15000);
+
+            sub = nostrService.pool.subscribeMany(
+                [BIES_RELAY],
+                { kinds: [1, 6], limit: 50 },
+                {
+                    onevent: (event) => {
+                        // Handle reposts (kind 6) — parse the embedded original post
+                        if (event.kind === 6) {
+                            let original;
+                            try { original = JSON.parse(event.content); } catch { return; }
+                            if (!original?.id || !original?.pubkey || !original?.content) return;
+                            // Mark as a repost so we can render "X reposted" label
+                            const repostEvent = { ...original, _repostedBy: event.pubkey, _repostTime: event.created_at, _repostId: event.id };
+                            setPosts(prev => {
+                                if (prev.find(p => p.id === event.id || (p._repostId === event.id))) return prev;
+                                return [...prev, repostEvent].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
+                            });
+                            if (!fetchedProfiles.current.has(event.pubkey)) {
+                                if (!eoseFired) { preEosePubkeys.push(event.pubkey); }
+                                else { liveQueue.add(event.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
+                            }
+                            if (!fetchedProfiles.current.has(original.pubkey)) {
+                                if (!eoseFired) { preEosePubkeys.push(original.pubkey); }
+                                else { liveQueue.add(original.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
+                            }
+                            clearTimeout(timeout);
+                            setLoading(false);
+                            return;
+                        }
+
+                        // Skip machine-generated events (JSON metadata, protocol messages)
+                        const c = (event.content || '').trimStart();
+                        if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
+
+                        // Skip replies — events with 'e' tags are replies to other posts, not root posts
+                        if (event.tags.some(t => t[0] === 'e')) return;
+
                         setPosts(prev => {
-                            if (prev.find(p => p.id === event.id || (p._repostId === event.id))) return prev;
-                            return [...prev, repostEvent].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
+                            if (prev.find(p => p.id === event.id)) return prev;
+                            return [...prev, event].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
                         });
-                        if (!fetchedProfiles.current.has(event.pubkey)) {
-                            if (!eoseFired) { preEosePubkeys.push(event.pubkey); }
-                            else { liveQueue.add(event.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
-                        }
-                        if (!fetchedProfiles.current.has(original.pubkey)) {
-                            if (!eoseFired) { preEosePubkeys.push(original.pubkey); }
-                            else { liveQueue.add(original.pubkey); clearTimeout(debounceTimer); debounceTimer = setTimeout(flushLiveProfiles, 300); }
-                        }
                         clearTimeout(timeout);
                         setLoading(false);
-                        return;
-                    }
 
-                    // Skip machine-generated events (JSON metadata, protocol messages)
-                    const c = (event.content || '').trimStart();
-                    if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
-
-                    // Skip replies — events with 'e' tags are replies to other posts, not root posts
-                    if (event.tags.some(t => t[0] === 'e')) return;
-
-                    setPosts(prev => {
-                        if (prev.find(p => p.id === event.id)) return prev;
-                        return [...prev, event].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
-                    });
-                    clearTimeout(timeout);
-                    setLoading(false);
-
-                    if (!fetchedProfiles.current.has(event.pubkey)) {
-                        if (!eoseFired) {
-                            preEosePubkeys.push(event.pubkey);
-                        } else {
-                            liveQueue.add(event.pubkey);
-                            clearTimeout(debounceTimer);
-                            debounceTimer = setTimeout(flushLiveProfiles, 300);
+                        if (!fetchedProfiles.current.has(event.pubkey)) {
+                            if (!eoseFired) {
+                                preEosePubkeys.push(event.pubkey);
+                            } else {
+                                liveQueue.add(event.pubkey);
+                                clearTimeout(debounceTimer);
+                                debounceTimer = setTimeout(flushLiveProfiles, 300);
+                            }
                         }
-                    }
-                },
-                oneose: async () => {
-                    eoseFired = true;
-                    setLoading(false);
-                    clearTimeout(debounceTimer);
-                    const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
-                    toFetch.forEach(pk => fetchedProfiles.current.add(pk));
-                    if (toFetch.length === 0) return;
-                    const profileMap = await nostrService.getProfiles(toFetch);
-                    if (profileMap.size > 0) {
-                        setProfiles(prev => {
-                            const next = { ...prev };
-                            for (const [pk, p] of profileMap) next[pk] = p;
-                            return next;
-                        });
-                    }
-                },
-                onclose: () => {
-                    setLoading(false);
-                    // Auto-reconnect when the WebSocket drops unexpectedly
-                    // (nginx timeout, mobile network switch, cell handoff).
-                    if (!cancelled) {
-                        reconnectTimer = setTimeout(() => {
-                            setRefreshKey(k => k + 1);
-                        }, 2000);
-                    }
-                },
-                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
-            }
-        );
+                    },
+                    oneose: async () => {
+                        eoseFired = true;
+                        reconnectAttempts.current = 0; // Reset backoff on success
+                        setLoading(false);
+                        clearTimeout(debounceTimer);
+                        const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
+                        toFetch.forEach(pk => fetchedProfiles.current.add(pk));
+                        if (toFetch.length === 0) return;
+                        const profileMap = await nostrService.getProfiles(toFetch);
+                        if (profileMap.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of profileMap) next[pk] = p;
+                                return next;
+                            });
+                        }
+                    },
+                    onclose: () => {
+                        setLoading(false);
+                        // Auto-reconnect with exponential backoff
+                        // (nginx timeout, mobile network switch, cell handoff).
+                        if (!cancelled) {
+                            const attempt = reconnectAttempts.current;
+                            const delay = Math.min(2000 * Math.pow(2, attempt), 30000);
+                            reconnectAttempts.current = attempt + 1;
+                            console.log(`[Feed] Relay closed, reconnecting in ${delay}ms (attempt ${attempt + 1})`);
+                            reconnectTimer = setTimeout(() => {
+                                setRefreshKey(k => k + 1);
+                            }, delay);
+                        }
+                    },
+                    onauth: async (evt) => {
+                        try {
+                            return await nostrSigner.signEvent(evt);
+                        } catch {
+                            return undefined;
+                        }
+                    },
+                }
+            );
+        };
+
+        startSubscription();
 
         return () => {
             cancelled = true;
@@ -363,7 +394,7 @@ const Feed = () => {
                     if (userLiked.size) setLikedNotes(prev => new Set([...prev, ...userLiked]));
                     if (userReposted.size) setRepostedNotes(prev => new Set([...prev, ...userReposted]));
                 },
-                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
+                onauth: async (evt) => { try { return await nostrSigner.signEvent(evt); } catch { return undefined; } },
             }
         );
 
@@ -1056,7 +1087,7 @@ const Feed = () => {
                         }
                     },
                     onclose: () => setLoadingComments(prev => ({ ...prev, [postId]: false })),
-                    onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
+                    onauth: async (evt) => { try { return await nostrSigner.signEvent(evt); } catch { return undefined; } },
                 }
             );
             return;

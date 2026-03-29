@@ -105,7 +105,8 @@ wss.on('connection', (clientWs, req) => {
     let authenticated = false;
     let upstream = null;
     let authTimer = null;
-    const pendingMessages = []; // Buffer messages received before auth completes
+    const pendingMessages = [];      // Buffer client messages before auth completes
+    const pendingUpstream = [];      // Buffer upstream messages before auth completes
 
     // Generate random challenge
     const challenge = crypto.randomBytes(32).toString('hex');
@@ -128,11 +129,14 @@ wss.on('connection', (clientWs, req) => {
     });
 
     upstream.on('message', (data, isBinary) => {
-        // Forward upstream messages to client (only if authenticated).
         // Convert Buffers to strings so the browser receives text frames
         // (nostr-tools expects JSON text, not binary).
+        const payload = isBinary ? data : data.toString();
         if (authenticated && clientWs.readyState === WebSocket.OPEN) {
-            clientWs.send(isBinary ? data : data.toString());
+            clientWs.send(payload);
+        } else if (!authenticated) {
+            // Buffer upstream responses so they aren't lost during auth
+            pendingUpstream.push(payload);
         }
     });
 
@@ -150,13 +154,21 @@ wss.on('connection', (clientWs, req) => {
         }
     }, AUTH_TIMEOUT);
 
-    // Flush buffered messages to upstream after successful auth
+    // Flush buffered messages after successful auth
     function flushPending() {
+        // Send buffered client messages to upstream
         while (pendingMessages.length > 0) {
             const buffered = pendingMessages.shift();
             if (upstream && upstream.readyState === WebSocket.OPEN) {
                 const str = typeof buffered !== 'string' ? buffered.toString() : buffered;
                 upstream.send(normalizeMessage(str));
+            }
+        }
+        // Send buffered upstream responses to client
+        while (pendingUpstream.length > 0) {
+            const buffered = pendingUpstream.shift();
+            if (clientWs.readyState === WebSocket.OPEN) {
+                clientWs.send(buffered);
             }
         }
     }
