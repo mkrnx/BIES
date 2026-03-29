@@ -4,10 +4,10 @@ import { getPublicKey, nip19 } from 'nostr-tools';
 import { generateSeedWords, privateKeyFromSeedWords } from 'nostr-tools/nip06';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { Copy, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, ChevronUp, ChevronDown } from 'lucide-react';
+import { Copy, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, ChevronUp, ChevronDown, AtSign, X } from 'lucide-react';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
-import { walletApi } from '../services/api';
+import { walletApi, profilesApi } from '../services/api';
 
 const Signup = () => {
     const { loginWithNsec } = useAuth();
@@ -23,11 +23,30 @@ const Signup = () => {
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [passkeySaved, setPasskeySaved] = useState(false);
     const [passkeySupported, setPasskeySupported] = useState(false);
+    const [nip05Name, setNip05Name] = useState('');
+    const [nip05Available, setNip05Available] = useState(null);
+    const [nip05Checking, setNip05Checking] = useState(false);
 
     useEffect(() => {
         if (!PASSKEY_ENABLED) return;
         keytrService.checkSupport().then(setPasskeySupported);
     }, []);
+    // NIP-05 availability check (debounced)
+    useEffect(() => {
+        const name = nip05Name.trim().toLowerCase();
+        if (!name || name.length < 3) { setNip05Available(null); return; }
+        if (!/^[a-z0-9._-]+$/.test(name)) { setNip05Available(false); return; }
+        setNip05Checking(true);
+        const timer = setTimeout(async () => {
+            try {
+                const res = await profilesApi.checkNip05(name);
+                setNip05Available(res.available);
+            } catch { setNip05Available(null); }
+            finally { setNip05Checking(false); }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [nip05Name]);
+
     const [showSeedPhrase, setShowSeedPhrase] = useState(false);
     // Coinos wallet (signup)
     const [enableCoinos, setEnableCoinos] = useState(false);
@@ -96,9 +115,11 @@ const Signup = () => {
             const result = await loginWithNsec(keys.nsec);
 
             if (result.success) {
-                // Update profile name via API
+                // Update profile name + NIP-05 via API
                 const { authService } = await import('../services/authService.js');
-                await authService.completeNostrProfile({ name: profile.name });
+                const profileData = { name: profile.name };
+                if (nip05Name.trim()) profileData.nip05Name = nip05Name.trim().toLowerCase();
+                await authService.completeNostrProfile(profileData);
 
                 // Optionally create Coinos wallet
                 if (enableCoinos && COINOS_SIGNUP_WALLET && coinosUsername.trim()) {
@@ -301,6 +322,31 @@ const Signup = () => {
                                 value={profile.name}
                                 onChange={e => setProfile({ ...profile, name: e.target.value })}
                             />
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-sm font-medium mb-1" style={{ color: 'var(--color-gray-700)' }}>Choose your BIES identity</label>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <AtSign size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--color-gray-400)' }} />
+                                    <input
+                                        type="text"
+                                        className="w-full p-3 border input-box"
+                                        style={{ paddingLeft: '2.25rem' }}
+                                        placeholder="satoshi"
+                                        value={nip05Name}
+                                        onChange={e => setNip05Name(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                                    />
+                                </div>
+                                {nip05Checking && <Loader2 size={16} className="spin" style={{ color: 'var(--color-gray-400)' }} />}
+                                {!nip05Checking && nip05Available === true && <CheckCircle size={16} style={{ color: '#16a34a' }} />}
+                                {!nip05Checking && nip05Available === false && <X size={16} style={{ color: '#ef4444' }} />}
+                            </div>
+                            {nip05Name && (
+                                <p className="text-xs" style={{ marginTop: '0.25rem', color: nip05Available === false ? '#ef4444' : 'var(--color-gray-400)' }}>
+                                    {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                </p>
+                            )}
                         </div>
 
                         {COINOS_SIGNUP_WALLET && (

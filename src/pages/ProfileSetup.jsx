@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { nostrService } from '../services/nostrService';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
-import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send } from 'lucide-react';
+import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send, AtSign, CheckCircle, X } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 
 const ProfileSetup = () => {
@@ -19,6 +19,9 @@ const ProfileSetup = () => {
     const [error, setError] = useState('');
     const [showNostrEdit, setShowNostrEdit] = useState(false);
     const [nostrForm, setNostrForm] = useState({ name: '', about: '', picture: '', website: '', nip05: '', lud16: '' });
+    const [nip05Name, setNip05Name] = useState('');
+    const [nip05Available, setNip05Available] = useState(null);
+    const [nip05Checking, setNip05Checking] = useState(false);
 
     useEffect(() => {
         // Redirect if user doesn't need setup (returning user)
@@ -50,6 +53,22 @@ const ProfileSetup = () => {
         }
     }, [user, navigate]);
 
+    // NIP-05 availability check (debounced)
+    useEffect(() => {
+        const name = nip05Name.trim().toLowerCase();
+        if (!name || name.length < 3) { setNip05Available(null); return; }
+        if (!/^[a-z0-9._-]+$/.test(name)) { setNip05Available(false); return; }
+        setNip05Checking(true);
+        const timer = setTimeout(async () => {
+            try {
+                const res = await profilesApi.checkNip05(name);
+                setNip05Available(res.available);
+            } catch { setNip05Available(null); }
+            finally { setNip05Checking(false); }
+        }, 500);
+        return () => clearTimeout(timer);
+    }, [nip05Name]);
+
     const handleNostrFormChange = (field) => (e) => {
         setNostrForm(prev => ({ ...prev, [field]: e.target.value }));
     };
@@ -64,6 +83,7 @@ const ProfileSetup = () => {
         try {
             // Save BIES profile
             const updateData = { name: biesName.trim() };
+            if (nip05Name.trim()) updateData.nip05Name = nip05Name.trim().toLowerCase();
             if (user?.nostrPubkey) updateData.nostrNpub = nip19.npubEncode(user.nostrPubkey);
             if (nostrForm.picture || nostrProfile?.picture) updateData.avatar = nostrForm.picture || nostrProfile?.picture;
             if (nostrProfile?.banner) updateData.banner = nostrProfile.banner;
@@ -80,7 +100,8 @@ const ProfileSetup = () => {
                 if (nostrForm.about) data.about = nostrForm.about;
                 if (nostrForm.picture || nostrProfile?.picture) data.picture = nostrForm.picture || nostrProfile?.picture;
                 if (nostrForm.website || nostrProfile?.website) data.website = nostrForm.website || nostrProfile?.website;
-                if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
+                if (nip05Name.trim()) data.nip05 = `${nip05Name.trim().toLowerCase()}@bies.sovit.xyz`;
+                else if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
                 if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
                 if (showNostrEdit && nostrForm.name) {
                     await nostrService.updateProfile(data);
@@ -181,6 +202,53 @@ const ProfileSetup = () => {
                             {t('profileSetup.nameNote')}
                         </p>
                     </div>
+
+                    {/* NIP-05 Identity Picker */}
+                    {!loadingNostr && (
+                        nostrProfile?.nip05 ? (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Your Nostr Identity
+                                </label>
+                                <input
+                                    type="text" readOnly
+                                    className="w-full p-3 border rounded-lg input-field"
+                                    value={nostrProfile.nip05}
+                                    style={{ opacity: 0.7, cursor: 'default' }}
+                                />
+                                <p className="text-xs text-gray-400 mt-1">
+                                    You can set a BIES identity later in profile settings.
+                                </p>
+                            </div>
+                        ) : (
+                            <div className="mb-4">
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Choose your BIES identity
+                                </label>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                    <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                        <AtSign size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--color-gray-400)' }} />
+                                        <input
+                                            type="text"
+                                            className="w-full p-3 border rounded-lg input-field"
+                                            style={{ paddingLeft: '2.25rem' }}
+                                            placeholder="alice"
+                                            value={nip05Name}
+                                            onChange={e => setNip05Name(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                                        />
+                                    </div>
+                                    {nip05Checking && <Loader2 size={16} className="spin" style={{ color: 'var(--color-gray-400)' }} />}
+                                    {!nip05Checking && nip05Available === true && <CheckCircle size={16} style={{ color: '#16a34a' }} />}
+                                    {!nip05Checking && nip05Available === false && <X size={16} style={{ color: '#ef4444' }} />}
+                                </div>
+                                {nip05Name && (
+                                    <p className="text-xs mt-1" style={{ color: nip05Available === false ? '#ef4444' : 'var(--color-gray-400)' }}>
+                                        {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                    </p>
+                                )}
+                            </div>
+                        )
+                    )}
 
                     {/* Nostr Profile Editing (collapsible) */}
                     <div className="mb-4">
