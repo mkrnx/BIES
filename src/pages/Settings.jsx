@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
@@ -14,6 +14,13 @@ import { PASSKEY_ENABLED } from '../config/featureFlags';
 const Settings = () => {
     const { theme, setTheme } = useTheme();
     const { defaultView, setDefaultView } = useViewPreference();
+    const [mediaView, setMediaView] = useState(() => localStorage.getItem('bies_media_view') || 'card');
+
+    const handleMediaViewChange = (e) => {
+        const v = e.target.value;
+        setMediaView(v);
+        localStorage.setItem('bies_media_view', v);
+    };
     const { t, i18n } = useTranslation();
 
     const handleLanguageChange = (e) => {
@@ -218,6 +225,24 @@ const Settings = () => {
                     >
                         <option value="list">List View</option>
                         <option value="standard">Grid / Card View</option>
+                    </select>
+                </div>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><Play size={20} /></div>
+                        <div>
+                            <p className="setting-label">Media View</p>
+                            <p className="setting-desc">Default layout for the Media page</p>
+                        </div>
+                    </div>
+                    <select
+                        className="select-input"
+                        value={mediaView}
+                        onChange={handleMediaViewChange}
+                    >
+                        <option value="card">Cards</option>
+                        <option value="list">List</option>
+                        <option value="icon">Icons</option>
                     </select>
                 </div>
             </div>
