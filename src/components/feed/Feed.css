@@ -152,44 +152,84 @@
   to { transform: rotate(360deg); }
 }
 
-/* Explore sub-tabs */
-.primal-explore-tabs {
-  display: flex;
-  gap: 4px;
+/* Explore dropdown */
+.primal-explore-dropdown {
+  position: relative;
   padding: 8px 16px;
-  overflow-x: auto;
   border-bottom: 1px solid var(--feed-divider);
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
 
-.primal-explore-tabs::-webkit-scrollbar { display: none; }
-
-.primal-explore-tab {
+.primal-explore-dropdown-trigger {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  font-size: 13px;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
   font-weight: 600;
-  white-space: nowrap;
+  background: var(--feed-card-bg, rgba(255,255,255,0.04));
+  color: var(--feed-text-primary);
   border: 1px solid var(--feed-divider);
-  background: none;
-  color: var(--feed-text-tertiary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
-.primal-explore-tab:hover {
-  color: var(--feed-text-secondary);
+.primal-explore-dropdown-trigger:hover {
   border-color: var(--feed-text-tertiary);
 }
 
-.primal-explore-tab.active {
+.primal-explore-chevron {
+  transition: transform 0.2s;
+  opacity: 0.6;
+}
+
+.primal-explore-chevron.open {
+  transform: rotate(180deg);
+}
+
+.primal-explore-dropdown-menu {
+  position: absolute;
+  top: calc(100% - 2px);
+  left: 16px;
+  min-width: 200px;
+  background: var(--feed-bg, #1a1a2e);
+  border: 1px solid var(--feed-divider);
+  border-radius: 10px;
+  padding: 6px;
+  z-index: 50;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  animation: explore-dropdown-in 0.15s ease-out;
+}
+
+@keyframes explore-dropdown-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.primal-explore-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  background: none;
+  border: none;
+  color: var(--feed-text-secondary);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.primal-explore-dropdown-item:hover {
+  background: rgba(255,255,255,0.06);
+  color: var(--feed-text-primary);
+}
+
+.primal-explore-dropdown-item.active {
   background: var(--feed-accent);
   color: #fff;
-  border-color: var(--feed-accent);
 }
 
 /* ---------- Compose box ------------------------------------------------- */
@@ -568,6 +608,7 @@
   flex-direction: column;
   min-width: 0;
   width: 100%;
+  overflow: hidden;
 }
 
 /* ---------- Note context (three-dot menu) ------------------------------- */
