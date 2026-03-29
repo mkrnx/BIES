@@ -568,7 +568,6 @@
   flex-direction: column;
   min-width: 0;
   width: 100%;
-  overflow: hidden;
 }
 
 /* ---------- Note context (three-dot menu) ------------------------------- */
@@ -845,12 +844,13 @@
 .primal-repost-menu {
   position: absolute;
   bottom: 100%;
-  left: 0;
+  right: 0;
   background: var(--feed-card-bg);
   border: 1px solid var(--feed-divider);
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
   min-width: 180px;
+  white-space: nowrap;
   padding: 6px 0;
   z-index: 50;
   margin-bottom: 4px;

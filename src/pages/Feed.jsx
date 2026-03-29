@@ -688,8 +688,6 @@ const Feed = () => {
                 await nostrService.publishToBiesRelay(event);
             } else {
                 await nostrService.publishEvent(event);
-                // Also publish to private relay so it shows up there
-                try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
             }
             setRepostedNotes(prev => new Set(prev).add(post.id));
             setNoteStats(prev => ({
@@ -719,7 +717,11 @@ const Feed = () => {
                 content,
             };
             const signed = await nostrSigner.signEvent(unsigned);
-            await Promise.any(nostrService.pool.publish(nostrService.relays, signed));
+            if (feedMode === 'private') {
+                await nostrService.publishToBiesRelay(signed);
+            } else {
+                await Promise.any(nostrService.pool.publish(nostrService.relays, signed));
+            }
             setReplyText('');
             setReplyTarget(null);
             setNoteStats(prev => ({
