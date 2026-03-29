@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import compression from 'compression';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
+import fs from 'fs';
 import http from 'http';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
@@ -11,6 +12,12 @@ import { sanitize } from './middleware/sanitize';
 import { auditLog } from './middleware/audit';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
+
+// ─── Version ─────────────────────────────────────────────────────────────────
+const versionFile = path.resolve(__dirname, '..', '..', 'version.json');
+const appVersion: string = fs.existsSync(versionFile)
+    ? JSON.parse(fs.readFileSync(versionFile, 'utf8')).version
+    : process.env.APP_VERSION || '0.0.0';
 
 // ─── Route imports ────────────────────────────────────────────────────────────
 import authRoutes from './routes/auth.routes';
@@ -68,7 +75,16 @@ app.use(helmet({
 app.get('/api/health', (_req, res) => {
     res.json({
         status: 'ok',
+        version: appVersion,
         timestamp: new Date().toISOString(),
+    });
+});
+
+// ─── Version endpoint ────────────────────────────────────────────────────────
+app.get('/api/version', (_req, res) => {
+    res.json({
+        version: appVersion,
+        environment: config.nodeEnv,
     });
 });
 
@@ -193,7 +209,7 @@ attachWebSocketServer(server);
 server.listen(config.port, () => {
     console.log(`
 ╔══════════════════════════════════════════════════════════════════╗
-║                  BIES Backend Server v0.2.0                      ║
+║                  BIES Backend Server v${appVersion.padEnd(39)}║
 ╠══════════════════════════════════════════════════════════════════╣
 ║  Server:   http://localhost:${config.port}                              ║
 ║  WS:       ws://localhost:${config.port}/ws                            ║
