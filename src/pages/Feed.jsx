@@ -93,6 +93,7 @@ const Feed = () => {
     const [repostMenu, setRepostMenu] = useState(null); // post.id or null — shows repost relay choice
     const [postMenu, setPostMenu] = useState(null); // post.id or null — shows "..." menu
     const [deletingPost, setDeletingPost] = useState(null); // post.id being deleted
+    const [copyToast, setCopyToast] = useState(null); // toast message string
 
     // Mention autocomplete
     const [mentionResults, setMentionResults] = useState([]);
@@ -688,8 +689,6 @@ const Feed = () => {
                 await nostrService.publishToBiesRelay(event);
             } else {
                 await nostrService.publishEvent(event);
-                // Also publish to private relay so it shows up there
-                try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
             }
             setRepostedNotes(prev => new Set(prev).add(post.id));
             setNoteStats(prev => ({
@@ -719,7 +718,11 @@ const Feed = () => {
                 content,
             };
             const signed = await nostrSigner.signEvent(unsigned);
-            await Promise.any(nostrService.pool.publish(nostrService.relays, signed));
+            if (feedMode === 'private') {
+                await nostrService.publishToBiesRelay(signed);
+            } else {
+                await Promise.any(nostrService.pool.publish(nostrService.relays, signed));
+            }
             setReplyText('');
             setReplyTarget(null);
             setNoteStats(prev => ({
@@ -811,6 +814,12 @@ const Feed = () => {
         }, 50);
     };
 
+    // Brief copy-confirmation toast
+    const showToast = (msg) => {
+        setCopyToast(msg);
+        setTimeout(() => setCopyToast(null), 2000);
+    };
+
     // Share a note
     const handleShare = async (post) => {
         const noteId = nip19.noteEncode(post.id);
@@ -821,6 +830,7 @@ const Feed = () => {
             } catch { /* cancelled */ }
         } else {
             await navigator.clipboard.writeText(url);
+            showToast(t('feed.linkCopied', 'Link copied'));
         }
     };
 
@@ -1170,6 +1180,7 @@ const Feed = () => {
 
     return (
         <div className="primal-feed-page">
+            {copyToast && <div className="primal-copy-toast">{copyToast}</div>}
             <div className="primal-feed-container">
                 {/* Feed header */}
                 <div className="primal-feed-header">
@@ -1405,13 +1416,14 @@ const Feed = () => {
                                     isCommentsOpen={isCommentsOpen}
                                     isOwnPost={isOwnPost}
                                     myPubkey={myPubkey}
-                                    postMenuOpen={postMenu === post.id}
-                                    repostMenuOpen={repostMenu === post.id}
+                                    postMenuOpen={postMenu === (post._repostId || post.id)}
+                                    repostMenuOpen={repostMenu === (post._repostId || post.id)}
                                     onToggleComments={() => toggleComments(post.id)}
                                     onLike={() => handleLike(post)}
                                     onRepostMenuToggle={() => {
                                         if (isReposted) return;
-                                        setRepostMenu(repostMenu === post.id ? null : post.id);
+                                        const menuKey = post._repostId || post.id;
+                                        setRepostMenu(repostMenu === menuKey ? null : menuKey);
                                     }}
                                     onRepost={(relay) => handleRepost(post, relay)}
                                     onZap={() => setZapTarget({
@@ -1422,14 +1434,17 @@ const Feed = () => {
                                         eventId: post.id,
                                     })}
                                     onShare={() => handleShare(post)}
-                                    onPostMenuToggle={() => setPostMenu(postMenu === post.id ? null : post.id)}
+                                    onPostMenuToggle={() => {
+                                        const menuKey = post._repostId || post.id;
+                                        setPostMenu(postMenu === menuKey ? null : menuKey);
+                                    }}
                                     onDeletePost={() => handleDeletePost(post)}
                                     onMuteUser={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}
                                     onReport={() => { handleReport(post); setPostMenu(null); }}
-                                    onCopyLink={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); }}
-                                    onCopyText={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); }}
-                                    onCopyId={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); }}
-                                    onCopyRaw={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); }}
+                                    onCopyLink={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); showToast(t('feed.linkCopied', 'Link copied')); }}
+                                    onCopyText={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); showToast(t('feed.textCopied', 'Text copied')); }}
+                                    onCopyId={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); showToast(t('feed.idCopied', 'Note ID copied')); }}
+                                    onCopyRaw={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); showToast(t('feed.rawCopied', 'Raw data copied')); }}
                                     parseNoteContent={parseNoteContent}
                                     formatTime={formatTime}
                                     formatCount={formatCount}
