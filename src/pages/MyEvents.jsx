@@ -117,7 +117,7 @@ const MyEvents = () => {
     const [actionLoading, setActionLoading] = useState(null);
 
     const { data: eventsData, loading, refetch } = useApiQuery(eventsApi.listMine);
-    const eventList = eventsData?.data || eventsData || [];
+    const eventList = Array.isArray(eventsData?.data) ? eventsData.data : Array.isArray(eventsData) ? eventsData : [];
 
     const filteredEvents = eventList.filter(e => {
         const vis = (e.visibility || 'DRAFT').toLowerCase();

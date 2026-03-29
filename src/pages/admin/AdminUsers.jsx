@@ -373,7 +373,7 @@ const AdminUsers = () => {
             if (bannedFilter) params.banned = bannedFilter;
             if (search) params.search = search;
             const res = await adminApi.users(params);
-            setUsers(res?.data || []);
+            setUsers(Array.isArray(res?.data) ? res.data : []);
             setPagination(res?.pagination || { page: 1, total: 0, totalPages: 1 });
         } catch (err) {
             console.error('Failed to fetch users:', err);
@@ -388,7 +388,7 @@ const AdminUsers = () => {
             const params = { page, limit: 20 };
             if (trashSearch) params.search = trashSearch;
             const res = await adminApi.trashedUsers(params);
-            setTrashUsers(res?.data || []);
+            setTrashUsers(Array.isArray(res?.data) ? res.data : []);
             setTrashPagination(res?.pagination || { page: 1, total: 0, totalPages: 1 });
         } catch (err) {
             console.error('Failed to fetch trash:', err);

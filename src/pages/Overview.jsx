@@ -30,7 +30,7 @@ const Overview = () => {
         return () => clearTimeout(timer);
     }, []);
 
-    const projectList = projects?.data || projects || [];
+    const projectList = Array.isArray(projects?.data) ? projects.data : Array.isArray(projects) ? projects : [];
     const totalRaised = stats?.totalRaised || 0;
     const totalGoal = stats?.totalGoal || 0;
     const totalViews = stats?.totalViews || 0;
@@ -70,7 +70,7 @@ const Overview = () => {
         );
     }
 
-    const eventList = events?.data || events || [];
+    const eventList = Array.isArray(events?.data) ? events.data : Array.isArray(events) ? events : [];
     const courseList = courses || [];
 
     const hasProjects = projectList.length > 0;

@@ -17,7 +17,7 @@ const AdminAuditLog = () => {
             if (actionFilter) params.action = actionFilter;
             if (search) params.userId = search;
             const res = await adminApi.auditLogs(params);
-            setLogs(res?.data || []);
+            setLogs(Array.isArray(res?.data) ? res.data : []);
             setPagination(res?.pagination || { page: 1, total: 0, totalPages: 1 });
         } catch (err) {
             console.error('Failed to fetch audit logs:', err);

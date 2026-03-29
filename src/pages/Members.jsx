@@ -73,7 +73,7 @@ const Members = () => {
                 setAllProfiles(fetched.length > 0 ? fetched : MOCK_MEMBERS);
 
                 if (followingRes) {
-                    const fList = followingRes?.data || followingRes || [];
+                    const fList = Array.isArray(followingRes?.data) ? followingRes.data : Array.isArray(followingRes) ? followingRes : [];
                     setFollowingIds(new Set(fList.map(u => u.id)));
                 }
             } catch (err) {
