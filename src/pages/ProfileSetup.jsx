@@ -72,20 +72,23 @@ const ProfileSetup = () => {
 
             await profilesApi.update(updateData);
 
-            // Publish Nostr profile if user edited it
-            if (showNostrEdit && nostrForm.name) {
-                try {
-                    const data = {};
-                    if (nostrForm.name) data.name = nostrForm.name;
-                    if (nostrForm.about) data.about = nostrForm.about;
-                    if (nostrForm.picture) data.picture = nostrForm.picture;
-                    if (nostrForm.website) data.website = nostrForm.website;
-                    if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
-                    if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
+            // Publish Nostr kind:0 — always sync to private BIES relay;
+            // if user edited the Nostr section, also broadcast to public relays
+            try {
+                const data = {};
+                if (nostrForm.name || biesName.trim()) data.name = nostrForm.name || biesName.trim();
+                if (nostrForm.about) data.about = nostrForm.about;
+                if (nostrForm.picture || nostrProfile?.picture) data.picture = nostrForm.picture || nostrProfile?.picture;
+                if (nostrForm.website || nostrProfile?.website) data.website = nostrForm.website || nostrProfile?.website;
+                if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
+                if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
+                if (showNostrEdit && nostrForm.name) {
                     await nostrService.updateProfile(data);
-                } catch (nostrErr) {
-                    console.error('Nostr publish failed (non-blocking):', nostrErr);
+                } else {
+                    await nostrService.updateProfileToBiesRelay(data);
                 }
+            } catch (nostrErr) {
+                console.error('Nostr profile sync failed (non-blocking):', nostrErr);
             }
 
             // Announce new user on the BIES private relay feed

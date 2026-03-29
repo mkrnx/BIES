@@ -4,6 +4,7 @@ import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
 import { profilesApi, uploadApi, projectsApi } from '../services/api';
+import { blossomService } from '../services/blossomService';
 import { nostrService } from '../services/nostrService';
 import { Link, useNavigate } from 'react-router-dom';
 import NostrFeed from '../components/NostrFeed';
@@ -340,7 +341,7 @@ const ProfileEdit = () => {
         setForm(prev => ({ ...prev, [field]: e.target.type === 'checkbox' ? e.target.checked : e.target.value }));
     };
 
-    const handleSave = async (e) => {
+    const handleSave = async (e, { publishPublic = false } = {}) => {
         e?.preventDefault();
         setSaving(true);
         setError('');
@@ -374,6 +375,26 @@ const ProfileEdit = () => {
             if (memberRole && memberRole !== user?.role) {
                 await updateRole(memberRole);
             }
+
+            // Always sync kind:0 metadata to the private BIES relay;
+            // optionally also broadcast to public relays
+            try {
+                const nostrData = {};
+                if (form.name) { nostrData.display_name = form.name; nostrData.name = form.name; }
+                if (form.bio) nostrData.about = form.bio;
+                if (form.avatar) nostrData.picture = form.avatar;
+                if (form.banner) nostrData.banner = form.banner;
+                if (form.website) nostrData.website = form.website;
+                if (form.lightningAddress) nostrData.lud16 = form.lightningAddress;
+                if (publishPublic) {
+                    await nostrService.updateProfile(nostrData);
+                } else {
+                    await nostrService.updateProfileToBiesRelay(nostrData);
+                }
+            } catch (nostrErr) {
+                console.error('Relay profile sync failed (non-blocking):', nostrErr);
+            }
+
             await refreshUser();
             navigate('/profile');
         } catch (err) {
@@ -414,7 +435,7 @@ const ProfileEdit = () => {
         setError('');
 
         try {
-            const result = await uploadApi.media(croppedFile);
+            const result = await blossomService.uploadFile(croppedFile);
             // Preload the image before showing it, so it doesn't flash white
             if (type === 'avatar') {
                 setAvatarImageLoading(true);
@@ -438,7 +459,7 @@ const ProfileEdit = () => {
             img.src = result.url;
         } catch (err) {
             console.error(`${type} upload error:`, err);
-            setError(`Failed to upload ${type}. Make sure the backend server is running.`);
+            setError(`Failed to upload ${type}. Please try again.`);
             if (type === 'avatar') setUploadingAvatar(false);
             else setUploadingBanner(false);
         }
@@ -1324,7 +1345,11 @@ const ProfileEdit = () => {
                 <div className="pe-bottom-save">
                     <button onClick={handleSave} type="button" disabled={saving} className="pe-save-btn pe-save-btn-full">
                         {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Save size={16} />}
-                        {saving ? 'Saving...' : 'Save Changes'}
+                        {saving ? 'Saving...' : 'Save to BIES'}
+                    </button>
+                    <button onClick={(e) => handleSave(e, { publishPublic: true })} type="button" disabled={saving} className="pe-save-btn pe-save-btn-full pe-save-btn-nostr">
+                        {saving ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <NostrIcon size={16} />}
+                        {saving ? 'Saving...' : 'Save to public Nostr'}
                     </button>
                 </div>
 
@@ -1622,8 +1647,10 @@ const ProfileEdit = () => {
                     white-space: nowrap;
                 }
                 .pe-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-                .pe-save-btn-full { width: 100%; justify-content: center; height: 40px; }
-                .pe-bottom-save { padding-top: 0.25rem; }
+                .pe-save-btn-full { flex: 1; justify-content: center; height: 40px; }
+                .pe-save-btn-nostr { background: #8b5cf6; }
+                .pe-save-btn-nostr:hover { background: #7c3aed; }
+                .pe-bottom-save { padding-top: 0.25rem; display: flex; gap: 0.5rem; }
 
                 /* ── Toggle ── */
                 .pe-toggle-row { display: flex; align-items: center; gap: 0.5rem; }
