@@ -94,7 +94,7 @@ const Dashboard = () => {
                                     color: active ? (isDark ? '#ffffff' : 'var(--color-primary)') : 'var(--color-gray-400)',
                                     fontSize: '0.65rem',
                                     fontWeight: active ? 700 : 500,
-                                    padding: '8px 0',
+                                    padding: '6px 0',
                                     WebkitTapHighlightColor: 'transparent',
                                 }}
                             >
@@ -214,8 +214,7 @@ const Dashboard = () => {
             justify-content: space-evenly;
             align-items: flex-start;
             background: var(--color-gray-50);
-            border-top: 1px solid var(--color-gray-200);
-            padding: 6px 0;
+            padding: 4px 0 2px;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
           }
