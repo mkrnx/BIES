@@ -608,7 +608,6 @@
   flex-direction: column;
   min-width: 0;
   width: 100%;
-  overflow: hidden;
 }
 
 /* ---------- Note context (three-dot menu) ------------------------------- */
