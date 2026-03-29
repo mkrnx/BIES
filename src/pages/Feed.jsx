@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
-import { Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, Calendar, X, ImagePlus, Smile, RefreshCw, Heart } from 'lucide-react';
+import { Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, Calendar, X, ImagePlus, Smile, RefreshCw, Heart, ChevronDown } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -53,6 +53,8 @@ const Feed = () => {
     const [loadingMore, setLoadingMore] = useState(false);
     const [feedMode, setFeedMode] = useState('private'); // 'private' | 'explore'
     const [exploreView, setExploreView] = useState('trending_24h');
+    const [exploreDropdownOpen, setExploreDropdownOpen] = useState(false);
+    const exploreDropdownRef = useRef(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [refreshing, setRefreshing] = useState(false);
     const fetchedProfiles = useRef(new Set());
@@ -72,6 +74,17 @@ const Feed = () => {
         document.addEventListener('visibilitychange', onVisible);
         return () => document.removeEventListener('visibilitychange', onVisible);
     }, [feedMode]);
+
+    // Close explore dropdown on click outside
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (exploreDropdownRef.current && !exploreDropdownRef.current.contains(e.target)) {
+                setExploreDropdownOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     // Compose state
     const [composeText, setComposeText] = useState('');
@@ -1215,22 +1228,45 @@ const Feed = () => {
                         </button>
                     </div>
 
-                    {/* Explore sub-tabs */}
+                    {/* Explore dropdown */}
                     {feedMode === 'explore' && (
-                        <div className="primal-explore-tabs" data-testid="explore-tabs">
-                            {EXPLORE_VIEWS.map(view => {
-                                const Icon = EXPLORE_ICONS[view.key];
-                                return (
-                                    <button
-                                        key={view.key}
-                                        className={`primal-explore-tab ${exploreView === view.key ? 'active' : ''}`}
-                                        onClick={() => setExploreView(view.key)}
-                                    >
-                                        <Icon size={13} />
-                                        <span>{view.label}</span>
-                                    </button>
-                                );
-                            })}
+                        <div className="primal-explore-dropdown" ref={exploreDropdownRef} data-testid="explore-tabs">
+                            <button
+                                className="primal-explore-dropdown-trigger"
+                                onClick={() => setExploreDropdownOpen(o => !o)}
+                            >
+                                {(() => {
+                                    const active = EXPLORE_VIEWS.find(v => v.key === exploreView);
+                                    const Icon = EXPLORE_ICONS[exploreView];
+                                    return (
+                                        <>
+                                            <Icon size={14} />
+                                            <span>{active?.label}</span>
+                                            <ChevronDown size={14} className={`primal-explore-chevron${exploreDropdownOpen ? ' open' : ''}`} />
+                                        </>
+                                    );
+                                })()}
+                            </button>
+                            {exploreDropdownOpen && (
+                                <div className="primal-explore-dropdown-menu">
+                                    {EXPLORE_VIEWS.map(view => {
+                                        const Icon = EXPLORE_ICONS[view.key];
+                                        return (
+                                            <button
+                                                key={view.key}
+                                                className={`primal-explore-dropdown-item${exploreView === view.key ? ' active' : ''}`}
+                                                onClick={() => {
+                                                    setExploreView(view.key);
+                                                    setExploreDropdownOpen(false);
+                                                }}
+                                            >
+                                                <Icon size={14} />
+                                                <span>{view.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
