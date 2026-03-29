@@ -1171,8 +1171,12 @@ const Feed = () => {
     return (
         <div className="primal-feed-page">
             <div className="primal-feed-container">
-                {/* Feed header — sticky tabs */}
+                {/* Feed header */}
                 <div className="primal-feed-header">
+                    <div className="primal-feed-title">
+                        <NostrIcon size={22} />
+                        <span>{t('feed.biesFeed', 'BIES Feed')}</span>
+                    </div>
                     <div className="primal-feed-tabs">
                         <button
                             className={`primal-feed-tab ${feedMode === 'private' ? 'active' : ''}`}
