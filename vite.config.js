@@ -1,10 +1,17 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
+import { readFileSync } from 'fs'
+
+const { version } = JSON.parse(readFileSync('./version.json', 'utf8'))
 
 // https://vitejs.dev/config/
 export default defineConfig({
     base: '/',
+    define: {
+        __APP_VERSION__: JSON.stringify(version),
+        __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+    },
     resolve: {
         // Ensure Vite resolves shared dependencies (@scure/base etc.)
         // to a single copy when used by both nostr-tools and @sovit.xyz/keytr.

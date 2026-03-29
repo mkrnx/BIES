@@ -478,6 +478,10 @@ const Settings = () => {
             </div>
             )}
 
+            <div className="version-footer">
+                BIES v{__APP_VERSION__}
+            </div>
+
             <style jsx>{`
                 .max-w-3xl { max-width: 48rem; }
 
@@ -527,6 +531,8 @@ const Settings = () => {
 
                 .passkey-status { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; font-weight: 500; color: var(--color-green-700, #15803d); background: var(--color-green-tint, #f0fdf4); padding: 0.5rem 0.75rem; border-radius: var(--radius-md); width: 100%; }
                 .passkey-success { font-size: 0.8rem; color: var(--color-green-700, #15803d); margin: 0; }
+
+                .version-footer { text-align: center; padding: 1.5rem 0 0.5rem; font-size: 0.75rem; color: var(--color-gray-400); letter-spacing: 0.02em; }
             `}</style>
         </div>
     );

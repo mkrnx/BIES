@@ -8,7 +8,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY index.html vite.config.js ./
+COPY index.html vite.config.js version.json ./
 COPY public/ public/
 COPY src/ src/
 
@@ -51,6 +51,7 @@ RUN npm ci --omit=dev
 COPY --from=server-build /app/server/dist/ dist/
 COPY --from=server-build /app/server/prisma/ prisma/
 COPY --from=server-build /app/server/node_modules/.prisma/ node_modules/.prisma/
+COPY version.json /app/version.json
 
 # The compiled server resolves __dirname relative to dist/src/,
 # so symlink uploads where the code expects to find them
