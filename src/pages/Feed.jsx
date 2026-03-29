@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useLocation, Link as RouterLink } from 'react-router-dom';
-import { MessageCircle, Heart, Repeat, Share, Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, ChevronDown, Calendar, X, ImagePlus, ChevronLeft, ChevronRight, Smile, MoreHorizontal, Link, Type, Hash, Code, Trash2, Flag, VolumeX, RefreshCw } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
+import { Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, Calendar, X, ImagePlus, Smile, RefreshCw, Heart } from 'lucide-react';
 import { nostrService, BIES_RELAY } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
@@ -12,9 +12,10 @@ import NostrIcon from '../components/NostrIcon';
 import ZapModal from '../components/ZapModal';
 import EmojiPicker from '../components/EmojiPicker';
 import NostrGifPicker from '../components/NostrGifPicker';
-import TranslatableText from '../components/TranslatableText';
 import { useLightbox } from '../context/LightboxContext';
 import { nip19 } from 'nostr-tools';
+import { Note, FeedSkeleton, Paginator } from '../components/feed';
+import '../components/feed/Feed.css';
 
 const EXPLORE_ICONS = {
     trending_24h: TrendingUp,
@@ -286,7 +287,7 @@ const Feed = () => {
                         }, 2000);
                     }
                 },
-                onauth: async (evt) => nostrSigner.signEvent(evt),
+                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
             }
         );
 
@@ -348,7 +349,7 @@ const Feed = () => {
                     if (userLiked.size) setLikedNotes(prev => new Set([...prev, ...userLiked]));
                     if (userReposted.size) setRepostedNotes(prev => new Set([...prev, ...userReposted]));
                 },
-                onauth: async (evt) => nostrSigner.signEvent(evt),
+                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
             }
         );
 
@@ -905,11 +906,6 @@ const Feed = () => {
         }
     };
 
-    const getHandle = (pubkey) => {
-        const profile = profiles[pubkey];
-        if (profile?.name) return `@${profile.name}`;
-        return '';
-    };
 
     const getAvatar = (pubkey) => {
         return profiles[pubkey]?.picture || null;
@@ -1037,7 +1033,7 @@ const Feed = () => {
                         }
                     },
                     onclose: () => setLoadingComments(prev => ({ ...prev, [postId]: false })),
-                    onauth: async (evt) => nostrSigner.signEvent(evt),
+                    onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
                 }
             );
             return;
@@ -1139,147 +1135,25 @@ const Feed = () => {
         return { text: textParts.join('').trim(), images, otherMedia };
     };
 
-    // Inline styles for image grid cells
-    const gridCellStyle = {
-        position: 'relative',
-        overflow: 'hidden',
-        cursor: 'pointer',
-    };
-    const gridImgStyle = {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        display: 'block',
-    };
 
-    const renderImageGrid = (images) => {
-        if (images.length === 0) return null;
-        const maxShow = 5;
-        const displayImages = images.slice(0, maxShow);
-        const extraCount = images.length - maxShow;
 
-        // Single image — scale proportionally, no crop
-        if (images.length === 1) {
-            return (
-                <div style={{ margin: '0.5rem 0 0.75rem', paddingLeft: '52px', overflow: 'hidden' }}>
-                    <img
-                        src={images[0]}
-                        alt=""
-                        loading="lazy"
-                        onClick={(e) => { e.stopPropagation(); openLightbox(images[0], images); }}
-                        style={{
-                            display: 'block',
-                            maxWidth: '100%',
-                            height: 'auto',
-                            borderRadius: '8px',
-                            cursor: 'pointer',
-                        }}
-                    />
-                </div>
-            );
-        }
-
-        // 2 images — side by side squares
-        if (images.length === 2) {
-            return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
-                    {images.map((src, i) => (
-                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
-                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-
-        // 3 images — one large left, two stacked right
-        if (images.length === 3) {
-            return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', height: '320px', borderRadius: '8px', overflow: 'hidden' }}>
-                    <div style={{ ...gridCellStyle, gridRow: '1 / 3' }} onClick={(e) => { e.stopPropagation(); openLightbox(images[0], images); }}>
-                        <img src={images[0]} alt="" loading="lazy" style={gridImgStyle} />
-                    </div>
-                    <div style={gridCellStyle} onClick={(e) => { e.stopPropagation(); openLightbox(images[1], images); }}>
-                        <img src={images[1]} alt="" loading="lazy" style={gridImgStyle} />
-                    </div>
-                    <div style={gridCellStyle} onClick={(e) => { e.stopPropagation(); openLightbox(images[2], images); }}>
-                        <img src={images[2]} alt="" loading="lazy" style={gridImgStyle} />
-                    </div>
-                </div>
-            );
-        }
-
-        // 4 images — 2x2 grid
-        if (images.length === 4) {
-            return (
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
-                    {images.map((src, i) => (
-                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '100%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
-                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
-                        </div>
-                    ))}
-                </div>
-            );
-        }
-
-        // 5+ images — top row 2, bottom row 3 (Facebook style)
+    // Render other media (video, audio, youtube)
+    const renderOtherMediaInline = (media) => {
+        if (!media || media.length === 0) return null;
         return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', margin: '0.5rem 0 0.75rem', borderRadius: '8px', overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px' }}>
-                    {displayImages.slice(0, 2).map((src, i) => (
-                        <div key={i} style={{ ...gridCellStyle, paddingBottom: '75%' }} onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}>
-                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
-                        </div>
-                    ))}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '3px' }}>
-                    {displayImages.slice(2, 5).map((src, i) => (
-                        <div
-                            key={i}
-                            style={{ ...gridCellStyle, paddingBottom: '100%' }}
-                            onClick={(e) => { e.stopPropagation(); openLightbox(src, images); }}
-                        >
-                            <img src={src} alt="" loading="lazy" style={gridImgStyle} />
-                            {i === 2 && extraCount > 0 && (
-                                <div style={{
-                                    position: 'absolute',
-                                    inset: 0,
-                                    background: 'rgba(0,0,0,0.5)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: 'white',
-                                    fontSize: '2rem',
-                                    fontWeight: 700,
-                                    zIndex: 1,
-                                }}>+{extraCount}</div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    };
-
-    const renderOtherMedia = (media) => {
-        if (media.length === 0) return null;
-        return (
-            <div className="note-media">
+            <div className="primal-note-media">
                 {media.map((m, i) => {
                     if (m.type === 'video') {
-                        return <video key={i} src={m.url} controls className="note-media-video" preload="metadata" />;
+                        return <video key={i} src={m.url} controls className="primal-note-video" preload="metadata" />;
                     }
                     if (m.type === 'audio') {
-                        return <audio key={i} src={m.url} controls className="note-media-audio" preload="metadata" />;
+                        return <audio key={i} src={m.url} controls className="primal-note-audio" preload="metadata" />;
                     }
                     if (m.type === 'youtube') {
                         return (
                             <iframe
                                 key={i}
-                                className="note-media-video"
+                                className="primal-note-youtube"
                                 src={`https://www.youtube-nocookie.com/embed/${m.id}`}
                                 title="YouTube video"
                                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -1295,67 +1169,61 @@ const Feed = () => {
     };
 
     return (
-        <div className="feed-page">
-            <div className="feed-container">
-                <div className="feed-header">
-                    <h1 className="feed-title page-header">
-                        <NostrIcon size={24} /> {t('feed.biesFeed')}
-                    </h1>
-                </div>
-
-                {/* Feed Mode Tabs */}
-                <div className="feed-tabs" data-testid="feed-tabs">
-                    <button
-                        className={`feed-tab ${feedMode === 'private' ? 'active' : ''}`}
-                        onClick={() => setFeedMode('private')}
-                        data-testid="tab-private"
-                    >
-                        <Lock size={14} />
-                        <span>{t('feed.privateRelay')}</span>
-                    </button>
-                    <button
-                        className={`feed-tab ${feedMode === 'explore' ? 'active' : ''}`}
-                        onClick={() => setFeedMode('explore')}
-                        data-testid="tab-explore"
-                    >
-                        <Globe size={14} />
-                        <span>{t('feed.explore')}</span>
-                    </button>
-                    <button
-                        className={`feed-tab-refresh${refreshing ? ' spinning' : ''}`}
-                        onClick={handleRefreshFeed}
-                        disabled={loading || refreshing}
-                        title={t('feed.refresh', 'Refresh feed')}
-                        aria-label={t('feed.refresh', 'Refresh feed')}
-                    >
-                        <RefreshCw size={14} />
-                    </button>
-                </div>
-
-                {/* Explore View Sub-Tabs */}
-                {feedMode === 'explore' && (
-                    <div className="explore-tabs" data-testid="explore-tabs">
-                        {EXPLORE_VIEWS.map(view => {
-                            const Icon = EXPLORE_ICONS[view.key];
-                            return (
-                                <button
-                                    key={view.key}
-                                    className={`explore-tab ${exploreView === view.key ? 'active' : ''}`}
-                                    onClick={() => setExploreView(view.key)}
-                                    data-testid={`explore-${view.key}`}
-                                >
-                                    <Icon size={13} />
-                                    <span>{view.label}</span>
-                                </button>
-                            );
-                        })}
+        <div className="primal-feed-page">
+            <div className="primal-feed-container">
+                {/* Feed header — sticky tabs */}
+                <div className="primal-feed-header">
+                    <div className="primal-feed-tabs">
+                        <button
+                            className={`primal-feed-tab ${feedMode === 'private' ? 'active' : ''}`}
+                            onClick={() => setFeedMode('private')}
+                            data-testid="tab-private"
+                        >
+                            <Lock size={15} className="primal-feed-tab-icon" />
+                            <span>{t('feed.privateRelay', 'Private Relay')}</span>
+                        </button>
+                        <button
+                            className={`primal-feed-tab ${feedMode === 'explore' ? 'active' : ''}`}
+                            onClick={() => setFeedMode('explore')}
+                            data-testid="tab-explore"
+                        >
+                            <Globe size={15} className="primal-feed-tab-icon" />
+                            <span>{t('feed.explore', 'Explore')}</span>
+                        </button>
+                        <button
+                            className={`primal-feed-refresh${refreshing ? ' spinning' : ''}`}
+                            onClick={handleRefreshFeed}
+                            disabled={loading || refreshing}
+                            title={t('feed.refresh', 'Refresh feed')}
+                        >
+                            <RefreshCw size={15} />
+                        </button>
                     </div>
-                )}
 
-                {/* Compose Box */}
-                <div className="compose-box">
-                    <div className="compose-top">
-                        <div className="compose-avatar">
+                    {/* Explore sub-tabs */}
+                    {feedMode === 'explore' && (
+                        <div className="primal-explore-tabs" data-testid="explore-tabs">
+                            {EXPLORE_VIEWS.map(view => {
+                                const Icon = EXPLORE_ICONS[view.key];
+                                return (
+                                    <button
+                                        key={view.key}
+                                        className={`primal-explore-tab ${exploreView === view.key ? 'active' : ''}`}
+                                        onClick={() => setExploreView(view.key)}
+                                    >
+                                        <Icon size={13} />
+                                        <span>{view.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+
+                {/* Compose box */}
+                <div className="primal-compose">
+                    <div className="primal-compose-row">
+                        <div className="primal-compose-avatar">
                             {user?.profile?.avatar ? (
                                 <img src={user.profile.avatar} alt="" />
                             ) : (
@@ -1364,8 +1232,8 @@ const Feed = () => {
                         </div>
                         <textarea
                             ref={composeInputRef}
-                            className="compose-input"
-                            placeholder={t('feed.whatsHappening')}
+                            className="primal-compose-input"
+                            placeholder={t('feed.whatsHappening', "What's on your mind?")}
                             value={composeText}
                             onChange={(e) => {
                                 setComposeText(e.target.value);
@@ -1373,66 +1241,73 @@ const Feed = () => {
                             }}
                             onKeyDown={handleKeyDown}
                             onBlur={() => setTimeout(() => setMentionAnchor(null), 150)}
-                            rows={3}
+                            rows={2}
                             data-testid="compose-input"
                         />
                     </div>
+
+                    {/* Mention dropdown */}
                     {mentionAnchor?.field === 'compose' && (mentionResults.length > 0 || mentionLoading) && (
-                        <div className="mention-dropdown">
+                        <div className="primal-mention-dropdown">
                             {mentionLoading && mentionResults.length === 0 && (
-                                <div className="mention-loading"><Loader2 size={12} className="spin" /> {t('feed.searching')}</div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', color: 'var(--feed-text-tertiary)', fontSize: 13 }}>
+                                    <Loader2 size={12} className="spin" /> {t('feed.searching', 'Searching...')}
+                                </div>
                             )}
                             {mentionResults.map(p => (
-                                <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
+                                <button key={p.pubkey} className="primal-mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
                                     {p.picture ? (
-                                        <img src={p.picture} className="mention-avatar" alt="" />
+                                        <img src={p.picture} className="primal-mention-avatar" alt="" />
                                     ) : (
-                                        <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
+                                        <div className="primal-mention-avatar-placeholder"><NostrIcon size={12} /></div>
                                     )}
-                                    <div className="mention-info">
-                                        <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
-                                        {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
+                                    <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                        <span className="primal-mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
+                                        {p.nip05 && <span className="primal-mention-nip05">{p.nip05}</span>}
                                     </div>
                                 </button>
                             ))}
                         </div>
                     )}
+
+                    {/* Media preview */}
                     {attachedFiles.length > 0 && (
-                        <div className="compose-media-preview">
+                        <div className="primal-compose-media-preview">
                             {attachedFiles.map((item, i) => (
-                                <div key={i} className="media-preview-item">
+                                <div key={i} className="primal-compose-media-item">
                                     {item.type.startsWith('image/') ? (
                                         <img src={item.previewUrl} alt="" />
                                     ) : (
                                         <video src={item.previewUrl} muted />
                                     )}
-                                    <button className="media-remove-btn" onClick={() => removeAttachment(i)}>
-                                        <X size={12} />
+                                    <button className="primal-compose-media-remove" onClick={() => removeAttachment(i)}>
+                                        <X size={10} />
                                     </button>
                                 </div>
                             ))}
                         </div>
                     )}
-                    {postError && <div className="compose-error">{postError}</div>}
-                    <div className="compose-bottom">
-                        <div className="compose-actions-left">
+
+                    {postError && <div className="primal-compose-error">{postError}</div>}
+
+                    <div className="primal-compose-bottom">
+                        <button
+                            className={`primal-compose-relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
+                            onClick={() => setBroadcastPublic(!broadcastPublic)}
+                            title={broadcastPublic ? t('feed.broadcastingPublic', 'Broadcasting to all relays') : t('feed.privateRelayOnly', 'Private relay only')}
+                        >
+                            {broadcastPublic ? <Globe size={13} /> : <Lock size={13} />}
+                            <span>{broadcastPublic ? t('feed.public', 'Public') : t('feed.private', 'Private')}</span>
+                        </button>
+
+                        <div className="primal-compose-actions">
                             <button
-                                className={`relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
-                                onClick={() => setBroadcastPublic(!broadcastPublic)}
-                                title={broadcastPublic ? t('feed.broadcastingPublic') : t('feed.privateRelayOnly')}
-                            >
-                                {broadcastPublic ? <Globe size={14} /> : <Lock size={14} />}
-                                <span>{broadcastPublic ? t('feed.public') : t('feed.private')}</span>
-                            </button>
-                        </div>
-                        <div className="compose-actions-right">
-                            <button
-                                className="media-attach-btn"
+                                className="primal-compose-btn"
                                 onClick={() => fileInputRef.current?.click()}
                                 title="Attach image or video"
                                 disabled={attachedFiles.length >= blossomService.MAX_ATTACHMENTS || posting || uploading}
                             >
-                                <ImagePlus size={16} />
+                                <ImagePlus size={18} />
                             </button>
                             <input
                                 ref={fileInputRef}
@@ -1444,11 +1319,11 @@ const Feed = () => {
                             />
                             <div className="picker-anchor">
                                 <button
-                                    className="media-attach-btn"
+                                    className="primal-compose-btn"
                                     onClick={() => { setShowEmojiPicker(!showEmojiPicker); setShowGifPicker(false); }}
                                     title="Emoji"
                                 >
-                                    <Smile size={16} />
+                                    <Smile size={18} />
                                 </button>
                                 {showEmojiPicker && (
                                     <EmojiPicker
@@ -1459,7 +1334,7 @@ const Feed = () => {
                             </div>
                             <div className="picker-anchor">
                                 <button
-                                    className="media-attach-btn"
+                                    className="primal-compose-btn"
                                     onClick={() => { setShowGifPicker(!showGifPicker); setShowEmojiPicker(false); }}
                                     title="GIF"
                                 >
@@ -1474,41 +1349,38 @@ const Feed = () => {
                                 )}
                             </div>
                             <button
-                                className="post-btn"
+                                className="primal-compose-post-btn"
                                 onClick={handlePost}
                                 disabled={(!composeText.trim() && attachedFiles.length === 0) || posting || uploading}
                                 data-testid="post-btn"
                             >
                                 {(posting || uploading) ? <Loader2 size={16} className="spin" /> : <Send size={16} />}
-                                <span>{uploading ? t('feed.uploading') : posting ? t('feed.posting') : t('feed.post')}</span>
+                                <span>{uploading ? t('feed.uploading', 'Uploading...') : posting ? t('feed.posting', 'Posting...') : t('feed.post', 'Post')}</span>
                             </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Feed */}
+                {/* Feed content */}
                 {loading && rootPosts.length === 0 ? (
-                    <div className="feed-loading" data-testid="feed-loading">
-                        <Loader2 size={24} className="spin" />
-                        <p>{feedMode === 'private' ? t('feed.connectingRelay') : t('feed.loadingTrending')}</p>
-                    </div>
+                    <FeedSkeleton count={5} />
                 ) : rootPosts.length === 0 ? (
-                    <div className="feed-empty" data-testid="feed-empty">
+                    <div className="primal-feed-empty" data-testid="feed-empty">
                         <NostrIcon size={40} />
-                        <h3>{t('feed.noPostsTitle')}</h3>
+                        <h3>{t('feed.noPostsTitle', 'No posts yet')}</h3>
                         <p>
                             {feedMode === 'private'
-                                ? t('feed.noPostsPrivate')
-                                : t('feed.noPostsExplore')}
+                                ? t('feed.noPostsPrivate', 'Be the first to post on the private relay!')
+                                : t('feed.noPostsExplore', 'Nothing to show right now.')}
                         </p>
                         {feedMode === 'private' && (
-                            <button className="try-public-btn" onClick={() => setFeedMode('explore')}>
-                                <Globe size={14} /> {t('feed.exploreNostr')}
+                            <button className="primal-try-public-btn" onClick={() => setFeedMode('explore')}>
+                                <Globe size={14} /> {t('feed.exploreNostr', 'Explore Nostr')}
                             </button>
                         )}
                     </div>
                 ) : (
-                    <div className="feed-list" data-testid="feed-list">
+                    <div data-testid="feed-list">
                         {rootPosts.map(post => {
                             const stats = getStats(post.id);
                             const isLiked = likedNotes.has(post.id);
@@ -1516,159 +1388,70 @@ const Feed = () => {
                             const isReplying = replyTarget?.id === post.id;
                             const isCommentsOpen = openComments.has(post.id);
                             const postComments = comments[post.id] || [];
-                            const { text, images, otherMedia } = parseNoteContent(post.content);
                             const isOwnPost = myPubkey && post.pubkey === myPubkey;
-                            return (
-                                <div key={post._repostId || post.id} className="feed-note" data-testid="feed-note" data-post-id={post.id}>
-                                    <div className="note-menu-wrapper">
-                                        <button className="note-menu-btn" onClick={() => setPostMenu(postMenu === post.id ? null : post.id)}>
-                                            <MoreHorizontal size={16} />
-                                        </button>
-                                        {postMenu === post.id && (
-                                            <div className="note-menu">
-                                                <button className="note-menu-item" onClick={() => { handleShare(post); setPostMenu(null); }}>
-                                                    <Share size={14} /> {t('feed.shareNote')}
-                                                </button>
-                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); }}>
-                                                    <Link size={14} /> {t('feed.copyNoteLink')}
-                                                </button>
-                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); }}>
-                                                    <Type size={14} /> {t('feed.copyNoteText')}
-                                                </button>
-                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); }}>
-                                                    <Hash size={14} /> {t('feed.copyNoteId')}
-                                                </button>
-                                                <button className="note-menu-item" onClick={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); }}>
-                                                    <Code size={14} /> {t('feed.copyRawData')}
-                                                </button>
-                                                {isOwnPost && (
-                                                    <button className="note-menu-item note-menu-danger" onClick={() => handleDeletePost(post)}>
-                                                        <Trash2 size={14} /> {t('feed.requestDelete')}
-                                                    </button>
-                                                )}
-                                                {!isOwnPost && (
-                                                    <>
-                                                        <button className="note-menu-item note-menu-danger" onClick={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}>
-                                                            <VolumeX size={14} /> {t('feed.muteUser')}
-                                                        </button>
-                                                        <button className="note-menu-item note-menu-danger" onClick={() => { handleReport(post); setPostMenu(null); }}>
-                                                            <Flag size={14} /> {t('feed.reportContent')}
-                                                        </button>
-                                                    </>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                    {post._repostedBy && (
-                                        <div className="repost-label">
-                                            <Repeat size={13} />
-                                            <span>{getDisplayName(post._repostedBy)} {t('feed.reposted')} {formatTime(post._repostTime)}</span>
-                                        </div>
-                                    )}
-                                    <RouterLink to={`/builder/${post.pubkey}`} className="note-header" style={{ textDecoration: 'none', color: 'inherit' }}>
-                                        <div className="note-avatar">
-                                            {getAvatar(post.pubkey) ? (
-                                                <img src={getAvatar(post.pubkey)} alt="" />
-                                            ) : (
-                                                <NostrIcon size={18} />
-                                            )}
-                                        </div>
-                                        <div className="note-meta">
-                                            <span className="note-name">{getDisplayName(post.pubkey)}</span>
-                                            <span className="note-handle">{getHandle(post.pubkey)} · {formatTime(post.created_at)}</span>
-                                        </div>
-                                    </RouterLink>
-                                    {text && (
-                                        <div className="note-content">
-                                            {renderContent(text)}
-                                        </div>
-                                    )}
-                                    {text && <TranslatableText text={text} buttonOnly />}
-                                    {renderImageGrid(images)}
-                                    {renderOtherMedia(otherMedia)}
-                                    <div className="note-actions">
-                                        <button
-                                            className={`action-btn ${isCommentsOpen ? 'active-reply' : ''}`}
-                                            title="Comments"
-                                            onClick={() => toggleComments(post.id)}
-                                        >
-                                            <MessageCircle size={15} />
-                                            <span>{formatCount(stats.replies)}</span>
-                                        </button>
-                                        <div className="repost-wrapper">
-                                            <button
-                                                className={`action-btn ${isReposted ? 'active-repost' : ''}`}
-                                                title="Repost"
-                                                onClick={() => {
-                                                    if (isReposted) return;
-                                                    setRepostMenu(repostMenu === post.id ? null : post.id);
-                                                }}
-                                            >
-                                                <Repeat size={15} />
-                                                <span>{formatCount(stats.reposts)}</span>
-                                            </button>
-                                            {repostMenu === post.id && (
-                                                <div className="repost-menu">
-                                                    <button className="repost-menu-item" onClick={() => handleRepost(post, 'private')}>
-                                                        <Lock size={14} />
-                                                        <span>{t('feed.repostPrivate')}</span>
-                                                    </button>
-                                                    <button className="repost-menu-item" onClick={() => handleRepost(post, 'public')}>
-                                                        <Globe size={14} />
-                                                        <span>{t('feed.repostPublic')}</span>
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <button
-                                            className={`action-btn ${isLiked ? 'active-like' : ''}`}
-                                            title="Like"
-                                            data-testid="like-btn"
-                                            onClick={() => handleLike(post)}
-                                        >
-                                            <Heart size={15} fill={isLiked ? '#ef4444' : 'none'} />
-                                            <span>{formatCount(stats.likes)}</span>
-                                        </button>
-                                        <button
-                                            className="action-btn action-zap"
-                                            data-testid="zap-btn"
-                                            title="Zap"
-                                            onClick={() => setZapTarget({
-                                                pubkey: post.pubkey,
-                                                name: getDisplayName(post.pubkey),
-                                                avatar: getAvatar(post.pubkey),
-                                                lud16: profiles[post.pubkey]?.lud16,
-                                                eventId: post.id,
-                                            })}
-                                        >
-                                            <Zap size={15} />
-                                            <span>{formatSats(stats.satszapped)}</span>
-                                        </button>
-                                        <button
-                                            className="action-btn action-share"
-                                            title="Share"
-                                            onClick={() => handleShare(post)}
-                                        >
-                                            <Share size={15} />
-                                        </button>
-                                    </div>
 
-                                    {/* Comment Section */}
+                            return (
+                                <Note
+                                    key={post._repostId || post.id}
+                                    post={post}
+                                    profiles={profiles}
+                                    stats={stats}
+                                    isLiked={isLiked}
+                                    isReposted={isReposted}
+                                    isCommentsOpen={isCommentsOpen}
+                                    isOwnPost={isOwnPost}
+                                    myPubkey={myPubkey}
+                                    postMenuOpen={postMenu === post.id}
+                                    repostMenuOpen={repostMenu === post.id}
+                                    onToggleComments={() => toggleComments(post.id)}
+                                    onLike={() => handleLike(post)}
+                                    onRepostMenuToggle={() => {
+                                        if (isReposted) return;
+                                        setRepostMenu(repostMenu === post.id ? null : post.id);
+                                    }}
+                                    onRepost={(relay) => handleRepost(post, relay)}
+                                    onZap={() => setZapTarget({
+                                        pubkey: post.pubkey,
+                                        name: getDisplayName(post.pubkey),
+                                        avatar: getAvatar(post.pubkey),
+                                        lud16: profiles[post.pubkey]?.lud16,
+                                        eventId: post.id,
+                                    })}
+                                    onShare={() => handleShare(post)}
+                                    onPostMenuToggle={() => setPostMenu(postMenu === post.id ? null : post.id)}
+                                    onDeletePost={() => handleDeletePost(post)}
+                                    onMuteUser={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}
+                                    onReport={() => { handleReport(post); setPostMenu(null); }}
+                                    onCopyLink={() => { navigator.clipboard.writeText(`https://njump.me/${nip19.noteEncode(post.id)}`); setPostMenu(null); }}
+                                    onCopyText={() => { navigator.clipboard.writeText(post.content || ''); setPostMenu(null); }}
+                                    onCopyId={() => { navigator.clipboard.writeText(post.id); setPostMenu(null); }}
+                                    onCopyRaw={() => { navigator.clipboard.writeText(JSON.stringify(post, null, 2)); setPostMenu(null); }}
+                                    parseNoteContent={parseNoteContent}
+                                    formatTime={formatTime}
+                                    formatCount={formatCount}
+                                    formatSats={formatSats}
+                                    getDisplayName={getDisplayName}
+                                    getAvatar={getAvatar}
+                                    onImageClick={openLightbox}
+                                    renderOtherMedia={renderOtherMediaInline}
+                                    t={t}
+                                >
+                                    {/* Comment section — rendered as children inside Note */}
                                     {isCommentsOpen && (
-                                        <div className="comment-section">
-                                            {/* Reply compose - at top */}
-                                            <div className="comment-compose">
-                                                <div className="comment-compose-avatar">
+                                        <div className="primal-comments">
+                                            {/* Reply compose */}
+                                            <div className="primal-comment-compose">
+                                                <div className="primal-avatar primal-avatar-sm">
                                                     {user?.profile?.avatar ? (
                                                         <img src={user.profile.avatar} alt="" />
                                                     ) : (
                                                         <NostrIcon size={13} />
                                                     )}
                                                 </div>
-                                                <div className="comment-compose-input-row">
+                                                <div className="primal-comment-input-row">
                                                     <textarea
                                                         ref={el => { commentInputRefs.current[post.id] = el; }}
-                                                        className="comment-input"
+                                                        className="primal-comment-input"
                                                         placeholder={t('feed.replyTo', { name: getDisplayName(post.pubkey) })}
                                                         value={isReplying ? replyText : ''}
                                                         onChange={(e) => {
@@ -1683,12 +1466,11 @@ const Feed = () => {
                                                         }}
                                                         rows={1}
                                                     />
-                                                    <div className="comment-picker-btns">
+                                                    <div className="primal-comment-picker-btns">
                                                         <div className="picker-anchor">
                                                             <button
-                                                                className="comment-picker-btn"
+                                                                className="primal-comment-picker-btn"
                                                                 onClick={() => { setCommentEmojiPicker(commentEmojiPicker === post.id ? null : post.id); setCommentGifPicker(null); }}
-                                                                title="Emoji"
                                                             >
                                                                 <Smile size={14} />
                                                             </button>
@@ -1701,11 +1483,10 @@ const Feed = () => {
                                                         </div>
                                                         <div className="picker-anchor">
                                                             <button
-                                                                className="comment-picker-btn"
+                                                                className="primal-comment-picker-btn"
                                                                 onClick={() => { setCommentGifPicker(commentGifPicker === post.id ? null : post.id); setCommentEmojiPicker(null); }}
-                                                                title="GIF"
                                                             >
-                                                                <span className="gif-label-sm">GIF</span>
+                                                                <span style={{ fontSize: 11, fontWeight: 700 }}>GIF</span>
                                                             </button>
                                                             {commentGifPicker === post.id && (
                                                                 <NostrGifPicker
@@ -1716,7 +1497,7 @@ const Feed = () => {
                                                         </div>
                                                     </div>
                                                     <button
-                                                        className="comment-send-btn"
+                                                        className="primal-comment-send"
                                                         onClick={() => handleReply(post)}
                                                         disabled={!isReplying || !replyText.trim() || replyPosting}
                                                     >
@@ -1727,20 +1508,22 @@ const Feed = () => {
 
                                             {/* Mention dropdown for replies */}
                                             {isReplying && mentionAnchor?.field === 'reply' && (mentionResults.length > 0 || mentionLoading) && (
-                                                <div className="mention-dropdown mention-dropdown-reply">
+                                                <div className="primal-mention-dropdown" style={{ marginLeft: 0 }}>
                                                     {mentionLoading && mentionResults.length === 0 && (
-                                                        <div className="mention-loading"><Loader2 size={12} className="spin" /> {t('feed.searching')}</div>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', color: 'var(--feed-text-tertiary)', fontSize: 13 }}>
+                                                            <Loader2 size={12} className="spin" /> {t('feed.searching', 'Searching...')}
+                                                        </div>
                                                     )}
                                                     {mentionResults.map(p => (
-                                                        <button key={p.pubkey} className="mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
+                                                        <button key={p.pubkey} className="primal-mention-item" onMouseDown={(e) => { e.preventDefault(); handleMentionSelect(p); }}>
                                                             {p.picture ? (
-                                                                <img src={p.picture} className="mention-avatar" alt="" />
+                                                                <img src={p.picture} className="primal-mention-avatar" alt="" />
                                                             ) : (
-                                                                <div className="mention-avatar-placeholder"><NostrIcon size={12} /></div>
+                                                                <div className="primal-mention-avatar-placeholder"><NostrIcon size={12} /></div>
                                                             )}
-                                                            <div className="mention-info">
-                                                                <span className="mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
-                                                                {p.nip05 && <span className="mention-nip05">{p.nip05}</span>}
+                                                            <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                                                <span className="primal-mention-name">{p.display_name || p.name || p.pubkey.slice(0, 10)}</span>
+                                                                {p.nip05 && <span className="primal-mention-nip05">{p.nip05}</span>}
                                                             </div>
                                                         </button>
                                                     ))}
@@ -1748,11 +1531,12 @@ const Feed = () => {
                                             )}
 
                                             {loadingComments[post.id] && postComments.length === 0 && (
-                                                <div className="comment-loading">
-                                                    <Loader2 size={14} className="spin" /> {t('feed.loadingComments')}
+                                                <div className="primal-comment-loading">
+                                                    <Loader2 size={14} className="spin" /> {t('feed.loadingComments', 'Loading comments...')}
                                                 </div>
                                             )}
 
+                                            {/* Comment list */}
                                             {(() => {
                                                 const limit = visibleCommentCount[post.id] || 5;
                                                 const latest = postComments.slice(-limit).reverse();
@@ -1760,46 +1544,41 @@ const Feed = () => {
                                                 return (
                                                     <>
                                                         {latest.map(comment => {
-                                                            const { text: ct, images: ci, otherMedia: cm } = parseNoteContent(comment.content);
+                                                            const { text: ct, images: ci } = parseNoteContent(comment.content);
                                                             return (
-                                                                <div key={comment.id} className="comment-item">
-                                                                    <div className="comment-avatar">
+                                                                <div key={comment.id} className="primal-comment">
+                                                                    <div className="primal-avatar primal-avatar-sm">
                                                                         {getAvatar(comment.pubkey) ? (
                                                                             <img src={getAvatar(comment.pubkey)} alt="" />
                                                                         ) : (
                                                                             <NostrIcon size={13} />
                                                                         )}
                                                                     </div>
-                                                                    <div className="comment-body">
-                                                                        <div className="comment-meta">
-                                                                            <span className="comment-name">{getDisplayName(comment.pubkey)}</span>
-                                                                            <span className="comment-time">{formatTime(comment.created_at)}</span>
+                                                                    <div className="primal-comment-body">
+                                                                        <div className="primal-comment-meta">
+                                                                            <span className="primal-comment-name">{getDisplayName(comment.pubkey)}</span>
+                                                                            <span className="primal-comment-time">{formatTime(comment.created_at)}</span>
                                                                         </div>
-                                                                        {ct && <div className="comment-text">{renderContent(ct)}</div>}
+                                                                        {ct && <div className="primal-comment-text">{renderContent(ct)}</div>}
                                                                         {ci.length > 0 && (
-                                                                            <div className="comment-images">
-                                                                                {ci.map((src, i) => (
-                                                                                    <img key={i} src={src} alt="" className="comment-img" onClick={(e) => { e.stopPropagation(); openLightbox(src, ci); }} />
+                                                                            <div className="primal-comment-images">
+                                                                                {ci.map((src, idx) => (
+                                                                                    <img key={idx} src={src} alt="" onClick={(e) => { e.stopPropagation(); openLightbox(src, ci); }} />
                                                                                 ))}
                                                                             </div>
                                                                         )}
-                                                                        <div className="comment-actions">
-                                                                            <button
-                                                                                className="comment-action-btn"
-                                                                                onClick={() => handleCommentReply(post.id, comment)}
-                                                                            >
-                                                                                <MessageCircle size={13} />
-                                                                                <span>{t('feed.reply')}</span>
+                                                                        <div className="primal-comment-actions">
+                                                                            <button className="primal-comment-action" onClick={() => handleCommentReply(post.id, comment)}>
+                                                                                Reply
                                                                             </button>
                                                                             <button
-                                                                                className={`comment-action-btn${likedComments.has(comment.id) ? ' comment-liked' : ''}`}
+                                                                                className={`primal-comment-action ${likedComments.has(comment.id) ? 'liked' : ''}`}
                                                                                 onClick={() => handleCommentLike(comment)}
                                                                             >
-                                                                                <Heart size={13} fill={likedComments.has(comment.id) ? 'currentColor' : 'none'} />
-                                                                                <span>{t('feed.like')}</span>
+                                                                                Like
                                                                             </button>
                                                                             <button
-                                                                                className="comment-action-btn"
+                                                                                className="primal-comment-action"
                                                                                 onClick={() => setZapTarget({
                                                                                     pubkey: comment.pubkey,
                                                                                     name: getDisplayName(comment.pubkey),
@@ -1807,8 +1586,7 @@ const Feed = () => {
                                                                                     eventId: comment.id,
                                                                                 })}
                                                                             >
-                                                                                <Zap size={13} />
-                                                                                <span>{t('feed.zap')}</span>
+                                                                                Zap
                                                                             </button>
                                                                         </div>
                                                                     </div>
@@ -1818,13 +1596,13 @@ const Feed = () => {
 
                                                         {hiddenCount > 0 && (
                                                             <button
-                                                                className="show-more-comments"
+                                                                className="primal-show-more-comments"
                                                                 onClick={() => setVisibleCommentCount(prev => ({
                                                                     ...prev,
                                                                     [post.id]: (prev[post.id] || 5) * 2,
                                                                 }))}
                                                             >
-                                                                {t('feed.showMoreComments', { count: Math.min(hiddenCount, limit) })}
+                                                                Show {Math.min(hiddenCount, limit)} more comments
                                                             </button>
                                                         )}
                                                     </>
@@ -1832,28 +1610,24 @@ const Feed = () => {
                                             })()}
 
                                             {!loadingComments[post.id] && postComments.length === 0 && (
-                                                <div className="comment-empty">{t('feed.noReplies')}</div>
+                                                <div className="primal-comment-empty">{t('feed.noReplies', 'No replies yet')}</div>
                                             )}
-
                                         </div>
                                     )}
-                                </div>
+                                </Note>
                             );
                         })}
 
-                        {/* Load More */}
+                        {/* Infinite scroll / load more */}
                         {feedMode === 'explore' && rootPosts.length >= 10 && (
-                            <button
-                                className="load-more-btn"
-                                onClick={handleLoadMore}
-                                disabled={loadingMore}
-                            >
-                                {loadingMore ? (
-                                    <><Loader2 size={16} className="spin" /> {t('feed.loading')}</>
-                                ) : (
-                                    <><ChevronDown size={16} /> {t('feed.loadMore')}</>
+                            <>
+                                <Paginator onIntersect={handleLoadMore} disabled={loadingMore} />
+                                {loadingMore && (
+                                    <div className="primal-feed-loading" style={{ padding: '20px' }}>
+                                        <Loader2 size={20} className="spin" />
+                                    </div>
                                 )}
-                            </button>
+                            </>
                         )}
                     </div>
                 )}
@@ -1867,1211 +1641,6 @@ const Feed = () => {
                     />
                 )}
             </div>
-
-
-            <style jsx>{`
-                .feed-page {
-                    min-height: calc(100vh - 73px);
-                    background: var(--color-gray-50, #f9fafb);
-                    padding: 2rem 1rem;
-                    overflow-x: hidden;
-                }
-                @media (max-width: 768px) {
-                    .feed-page {
-                        padding: 0.5rem 1rem;
-                    }
-                }
-                .feed-container {
-                    max-width: 640px;
-                    margin: 0 auto;
-                    min-width: 0;
-                    overflow: hidden;
-                }
-                .feed-header {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    margin-bottom: 1rem;
-                }
-                .feed-title {
-                    font-size: 1.5rem;
-                    font-weight: 700;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    color: var(--color-gray-900);
-                }
-
-                /* Feed Mode Tabs */
-                .feed-tabs {
-                    display: flex;
-                    gap: 0.5rem;
-                    margin-bottom: 0.75rem;
-                    background: var(--color-gray-100);
-                    border: 1px solid #e5e7eb;
-                    border-radius: var(--radius-xl, 12px);
-                    padding: 0.25rem;
-                }
-
-                @media (max-width: 768px) {
-                    .page-header { display: none !important; }
-                }
-                .feed-tab {
-                    flex: 1;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.375rem;
-                    padding: 0.625rem 1rem;
-                    border-radius: 10px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    background: transparent;
-                    color: #9ca3af;
-                }
-                .feed-tab:hover {
-                    color: #6b7280;
-                    background: #f9fafb;
-                }
-                .feed-tab.active {
-                    background: #7c3aed;
-                    color: white;
-                    box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
-                }
-                .feed-tab.active:nth-child(2) {
-                    background: #2563eb;
-                    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
-                }
-
-                .feed-tab-refresh.spinning svg {
-                    animation: spin 0.8s linear infinite;
-                }
-
-                /* Refresh button in tab bar */
-                .feed-tab-refresh {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 36px;
-                    min-width: 36px;
-                    padding: 0.625rem 0;
-                    border-radius: 10px;
-                    border: none;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    background: transparent;
-                    color: #9ca3af;
-                    flex-shrink: 0;
-                }
-                .feed-tab-refresh:hover {
-                    color: var(--color-primary, #0047AB);
-                    background: #f9fafb;
-                }
-                .feed-tab-refresh:disabled {
-                    opacity: 0.5;
-                    cursor: not-allowed;
-                }
-
-                /* Explore Sub-Tabs */
-                .explore-tabs {
-                    display: flex;
-                    gap: 0.375rem;
-                    margin-bottom: 1.25rem;
-                    overflow-x: auto;
-                    -webkit-overflow-scrolling: touch;
-                    scrollbar-width: none;
-                    padding-bottom: 2px;
-                }
-                .explore-tabs::-webkit-scrollbar { display: none; }
-                .explore-tab {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.3rem;
-                    padding: 0.4rem 0.75rem;
-                    border-radius: 9999px;
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                    border: 1px solid #e5e7eb;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    background: transparent;
-                    color: #9ca3af;
-                    white-space: nowrap;
-                    flex-shrink: 0;
-                }
-                .explore-tab:hover {
-                    color: #6b7280;
-                    border-color: #d1d5db;
-                    background: #f9fafb;
-                }
-                .explore-tab.active {
-                    background: #2563eb;
-                    color: white;
-                    border-color: #2563eb;
-                    box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
-                }
-
-                /* Compose Box */
-                .compose-box {
-                    background: var(--color-gray-100);
-                    border: 1px solid #e5e7eb;
-                    border-radius: var(--radius-xl, 12px);
-                    padding: 1rem;
-                    margin-bottom: 1.5rem;
-                }
-                .compose-top {
-                    display: flex;
-                    gap: 0.75rem;
-                }
-                .compose-avatar {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #7c3aed;
-                    border: 1px solid #ddd6fe;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                }
-                .compose-avatar img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .compose-input {
-                    flex: 1;
-                    border: none;
-                    outline: none;
-                    resize: none;
-                    font-size: 0.95rem;
-                    font-family: inherit;
-                    line-height: 1.5;
-                    color: #1f2937;
-                    background: transparent;
-                    cursor: text;
-                }
-                .compose-input::placeholder {
-                    color: #9ca3af;
-                }
-                .compose-error {
-                    color: var(--color-error, #ef4444);
-                    font-size: 0.8rem;
-                    padding: 0.25rem 0 0.25rem 52px;
-                }
-                .compose-media-preview {
-                    display: flex;
-                    gap: 0.5rem;
-                    padding: 0.75rem 0 0.25rem 52px;
-                    overflow-x: auto;
-                }
-                .media-preview-item {
-                    position: relative;
-                    width: 80px;
-                    height: 80px;
-                    border-radius: 8px;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                    border: 1px solid #e5e7eb;
-                }
-                .media-preview-item img,
-                .media-preview-item video {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .media-remove-btn {
-                    position: absolute;
-                    top: 4px;
-                    right: 4px;
-                    width: 20px;
-                    height: 20px;
-                    border-radius: 50%;
-                    background: rgba(0, 0, 0, 0.6);
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    padding: 0;
-                }
-                .media-remove-btn:hover {
-                    background: rgba(0, 0, 0, 0.8);
-                }
-                .compose-actions-left {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-                .compose-actions-right {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-                .media-attach-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 50%;
-                    border: 1px solid #e5e7eb;
-                    background: transparent;
-                    color: #6b7280;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .media-attach-btn:hover {
-                    background: #f3f4f6;
-                    color: #4b5563;
-                    border-color: #d1d5db;
-                }
-                .media-attach-btn:disabled {
-                    opacity: 0.4;
-                    cursor: not-allowed;
-                }
-                .compose-bottom {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    padding-top: 0.75rem;
-                    margin-top: 0.5rem;
-                    border-top: 1px solid #f3f4f6;
-                }
-                .relay-toggle {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.375rem;
-                    padding: 0.375rem 0.75rem;
-                    border-radius: 9999px;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    border: 1px solid;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                    background: transparent;
-                }
-                .relay-toggle.private {
-                    color: #7c3aed;
-                    border-color: #ddd6fe;
-                    background: #f5f3ff;
-                }
-                .relay-toggle.private:hover {
-                    background: #ede9fe;
-                }
-                .relay-toggle.public {
-                    color: #2563eb;
-                    border-color: #bfdbfe;
-                    background: #eff6ff;
-                }
-                .relay-toggle.public:hover {
-                    background: #dbeafe;
-                }
-                .post-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.375rem;
-                    padding: 0.5rem 1.25rem;
-                    background: var(--color-primary, #1e40af);
-                    color: white;
-                    border: none;
-                    border-radius: 9999px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: opacity 0.2s;
-                }
-                .post-btn:hover { opacity: 0.9; }
-                .post-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-                /* Feed */
-                .feed-loading {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 1rem;
-                    padding: 4rem 1rem;
-                    color: #9ca3af;
-                }
-                .feed-empty {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 0.75rem;
-                    padding: 4rem 1rem;
-                    color: #9ca3af;
-                    text-align: center;
-                }
-                .feed-empty h3 {
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    color: #6b7280;
-                }
-                .try-public-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.375rem;
-                    margin-top: 0.5rem;
-                    padding: 0.5rem 1.25rem;
-                    background: #2563eb;
-                    color: white;
-                    border: none;
-                    border-radius: 9999px;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: opacity 0.2s;
-                }
-                .try-public-btn:hover { opacity: 0.9; }
-                .feed-list {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 1rem;
-                    min-width: 0;
-                }
-                .feed-note {
-                    position: relative;
-                    background: var(--color-gray-100);
-                    border: 1px solid #e5e7eb;
-                    border-radius: var(--radius-xl, 12px);
-                    padding: 1.25rem;
-                    transition: box-shadow 0.2s, border-color 0.2s;
-                    overflow: visible;
-                    min-width: 0;
-                    max-width: 100%;
-                    box-sizing: border-box;
-                }
-                .feed-note:hover {
-                    box-shadow: var(--shadow-md, 0 4px 6px -1px rgba(0,0,0,0.1));
-                    border-color: #ddd6fe;
-                }
-                /* Repost label */
-                .repost-label {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                    padding-left: 52px;
-                    margin-bottom: 0.35rem;
-                    color: #22c55e;
-                    font-size: 0.78rem;
-                    font-weight: 600;
-                }
-
-                .note-header {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.75rem;
-                    margin-bottom: 0.75rem;
-                }
-
-                /* Three-dot menu */
-                .note-menu-wrapper {
-                    position: absolute;
-                    top: 0.75rem;
-                    right: 0.75rem;
-                    z-index: 10;
-                }
-                .note-menu-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 28px;
-                    height: 28px;
-                    border: none;
-                    background: transparent;
-                    color: #9ca3af;
-                    border-radius: 50%;
-                    cursor: pointer;
-                    transition: background 0.12s, color 0.12s;
-                }
-                .note-menu-btn:hover {
-                    background: #f3f4f6;
-                    color: #6b7280;
-                }
-                .note-menu {
-                    position: absolute;
-                    top: 100%;
-                    right: 0;
-                    margin-top: 4px;
-                    background: var(--color-surface, white);
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
-                    z-index: 9999;
-                    overflow: hidden;
-                    min-width: 200px;
-                }
-                .note-menu-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                    width: 100%;
-                    padding: 0.6rem 0.85rem;
-                    border: none;
-                    background: transparent;
-                    color: var(--color-gray-900, #1f2937);
-                    font-size: 0.82rem;
-                    font-family: inherit;
-                    cursor: pointer;
-                    white-space: nowrap;
-                    transition: background 0.12s;
-                }
-                .note-menu-item:hover {
-                    background: #f3f4f6;
-                }
-                .note-menu-item + .note-menu-item {
-                    border-top: 1px solid #f3f4f6;
-                }
-                .note-menu-danger {
-                    color: #ef4444;
-                }
-                .note-avatar {
-                    width: 40px;
-                    height: 40px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #7c3aed;
-                    border: 1px solid #ddd6fe;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                }
-                .note-avatar img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .note-meta {
-                    display: flex;
-                    flex-direction: column;
-                }
-                .note-name {
-                    font-weight: 600;
-                    color: #1f2937;
-                    font-size: 0.9rem;
-                    line-height: 1.2;
-                }
-                .note-handle {
-                    font-size: 0.8rem;
-                    color: #9ca3af;
-                }
-                .note-content {
-                    color: #374151;
-                    line-height: 1.6;
-                    font-size: 0.95rem;
-                    padding-left: 52px;
-                    margin-bottom: 0.75rem;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                }
-                .note-actions {
-                    display: flex;
-                    gap: 1.25rem;
-                    padding-left: 52px;
-                }
-                .action-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.3rem;
-                    color: #9ca3af;
-                    font-size: 0.8rem;
-                    transition: color 0.2s;
-                    background: none;
-                    border: none;
-                    cursor: pointer;
-                    padding: 0;
-                }
-                .action-btn:hover { color: #7c3aed; }
-                .action-btn.active-like { color: #ef4444; }
-                .action-btn.active-repost { color: #22c55e; }
-                .action-btn.active-reply { color: #7c3aed; }
-                .action-zap:hover { color: #f59e0b; }
-                .action-share { margin-left: auto; }
-
-                /* Repost relay choice dropdown */
-                .repost-wrapper {
-                    position: relative;
-                }
-                .repost-menu {
-                    position: absolute;
-                    bottom: 100%;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    margin-bottom: 6px;
-                    background: var(--color-surface, white);
-                    border: 1px solid #e5e7eb;
-                    border-radius: 10px;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-                    z-index: 9999;
-                    overflow: hidden;
-                    min-width: 200px;
-                }
-                .repost-menu-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    width: 100%;
-                    padding: 0.55rem 0.85rem;
-                    border: none;
-                    background: transparent;
-                    color: var(--color-gray-900, #1f2937);
-                    font-size: 0.82rem;
-                    font-family: inherit;
-                    cursor: pointer;
-                    white-space: nowrap;
-                    transition: background 0.12s;
-                }
-                .repost-menu-item:hover {
-                    background: #f3f4f6;
-                }
-                .repost-menu-item:first-child {
-                    border-bottom: 1px solid #f3f4f6;
-                }
-
-                /* Media in notes */
-                .note-media {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                    margin-top: 0.75rem;
-                    overflow: hidden;
-                    max-width: 100%;
-                    padding-left: 52px;
-                    box-sizing: border-box;
-                }
-                .note-media-img {
-                    max-width: 100%;
-                    max-height: 500px;
-                    border-radius: 12px;
-                    object-fit: contain;
-                }
-                .note-media-video {
-                    width: 100%;
-                    max-width: 100%;
-                    max-height: 500px;
-                    border-radius: 12px;
-                    aspect-ratio: 16/9;
-                    border: none;
-                    object-fit: contain;
-                    box-sizing: border-box;
-                }
-                .note-media-audio {
-                    width: 100%;
-                    border-radius: 8px;
-                }
-
-                /* Comment section */
-                .comment-section {
-                    margin-top: 0.75rem;
-                    border-top: 1px solid #ede9fe;
-                    padding-top: 0.75rem;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                }
-                .comment-loading {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    font-size: 0.8rem;
-                    color: #9ca3af;
-                    padding: 0.25rem 0;
-                }
-                .comment-empty {
-                    font-size: 0.8rem;
-                    color: #9ca3af;
-                    text-align: center;
-                    padding: 0.5rem 0;
-                }
-                .comment-item {
-                    display: flex;
-                    gap: 0.6rem;
-                    align-items: flex-start;
-                    padding-bottom: 0.75rem;
-                    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-                }
-                .comment-item:last-of-type {
-                    border-bottom: none;
-                    padding-bottom: 0;
-                }
-                .comment-avatar {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #7c3aed;
-                    border: 1px solid #ddd6fe;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                }
-                .comment-avatar img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .comment-body {
-                    flex: 1;
-                    min-width: 0;
-                }
-                .show-more-comments {
-                    background: none;
-                    border: none;
-                    color: #f97316;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    padding: 0.25rem 0;
-                    text-align: center;
-                    display: block;
-                    width: 100%;
-                }
-                .show-more-comments:hover {
-                    text-decoration: underline;
-                }
-                .comment-meta {
-                    display: flex;
-                    align-items: baseline;
-                    gap: 0.5rem;
-                    margin-bottom: 0.15rem;
-                }
-                .comment-name {
-                    font-weight: 600;
-                    font-size: 0.8rem;
-                    color: #1f2937;
-                }
-                .comment-time {
-                    font-size: 0.72rem;
-                    color: #9ca3af;
-                }
-                .comment-text {
-                    font-size: 0.875rem;
-                    color: #374151;
-                    line-height: 1.5;
-                    white-space: pre-wrap;
-                    word-break: break-word;
-                }
-                .comment-images {
-                    display: flex;
-                    gap: 4px;
-                    margin-top: 0.4rem;
-                    flex-wrap: wrap;
-                }
-                .comment-img {
-                    max-width: 160px;
-                    max-height: 120px;
-                    border-radius: 8px;
-                    object-fit: cover;
-                    cursor: pointer;
-                }
-                .comment-actions {
-                    display: flex;
-                    gap: 0.75rem;
-                    margin-top: 0.3rem;
-                }
-                .comment-action-btn {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.25rem;
-                    background: none;
-                    border: none;
-                    color: #9ca3af;
-                    font-size: 0.72rem;
-                    cursor: pointer;
-                    padding: 0;
-                    transition: color 0.15s;
-                }
-                .comment-action-btn:hover {
-                    color: #f97316;
-                }
-                .comment-action-btn.comment-liked {
-                    color: #ef4444;
-                }
-                .comment-compose {
-                    display: flex;
-                    gap: 0.6rem;
-                    align-items: flex-start;
-                    padding-top: 0.25rem;
-                    padding-bottom: 0.75rem;
-                    border-bottom: 1px solid #ede9fe;
-                    margin-bottom: 0.25rem;
-                }
-                .comment-compose-avatar {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 50%;
-                    background: linear-gradient(135deg, #ede9fe, #f5f3ff);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #7c3aed;
-                    border: 1px solid #ddd6fe;
-                    overflow: hidden;
-                    flex-shrink: 0;
-                }
-                .comment-compose-avatar img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                }
-                .comment-compose-input-row {
-                    flex: 1;
-                    display: flex;
-                    gap: 0.5rem;
-                    align-items: flex-end;
-                }
-                .comment-input {
-                    flex: 1;
-                    border: 1px solid #e5e7eb;
-                    border-radius: 20px;
-                    padding: 0.45rem 0.85rem;
-                    font-size: 0.875rem;
-                    font-family: inherit;
-                    resize: none;
-                    outline: none;
-                    background: var(--color-surface, white);
-                    color: inherit;
-                    box-sizing: border-box;
-                    line-height: 1.4;
-                    cursor: text;
-                }
-                .comment-input:focus {
-                    border-color: #7c3aed;
-                }
-                .comment-send-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: 50%;
-                    background: #7c3aed;
-                    color: white;
-                    border: none;
-                    cursor: pointer;
-                    flex-shrink: 0;
-                    transition: opacity 0.2s;
-                }
-                .comment-send-btn:hover { opacity: 0.85; }
-                .comment-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-                /* Picker anchor (relative positioning for popups) */
-                .picker-anchor {
-                    position: relative;
-                }
-                .gif-label {
-                    font-size: 0.7rem;
-                    font-weight: 700;
-                    letter-spacing: 0.5px;
-                }
-                .comment-picker-btns {
-                    display: flex;
-                    gap: 0.25rem;
-                    align-items: center;
-                    flex-shrink: 0;
-                }
-                .comment-picker-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 26px;
-                    height: 26px;
-                    border-radius: 50%;
-                    border: none;
-                    background: transparent;
-                    color: #9ca3af;
-                    cursor: pointer;
-                    transition: all 0.15s;
-                    padding: 0;
-                }
-                .comment-picker-btn:hover {
-                    background: #f3f4f6;
-                    color: #6b7280;
-                }
-                .gif-label-sm {
-                    font-size: 0.6rem;
-                    font-weight: 700;
-                    letter-spacing: 0.3px;
-                }
-
-                :global([data-theme="dark"]) .comment-picker-btn:hover {
-                    background: #2d3748;
-                    color: #e2e8f0;
-                }
-
-                /* Mention dropdown */
-                .mention-dropdown {
-                    background: var(--color-surface, white);
-                    border: 1px solid #e5e7eb;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.12);
-                    max-height: 220px;
-                    overflow-y: auto;
-                    margin: 0.25rem 0 0.25rem 52px;
-                }
-                .mention-dropdown-reply {
-                    margin: 0 0 0.25rem 34px;
-                }
-                .mention-loading {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.4rem;
-                    font-size: 0.78rem;
-                    color: #9ca3af;
-                    padding: 0.5rem 0.75rem;
-                }
-                .mention-item {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                    width: 100%;
-                    padding: 0.45rem 0.75rem;
-                    background: none;
-                    border: none;
-                    border-bottom: 1px solid #f3f4f6;
-                    cursor: pointer;
-                    text-align: left;
-                    transition: background 0.12s;
-                }
-                .mention-item:last-child { border-bottom: none; }
-                .mention-item:hover, .mention-item:focus { background: #f5f3ff; outline: none; }
-                .mention-avatar {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 50%;
-                    object-fit: cover;
-                    flex-shrink: 0;
-                }
-                .mention-avatar-placeholder {
-                    width: 28px;
-                    height: 28px;
-                    border-radius: 50%;
-                    background: #ede9fe;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #7c3aed;
-                    flex-shrink: 0;
-                }
-                .mention-info {
-                    display: flex;
-                    flex-direction: column;
-                    min-width: 0;
-                    overflow: hidden;
-                }
-                .mention-name {
-                    font-size: 0.82rem;
-                    font-weight: 600;
-                    color: #1f2937;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                .mention-nip05 {
-                    font-size: 0.7rem;
-                    color: #9ca3af;
-                    white-space: nowrap;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-                .note-mention {
-                    color: #7c3aed;
-                    font-weight: 600;
-                    cursor: pointer;
-                }
-                .note-mention:hover { text-decoration: underline; }
-                :global([data-theme="dark"]) .mention-dropdown {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
-                }
-                :global([data-theme="dark"]) .mention-item {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .mention-item:hover,
-                :global([data-theme="dark"]) .mention-item:focus { background: #2d3748; }
-                :global([data-theme="dark"]) .mention-name { color: #f1f5f9; }
-                :global([data-theme="dark"]) .note-mention { color: #a78bfa; }
-
-                /* Load More */
-                .load-more-btn {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.375rem;
-                    width: 100%;
-                    padding: 0.75rem;
-                    background: transparent;
-                    border: 1px solid #e5e7eb;
-                    border-radius: var(--radius-xl, 12px);
-                    color: #6b7280;
-                    font-size: 0.85rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .load-more-btn:hover {
-                    background: var(--color-gray-100);
-                    border-color: #d1d5db;
-                    color: #374151;
-                }
-                .load-more-btn:disabled {
-                    opacity: 0.6;
-                    cursor: not-allowed;
-                }
-
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
-                @keyframes spin {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                }
-
-                /* Lightbox */
-                .lightbox-overlay {
-                    position: fixed;
-                    inset: 0;
-                    z-index: 9999;
-                    background: rgba(0, 0, 0, 0.9);
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                }
-                .lightbox-close {
-                    position: absolute;
-                    top: 1rem;
-                    right: 1rem;
-                    background: rgba(255,255,255,0.15);
-                    border: none;
-                    border-radius: 50%;
-                    width: 40px;
-                    height: 40px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: white;
-                    cursor: pointer;
-                    transition: background 0.2s;
-                    z-index: 10001;
-                }
-                .lightbox-close:hover { background: rgba(255,255,255,0.3); }
-                .lightbox-img {
-                    max-width: 90vw;
-                    max-height: 90vh;
-                    object-fit: contain;
-                    border-radius: 8px;
-                    cursor: default;
-                }
-                .lightbox-arrow {
-                    position: fixed;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    background: rgba(0,0,0,0.5);
-                    border: none;
-                    color: white;
-                    padding: 0.5rem;
-                    border-radius: 8px;
-                    cursor: pointer;
-                    z-index: 10001;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                }
-                .lightbox-arrow:hover { background: rgba(0,0,0,0.7); }
-                .lightbox-prev { left: 1rem; }
-                .lightbox-next { right: 1rem; }
-                .lightbox-counter {
-                    position: fixed;
-                    bottom: 2rem;
-                    left: 50%;
-                    transform: translateX(-50%);
-                    color: white;
-                    background: rgba(0,0,0,0.5);
-                    padding: 0.25rem 0.75rem;
-                    border-radius: 20px;
-                    font-size: 0.85rem;
-                    z-index: 10001;
-                }
-
-                /* Dark mode */
-                :global([data-theme="dark"]) .feed-note {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .feed-note:hover {
-                    border-color: rgba(139, 92, 246, 0.4);
-                }
-                :global([data-theme="dark"]) .note-name {
-                    color: #f1f5f9;
-                }
-                :global([data-theme="dark"]) .note-menu-btn {
-                    color: #64748b;
-                }
-                :global([data-theme="dark"]) .note-menu-btn:hover {
-                    background: #2d3748;
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .note-menu {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .note-menu-item {
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .note-menu-item:hover {
-                    background: #2d3748;
-                }
-                :global([data-theme="dark"]) .note-menu-item + .note-menu-item {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .note-menu-danger {
-                    color: #f87171;
-                }
-                :global([data-theme="dark"]) .note-handle {
-                    color: #64748b;
-                }
-                :global([data-theme="dark"]) .note-content {
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .action-btn {
-                    color: #64748b;
-                }
-                :global([data-theme="dark"]) .action-btn.active-repost { color: #22c55e; }
-                :global([data-theme="dark"]) .action-btn.active-like { color: #ef4444; }
-                :global([data-theme="dark"]) .action-btn.active-reply { color: #7c3aed; }
-                :global([data-theme="dark"]) .repost-menu {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .repost-menu-item {
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .repost-menu-item:hover {
-                    background: #2d3748;
-                }
-                :global([data-theme="dark"]) .repost-menu-item:first-child {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .compose-box {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .compose-bottom {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .compose-input {
-                    color: #f1f5f9;
-                }
-                :global([data-theme="dark"]) .media-preview-item {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .media-attach-btn {
-                    border-color: #2d3748;
-                    color: #94a3b8;
-                }
-                :global([data-theme="dark"]) .media-attach-btn:hover {
-                    background: #2d3748;
-                    color: #e2e8f0;
-                    border-color: #4a5568;
-                }
-                :global([data-theme="dark"]) .feed-tabs {
-                    background: #1e2a3a;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .feed-tab {
-                    color: #94a3b8;
-                }
-                :global([data-theme="dark"]) .feed-tab:hover {
-                    background: #2d3748;
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .feed-tab.active {
-                    color: #ffffff;
-                }
-                :global([data-theme="dark"]) .feed-tab-refresh {
-                    color: #94a3b8;
-                }
-                :global([data-theme="dark"]) .feed-tab-refresh:hover {
-                    background: #2d3748;
-                    color: #60a5fa;
-                }
-                :global([data-theme="dark"]) .explore-tab {
-                    color: #94a3b8;
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .explore-tab:hover {
-                    background: #2d3748;
-                    color: #e2e8f0;
-                    border-color: #475569;
-                }
-                :global([data-theme="dark"]) .explore-tab.active {
-                    color: #ffffff;
-                    border-color: #2563eb;
-                }
-                :global([data-theme="dark"]) .relay-toggle.private {
-                    color: #c4b5fd;
-                    border-color: #4c3a7a;
-                    background: rgba(124, 58, 237, 0.2);
-                }
-                :global([data-theme="dark"]) .relay-toggle.public {
-                    color: #93c5fd;
-                    border-color: #1e3a5f;
-                    background: rgba(37, 99, 235, 0.2);
-                }
-                :global([data-theme="dark"]) .post-btn {
-                    color: #ffffff;
-                }
-                :global([data-theme="dark"]) .load-more-btn {
-                    border-color: #2d3748;
-                    color: #94a3b8;
-                }
-                :global([data-theme="dark"]) .load-more-btn:hover {
-                    background: #1e2a3a;
-                    border-color: #475569;
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .comment-section {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .comment-compose {
-                    border-color: #2d3748;
-                }
-                :global([data-theme="dark"]) .comment-item {
-                    border-color: rgba(255, 255, 255, 0.08);
-                }
-                :global([data-theme="dark"]) .comment-name {
-                    color: #f1f5f9;
-                }
-                :global([data-theme="dark"]) .comment-text {
-                    color: #e2e8f0;
-                }
-                :global([data-theme="dark"]) .comment-action-btn {
-                    color: #64748b;
-                }
-                :global([data-theme="dark"]) .comment-action-btn:hover {
-                    color: #f97316;
-                }
-                :global([data-theme="dark"]) .comment-input {
-                    background: #0f172a;
-                    border-color: #2d3748;
-                    color: #f1f5f9;
-                }
-                :global([data-theme="dark"]) .comment-input:focus {
-                    border-color: #7c3aed;
-                }
-            `}</style>
         </div>
     );
 };

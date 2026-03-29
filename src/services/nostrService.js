@@ -33,6 +33,13 @@ export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
  * (in-memory key or browser extension, depending on login method).
  */
 async function handleRelayAuth(evt) {
+    // Skip AUTH if signing would trigger a passkey/WebAuthn prompt.
+    // The key will be restored when the user takes an explicit action,
+    // and the relay will re-challenge on the next operation.
+    if (!nostrSigner.canSignSilently) {
+        console.log('[Nostr] AUTH deferred — signer requires user interaction');
+        return undefined;
+    }
     return nostrSigner.signEvent(evt);
 }
 
@@ -53,6 +60,11 @@ class NostrService {
             const biesNorm = this.biesRelay.replace(/\/+$/, '');
             if (normalized === biesNorm) {
                 return async (evt) => {
+                    // Don't trigger passkey prompts for background reconnects.
+                    if (!nostrSigner.canSignSilently) {
+                        console.log('[Nostr] AUTH deferred — signer requires user interaction');
+                        return undefined;
+                    }
                     console.log('[Nostr] AUTH challenge received for BIES relay, signing...');
                     try {
                         const signed = await nostrSigner.signEvent(evt);
