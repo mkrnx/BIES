@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, LayoutGrid, List, Grid3X3 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { mediaApi, newsApi } from '../services/api';
 
@@ -8,6 +8,8 @@ const Media = () => {
     const [substackItems, setSubstackItems] = useState([]);
     const [youtubeItems, setYoutubeItems] = useState([]);
     const [liveSettings, setLiveSettings] = useState({ livestreamUrl: '', livestreamActive: false });
+    const [viewMode, setViewMode] = useState('card'); // 'card' | 'list' | 'icon'
+    const [playingVideoId, setPlayingVideoId] = useState(null);
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
@@ -86,6 +88,29 @@ const Media = () => {
                     {liveSettings.livestreamActive && <span className="live-dot" />}
                     Live
                 </button>
+                <div className="view-toggles">
+                    <button
+                        className={`view-btn ${viewMode === 'card' ? 'active' : ''}`}
+                        onClick={() => { setViewMode('card'); setPlayingVideoId(null); }}
+                        title="Card view"
+                    >
+                        <LayoutGrid size={16} />
+                    </button>
+                    <button
+                        className={`view-btn ${viewMode === 'list' ? 'active' : ''}`}
+                        onClick={() => { setViewMode('list'); setPlayingVideoId(null); }}
+                        title="List view"
+                    >
+                        <List size={16} />
+                    </button>
+                    <button
+                        className={`view-btn ${viewMode === 'icon' ? 'active' : ''}`}
+                        onClick={() => { setViewMode('icon'); setPlayingVideoId(null); }}
+                        title="Icon view"
+                    >
+                        <Grid3X3 size={16} />
+                    </button>
+                </div>
             </div>
 
             {/* Tab Content */}
@@ -102,7 +127,7 @@ const Media = () => {
                                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
                                     No blog posts yet.
                                 </div>
-                            ) : (
+                            ) : viewMode === 'card' ? (
                                 <div className="grid grid-cols-3 gap-lg">
                                     {substackItems.map((item, idx) => (
                                         <div key={idx} className="substack-card">
@@ -120,6 +145,35 @@ const Media = () => {
                                         </div>
                                     ))}
                                 </div>
+                            ) : viewMode === 'list' ? (
+                                <div className="list-view">
+                                    {substackItems.map((item, idx) => (
+                                        <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="list-row">
+                                            {item.thumbnail && (
+                                                <div className="list-thumb" style={{ backgroundImage: `url(${item.thumbnail})` }} />
+                                            )}
+                                            <div className="list-info">
+                                                <h3>{item.title}</h3>
+                                                <p>{item.excerpt}</p>
+                                            </div>
+                                            <div className="list-meta">
+                                                <span>{formatDate(item.date)}</span>
+                                                <span>{item.author || 'Build In El Salvador'}</span>
+                                            </div>
+                                        </a>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="icon-grid">
+                                    {substackItems.map((item, idx) => (
+                                        <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="icon-tile">
+                                            <div className="icon-thumb" style={{ backgroundImage: item.thumbnail ? `url(${item.thumbnail})` : 'none' }}>
+                                                {!item.thumbnail && <span className="icon-placeholder">📝</span>}
+                                            </div>
+                                            <div className="icon-label">{item.title}</div>
+                                        </a>
+                                    ))}
+                                </div>
                             )
                         )}
 
@@ -129,32 +183,58 @@ const Media = () => {
                                 <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--color-gray-500)' }}>
                                     No videos yet.
                                 </div>
-                            ) : (
+                            ) : viewMode === 'card' ? (
                                 <div className="grid grid-cols-2 gap-lg">
-                                    {youtubeItems.map((item, idx) => (
-                                        <div key={idx} className="youtube-card">
-                                            {/* Embedded YouTube iframe */}
-                                            {item.videoId && (
-                                                <div className="youtube-embed">
-                                                    <iframe
-                                                        width="100%"
-                                                        height="100%"
-                                                        src={`https://www.youtube.com/embed/${item.videoId}`}
-                                                        title={item.title}
-                                                        frameBorder="0"
-                                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                                        allowFullScreen
-                                                    ></iframe>
+                                    {youtubeItems.map((item, idx) => {
+                                        const autoplay = playingVideoId === item.videoId ? 1 : 0;
+                                        return (
+                                            <div key={idx} className={`youtube-card${autoplay ? ' yt-highlighted' : ''}`} ref={autoplay ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : undefined}>
+                                                {item.videoId && (
+                                                    <div className="youtube-embed">
+                                                        <iframe
+                                                            width="100%"
+                                                            height="100%"
+                                                            src={`https://www.youtube.com/embed/${item.videoId}?autoplay=${autoplay}`}
+                                                            title={item.title}
+                                                            frameBorder="0"
+                                                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                            allowFullScreen
+                                                        ></iframe>
+                                                    </div>
+                                                )}
+                                                <div className="card-body">
+                                                    <div className="meta">{formatDate(item.date)}</div>
+                                                    <h3>{item.title}</h3>
+                                                    {item.description && <p>{item.description}</p>}
+                                                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
+                                                        Watch on YouTube →
+                                                    </a>
                                                 </div>
-                                            )}
-                                            <div className="card-body">
-                                                <div className="meta">{formatDate(item.date)}</div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            ) : viewMode === 'list' ? (
+                                <div className="list-view">
+                                    {youtubeItems.map((item, idx) => (
+                                        <div key={idx} className="list-row" onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }} style={{ cursor: 'pointer' }}>
+                                            <div className="list-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
+                                            <div className="list-info">
                                                 <h3>{item.title}</h3>
                                                 {item.description && <p>{item.description}</p>}
-                                                <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
-                                                    Watch on YouTube →
-                                                </a>
                                             </div>
+                                            <div className="list-meta">
+                                                <span>{formatDate(item.date)}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="icon-grid">
+                                    {youtubeItems.map((item, idx) => (
+                                        <div key={idx} className="icon-tile" onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }} style={{ cursor: 'pointer' }}>
+                                            <div className="icon-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
+                                            <div className="icon-label">{item.title}</div>
                                         </div>
                                     ))}
                                 </div>
@@ -412,10 +492,164 @@ const Media = () => {
           color: var(--color-neutral-dark);
         }
 
+        /* YouTube highlighted card (auto-playing from list/icon click) */
+        .yt-highlighted {
+          box-shadow: 0 0 0 2px var(--color-primary), var(--shadow-md);
+        }
+
+        /* View Toggle Buttons */
+        .view-toggles {
+          display: flex;
+          gap: 2px;
+          margin-left: auto;
+          padding-left: 0.5rem;
+          border-left: 1px solid var(--color-gray-300);
+          flex-shrink: 0;
+        }
+        .view-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          border: none;
+          cursor: pointer;
+          background: transparent;
+          color: #9ca3af;
+          transition: all 0.2s;
+        }
+        .view-btn:hover {
+          color: #6b7280;
+          background: #f3f4f6;
+        }
+        .view-btn.active {
+          color: var(--color-primary);
+          background: var(--color-primary-50, rgba(0, 71, 171, 0.08));
+        }
+
+        /* List View */
+        .list-view {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          background: var(--color-gray-200);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-lg);
+          overflow: hidden;
+        }
+        .list-row {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          padding: 0.875rem 1.25rem;
+          background: var(--color-surface);
+          text-decoration: none;
+          transition: background 0.15s;
+        }
+        .list-row:hover {
+          background: var(--color-gray-50, #f9fafb);
+        }
+        .list-thumb {
+          width: 72px;
+          height: 48px;
+          border-radius: 6px;
+          background-size: cover;
+          background-position: center;
+          background-color: var(--color-gray-200);
+          flex-shrink: 0;
+        }
+        .list-info {
+          flex: 1;
+          min-width: 0;
+        }
+        .list-info h3 {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--color-gray-900);
+          margin: 0 0 0.2rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .list-info p {
+          font-size: 0.8rem;
+          color: var(--color-gray-500);
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .list-meta {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-end;
+          gap: 0.15rem;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        .list-meta span {
+          font-size: 0.75rem;
+          color: var(--color-gray-400);
+        }
+
+        /* Icon / Grid View */
+        .icon-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 1rem;
+        }
+        .icon-tile {
+          text-decoration: none;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+          transition: transform 0.15s;
+        }
+        .icon-tile:hover {
+          transform: translateY(-2px);
+        }
+        .icon-thumb {
+          width: 100%;
+          aspect-ratio: 1;
+          border-radius: var(--radius-lg);
+          background-size: cover;
+          background-position: center;
+          background-color: var(--color-gray-200);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .icon-placeholder {
+          font-size: 2rem;
+        }
+        .icon-label {
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: var(--color-gray-900);
+          line-height: 1.3;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          text-align: center;
+        }
+
         @media (max-width: 768px) {
           .grid-cols-3,
           .grid-cols-2 {
             grid-template-columns: 1fr;
+          }
+          .icon-grid {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+          }
+          .list-thumb {
+            width: 56px;
+            height: 38px;
+          }
+          .list-meta {
+            display: none;
           }
           .page-header {
             display: none !important;

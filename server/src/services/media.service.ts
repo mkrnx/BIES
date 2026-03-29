@@ -54,7 +54,7 @@ export async function fetchSubstackFeed(): Promise<SubstackItem[]> {
             excerpt: item.contentSnippet ? item.contentSnippet.slice(0, 200) : undefined,
             link: item.link || '',
             date: item.pubDate || item.published,
-            thumbnail: item['media:thumbnail']?.[0]?.$.url || null,
+            thumbnail: item['media:thumbnail']?.[0]?.$.url || item.enclosure?.url || null,
             author: item.creator || feed.title || 'Build In El Salvador',
         }));
 
