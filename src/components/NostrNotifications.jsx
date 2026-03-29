@@ -83,7 +83,7 @@ const NostrNotifications = ({ mobile = false }) => {
                 oneose: () => {
                     setMyPostIds(postIds);
                 },
-                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
+                onauth: async (evt) => { try { return await nostrSigner.signEvent(evt); } catch { return undefined; } },
             }
         );
         postsSubRef.current = sub;
@@ -148,7 +148,7 @@ const NostrNotifications = ({ mobile = false }) => {
                         profileQueue.clear();
                     }
                 },
-                onauth: async (evt) => nostrSigner.canSignSilently ? nostrSigner.signEvent(evt) : undefined,
+                onauth: async (evt) => { try { return await nostrSigner.signEvent(evt); } catch { return undefined; } },
             }
         );
 
@@ -488,8 +488,10 @@ const NostrNotifications = ({ mobile = false }) => {
 
                 @media (max-width: 768px) {
                     .nostr-notif-dropdown {
+                        top: calc(73px + env(safe-area-inset-top, 0px));
                         right: 8px;
                         width: 300px;
+                        max-width: calc(100vw - 16px);
                     }
                 }
 

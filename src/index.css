@@ -647,11 +647,13 @@ textarea {
 
 .app-content {
   min-height: calc(100vh - 73px);
+  padding-top: calc(70px + env(safe-area-inset-top, 0px));
 }
 
 @media (max-width: 768px) {
   .app-content {
     min-height: calc(100vh - 73px);
+    padding-top: calc(73px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0));
     /* space for bottom nav + safe area */
   }

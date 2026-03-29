@@ -57,8 +57,8 @@ const Navbar = () => {
   };
 
   return (
-    <nav className="navbar" style={{ position: 'sticky', top: 0, zIndex: 100, display: 'flex', alignItems: 'center' }}>
-      <div className="container flex items-center justify-between" style={{ height: '100%', minHeight: '70px', position: 'relative' }}>
+    <nav className="navbar" style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, display: 'flex', flexDirection: 'column' }}>
+      <div className="container flex items-center justify-between" style={{ minHeight: '70px', position: 'relative' }}>
 
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -273,14 +273,20 @@ const Navbar = () => {
       )}
 
       {/* Bitcoin Orange Line */}
-      <div style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', position: 'absolute', bottom: 0, left: 0, zIndex: 10 }} />
+      <div className="navbar-orange-line" style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', flexShrink: 0 }} />
+
+      {/* Sub-navigation portal target (Dashboard tab bar renders here on mobile) */}
+      <div id="navbar-subnav" />
 
       <style jsx>{`
         .navbar {
           min-height: 70px;
+          padding-top: env(safe-area-inset-top, 0px);
           background: var(--color-primary);
-          position: sticky;
+          position: fixed;
           top: 0;
+          left: 0;
+          right: 0;
           z-index: 100;
           box-shadow: var(--shadow-sm);
         }

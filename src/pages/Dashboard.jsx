@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Folder, CalendarDays, BookOpen, Heart, MessageSquare, Settings, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,14 @@ const Dashboard = () => {
     const { logout } = useAuth();
     const { theme } = useTheme();
     const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const [portalTarget, setPortalTarget] = useState(null);
+
+    // Find the navbar subnav slot for the mobile tab bar portal
+    useEffect(() => {
+        const el = document.getElementById('navbar-subnav');
+        if (el) setPortalTarget(el);
+        return () => setPortalTarget(null);
+    }, []);
 
     const mainTabs = [
         { to: '/dashboard', label: t('dashboard.overview'), icon: LayoutDashboard, end: true },
@@ -62,50 +71,56 @@ const Dashboard = () => {
                 </div>
             </aside>
 
-            {/* Mobile Tab Bar */}
-            <div className="mobile-tab-bar" style={{ display: 'none' }}>
-                {mainTabs.map(tab => {
-                    const active = isTabActive(tab.to, tab.end);
-                    const Icon = tab.icon;
-                    return (
-                        <NavLink
-                            key={tab.to}
-                            to={tab.to}
-                            end={tab.end}
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '4px',
-                                flex: 1,
-                                textDecoration: 'none',
-                                color: active ? (isDark ? '#ffffff' : 'var(--color-primary)') : 'var(--color-gray-400)',
-                                fontSize: '0.65rem',
-                                fontWeight: active ? 700 : 500,
-                                padding: '8px 0',
-                                WebkitTapHighlightColor: 'transparent',
-                            }}
-                        >
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '44px',
-                                height: '44px',
-                                borderRadius: '50%',
-                                background: active ? (isDark ? '#00004E' : 'var(--color-blue-tint)') : 'var(--color-gray-100)',
-                                color: active ? (isDark ? '#ffffff' : 'var(--color-primary)') : 'var(--color-gray-400)',
-                                border: active && isDark ? '1px solid rgba(100, 149, 237, 0.35)' : 'none',
-                                transition: 'all 0.2s',
-                            }}>
-                                <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-                            </div>
-                            <span>{tab.label}</span>
-                        </NavLink>
-                    );
-                })}
-            </div>
+            {/* Mobile Tab Bar — portaled into the navbar so they're one fixed block */}
+            {portalTarget && createPortal(
+                <div className="mobile-tab-bar" style={{ display: 'none' }}>
+                    {mainTabs.map(tab => {
+                        const active = isTabActive(tab.to, tab.end);
+                        const Icon = tab.icon;
+                        return (
+                            <NavLink
+                                key={tab.to}
+                                to={tab.to}
+                                end={tab.end}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '4px',
+                                    flex: '1 0 0',
+                                    minWidth: '48px',
+                                    textDecoration: 'none',
+                                    color: active ? (isDark ? '#ffffff' : 'var(--color-primary)') : 'var(--color-gray-400)',
+                                    fontSize: '0.65rem',
+                                    fontWeight: active ? 700 : 500,
+                                    padding: '8px 0',
+                                    WebkitTapHighlightColor: 'transparent',
+                                }}
+                            >
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    width: '40px',
+                                    height: '40px',
+                                    minWidth: '40px',
+                                    minHeight: '40px',
+                                    borderRadius: '50%',
+                                    background: active ? (isDark ? '#00004E' : 'var(--color-blue-tint)') : 'var(--color-gray-100)',
+                                    color: active ? (isDark ? '#ffffff' : 'var(--color-primary)') : 'var(--color-gray-400)',
+                                    border: active && isDark ? '1px solid rgba(100, 149, 237, 0.35)' : 'none',
+                                    transition: 'all 0.2s',
+                                }}>
+                                    <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+                                </div>
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{tab.label}</span>
+                            </NavLink>
+                        );
+                    })}
+                </div>,
+                portalTarget
+            )}
 
             {/* Main Content Area */}
             <main className="dashboard-content">
@@ -199,19 +214,14 @@ const Dashboard = () => {
             justify-content: space-evenly;
             align-items: flex-start;
             background: var(--color-gray-50);
-            border-bottom: 1px solid var(--color-gray-200);
+            border-top: 1px solid var(--color-gray-200);
             padding: 6px 0;
-            position: fixed;
-            top: 70px;
-            left: 0;
-            right: 0;
-            z-index: 90;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
           }
           .dashboard-content {
             padding: 1rem;
-            padding-top: calc(100px + 1rem);
+            padding-top: calc(80px + 1rem);
             flex: 1;
             min-height: 0;
           }
