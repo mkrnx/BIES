@@ -83,7 +83,7 @@ const AdminOverview = () => {
                     margin-bottom: 3rem;
                 }
                 .stat-box {
-                    background: white;
+                    background: var(--color-surface-raised);
                     padding: 1.5rem;
                     border-radius: var(--radius-lg);
                     box-shadow: var(--shadow-sm);
@@ -96,10 +96,10 @@ const AdminOverview = () => {
                 }
                 .stat-box.featured .label { color: rgba(255,255,255,0.8); }
                 .stat-box.featured .action-hint { color: rgba(255,255,255,0.7); }
-                .stat-box .label { display: block; color: var(--color-gray-400); font-size: 0.875rem; margin-bottom: 0.5rem; }
+                .stat-box .label { display: block; color: var(--color-gray-500); font-size: 0.875rem; margin-bottom: 0.5rem; }
                 .value-row { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem; }
                 .value-row .value { font-size: 1.75rem; font-weight: 700; font-family: var(--font-mono); }
-                .action-hint { font-size: 0.8rem; color: var(--color-gray-400); }
+                .action-hint { font-size: 0.8rem; color: var(--color-gray-500); }
                 @media (max-width: 768px) {
                     .stats-grid { grid-template-columns: 1fr; }
                 }

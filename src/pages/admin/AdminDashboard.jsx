@@ -56,7 +56,7 @@ const AdminDashboard = () => {
         }
         .sidebar {
           width: 260px;
-          background: white;
+          background: var(--color-surface);
           border-right: 1px solid var(--color-gray-200);
           display: flex;
           flex-direction: column;
@@ -99,9 +99,9 @@ const AdminDashboard = () => {
           font-size: 0.95rem;
         }
         .sidebar-link:hover { background: var(--color-gray-100); color: var(--color-neutral-dark); }
-        .sidebar-link.active { background: #EDF5FF; color: var(--color-primary); font-weight: 600; }
+        .sidebar-link.active { background: var(--color-blue-tint); color: var(--color-primary); font-weight: 600; }
         .sidebar-link.text-error { color: var(--color-error); }
-        .sidebar-link.text-error:hover { background: #FEF2F2; }
+        .sidebar-link.text-error:hover { background: var(--color-red-tint); }
         .divider { height: 1px; background: var(--color-gray-200); margin: 1rem 0; }
         .mt-auto { margin-top: auto; }
         .dashboard-content {

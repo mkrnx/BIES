@@ -236,7 +236,7 @@ const SyncModal = ({ isOpen, onClose, users, onSync }) => {
                     align-items: center; justify-content: center; z-index: 1000;
                 }
                 .modal-content {
-                    background: white; border-radius: var(--radius-lg);
+                    background: var(--color-surface); border-radius: var(--radius-lg);
                     width: 90%; max-width: 600px; max-height: 85vh;
                     overflow-y: auto; box-shadow: var(--shadow-xl);
                 }
@@ -277,7 +277,7 @@ const SyncModal = ({ isOpen, onClose, users, onSync }) => {
                 }
                 .user-option:last-child { border-bottom: none; }
                 .user-option:hover { background: var(--color-gray-50); }
-                .user-option.selected { background: #EDF5FF; border-left: 3px solid var(--color-primary); }
+                .user-option.selected { background: var(--color-blue-tint); border-left: 3px solid var(--color-primary); }
                 .user-option-info { display: flex; align-items: center; gap: 0.5rem; }
                 .user-option-avatar {
                     width: 28px; height: 28px; border-radius: 50%;
@@ -305,22 +305,22 @@ const SyncModal = ({ isOpen, onClose, users, onSync }) => {
                 }
                 .checkbox-label input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
                 .sync-warning {
-                    color: #dc2626; font-size: 0.8rem; margin-top: 0.5rem;
-                    padding: 0.5rem; background: #FEF2F2; border-radius: var(--radius-md);
+                    color: var(--color-error); font-size: 0.8rem; margin-top: 0.5rem;
+                    padding: 0.5rem; background: var(--color-red-tint); border-radius: var(--radius-md);
                 }
                 .sync-info {
                     color: var(--color-gray-500); font-size: 0.8rem;
                     line-height: 1.5; margin-top: 0.75rem;
                 }
                 .sync-success {
-                    background: #DCFCE7; color: #166534; padding: 1rem;
+                    background: var(--color-green-tint); color: var(--badge-success-text); padding: 1rem;
                     border-radius: var(--radius-md);
                 }
                 .sync-success h3 { margin: 0 0 0.5rem; }
                 .sync-success ul { margin: 0; padding-left: 1.25rem; }
                 .sync-success li { margin-bottom: 0.25rem; font-size: 0.875rem; }
                 .sync-error {
-                    background: #FEE2E2; color: #991B1B; padding: 1rem;
+                    background: var(--color-red-tint); color: var(--badge-error-text); padding: 1rem;
                     border-radius: var(--radius-md); font-size: 0.9rem;
                 }
                 .btn {
@@ -332,7 +332,7 @@ const SyncModal = ({ isOpen, onClose, users, onSync }) => {
                 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
                 .btn-primary { background: var(--color-primary); color: white; }
                 .btn-primary:hover:not(:disabled) { opacity: 0.9; }
-                .btn-secondary { background: white; color: var(--color-gray-600); border-color: var(--color-gray-200); }
+                .btn-secondary { background: var(--color-surface); color: var(--color-gray-600); border-color: var(--color-gray-200); }
                 .btn-secondary:hover:not(:disabled) { background: var(--color-gray-50); }
                 .btn-danger { background: #dc2626; color: white; }
                 .btn-danger:hover:not(:disabled) { background: #b91c1c; }
@@ -786,7 +786,7 @@ const AdminUsers = () => {
                 .tab-btn-active:hover { background: var(--color-red-tint); color: #b91c1c; }
                 .trash-banner {
                     display: flex; align-items: center; gap: 0.5rem;
-                    background: var(--color-amber-tint); color: #92400E;
+                    background: var(--color-amber-tint); color: var(--badge-warning-text);
                     border: 1px solid #fcd34d; border-radius: var(--radius-md);
                     padding: 0.75rem 1rem; margin-bottom: 1.5rem; font-size: 0.875rem;
                 }
@@ -874,8 +874,8 @@ const AdminUsers = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .status-badge.active { background: var(--color-green-tint); color: #166534; }
-                .status-badge.banned { background: var(--color-red-tint); color: #991B1B; }
+                .status-badge.active { background: var(--color-green-tint); color: var(--badge-success-text); }
+                .status-badge.banned { background: var(--color-red-tint); color: var(--badge-error-text); }
                 .role-badge {
                     display: inline-block;
                     font-size: 0.7rem;
@@ -884,10 +884,10 @@ const AdminUsers = () => {
                     font-weight: 600;
                     text-transform: uppercase;
                 }
-                .role-badge.mod { background: #E0E7FF; color: #3730A3; }
-                .role-badge.admin { background: #EDE9FE; color: #5B21B6; }
-                .role-badge.builder { background: var(--color-blue-tint); color: #1E40AF; }
-                .role-badge.investor { background: var(--color-amber-tint); color: #92400E; }
+                .role-badge.mod { background: var(--badge-info-bg); color: var(--badge-info-text); }
+                .role-badge.admin { background: var(--color-blue-tint); color: var(--color-primary); }
+                .role-badge.builder { background: var(--color-blue-tint); color: var(--badge-info-text); }
+                .role-badge.investor { background: var(--color-amber-tint); color: var(--badge-warning-text); }
                 .action-group { display: flex; gap: 0.25rem; align-items: center; }
                 .icon-btn {
                     display: inline-flex;

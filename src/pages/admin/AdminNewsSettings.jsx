@@ -221,11 +221,11 @@ const AdminNewsSettings = () => {
                     margin-bottom: 1.5rem;
                     font-size: 0.9rem;
                 }
-                .status-msg.success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
-                .status-msg.error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+                .status-msg.success { background: var(--color-green-tint); color: var(--badge-success-text); border: 1px solid var(--badge-success-bg); }
+                .status-msg.error { background: var(--color-red-tint); color: var(--badge-error-text); border: 1px solid var(--badge-error-bg); }
 
                 .settings-card {
-                    background: white;
+                    background: var(--color-surface);
                     border: 1px solid var(--color-gray-200);
                     border-radius: var(--radius-lg);
                     padding: 1.5rem;
@@ -257,7 +257,7 @@ const AdminNewsSettings = () => {
                     border-radius: 4px;
                     display: flex;
                 }
-                .btn-icon:hover { color: var(--color-error); background: #fef2f2; }
+                .btn-icon:hover { color: var(--color-error); background: var(--color-red-tint); }
 
                 .add-row {
                     display: flex;
@@ -279,7 +279,7 @@ const AdminNewsSettings = () => {
                     padding: 0.5rem 1rem;
                     border: 1px solid var(--color-gray-300);
                     border-radius: var(--radius-md);
-                    background: white;
+                    background: var(--color-surface);
                     cursor: pointer;
                     font-size: 0.85rem;
                 }
