@@ -544,30 +544,31 @@ const Login = () => {
                 }
                 .key-input-wrapper {
                     width: 100%;
-                    position: relative;
+                    box-sizing: border-box;
                     display: flex;
                     align-items: center;
-                }
-                .key-input-icon {
-                    position: absolute;
-                    left: 1.125rem;
-                    color: var(--color-gray-500);
-                    pointer-events: none;
-                }
-                .key-input {
-                    width: 100%;
-                    box-sizing: border-box;
-                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem clamp(0.75rem, 2vh, 1rem) 2.75rem;
+                    gap: 0.5rem;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem;
                     border: 1px solid var(--color-gray-200);
                     border-radius: 9999px;
-                    font-size: 0.875rem;
-                    outline: none;
-                    transition: border-color 0.2s;
                     background: var(--color-surface);
-                    color: var(--color-text, inherit);
+                    transition: border-color 0.2s;
                 }
-                .key-input:focus {
+                .key-input-wrapper:focus-within {
                     border-color: var(--color-primary);
+                }
+                .key-input-icon {
+                    flex-shrink: 0;
+                    color: var(--color-gray-500);
+                }
+                .key-input {
+                    flex: 1;
+                    min-width: 0;
+                    border: none;
+                    outline: none;
+                    font-size: 0.875rem;
+                    background: transparent;
+                    color: var(--color-text, inherit);
                 }
                 .key-input::placeholder,
                 .seed-input::placeholder {
