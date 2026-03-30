@@ -558,15 +558,16 @@ const Login = () => {
                 }
                 .key-input-icon {
                     position: absolute;
-                    left: 14px;
+                    left: 1.125rem;
                     color: var(--color-gray-500);
                     pointer-events: none;
                 }
                 .key-input {
                     width: 100%;
-                    padding: 0.75rem 0.75rem 0.75rem 2.5rem;
+                    box-sizing: border-box;
+                    padding: clamp(0.75rem, 2vh, 1rem) 1.5rem clamp(0.75rem, 2vh, 1rem) 2.75rem;
                     border: 1px solid var(--color-gray-200);
-                    border-radius: 1rem;
+                    border-radius: 9999px;
                     font-size: 0.875rem;
                     outline: none;
                     transition: border-color 0.2s;

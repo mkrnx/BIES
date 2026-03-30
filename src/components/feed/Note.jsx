@@ -97,10 +97,10 @@ const Note = ({
       </div>
 
       {/* Repost header */}
-      {post._repostedBy && (
+      {post._reposters?.length > 0 && (
         <NoteRepostHeader
-          reposterPubkey={post._repostedBy}
-          reposterName={getDisplayName(post._repostedBy)}
+          reposters={post._reposters}
+          getDisplayName={getDisplayName}
           repostTime={post._repostTime}
           formatTime={formatTime}
         />

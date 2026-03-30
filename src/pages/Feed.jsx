@@ -244,15 +244,28 @@ const Feed = () => {
                 { kinds: [1, 6], limit: 50 },
                 {
                     onevent: (event) => {
-                        // Handle reposts (kind 6) — parse the embedded original post
+                        // Handle reposts (kind 6) — deduplicate by original note ID
                         if (event.kind === 6) {
                             let original;
                             try { original = JSON.parse(event.content); } catch { return; }
                             if (!original?.id || !original?.pubkey || !original?.content) return;
-                            // Mark as a repost so we can render "X reposted" label
-                            const repostEvent = { ...original, _repostedBy: event.pubkey, _repostTime: event.created_at, _repostId: event.id };
+                            const reposter = { pubkey: event.pubkey, timestamp: event.created_at, repostId: event.id };
                             setPosts(prev => {
-                                if (prev.find(p => p.id === event.id || (p._repostId === event.id))) return prev;
+                                // Skip if this exact repost event was already processed
+                                if (prev.some(p => p._reposters?.some(r => r.repostId === event.id))) return prev;
+                                // If original note already in feed, merge reposter into it
+                                const existingIdx = prev.findIndex(p => p.id === original.id);
+                                if (existingIdx !== -1) {
+                                    const existing = prev[existingIdx];
+                                    if (existing._reposters?.some(r => r.pubkey === event.pubkey)) return prev;
+                                    const updated = [...prev];
+                                    const reposters = [...(existing._reposters || []), reposter];
+                                    const repostTime = Math.max(existing._repostTime || 0, event.created_at);
+                                    updated[existingIdx] = { ...existing, _reposters: reposters, _repostTime: repostTime };
+                                    return updated.sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
+                                }
+                                // New original note surfaced via repost
+                                const repostEvent = { ...original, _reposters: [reposter], _repostTime: event.created_at };
                                 return [...prev, repostEvent].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
                             });
                             if (!fetchedProfiles.current.has(event.pubkey)) {
@@ -276,7 +289,17 @@ const Feed = () => {
                         if (event.tags.some(t => t[0] === 'e')) return;
 
                         setPosts(prev => {
-                            if (prev.find(p => p.id === event.id)) return prev;
+                            // If this note already exists via a repost, update with full Kind 1 data but keep repost metadata
+                            const existingIdx = prev.findIndex(p => p.id === event.id);
+                            if (existingIdx !== -1) {
+                                const existing = prev[existingIdx];
+                                if (existing._reposters) {
+                                    const updated = [...prev];
+                                    updated[existingIdx] = { ...event, _reposters: existing._reposters, _repostTime: existing._repostTime };
+                                    return updated;
+                                }
+                                return prev;
+                            }
                             return [...prev, event].sort((a, b) => (b._repostTime || b.created_at) - (a._repostTime || a.created_at));
                         });
                         clearTimeout(timeout);
@@ -410,8 +433,8 @@ const Feed = () => {
     const repostProfileRetries = useRef(new Set());
     useEffect(() => {
         const missing = posts
-            .filter(p => p._repostedBy && !profiles[p._repostedBy])
-            .map(p => p._repostedBy);
+            .flatMap(p => (p._reposters || []).map(r => r.pubkey))
+            .filter(pk => !profiles[pk]);
         const unique = [...new Set(missing)].filter(pk => !repostProfileRetries.current.has(pk));
         if (unique.length === 0) return;
         unique.forEach(pk => repostProfileRetries.current.add(pk));
@@ -894,7 +917,7 @@ const Feed = () => {
             await nostrService.publishEvent(event);
             try { await nostrService.publishToBiesRelay(event); } catch { /* best-effort */ }
             // Remove from local feed
-            setPosts(prev => prev.filter(p => p.id !== post.id && p._repostId !== post.id));
+            setPosts(prev => prev.filter(p => p.id !== post.id));
         } catch (err) {
             console.error('[Feed] Delete request failed:', err);
         } finally {
@@ -1039,12 +1062,12 @@ const Feed = () => {
     };
 
     // Only show root posts — filter out replies (events with 'e' tags referencing other events)
-    // Show root posts + reposts (reposts have _repostId marker, so allow them through)
     // Show root posts + reposts, filter out muted users
     const rootPosts = useMemo(() => posts.filter(p => {
         if (mutedUsers.has(p.pubkey)) return false;
-        if (p._repostedBy && mutedUsers.has(p._repostedBy)) return false;
-        return p._repostId || !p.tags?.some(t => t[0] === 'e');
+        // If note was surfaced only via repost and all reposters are muted, hide it
+        if (p._reposters?.length > 0 && p._reposters.every(r => mutedUsers.has(r.pubkey))) return false;
+        return p._reposters?.length > 0 || !p.tags?.some(t => t[0] === 'e');
     }), [posts, mutedUsers]);
 
     const getStats = (noteId) => noteStats[noteId] || {};
@@ -1466,7 +1489,7 @@ const Feed = () => {
                         {rootPosts.map(post => {
                             const stats = getStats(post.id);
                             const isLiked = likedNotes.has(post.id);
-                            const isReposted = repostedNotes.has(post.id) || (post._repostedBy && post._repostedBy === myPubkey);
+                            const isReposted = repostedNotes.has(post.id) || post._reposters?.some(r => r.pubkey === myPubkey);
                             const isReplying = replyTarget?.id === post.id;
                             const isCommentsOpen = openComments.has(post.id);
                             const postComments = comments[post.id] || [];
@@ -1474,7 +1497,7 @@ const Feed = () => {
 
                             return (
                                 <Note
-                                    key={post._repostId || post.id}
+                                    key={post.id}
                                     post={post}
                                     profiles={profiles}
                                     stats={stats}
@@ -1483,14 +1506,13 @@ const Feed = () => {
                                     isCommentsOpen={isCommentsOpen}
                                     isOwnPost={isOwnPost}
                                     myPubkey={myPubkey}
-                                    postMenuOpen={postMenu === (post._repostId || post.id)}
-                                    repostMenuOpen={repostMenu === (post._repostId || post.id)}
+                                    postMenuOpen={postMenu === post.id}
+                                    repostMenuOpen={repostMenu === post.id}
                                     onToggleComments={() => toggleComments(post.id)}
                                     onLike={() => handleLike(post)}
                                     onRepostMenuToggle={() => {
                                         if (isReposted) return;
-                                        const menuKey = post._repostId || post.id;
-                                        setRepostMenu(repostMenu === menuKey ? null : menuKey);
+                                        setRepostMenu(repostMenu === post.id ? null : post.id);
                                     }}
                                     onRepost={(relay) => handleRepost(post, relay)}
                                     onZap={() => setZapTarget({
@@ -1502,8 +1524,7 @@ const Feed = () => {
                                     })}
                                     onShare={() => handleShare(post)}
                                     onPostMenuToggle={() => {
-                                        const menuKey = post._repostId || post.id;
-                                        setPostMenu(postMenu === menuKey ? null : menuKey);
+                                        setPostMenu(postMenu === post.id ? null : post.id);
                                     }}
                                     onDeletePost={() => handleDeletePost(post)}
                                     onMuteUser={() => { handleMuteUser(post.pubkey); setPostMenu(null); }}
