@@ -98,7 +98,7 @@ model Profile {
   biesProjects   String   @default("[]") @map("bies_projects")  // JSON array of {id,name,role,status,image}
   customSections String   @default("[]") @map("custom_sections") // JSON array of {title,type,placement,body,...}
   showExperience Boolean  @default(true) @map("show_experience")
-  showNostrFeed  Boolean  @default(true) @map("show_nostr_feed")
+  nostrFeedMode  String   @default("combined") @map("nostr_feed_mode")
   nostrNpub      String   @default("") @map("nostr_npub")
   // NIP-05 & Lightning
   nip05Name        String?  @unique @map("nip05_name")
