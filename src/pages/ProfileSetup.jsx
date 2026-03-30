@@ -118,7 +118,7 @@ const ProfileSetup = () => {
                     kind: 1,
                     created_at: Math.floor(Date.now() / 1000),
                     tags: [['t', 'bies'], ['t', 'new-user']],
-                    content: `${biesName.trim()} just joined BIES! Welcome to the Bitcoin Investment Ecosystem of El Salvador.`,
+                    content: `${biesName.trim()} just joined the Builder Hub! Welcome to the Highest Signal Builder Ecosystem of El Salvador.`,
                 });
             } catch (announceErr) {
                 console.error('New user announcement failed (non-blocking):', announceErr);
