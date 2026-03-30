@@ -40,6 +40,7 @@ import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Overview from './pages/Overview';
 import Following from './pages/Following';
+import NotFound from './pages/NotFound';
 
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
@@ -206,6 +207,11 @@ const AppContent = () => {
                         <ProtectedRoute>
                             <Notifications />
                         </ProtectedRoute>
+                    } />
+
+                    {/* 404 Catch-all */}
+                    <Route path="*" element={
+                        <ProtectedRoute><NotFound /></ProtectedRoute>
                     } />
                 </Routes>
             </div>
