@@ -67,7 +67,7 @@ const ProfileEdit = () => {
         banner: '',
         tags: [],
         showExperience: true,
-        showNostrFeed: true,
+        nostrFeedMode: 'combined',
         experience: [],
         biesProjects: [],
         nostrNpub: '',
@@ -214,7 +214,7 @@ const ProfileEdit = () => {
                     banner: profile.banner || '',
                     tags: profile.tags || [],
                     showExperience: profile.showExperience ?? true,
-                    showNostrFeed: profile.showNostrFeed ?? true,
+                    nostrFeedMode: profile.nostrFeedMode || 'combined',
                     experience: (profile.experience || []).map(exp => {
                         // Parse fromYear/toYear from existing date string like "2020 - Present"
                         let fromYear = exp.fromYear || '';
@@ -296,7 +296,7 @@ const ProfileEdit = () => {
                 biesProjects: form.biesProjects,
                 customSections: form.customSections,
                 showExperience: form.showExperience,
-                showNostrFeed: form.showNostrFeed,
+                nostrFeedMode: form.nostrFeedMode,
                 nostrNpub: form.nostrNpub,
                 nip05Name: form.nip05Name || undefined,
                 lightningAddress: form.lightningAddress,
@@ -1126,12 +1126,43 @@ const ProfileEdit = () => {
                         {loadingNostr ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} /> : <RefreshCw size={15} />}
                         {loadingNostr ? 'Fetching...' : 'Fetch from public Nostr'}
                     </button>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <span className="pe-label" style={{ padding: 0 }}>Show Nostr feed on profile</span>
-                        <label className="toggle-switch">
-                            <input type="checkbox" checked={form.showNostrFeed} onChange={handleChange('showNostrFeed')} />
-                            <span className="toggle-slider"></span>
-                        </label>
+                    <div>
+                        <span className="pe-label" style={{ padding: 0, marginBottom: '0.5rem', display: 'block' }}>
+                            {t('profileEdit.showNostrFeed', 'Nostr feed on profile')}
+                        </span>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                            {[
+                                { value: 'off',      label: t('common.off', 'Off') },
+                                { value: 'private',   label: t('profileEdit.privateOnly', 'Private') },
+                                { value: 'public',    label: t('nostrFeed.publicTab', 'Public') },
+                                { value: 'combined',  label: t('nostrFeed.combined', 'Combined') },
+                            ].map(opt => (
+                                <button
+                                    key={opt.value}
+                                    type="button"
+                                    onClick={() => setForm(prev => ({ ...prev, nostrFeedMode: opt.value }))}
+                                    style={{
+                                        padding: '0.45rem 0.5rem',
+                                        fontSize: '0.8rem',
+                                        fontWeight: 600,
+                                        borderRadius: 'var(--radius-md, 6px)',
+                                        border: form.nostrFeedMode === opt.value
+                                            ? '2px solid var(--color-primary, #0052cc)'
+                                            : '1px solid var(--color-gray-300)',
+                                        background: form.nostrFeedMode === opt.value
+                                            ? 'var(--color-primary-50, #e6f0ff)'
+                                            : 'var(--color-surface, #fff)',
+                                        color: form.nostrFeedMode === opt.value
+                                            ? 'var(--color-primary, #0052cc)'
+                                            : 'var(--color-gray-600)',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
 

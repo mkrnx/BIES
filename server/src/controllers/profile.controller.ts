@@ -49,7 +49,7 @@ export const updateProfileSchema = z.object({
         dataPoints: z.array(z.object({ label: z.string(), value: z.union([z.string(), z.number()]) })).optional(),
     })).optional(),
     showExperience: z.boolean().optional(),
-    showNostrFeed: z.boolean().optional(),
+    nostrFeedMode: z.enum(['off', 'private', 'public', 'combined']).optional(),
     nostrNpub: z.string().optional(),
     // NIP-05 & Lightning
     nip05Name: z.string().min(3).max(30).regex(/^[a-z0-9._-]+$/, 'Only lowercase letters, numbers, dots, hyphens, underscores').optional(),
@@ -276,7 +276,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
             'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
             'lookingFor', 'isPublic', 'nostrNpub', 'experience', 'biesProjects',
-            'customSections', 'showExperience', 'showNostrFeed', 'nip05Name', 'lightningAddress',
+            'customSections', 'showExperience', 'nostrFeedMode', 'nip05Name', 'lightningAddress',
         ];
         const data: any = {};
         for (const field of allowedFields) {

@@ -637,6 +637,13 @@
     "loading": "Cargando...",
     "searching": "Buscando..."
   },
+  "nostrFeed": {
+    "publicTab": "Publico",
+    "combined": "Combinado",
+    "emptyPrivate": "No se encontraron notas privadas de BIES.",
+    "emptyPublic": "No se encontro actividad publica en Nostr.",
+    "emptyCombined": "No se encontraron notas recientes."
+  },
   "dashboard": {
     "overview": "Resumen",
     "projects": "Proyectos",

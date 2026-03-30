@@ -477,10 +477,8 @@ const PublicProfile = ({ type }) => {
                         }
 
                         {/* Nostr Feed */}
-                        {profile.showNostrFeed !== false && npub && (
-                            <div className="profile-card">
-                                <NostrFeed npub={npub} notes={[]} />
-                            </div>
+                        {(profile.nostrFeedMode || 'combined') !== 'off' && npub && (
+                            <NostrFeed npub={npub} mode={profile.nostrFeedMode || 'combined'} />
                         )}
                     </div>
 

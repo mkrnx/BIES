@@ -269,10 +269,8 @@ const Profile = () => {
                         }
 
                         {/* Nostr Notes Feed */}
-                        {npub && (
-                            <div className="profile-card">
-                                <NostrFeed npub={npub} />
-                            </div>
+                        {npub && (profile?.nostrFeedMode || 'combined') !== 'off' && (
+                            <NostrFeed npub={npub} mode={profile?.nostrFeedMode || 'combined'} />
                         )}
                     </div>
 

@@ -3,7 +3,12 @@ import { nostrService } from '../services/nostrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { nip19 } from 'nostr-tools';
 
-export const useNostrFeed = (npubs) => {
+/**
+ * Subscribe to a Nostr feed for specific authors.
+ * @param {string[]} npubs - npub or hex pubkeys to follow
+ * @param {'public'|'private'|'combined'} relayMode - which relays to query
+ */
+export const useNostrFeed = (npubs, relayMode = 'combined') => {
     const [posts, setPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [profiles, setProfiles] = useState({});
@@ -15,8 +20,15 @@ export const useNostrFeed = (npubs) => {
             return;
         }
 
+        // Clear stale posts when relay mode or authors change
+        setPosts([]);
         setLoading(true);
         fetchedProfiles.current.clear();
+
+        const relays =
+            relayMode === 'private'  ? [nostrService.biesRelay] :
+            relayMode === 'public'   ? nostrService.publicRelays :
+            nostrService.relays; // combined
 
         // Stop loading after 15s even if no events arrive
         const timeout = setTimeout(() => setLoading(false), 15000);
@@ -27,6 +39,7 @@ export const useNostrFeed = (npubs) => {
         const liveQueue = new Set();
         let debounceTimer = null;
         let eoseFired = false;
+        let cancelled = false;
 
         const flushLiveProfiles = async () => {
             if (liveQueue.size === 0) return;
@@ -52,17 +65,32 @@ export const useNostrFeed = (npubs) => {
             .filter(Boolean);
 
         let sub;
-        try {
+
+        const startSubscription = async () => {
             if (authorsHex.length === 0) {
                 setLoading(false);
                 return;
             }
 
+            // Ensure signer is ready when hitting the BIES relay (NIP-42)
+            if (relayMode !== 'public') {
+                try { await nostrSigner.tryRestore(); } catch { /* ok — public relays still work */ }
+            }
+
             sub = nostrService.pool.subscribeMany(
-                nostrService.relays,
+                relays,
                 { kinds: [1], authors: authorsHex, limit: 20 },
                 {
                     onevent: (event) => {
+                        if (cancelled) return;
+
+                        // Skip machine-generated content
+                        const c = (event.content || '').trimStart();
+                        if (c.startsWith('{') || c.startsWith('xitchat-') || c.startsWith('[')) return;
+
+                        // Skip replies (events with 'e' tags are replies, not root posts)
+                        if (event.tags.some(t => t[0] === 'e')) return;
+
                         setPosts(prev => {
                             if (prev.find(p => p.id === event.id)) return prev;
                             return [...prev, event].sort((a, b) => b.created_at - a.created_at);
@@ -96,21 +124,27 @@ export const useNostrFeed = (npubs) => {
                             });
                         }
                     },
-                    onclose: () => setLoading(false),
+                    onclose: () => { if (!cancelled) setLoading(false); },
+                    onauth: async (evt) => {
+                        try { return await nostrSigner.signEvent(evt); } catch { return undefined; }
+                    },
                 }
             );
-        } catch (err) {
+        };
+
+        startSubscription().catch(err => {
             console.error('[Nostr] Feed subscription error:', err);
             setLoading(false);
             clearTimeout(timeout);
-        }
+        });
 
         return () => {
+            cancelled = true;
             clearTimeout(timeout);
             clearTimeout(debounceTimer);
             if (sub) sub.close();
         };
-    }, [JSON.stringify(npubs)]);
+    }, [JSON.stringify(npubs), relayMode]);
 
     return { posts, loading, profiles };
 };

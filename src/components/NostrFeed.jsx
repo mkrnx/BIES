@@ -1,52 +1,128 @@
-import { MessageCircle, Heart, Repeat, Share } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
+import { useNostrFeed } from '../hooks/useNostr';
+import { useLightbox } from '../context/LightboxContext';
+import { formatTime, parseNoteContent, getDisplayName } from '../utils/noteUtils';
+import { NoteHeader, ParsedNote, NoteImage, FeedSkeleton } from './feed';
 import NostrIcon from './NostrIcon';
+import './feed/Feed.css';
 
-const NostrFeed = ({ npub, notes }) => {
+const NostrFeed = ({ npub, mode = 'combined' }) => {
+    const { t } = useTranslation();
+    const { posts, loading, profiles } = useNostrFeed(npub ? [npub] : [], mode);
+    const lightbox = useLightbox();
 
-    // In a real scenario, this component might fetch dynamically based on npub
-    // For now, we utilize the provided mock `notes` array.
+    const handleImageClick = (src, allImages) => {
+        lightbox?.open(src, allImages);
+    };
 
-    if (!notes || notes.length === 0) {
+    const renderOtherMedia = (media) => {
+        if (!media || media.length === 0) return null;
         return (
-            <div className="nostr-feed-empty text-center p-8 bg-gray-50 rounded-xl border border-gray-100 mt-6">
-                <p className="text-gray-500 mb-2">No recent notes found.</p>
-                <p className="text-sm text-gray-400">Connect a Nostr client to see what they're saying.</p>
+            <div className="primal-note-media">
+                {media.map((m, i) => {
+                    if (m.type === 'video') {
+                        return <video key={i} src={m.url} controls className="primal-note-video" preload="metadata" />;
+                    }
+                    if (m.type === 'audio') {
+                        return <audio key={i} src={m.url} controls className="primal-note-audio" preload="metadata" />;
+                    }
+                    if (m.type === 'youtube') {
+                        return (
+                            <iframe
+                                key={i}
+                                className="primal-note-youtube"
+                                src={`https://www.youtube-nocookie.com/embed/${m.id}`}
+                                title="YouTube video"
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                allowFullScreen
+                                loading="lazy"
+                            />
+                        );
+                    }
+                    return null;
+                })}
             </div>
         );
-    }
+    };
+
+    const modeLabel =
+        mode === 'private'  ? t('profileEdit.privateOnly', 'Private') :
+        mode === 'public'   ? t('nostrFeed.publicTab', 'Public') :
+        t('nostrFeed.combined', 'Combined');
+
+    const emptyMessage =
+        mode === 'private'  ? t('nostrFeed.emptyPrivate', 'No private BIES notes found.') :
+        mode === 'public'   ? t('nostrFeed.emptyPublic', 'No public Nostr activity found.') :
+        t('nostrFeed.emptyCombined', 'No recent notes found.');
 
     return (
-        <div className="nostr-feed mt-6">
-            <div className="flex items-center justify-between mb-6 border-b border-gray-100 pb-4">
-                <h3 className="text-xl font-bold font-display text-gray-900">Nostr Feed</h3>
-                <span className="text-xs font-mono bg-purple-50 text-purple-600 px-3 py-1 rounded-md border border-purple-100 flex items-center gap-1" title="Public Nostr Key">
-                    <NostrIcon size={12} /> {npub ? `${npub.substring(0, 12)}...` : "npub1..."}
+        <div className="nostr-profile-feed-wrapper">
+            {/* Header */}
+            <div className="nostr-profile-feed-header">
+                <h3 className="nostr-profile-feed-title">
+                    {t('profileEdit.nostrFeed', 'Nostr Feed')}
+                </h3>
+                <span className="nostr-profile-feed-badge">
+                    <NostrIcon size={12} /> {modeLabel}
                 </span>
             </div>
 
-            <div className="flex flex-col gap-4">
-                {notes.map(note => (
-                    <div key={note.id} className="note-card p-5 bg-white border border-gray-100 rounded-xl shadow-sm hover:shadow-md hover:border-purple-200 transition-all cursor-pointer">
-                        <div className="flex gap-3 mb-2">
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-100 to-purple-50 shrink-0 flex items-center justify-center text-purple-500 border border-purple-100">
-                                <NostrIcon size={18} />
-                            </div>
-                            <div>
-                                <div className="font-semibold text-gray-900 leading-tight">Nostr User</div>
-                                <div className="text-xs text-gray-400">@nostr_user • 2h</div>
-                            </div>
-                        </div>
-                        <div className="note-body mb-4 text-gray-700 leading-relaxed" style={{ paddingLeft: '52px' }}>
-                            {note.text}
-                        </div>
-                        <div className="note-actions flex gap-6 text-gray-400 text-sm" style={{ paddingLeft: '52px' }}>
-                            <button className="flex items-center gap-1.5 hover:text-purple-500 transition-colors"><MessageCircle size={15} /> <span className="text-xs">0</span></button>
-                            <button className="flex items-center gap-1.5 hover:text-green-500 transition-colors"><Repeat size={15} /> <span className="text-xs">{note.reposts || 0}</span></button>
-                            <button className="flex items-center gap-1.5 hover:text-red-500 transition-colors"><Heart size={15} /> <span className="text-xs">{note.likes || 0}</span></button>
-                            <button className="flex items-center gap-1.5 hover:text-purple-500 transition-colors ml-auto"><Share size={15} /></button>
-                        </div>
+            {/* Scrollable feed container */}
+            <div className="nostr-profile-feed-scroll">
+                {/* Loading state */}
+                {loading && posts.length === 0 && <FeedSkeleton count={3} />}
+
+                {/* Empty state */}
+                {!loading && posts.length === 0 && (
+                    <div style={{
+                        textAlign: 'center', padding: '2.5rem 1rem',
+                        color: 'var(--feed-text-tertiary)'
+                    }}>
+                        <NostrIcon size={32} style={{ margin: '0 auto 0.75rem', opacity: 0.4 }} />
+                        <p style={{ fontSize: '0.9rem' }}>{emptyMessage}</p>
                     </div>
-                ))}
+                )}
+
+                {/* Notes */}
+                {posts.map(post => {
+                    const { text, images, otherMedia } = parseNoteContent(post.content);
+                    const profile = profiles[post.pubkey];
+                    const avatar = profile?.picture;
+
+                    return (
+                        <div key={post.id} className="primal-note" style={{ borderBottom: '1px solid var(--feed-divider)' }}>
+                            <div className="primal-note-content-grid">
+                                <div className="primal-note-left">
+                                    <Link to={`/builder/${post.pubkey}`}>
+                                        <div className="primal-avatar">
+                                            {avatar
+                                                ? <img src={avatar} alt="" />
+                                                : <NostrIcon size={18} />}
+                                        </div>
+                                    </Link>
+                                </div>
+                                <div className="primal-note-right">
+                                    <NoteHeader
+                                        pubkey={post.pubkey}
+                                        profile={profile}
+                                        timestamp={post.created_at}
+                                        formatTime={formatTime}
+                                    />
+                                    {text && (
+                                        <ParsedNote
+                                            text={text}
+                                            profiles={profiles}
+                                            getDisplayName={(pk) => getDisplayName(pk, profiles)}
+                                        />
+                                    )}
+                                    <NoteImage images={images} onImageClick={handleImageClick} />
+                                    {otherMedia.length > 0 && renderOtherMedia(otherMedia)}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

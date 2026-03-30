@@ -678,6 +678,13 @@
     "loading": "Loading...",
     "searching": "Searching..."
   },
+  "nostrFeed": {
+    "publicTab": "Public",
+    "combined": "Combined",
+    "emptyPrivate": "No private BIES notes found.",
+    "emptyPublic": "No public Nostr activity found.",
+    "emptyCombined": "No recent notes found."
+  },
   "dashboard": {
     "overview": "Overview",
     "projects": "Projects",
