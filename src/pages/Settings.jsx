@@ -439,7 +439,7 @@ const Settings = () => {
                     {!passkeySupported ? (
                         <div className="key-info-banner">
                             <AlertTriangle size={16} />
-                            <span>Your browser or device does not support passkeys with PRF. Try a browser like Chrome or Edge with a compatible authenticator.</span>
+                            <span>Your browser or device does not support passkeys. Try a modern browser like Chrome, Edge, or Safari.</span>
                         </div>
                     ) : hasPasskey ? (
                         <>
