@@ -2,7 +2,7 @@
  * keytrService — adapter for @sovit.xyz/keytr passkey-encrypted nsec.
  *
  * Replaces the custom passkeyService with keytr's NIP-K1 implementation:
- *   PRF → HKDF-SHA256 → AES-256-GCM → kind:30079 event → relay
+ *   PRF / KiH → HKDF-SHA256 → AES-256-GCM → kind:31777 event → relay
  *
  * Encrypted nsec lives on public Nostr relays (not localStorage).
  * A lightweight localStorage index tracks which pubkeys have credentials
@@ -13,11 +13,18 @@ import {
     checkPrfSupport,
     decodeNsec,
     encodeNsec,
-    addBackupGateway as keytrRegisterGateway,
+    registerPasskey,
+    registerKihPasskey,
+    encryptNsec,
+    buildKeytrEvent,
+    parseKeytrEvent,
     publishKeytrEvent,
     fetchKeytrEvents,
     loginWithKeytr,
-    discoverAndLogin,
+    discover,
+    nsecToHexPubkey,
+    PrfNotSupportedError,
+    KEYTR_KIH_VERSION,
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { PUBLIC_RELAYS } from './nostrService.js';
@@ -38,24 +45,28 @@ function setStored(creds) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(creds));
 }
 
-// ─── PRF support cache ──────────────────────────────────────────────────────
+// ─── Support detection cache ────────────────────────────────────────────────
 
+let _webauthnAvailable = false;
 let _prfSupported = false;
-let _prfChecked = false;
+let _checked = false;
 
-async function ensurePrfChecked() {
-    if (_prfChecked) return;
-    try {
-        const info = await checkPrfSupport();
-        _prfSupported = info.supported;
-    } catch {
-        _prfSupported = false;
+async function ensureChecked() {
+    if (_checked) return;
+    _webauthnAvailable = typeof window !== 'undefined' && !!window.PublicKeyCredential;
+    if (_webauthnAvailable) {
+        try {
+            const info = await checkPrfSupport();
+            _prfSupported = info.supported;
+        } catch {
+            _prfSupported = false;
+        }
     }
-    _prfChecked = true;
+    _checked = true;
 }
 
 // Kick off the check immediately on import (non-blocking).
-ensurePrfChecked();
+ensureChecked();
 
 // ─── Legacy migration ───────────────────────────────────────────────────────
 
@@ -86,15 +97,20 @@ export function isLikelyExtensionInterference(message) {
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export const keytrService = {
-    /** Whether WebAuthn + PRF is available. Sync after first check completes. */
+    /** Whether WebAuthn passkeys are available (PRF or KiH). */
     isSupported() {
+        return _webauthnAvailable;
+    },
+
+    /** Whether the authenticator supports PRF (hardware-bound key derivation). */
+    isPrfSupported() {
         return _prfSupported;
     },
 
-    /** Await the async PRF check (for useEffect-based detection). */
+    /** Await the async support check (for useEffect-based detection). */
     async checkSupport() {
-        await ensurePrfChecked();
-        return _prfSupported;
+        await ensureChecked();
+        return _webauthnAvailable;
     },
 
     /** Whether a keytr credential exists for the given pubkey (or any). */
@@ -113,33 +129,86 @@ export const keytrService = {
      * Register on the primary gateway (keytr.org) only — one biometric prompt.
      * Use addBackupGateway() afterwards to add nostkey.org as a fallback.
      *
+     * Tries PRF registration first; falls back to KiH if the authenticator
+     * does not support PRF (e.g. password manager extensions).
+     *
      * @param {string} nsec - bech32-encoded nsec
      * @param {string} pubkey - hex-encoded public key
+     * @returns {{ mode: 'prf' | 'kih' }}
      */
     async saveWithPasskey(nsec, pubkey) {
-        await this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[0]);
+        return this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[0]);
     },
 
     /**
      * Register on a backup gateway (nostkey.org) — one additional biometric prompt.
      * Call after saveWithPasskey() to add redundancy.
+     *
+     * @returns {{ mode: 'prf' | 'kih' }}
      */
     async addBackupGateway(nsec, pubkey) {
         if (KEYTR_GATEWAYS.length < 2) throw new Error('No backup gateway configured.');
-        await this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[1]);
+        return this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[1]);
     },
 
-    /** @private Register a passkey + publish kind:30079 for a single gateway. */
+    /**
+     * @private Register a passkey + publish kind:31777 for a single gateway.
+     * PRF-first with KiH fallback.
+     */
     async _registerOnGateway(nsec, pubkey, rpId) {
         const nsecBytes = decodeNsec(nsec);
         const { nostrSigner } = await import('./nostrSigner.js');
 
-        const { eventTemplate } = await keytrRegisterGateway(nsecBytes, {
-            userName: pubkey.slice(0, 16),
-            userDisplayName: 'BIES Account',
+        const regOpts = {
             rpId,
             rpName: rpId.split('.')[0],
+            userName: pubkey.slice(0, 16),
+            userDisplayName: 'BIES Account',
+        };
+
+        let credential, encryptedBlob, mode;
+
+        try {
+            // Try PRF registration first
+            const { credential: prfCred, prfOutput } = await registerPasskey({
+                ...regOpts,
+                pubkey,
+            });
+            try {
+                encryptedBlob = encryptNsec({
+                    nsecBytes,
+                    prfOutput,
+                    credentialId: prfCred.credentialId,
+                });
+            } finally {
+                prfOutput.fill(0);
+            }
+            credential = prfCred;
+            mode = 'prf';
+        } catch (err) {
+            if (!(err instanceof PrfNotSupportedError)) throw err;
+
+            // KiH fallback — works with all authenticators
+            const { credential: kihCred, handleKey } = await registerKihPasskey(regOpts);
+            try {
+                encryptedBlob = encryptNsec({
+                    nsecBytes,
+                    prfOutput: handleKey,
+                    credentialId: kihCred.credentialId,
+                    aadVersion: KEYTR_KIH_VERSION,
+                });
+            } finally {
+                handleKey.fill(0);
+            }
+            credential = kihCred;
+            mode = 'kih';
+        }
+
+        const eventTemplate = buildKeytrEvent({
+            credential,
+            encryptedBlob,
             clientName: 'bies',
+            ...(mode === 'kih' && { version: String(KEYTR_KIH_VERSION) }),
         });
 
         const signedEvent = await nostrSigner.signEvent({
@@ -150,19 +219,22 @@ export const keytrService = {
         await publishKeytrEvent(signedEvent, PUBLIC_RELAYS);
 
         const creds = getStored().filter(c => c.pubkey !== pubkey);
-        creds.push({ pubkey, createdAt: new Date().toISOString() });
+        creds.push({ pubkey, createdAt: new Date().toISOString(), mode });
         setStored(creds);
+
+        return { mode };
     },
 
     /**
      * Login with passkey.
      *
-     * Fast path: if stored credentials exist, fetch events by pubkey and
-     * authenticate with explicit allowCredentials (one prompt).
+     * Tier 1: stored credentials — fetch events by pubkey, try PRF events
+     * with loginWithKeytr (targeted assertion, one prompt).
      *
-     * Discoverable path: if no stored credentials, the browser shows all
-     * available passkeys for the gateway rpId. The user picks one and we
-     * recover the pubkey from userHandle, fetch events, and decrypt.
+     * Tier 2: cached BIES user — same as Tier 1 using cached pubkey.
+     *
+     * Tier 3: discoverable — browser shows available passkeys, auto-detects
+     * PRF vs KiH mode.
      *
      * @returns {Promise<string>} bech32-encoded nsec
      */
@@ -170,52 +242,66 @@ export const keytrService = {
         const creds = getStored();
 
         if (creds.length > 0) {
-            // Fast path — we know which pubkey to look up
+            // Tier 1 — we know which pubkey to look up
             for (const { pubkey } of creds) {
                 const events = await fetchKeytrEvents(pubkey, PUBLIC_RELAYS);
-                if (events.length > 0) {
-                    const { nsecBytes } = await loginWithKeytr(events);
+                if (events.length === 0) continue;
+
+                // Separate PRF events for targeted loginWithKeytr
+                const prfEvents = events.filter(e => {
+                    try { return parseKeytrEvent(e).mode === 'prf'; } catch { return true; }
+                });
+
+                if (prfEvents.length > 0) {
                     try {
-                        return encodeNsec(nsecBytes);
-                    } finally {
-                        nsecBytes.fill(0);
+                        const { nsecBytes } = await loginWithKeytr(prfEvents);
+                        try { return encodeNsec(nsecBytes); } finally { nsecBytes.fill(0); }
+                    } catch {
+                        // PRF login failed — fall through to discoverable
                     }
                 }
             }
-            throw new Error('Could not find your encrypted key on Nostr relays. You may need to re-save your passkey.');
         }
 
-        // Try cached BIES user pubkey — if events exist, authenticate with
-        // allowCredentials (supports non-discoverable passkeys). Only fall
-        // through to discoverable when no events are found for this pubkey.
+        // Tier 2 — cached BIES user pubkey
         const raw = localStorage.getItem('bies_user');
         const cached = raw ? JSON.parse(raw) : null;
         if (cached?.nostrPubkey) {
             const events = await fetchKeytrEvents(cached.nostrPubkey, PUBLIC_RELAYS);
             if (events.length > 0) {
-                const { nsecBytes, pubkey: recoveredPk } = await loginWithKeytr(events);
-                try {
-                    const nsec = encodeNsec(nsecBytes);
-                    if (recoveredPk && !this.hasCredential(recoveredPk)) {
-                        const stored = getStored();
-                        stored.push({ pubkey: recoveredPk, createdAt: new Date().toISOString() });
-                        setStored(stored);
+                const prfEvents = events.filter(e => {
+                    try { return parseKeytrEvent(e).mode === 'prf'; } catch { return true; }
+                });
+
+                if (prfEvents.length > 0) {
+                    try {
+                        const { nsecBytes } = await loginWithKeytr(prfEvents);
+                        const recoveredPk = nsecToHexPubkey(nsecBytes);
+                        try {
+                            const nsec = encodeNsec(nsecBytes);
+                            if (!this.hasCredential(recoveredPk)) {
+                                const stored = getStored();
+                                stored.push({ pubkey: recoveredPk, createdAt: new Date().toISOString() });
+                                setStored(stored);
+                            }
+                            return nsec;
+                        } finally {
+                            nsecBytes.fill(0);
+                        }
+                    } catch {
+                        // PRF login failed — fall through to discoverable
                     }
-                    return nsec;
-                } finally {
-                    nsecBytes.fill(0);
                 }
             }
         }
 
-        // Discoverable — browser shows available passkeys, no pubkey needed
-        const { nsecBytes, pubkey } = await discoverAndLogin(PUBLIC_RELAYS);
+        // Tier 3 — discoverable (auto-detects PRF vs KiH)
+        const { nsecBytes, pubkey, mode } = await discover(PUBLIC_RELAYS);
         try {
             const nsec = encodeNsec(nsecBytes);
-            // Index credential locally for fast path next time
             if (pubkey && !this.hasCredential(pubkey)) {
                 const stored = getStored();
-                stored.push({ pubkey, createdAt: new Date().toISOString() });
+                stored.push({ pubkey, createdAt: new Date().toISOString(), mode });
                 setStored(stored);
             }
             return nsec;

@@ -77,15 +77,7 @@ const Login = () => {
                 'Please use Chrome, Edge, or Safari instead.';
         }
         if (/PRF.*not (available|supported)|not support.*PRF/i.test(msg)) {
-            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-            if (isIOS) {
-                const isSafari = /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|OPiOS|EdgiOS/.test(navigator.userAgent);
-                if (!isSafari) {
-                    return 'Passkey login requires Safari on iOS. Chrome and other browsers on iPhone/iPad don\'t support the required security feature (PRF).';
-                }
-                return 'Passkey login failed on iOS. Possible causes: (1) Hardware security keys (YubiKey) don\'t support PRF on iOS — use Face ID or Touch ID instead. (2) Lockdown Mode blocks this feature — disable it in Settings > Privacy & Security.';
-            }
-            return 'This browser doesn\'t support the WebAuthn PRF extension required for passkey login. Please use Chrome 116+, Edge 116+, or Safari 18+.';
+            return 'Could not decrypt your passkey. Try using the same browser and device where you originally saved it.';
         }
         return msg || 'Passkey login failed.';
     };
