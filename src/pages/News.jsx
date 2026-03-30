@@ -10,6 +10,12 @@ const XIcon = ({ size = 12, style }) => (
 
 import { newsApi } from '../services/api';
 
+const stripHtml = (html) => {
+    if (!html) return '';
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
+};
+
 const News = () => {
     const [tweets, setTweets] = useState([]);
     const [tweetsLoading, setTweetsLoading] = useState(true);
@@ -119,13 +125,13 @@ const News = () => {
                                         {i === 0 ? (
                                             <>
                                                 <h2>{article.title}</h2>
-                                                <p className="excerpt">{article.description?.slice(0, 200)}{article.description?.length > 200 ? '...' : ''}</p>
+                                                <p className="excerpt">{stripHtml(article.description)?.slice(0, 200)}{stripHtml(article.description)?.length > 200 ? '...' : ''}</p>
                                                 <span className="date">{timeAgo(article.publishedAt)}</span>
                                             </>
                                         ) : (
                                             <>
                                                 <h3>{article.title}</h3>
-                                                <p className="excerpt">{article.description?.slice(0, 120)}{article.description?.length > 120 ? '...' : ''}</p>
+                                                <p className="excerpt">{stripHtml(article.description)?.slice(0, 120)}{stripHtml(article.description)?.length > 120 ? '...' : ''}</p>
                                                 <span className="date">{timeAgo(article.publishedAt)}</span>
                                             </>
                                         )}
