@@ -70,7 +70,7 @@ ENV PORT=3001
 EXPOSE 3001
 
 ENTRYPOINT ["tini", "--"]
-CMD ["sh", "-c", "npx prisma db push --skip-generate && node dist/src/index.js"]
+CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/index.js"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 4: Nginx for static frontend + reverse proxy (non-root)
