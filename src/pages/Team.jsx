@@ -114,7 +114,7 @@ const Team = () => {
                     ) : (
                         <form className="contact-form" onSubmit={handleSubmit}>
                             {error && (
-                                <div style={{ padding: '0.75rem 1rem', background: '#FEF2F2', color: '#B91C1C', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
+                                <div style={{ padding: '0.75rem 1rem', background: 'var(--color-red-tint, #FEF2F2)', color: 'var(--badge-error-text, #B91C1C)', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem' }}>
                                     {error}
                                 </div>
                             )}
@@ -184,6 +184,20 @@ const Team = () => {
         }
 
         .textarea { resize: vertical; }
+
+        [data-theme="dark"] .contact-section {
+          background: var(--color-gray-100);
+        }
+        [data-theme="dark"] .contact-section .input {
+          background: var(--color-gray-200);
+          border-color: var(--color-gray-400);
+          color: var(--color-gray-900);
+        }
+        [data-theme="dark"] .contact-section .btn-primary {
+          background-color: var(--color-primary);
+          border-color: var(--color-primary);
+          color: #0F172A;
+        }
 
         @media (max-width: 768px) {
           .page-header { display: none !important; }
