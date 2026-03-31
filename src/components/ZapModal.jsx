@@ -18,6 +18,23 @@ const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
  * @param {function} props.onClose
  */
 const ZapModal = ({ recipients = [], eventId, onClose }) => {
+    // Lock body scroll while modal is open (prevents background scroll on mobile)
+    useEffect(() => {
+        const scrollY = window.scrollY;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.position = '';
+            document.body.style.top = '';
+            document.body.style.left = '';
+            document.body.style.right = '';
+            document.body.style.overflow = '';
+            window.scrollTo(0, scrollY);
+        };
+    }, []);
     const { connected: walletConnected, walletType, payInvoice: walletPayInvoice } = useWallet();
     // Backwards-compat aliases used throughout the component
     const nwcConnected = walletConnected;
@@ -176,7 +193,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const invoiceUri = bolt11 ? `lightning:${bolt11}` : '';
 
     return (
-        <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
             <div className="zap-card">
                 {/* Header */}
                 <div className="zap-header">
@@ -391,12 +408,15 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 .zap-overlay {
                     position: fixed;
                     inset: 0;
-                    z-index: 9999;
+                    z-index: 10001;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     background: rgba(0, 0, 0, 0.6);
                     backdrop-filter: blur(4px);
+                    touch-action: none;
+                    overscroll-behavior: contain;
+                    -webkit-overflow-scrolling: auto;
                 }
 
                 .zap-card {
@@ -407,6 +427,8 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     max-height: 90vh;
                     overflow-y: auto;
                     box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+                    touch-action: pan-y;
+                    overscroll-behavior: contain;
                 }
 
                 .zap-header {
