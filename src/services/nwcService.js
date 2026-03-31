@@ -12,7 +12,8 @@ import { SimplePool, finalizeEvent, getPublicKey } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 
 const NWC_STORAGE_KEY = 'bies_nwc_uri';
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 15_000;
+const RELAY_CONNECT_TIMEOUT_MS = 5_000;
 
 /**
  * Parse a nostr+walletconnect:// URI into its components.
@@ -145,7 +146,13 @@ class NwcClient {
         const responsePromise = this._waitForResponse(relay, walletPubkey, clientPubkey, requestEvent.id, secret);
 
         // Publish to the NWC relay
-        await Promise.any(this.pool.publish([relay], requestEvent));
+        try {
+            await Promise.any(this.pool.publish([relay], requestEvent));
+        } catch (err) {
+            // If publish fails, cancel the response subscription
+            responsePromise.catch(() => {}); // prevent unhandled rejection
+            throw new Error('Failed to send payment request to NWC relay');
+        }
 
         // Wait for the wallet's response
         return responsePromise;
@@ -189,9 +196,17 @@ class NwcClient {
      */
     _waitForResponse(relay, walletPubkey, clientPubkey, requestEventId, secret) {
         return new Promise((resolve, reject) => {
+            let settled = false;
+            const settle = (fn, value) => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timeout);
+                try { sub?.close(); } catch {}
+                fn(value);
+            };
+
             const timeout = setTimeout(() => {
-                sub.close();
-                reject(new Error('NWC request timed out'));
+                settle(reject, new Error('Wallet did not respond in time. Check your NWC connection.'));
             }, REQUEST_TIMEOUT_MS);
 
             const sub = this.pool.subscribeMany(
@@ -201,26 +216,27 @@ class NwcClient {
                     authors: [walletPubkey],
                     '#p': [clientPubkey],
                     '#e': [requestEventId],
+                    since: Math.floor(Date.now() / 1000) - 10,
                 },
                 {
                     onevent: (event) => {
-                        clearTimeout(timeout);
-                        sub.close();
-
                         try {
-                            // Decrypt the response
                             const conversationKey = nip44.v2.utils.getConversationKey(secret, walletPubkey);
                             const decrypted = nip44.v2.decrypt(event.content, conversationKey);
                             const response = JSON.parse(decrypted);
 
                             if (response.error) {
-                                reject(new Error(response.error.message || 'Wallet returned an error'));
+                                settle(reject, new Error(response.error.message || 'Wallet returned an error'));
                             } else {
-                                resolve(response.result || response);
+                                settle(resolve, response.result || response);
                             }
                         } catch (err) {
-                            reject(new Error('Failed to decrypt NWC response: ' + err.message));
+                            settle(reject, new Error('Failed to decrypt wallet response: ' + err.message));
                         }
+                    },
+                    onclose: (reasons) => {
+                        const reason = Array.isArray(reasons) ? reasons.join(', ') : String(reasons);
+                        settle(reject, new Error('NWC relay connection closed: ' + reason));
                     },
                 }
             );

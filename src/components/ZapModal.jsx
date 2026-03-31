@@ -153,8 +153,11 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     await nwcPayInvoice(invoiceData.pr);
                     results.push({ name: recipient.name, success: true });
                     continue;
-                } catch {
-                    // NWC failed — fall through to WebLN / QR
+                } catch (nwcErr) {
+                    console.warn('[ZapModal] NWC payment failed:', nwcErr.message);
+                    // Show NWC error directly instead of silently falling through
+                    results.push({ name: recipient.name, success: false, error: nwcErr.message });
+                    continue;
                 }
             }
 
@@ -181,7 +184,8 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
             setPhase('qr');
         } else {
             setPhase('error');
-            setErrorMsg('Failed to complete zap.');
+            const firstError = results.find(r => !r.success && r.error);
+            setErrorMsg(firstError?.error || 'Failed to complete zap.');
         }
     };
 
