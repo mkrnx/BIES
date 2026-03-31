@@ -5,6 +5,7 @@ import { MapPin, Users, ArrowLeft, Share2, MessageSquare, Loader2, Heart, AlertT
 import { projectsApi, analyticsApi, watchlistApi } from '../services/api';
 import DeckRequestButton from '../components/DeckRequestButton';
 import ZapButton from '../components/ZapButton';
+import ZappableTag from '../components/ZappableTag';
 import DOMPurify from 'dompurify';
 import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
@@ -217,7 +218,7 @@ const ProjectDetails = () => {
                             <h2>{t('projectDetails.tags', 'Tags')}</h2>
                             <div className="pd-tags">
                                 {tags.map((tag, i) => (
-                                    <span key={i} className="pd-tag">{tag}</span>
+                                    <ZappableTag key={i} tag={tag} mode="project" projectId={id} />
                                 ))}
                             </div>
                         </section>

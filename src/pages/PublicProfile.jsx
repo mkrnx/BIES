@@ -12,6 +12,7 @@ import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
 import ZapButton from '../components/ZapButton';
+import ZappableTag from '../components/ZappableTag';
 import ProfileSection from '../components/ProfileSection';
 import TranslatableText from '../components/TranslatableText';
 
@@ -359,12 +360,7 @@ const PublicProfile = ({ type }) => {
                                 {(profile.tags || []).length > 0 && (
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                                         {profile.tags.map((tag, index) => (
-                                            <span key={index} style={{
-                                                padding: '2px 12px', backgroundColor: 'var(--color-surface-raised)',
-                                                color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500,
-                                            }}>
-                                                {tag}
-                                            </span>
+                                            <ZappableTag key={index} tag={tag} />
                                         ))}
                                     </div>
                                 )}
@@ -492,33 +488,42 @@ const PublicProfile = ({ type }) => {
                             {(profile.biesProjects || []).length > 0 ? (
                                 <div>
                                     {profile.biesProjects.map((proj, idx) => (
-                                        <Link
-                                            to={`/project/${proj.id}`}
+                                        <div
                                             key={idx}
-                                            className="project-link"
-                                            style={{ marginBottom: idx !== profile.biesProjects.length - 1 ? '1.5rem' : '0' }}
+                                            style={{
+                                                marginBottom: idx !== profile.biesProjects.length - 1 ? '1.5rem' : '0',
+                                                position: 'relative',
+                                            }}
                                         >
-                                            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: '0.25rem', paddingBottom: '0.25rem' }}>
-                                                <h4 style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '1.125rem', fontFamily: 'var(--font-display)' }}>{proj.name}</h4>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>
-                                                    {proj.role && <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{proj.role}</span>}
-                                                    {proj.role && proj.status && <span style={{ color: 'var(--color-gray-300)' }}>•</span>}
-                                                    {proj.status && <span className="status-badge">{proj.status}</span>}
+                                            <Link
+                                                to={`/project/${proj.id}`}
+                                                className="project-link"
+                                            >
+                                                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', paddingTop: '0.25rem', paddingBottom: '0.25rem' }}>
+                                                    <h4 style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '1.125rem', fontFamily: 'var(--font-display)' }}>{proj.name}</h4>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem', marginTop: '0.5rem' }}>
+                                                        {proj.role && <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{proj.role}</span>}
+                                                        {proj.role && proj.status && <span style={{ color: 'var(--color-gray-300)' }}>•</span>}
+                                                        {proj.status && <span className="status-badge">{proj.status}</span>}
+                                                    </div>
                                                 </div>
+                                                <div style={{
+                                                    width: '120px', height: '68px', minWidth: '120px', minHeight: '68px',
+                                                    background: 'var(--color-surface-raised)', borderRadius: '0.5rem', flexShrink: 0,
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
+                                                    border: '1px solid var(--color-gray-200)',
+                                                }}>
+                                                    {proj.image ? (
+                                                        <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <span style={{ color: 'var(--color-gray-400)', fontWeight: 700, fontSize: '1.25rem' }}>{proj.name.charAt(0)}</span>
+                                                    )}
+                                                </div>
+                                            </Link>
+                                            <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10 }}>
+                                                <ZappableTag tag={proj.name} mode="project" projectId={proj.id} />
                                             </div>
-                                            <div style={{
-                                                width: '120px', height: '68px', minWidth: '120px', minHeight: '68px',
-                                                background: 'var(--color-surface-raised)', borderRadius: '0.5rem', flexShrink: 0,
-                                                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-                                                border: '1px solid var(--color-gray-200)',
-                                            }}>
-                                                {proj.image ? (
-                                                    <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <span style={{ color: 'var(--color-gray-400)', fontWeight: 700, fontSize: '1.25rem' }}>{proj.name.charAt(0)}</span>
-                                                )}
-                                            </div>
-                                        </Link>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
