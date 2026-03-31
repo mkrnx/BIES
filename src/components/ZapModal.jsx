@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
@@ -192,7 +193,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
     const invoiceUri = bolt11 ? `lightning:${bolt11}` : '';
 
-    return (
+    return createPortal(
         <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
             <div className="zap-card">
                 {/* Header */}
@@ -788,7 +789,8 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
                 .zap-done-btn:hover { border-color: #94a3b8; }
             `}</style>
-        </div>
+        </div>,
+        document.body
     );
 };
 
