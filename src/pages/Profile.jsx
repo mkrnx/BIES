@@ -10,6 +10,7 @@ import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
 import ZapButton from '../components/ZapButton';
+import ZappableTag from '../components/ZappableTag';
 import ProfileSection from '../components/ProfileSection';
 
 function isSafeUrl(url) {
@@ -183,9 +184,7 @@ const Profile = () => {
                                 {profile.tags && profile.tags.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {profile.tags.map((tag, index) => (
-                                            <span key={index} style={{ padding: '2px 12px', backgroundColor: 'var(--color-surface-raised)', color: 'var(--color-gray-700)', borderRadius: '999px', fontSize: '0.8rem', fontWeight: 500 }}>
-                                                {tag}
-                                            </span>
+                                            <ZappableTag key={index} tag={tag} />
                                         ))}
                                     </div>
                                 )}
@@ -284,34 +283,43 @@ const Profile = () => {
                             {profile.biesProjects && profile.biesProjects.length > 0 ? (
                                 <div>
                                     {profile.biesProjects.map((proj, idx) => (
-                                        <Link
-                                            to={`/project/${proj.id}`}
+                                        <div
                                             key={idx}
-                                            className="project-link flex items-stretch justify-between gap-4 p-4 border rounded-xl transition-all hover:border-primary"
                                             style={{
-                                                background: 'var(--color-surface)',
-                                                borderColor: 'var(--color-gray-200)',
-                                                marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0'
+                                                marginBottom: idx !== profile.biesProjects.length - 1 ? '24px' : '0',
+                                                position: 'relative',
                                             }}
                                         >
-                                            <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
-                                                <div className="flex items-center gap-2">
-                                                    <h4 className="font-semibold text-gray-900 text-lg truncate">{proj.name}</h4>
+                                            <Link
+                                                to={`/project/${proj.id}`}
+                                                className="project-link flex items-stretch justify-between gap-4 p-4 border rounded-xl transition-all hover:border-primary"
+                                                style={{
+                                                    background: 'var(--color-surface)',
+                                                    borderColor: 'var(--color-gray-200)',
+                                                }}
+                                            >
+                                                <div className="flex-1 min-w-0 flex flex-col justify-between py-1">
+                                                    <div className="flex items-center gap-2">
+                                                        <h4 className="font-semibold text-gray-900 text-lg truncate">{proj.name}</h4>
+                                                    </div>
+                                                    <div className="flex items-center gap-3 text-sm mt-2">
+                                                        <span className="text-primary font-medium truncate">{proj.role}</span>
+                                                        <span className="text-gray-300">•</span>
+                                                        <span className="status-badge flex-shrink-0">{proj.status}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-3 text-sm mt-2">
-                                                    <span className="text-primary font-medium truncate">{proj.role}</span>
-                                                    <span className="text-gray-300">•</span>
-                                                    <span className="status-badge flex-shrink-0">{proj.status}</span>
+                                                <div className="rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-200" style={{ width: '120px', height: '68px', minWidth: '120px', minHeight: '68px', background: 'var(--color-surface-raised)' }}>
+                                                    {proj.image ? (
+                                                        <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    ) : (
+                                                        <span className="text-gray-400 font-bold text-xl">{proj.name.charAt(0)}</span>
+                                                    )}
                                                 </div>
+                                            </Link>
+                                            <div style={{ position: 'absolute', top: '8px', right: '8px', zIndex: 10 }}>
+                                                <ZappableTag tag={proj.name} mode="project" projectId={proj.id} />
                                             </div>
-                                            <div className="rounded-lg flex-shrink-0 flex items-center justify-center overflow-hidden border border-gray-200" style={{ width: '120px', height: '68px', minWidth: '120px', minHeight: '68px', background: 'var(--color-surface-raised)' }}>
-                                                {proj.image ? (
-                                                    <img src={proj.image} alt={proj.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                                ) : (
-                                                    <span className="text-gray-400 font-bold text-xl">{proj.name.charAt(0)}</span>
-                                                )}
-                                            </div>
-                                        </Link>
+                                        </div>
                                     ))}
                                 </div>
                             ) : (
