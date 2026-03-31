@@ -831,6 +831,17 @@
     align-items: center;
     justify-content: space-between;
   }
+
+  .primal-note-footer .primal-action-btn {
+    min-width: 0;
+    padding-right: 12px;
+    margin-right: 0;
+  }
+
+  .primal-note-footer .primal-action-share {
+    margin-left: 0;
+    padding-right: 0;
+  }
 }
 
 .primal-action-btn {
