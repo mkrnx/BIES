@@ -148,28 +148,28 @@ const Note = ({
           {/* Other media (video, audio, youtube) */}
           {otherMedia.length > 0 && renderOtherMedia(otherMedia)}
 
-          {/* Action bar */}
-          <NoteFooter
-            stats={stats}
-            isLiked={isLiked}
-            isReposted={isReposted}
-            isCommentsOpen={isCommentsOpen}
-            onToggleComments={onToggleComments}
-            onLike={onLike}
-            onRepost={onRepost}
-            onZap={onZap}
-            onShare={onShare}
-            repostMenuOpen={repostMenuOpen}
-            onRepostMenuToggle={onRepostMenuToggle}
-            formatCount={formatCount}
-            formatSats={formatSats}
-            t={t}
-          />
-
           {/* Comment section (passed as children) */}
           {children}
         </div>
       </div>
+
+      {/* Action bar — outside the content grid so it spans full card width */}
+      <NoteFooter
+        stats={stats}
+        isLiked={isLiked}
+        isReposted={isReposted}
+        isCommentsOpen={isCommentsOpen}
+        onToggleComments={onToggleComments}
+        onLike={onLike}
+        onRepost={onRepost}
+        onZap={onZap}
+        onShare={onShare}
+        repostMenuOpen={repostMenuOpen}
+        onRepostMenuToggle={onRepostMenuToggle}
+        formatCount={formatCount}
+        formatSats={formatSats}
+        t={t}
+      />
     </div>
   );
 };
