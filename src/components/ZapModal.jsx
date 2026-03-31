@@ -194,7 +194,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const invoiceUri = bolt11 ? `lightning:${bolt11}` : '';
 
     return createPortal(
-        <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }} onTouchMove={(e) => { if (e.target === e.currentTarget) e.preventDefault(); }}>
+        <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); }} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} onTouchMove={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) e.preventDefault(); }}>
             <div className="zap-card">
                 {/* Header */}
                 <div className="zap-header">
