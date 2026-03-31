@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Globe, MapPin, Linkedin, Briefcase, Plus, Hash, Camera, Loader2, CheckCircle, Save, Search, X, RefreshCw, AtSign, Zap, User, Link as LinkIcon, Trash2, GripVertical, Upload, Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon, AlignLeft as AlignLeftIcon, Copy, Check } from 'lucide-react';
 import NostrIcon from '../components/NostrIcon';
 import { nip19 } from 'nostr-tools';
@@ -38,6 +39,7 @@ const SectionHeader = ({ icon, title, children }) => (
 
 
 const ProfileEdit = () => {
+    const { t } = useTranslation();
     const { user, refreshUser, updateRole } = useAuth();
     const navigate = useNavigate();
     const searchRef = useRef(null);
