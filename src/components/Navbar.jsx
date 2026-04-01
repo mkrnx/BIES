@@ -308,6 +308,11 @@ const Navbar = () => {
           .mobile-page-title { display: block !important; }
         }
 
+        /* Fill the subnav portal background so the dark navbar doesn't peek through */
+        #navbar-subnav:not(:empty) {
+          background: var(--color-gray-50);
+        }
+
         .logo {
           display: flex;
           align-items: center;

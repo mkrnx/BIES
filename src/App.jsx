@@ -8,7 +8,6 @@ import { LightboxProvider } from './context/LightboxContext';
 import './i18n';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
-import PullToRefresh from './components/PullToRefresh';
 import ModeSelectionModal from './components/ModeSelectionModal';
 
 // Pages
@@ -104,7 +103,6 @@ const AppContent = () => {
     return (
         <>
             {user && <Navbar />}
-            <PullToRefresh>
             <div className="app-content">
                 <Routes>
                     {/* Public Routes */}
@@ -215,7 +213,6 @@ const AppContent = () => {
                     } />
                 </Routes>
             </div>
-            </PullToRefresh>
             {user && <MobileBottomNav />}
         </>
     );
