@@ -9,7 +9,7 @@
  */
 
 import { SimplePool, finalizeEvent, getPublicKey } from 'nostr-tools';
-import * as nip44 from 'nostr-tools/nip44';
+import { encrypt as nip04Encrypt, decrypt as nip04Decrypt } from 'nostr-tools/nip04';
 
 const NWC_STORAGE_KEY = 'bies_nwc_uri';
 const REQUEST_TIMEOUT_MS = 15_000;
@@ -130,9 +130,8 @@ class NwcClient {
             params: { invoice: bolt11 },
         });
 
-        // NIP-44 encrypt for the wallet service
-        const conversationKey = nip44.v2.utils.getConversationKey(secret, walletPubkey);
-        const encrypted = nip44.v2.encrypt(requestPayload, conversationKey);
+        // NIP-04 encrypt for the wallet service (NIP-47 spec)
+        const encrypted = nip04Encrypt(secret, walletPubkey, requestPayload);
 
         // Create and sign the kind:23194 request event
         const requestEvent = finalizeEvent({
@@ -173,8 +172,7 @@ class NwcClient {
             method: 'get_balance',
         });
 
-        const conversationKey = nip44.v2.utils.getConversationKey(secret, walletPubkey);
-        const encrypted = nip44.v2.encrypt(requestPayload, conversationKey);
+        const encrypted = nip04Encrypt(secret, walletPubkey, requestPayload);
 
         const requestEvent = finalizeEvent({
             kind: 23194,
@@ -219,10 +217,9 @@ class NwcClient {
                     since: Math.floor(Date.now() / 1000) - 10,
                 },
                 {
-                    onevent: (event) => {
+                    onevent: async (event) => {
                         try {
-                            const conversationKey = nip44.v2.utils.getConversationKey(secret, walletPubkey);
-                            const decrypted = nip44.v2.decrypt(event.content, conversationKey);
+                            const decrypted = nip04Decrypt(secret, walletPubkey, event.content);
                             const response = JSON.parse(decrypted);
 
                             if (response.error) {
