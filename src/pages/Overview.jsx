@@ -80,7 +80,7 @@ const Overview = () => {
 
     return (
         <div className="page-content">
-            <div className="header">
+            <div className="header page-title-block">
                 <div>
                     <h1>Overview</h1>
                     <p className="subtitle">Welcome back, {user?.name || user?.email || 'Builder'}</p>

@@ -185,7 +185,7 @@ const Following = () => {
 
     return (
         <div className="following-wrapper">
-            <div className="header">
+            <div className="header page-title-block">
                 <h1>Network</h1>
                 <p className="subtitle">Your connections across the BIES ecosystem.</p>
             </div>
@@ -542,8 +542,7 @@ const Following = () => {
 
                 /* ── Mobile ──────────────────────────────────────── */
                 @media (max-width: 640px) {
-                    .tab-label { display: none; }
-                    .tab-btn { padding: 0.75rem 0.6rem; }
+                    .tab-btn { padding: 0.6rem 0.75rem; font-size: 0.8rem; }
                     .tab-count { font-size: 0.65rem; padding: 1px 5px; }
                     .search-dropdown { min-width: 200px; }
                     .mode-standard {
