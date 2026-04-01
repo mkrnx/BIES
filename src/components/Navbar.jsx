@@ -302,6 +302,7 @@ const Navbar = () => {
 
         /* Catch-all for very narrow mobile screens even if not standalone */
         @media (max-width: 768px) {
+          .navbar { box-shadow: none; }
           .logo-desktop { display: none !important; }
           .logo-mobile-pwa { display: block !important; }
           .mobile-page-title { display: block !important; }

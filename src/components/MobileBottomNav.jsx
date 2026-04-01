@@ -86,7 +86,7 @@ const MobileBottomNav = () => {
             align-items: flex-start;
             justify-content: space-around;
             padding-top: 10px;
-            padding-bottom: calc(6px + env(safe-area-inset-bottom, 0));
+            padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px)) !important;
           }
         }
       `}</style>
