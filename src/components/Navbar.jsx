@@ -272,8 +272,8 @@ const Navbar = () => {
         </>
       )}
 
-      {/* Bitcoin Orange Line */}
-      <div className="navbar-orange-line" style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', flexShrink: 0 }} />
+      {/* Bitcoin Orange Line — bottom box-shadow fills any sub-pixel gap between navbar and page */}
+      <div className="navbar-orange-line" style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', flexShrink: 0, boxShadow: '0 1px 0 0 var(--color-gray-50)' }} />
 
       {/* Sub-navigation portal target (Dashboard tab bar renders here on mobile) */}
       <div id="navbar-subnav" />
