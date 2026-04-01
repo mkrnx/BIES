@@ -145,7 +145,7 @@ const Media = () => {
 
     return (
         <div className="media-page container py-12">
-            <div className="header text-center mb-12">
+            <div className="header text-center mb-12 page-title-block">
                 <h1 className="page-header">Media & Resources</h1>
                 <p className="text-gray-500">Blogs, interviews, and updates from the community.</p>
             </div>
@@ -910,6 +910,7 @@ const Media = () => {
         }
 
         @media (max-width: 768px) {
+          .media-page { padding-top: 1rem !important; }
           .grid-cols-3,
           .grid-cols-2 {
             grid-template-columns: 1fr;

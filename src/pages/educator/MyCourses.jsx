@@ -7,7 +7,7 @@ const MyCourses = () => {
 
   return (
     <div>
-      <h1 style={{
+      <h1 className="page-title-block" style={{
         margin: '0 0 2rem',
         fontSize: '1.5rem',
         fontWeight: 700,

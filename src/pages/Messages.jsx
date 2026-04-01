@@ -267,7 +267,7 @@ const Messages = () => {
             <div className="messages-layout">
                 {/* Sidebar List */}
                 <div className={`messages-sidebar${mobileView === 'chat' ? ' mobile-hidden' : ''}`}>
-                    <div className="sidebar-header">
+                    <div className="sidebar-header page-title-block">
                         <h2>Messages</h2>
                     </div>
 

@@ -404,8 +404,8 @@ const Discover = () => {
   const [selectedRoles, setSelectedRoles] = useState([]);
   const [minFunding, setMinFunding] = useState('');
   const [maxFunding, setMaxFunding] = useState('');
-  const [memberViewType, setMemberViewType] = useState(defaultView);
-  const [projectViewType, setProjectViewType] = useState(defaultView);
+  const [memberViewType, setMemberViewType] = useState(() => localStorage.getItem('bies_members_view') || defaultView);
+  const [projectViewType, setProjectViewType] = useState(() => localStorage.getItem('bies_projects_view') || defaultView);
   const [viewMenuOpen, setViewMenuOpen] = useState(false);
   const [viewMenuOpenProjects, setViewMenuOpenProjects] = useState(false);
   const [projects, setProjects] = useState([]);
@@ -598,7 +598,7 @@ const Discover = () => {
             </Link>
           )}
         </div>
-        <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
           <div className="search-bar">
             <Search size={20} className="search-icon" />
             <input
@@ -1057,6 +1057,8 @@ const Discover = () => {
         .discover-page {
           padding-top: 2rem;
           padding-bottom: 4rem;
+          overflow-x: hidden;
+          box-sizing: border-box;
         }
 
         .search-row {
@@ -1064,6 +1066,8 @@ const Discover = () => {
           align-items: center;
           gap: 2rem;
           margin-bottom: 2rem;
+          max-width: 100%;
+          box-sizing: border-box;
         }
 
         .search-left-column {
@@ -1093,6 +1097,7 @@ const Discover = () => {
           display: flex;
           align-items: center;
           flex: 1;
+          min-width: 0;
           background: var(--color-surface-raised);
           padding: 0.5rem;
           border-radius: var(--radius-full);

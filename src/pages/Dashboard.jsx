@@ -220,7 +220,9 @@ const Dashboard = () => {
           }
           .dashboard-content {
             padding: 1rem;
-            padding-top: calc(80px + 1rem);
+            /* Extra space for the tab bar portaled into the navbar.
+               .app-content already handles the base navbar + safe-area offset. */
+            padding-top: 96px;
             flex: 1;
             min-height: 0;
           }

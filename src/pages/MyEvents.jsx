@@ -185,12 +185,12 @@ const MyEvents = () => {
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                     <div style={{ flex: 1 }}>
                         <h1 style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%' }}>
-                            My Events
+                            <span className="page-title-block">My Events</span>
                             <Link to="/events/create" className="hide-on-desktop" title="Create Event" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'var(--color-secondary)', color: 'white', textDecoration: 'none', marginLeft: 'auto' }}>
                                 <Plus size={18} strokeWidth={2.5} />
                             </Link>
                         </h1>
-                        <p className="subtitle">Manage and track all your events</p>
+                        <p className="subtitle page-title-block">Manage and track all your events</p>
                     </div>
                     <Link to="/events/create" className="btn btn-primary hide-on-mobile" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', width: 250 }}>
                         <Plus size={18} style={{ marginRight: 8 }} />{' '}Create Event

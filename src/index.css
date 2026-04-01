@@ -184,6 +184,9 @@
 
 html {
   background-color: var(--color-gray-50);
+  /* Ensure the background extends to the physical edges on notched phones */
+  min-height: 100%;
+  min-height: 100dvh;
 }
 
 body {
@@ -196,6 +199,8 @@ body {
   overscroll-behavior-y: contain;
   word-break: break-word;
   overflow-wrap: break-word;
+  min-height: 100%;
+  min-height: 100dvh;
 }
 
 .app-content {
@@ -646,6 +651,11 @@ textarea {
   }
 }
 
+/* Hide page titles & subtitles on mobile — the navbar/tab bar already shows context */
+@media (max-width: 768px) {
+  .page-title-block { display: none !important; }
+}
+
 /* ===== PWA & Mobile App Styles ===== */
 
 .app-content {
@@ -655,9 +665,10 @@ textarea {
 
 @media (max-width: 768px) {
   .app-content {
-    min-height: calc(100vh - 73px);
+    min-height: 100vh;
+    min-height: 100dvh; /* dynamic viewport height — excludes browser chrome */
     padding-top: calc(73px + env(safe-area-inset-top, 0px));
-    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0));
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     /* space for bottom nav + safe area */
   }
 
@@ -697,6 +708,21 @@ textarea {
 @media (max-width: 768px) {
   .app-content {
     background-color: var(--color-gray-50);
+  }
+
+  /* Paint the safe-area strip below the bottom nav with the nav's colour
+     so there is never a visible gap on notched phones. */
+  body::after {
+    content: '';
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: env(safe-area-inset-bottom, 0px);
+    background: var(--color-primary-nav, var(--color-primary));
+    z-index: 9999; /* just under the nav's 10000 */
+    pointer-events: none;
   }
 }
 /* Dark mode: Nostr Feed */

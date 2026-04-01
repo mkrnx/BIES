@@ -14,12 +14,17 @@ import { PASSKEY_ENABLED } from '../config/featureFlags';
 const Settings = () => {
     const { theme, setTheme } = useTheme();
     const { defaultView, setDefaultView } = useViewPreference();
+    const [projectsView, setProjectsView] = useState(() => localStorage.getItem('bies_projects_view') || defaultView || 'list');
+    const [membersView, setMembersView] = useState(() => localStorage.getItem('bies_members_view') || defaultView || 'list');
+    const [eventsView, setEventsView] = useState(() => localStorage.getItem('bies_events_view') || defaultView || 'list');
     const [mediaView, setMediaView] = useState(() => localStorage.getItem('bies_media_view') || 'card');
 
-    const handleMediaViewChange = (e) => {
+    const handleViewChange = (key, setter) => (e) => {
         const v = e.target.value;
-        setMediaView(v);
-        localStorage.setItem('bies_media_view', v);
+        setter(v);
+        localStorage.setItem(key, v);
+        // Keep the global default in sync with projects view for backwards compat
+        if (key === 'bies_projects_view') setDefaultView(v);
     };
     const { t, i18n } = useTranslation();
 
@@ -170,8 +175,8 @@ const Settings = () => {
     };
 
     return (
-        <div className="container py-8 max-w-3xl">
-            <h1 className="mb-8">{t('settings.title')}</h1>
+        <div className="container py-8 max-w-3xl" style={{ paddingTop: '1.5rem' }}>
+            <h1 className="mb-8 page-title-block">{t('settings.title')}</h1>
 
             <div className="settings-section">
                 <h2>{t('settings.preferences')}</h2>
@@ -214,17 +219,40 @@ const Settings = () => {
                     <div className="setting-info">
                         <div className="icon-box"><LayoutGrid size={20} /></div>
                         <div>
-                            <p className="setting-label">Default View</p>
-                            <p className="setting-desc">Choose your preferred layout for Projects and Events</p>
+                            <p className="setting-label">Projects View</p>
+                            <p className="setting-desc">Default layout for the Discover projects page</p>
                         </div>
                     </div>
-                    <select
-                        className="select-input"
-                        value={defaultView}
-                        onChange={(e) => setDefaultView(e.target.value)}
-                    >
-                        <option value="list">List View</option>
-                        <option value="standard">Grid / Card View</option>
+                    <select className="select-input" value={projectsView} onChange={handleViewChange('bies_projects_view', setProjectsView)}>
+                        <option value="list">List</option>
+                        <option value="standard">Grid</option>
+                    </select>
+                </div>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><Eye size={20} /></div>
+                        <div>
+                            <p className="setting-label">Members View</p>
+                            <p className="setting-desc">Default layout for the Discover members page</p>
+                        </div>
+                    </div>
+                    <select className="select-input" value={membersView} onChange={handleViewChange('bies_members_view', setMembersView)}>
+                        <option value="list">List</option>
+                        <option value="standard">Cards</option>
+                        <option value="icons">Icons</option>
+                    </select>
+                </div>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><LayoutGrid size={20} /></div>
+                        <div>
+                            <p className="setting-label">Events View</p>
+                            <p className="setting-desc">Default layout for the Events page</p>
+                        </div>
+                    </div>
+                    <select className="select-input" value={eventsView} onChange={handleViewChange('bies_events_view', setEventsView)}>
+                        <option value="list">List</option>
+                        <option value="standard">Grid</option>
                     </select>
                 </div>
                 <div className="setting-item">
@@ -235,11 +263,7 @@ const Settings = () => {
                             <p className="setting-desc">Default layout for the Media page</p>
                         </div>
                     </div>
-                    <select
-                        className="select-input"
-                        value={mediaView}
-                        onChange={handleMediaViewChange}
-                    >
+                    <select className="select-input" value={mediaView} onChange={handleViewChange('bies_media_view', setMediaView)}>
                         <option value="card">Cards</option>
                         <option value="list">List</option>
                         <option value="icon">Icons</option>
@@ -513,7 +537,7 @@ const Settings = () => {
                 .settings-section { background: var(--color-surface); border: 1px solid var(--color-gray-200); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 2rem; }
                 .settings-section h2 { padding: 1rem 1.5rem; background: var(--color-gray-50); border-bottom: 1px solid var(--color-gray-200); font-size: 1rem; color: var(--color-gray-600); }
 
-                .setting-item { padding: 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-gray-100); }
+                .setting-item { padding: 0.75rem 1.5rem; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--color-gray-100); }
                 .setting-item:last-child { border-bottom: none; }
 
                 .setting-info { display: flex; align-items: center; gap: 1rem; }

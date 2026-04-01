@@ -67,7 +67,7 @@ const Notifications = () => {
     return (
         <div className="container py-8">
             <div className="header">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 page-title-block">
                     <Bell size={28} className="text-primary" />
                     <h1>Notifications</h1>
                 </div>

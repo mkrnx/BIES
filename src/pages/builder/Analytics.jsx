@@ -32,7 +32,7 @@ const Analytics = () => {
     return (
         <div className="page-content">
             <div className="header">
-                <div>
+                <div className="page-title-block">
                     <h1>Analytics</h1>
                     <p className="subtitle">Performance metrics for your projects</p>
                 </div>

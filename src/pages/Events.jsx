@@ -460,7 +460,7 @@ const Events = () => {
     const [showOfficial, setShowOfficial] = useState(true);
     const [showCommunity, setShowCommunity] = useState(true);
     const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-    const [eventViewType, setEventViewType] = useState(defaultView);
+    const [eventViewType, setEventViewType] = useState(() => localStorage.getItem('bies_events_view') || defaultView);
     const [viewMenuOpen, setViewMenuOpen] = useState(false);
     const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
@@ -620,7 +620,7 @@ const Events = () => {
                         </Link>
                     )}
                 </div>
-                <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', flex: 1, gap: '0.75rem', alignItems: 'center', minWidth: 0, maxWidth: '100%' }}>
                     <div className="search-bar">
                         <Search size={20} className="search-icon" />
                         <input
@@ -784,6 +784,8 @@ const Events = () => {
                     align-items: center;
                     gap: 2rem;
                     margin-bottom: 2rem;
+                    max-width: 100%;
+                    box-sizing: border-box;
                 }
 
                 .search-left-column {
@@ -811,6 +813,7 @@ const Events = () => {
                     display: flex;
                     align-items: center;
                     flex: 1;
+                    min-width: 0;
                     background: var(--color-gray-100);
                     padding: 0.5rem;
                     border-radius: var(--radius-full);
