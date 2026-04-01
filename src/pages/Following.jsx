@@ -198,8 +198,7 @@ const Following = () => {
                             className={`tab-btn ${activeTab === t.id ? 'active' : ''}`}
                             onClick={() => { setActiveTab(t.id); setSearchQuery(''); setSearchExpanded(false); }}
                         >
-                            <t.icon size={16} />
-                            <span className="tab-label">{t.label}</span>
+                            <span>{t.label}</span>
                             {t.count > 0 && <span className="tab-count">{t.count}</span>}
                         </button>
                     ))}
