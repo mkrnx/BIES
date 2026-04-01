@@ -217,6 +217,8 @@ const Dashboard = () => {
             padding: 4px 0 2px;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
+            border-bottom: 1px solid var(--color-gray-200);
+            margin-top: -1px;
           }
           .dashboard-content {
             padding: 1rem;
