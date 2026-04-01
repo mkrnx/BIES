@@ -24,8 +24,41 @@
       </svg>
     </div>
   </div>
+  <script>
+    // Capture fatal JS errors that prevent React from mounting
+    window.addEventListener('error', function (e) {
+      var s = document.getElementById('splash');
+      if (s && !s._errShown) {
+        s._errShown = true;
+        var d = document.createElement('div');
+        d.style.cssText = 'margin-top:2rem;padding:1rem;text-align:center;color:#ff6b6b;font:13px monospace;max-width:90vw;word-break:break-all';
+        d.textContent = e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')';
+        s.appendChild(d);
+      }
+    });
+  </script>
   <script type="module" src="/src/main.jsx"></script>
   <script>
+    // Splash-screen watchdog: if React hasn't replaced #splash within 8s,
+    // show a reload prompt so the user isn't stuck on a blank logo forever.
+    (function () {
+      var t = setTimeout(function () {
+        var s = document.getElementById('splash');
+        if (s) {
+          var d = document.createElement('div');
+          d.style.cssText = 'margin-top:2rem;text-align:center;color:rgba(255,255,255,0.7);font:14px system-ui,sans-serif';
+          d.innerHTML = '<p>Taking longer than expected\u2026</p>'
+            + '<button onclick="location.reload()" style="margin-top:0.75rem;padding:0.5rem 1.5rem;background:#FF5B00;color:#fff;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer">Reload</button>';
+          s.appendChild(d);
+        }
+      }, 8000);
+      // Cancel the watchdog once React mounts (splash div gets removed)
+      var obs = new MutationObserver(function () {
+        if (!document.getElementById('splash')) { clearTimeout(t); obs.disconnect(); }
+      });
+      obs.observe(document.getElementById('root'), { childList: true });
+    })();
+
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js').then((reg) => {

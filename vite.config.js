@@ -42,6 +42,10 @@ export default defineConfig({
                 target: 'ws://localhost:7777',
                 ws: true,
                 rewrite: () => '/',
+                // Suppress error logging when the local relay is not running
+                configure: (proxy) => {
+                    proxy.on('error', () => {});
+                },
             },
             '/uploads': {
                 target: process.env.VITE_API_TARGET || 'http://localhost:3001',
