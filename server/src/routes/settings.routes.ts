@@ -7,6 +7,9 @@ import {
     updateNotificationSettingsSchema,
     updateRelays,
     updateRelaysSchema,
+    getMediaRead,
+    updateMediaRead,
+    updateMediaReadSchema,
     deleteAccount,
 } from '../controllers/settings.controller';
 
@@ -17,6 +20,8 @@ router.use(authenticate);
 router.get('/', getSettings);
 router.put('/notifications', validate(updateNotificationSettingsSchema), updateNotificationSettings);
 router.put('/relays', validate(updateRelaysSchema), updateRelays);
+router.get('/media-read', getMediaRead);
+router.put('/media-read', validate(updateMediaReadSchema), updateMediaRead);
 router.delete('/account', deleteAccount);
 
 export default router;
