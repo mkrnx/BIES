@@ -577,7 +577,7 @@ const Settings = () => {
                 }
                 .toggle-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
 
-                .select-input { padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-gray-300); }
+                .select-input { padding: 0.5rem; border-radius: var(--radius-md); border: 1px solid var(--color-gray-300); background-color: var(--color-surface); color: var(--color-gray-900); }
                 .btn-sm { font-size: 0.85rem; padding: 0.5rem 1rem; }
 
                 .key-display { display: flex; align-items: center; gap: 0.5rem; width: 100%; background: var(--color-gray-50); border: 1px solid var(--color-gray-200); border-radius: var(--radius-md); padding: 0.5rem 0.75rem; overflow: hidden; }

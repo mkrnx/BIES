@@ -11,18 +11,16 @@ export const ThemeProvider = ({ children }) => {
         const root = document.documentElement;
 
         const applyTheme = (themeValue) => {
+            let resolved;
             if (themeValue === 'dark') {
-                root.setAttribute('data-theme', 'dark');
+                resolved = 'dark';
             } else if (themeValue === 'light') {
-                root.setAttribute('data-theme', 'light');
-            } else if (themeValue === 'system') {
-                const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                if (systemPrefersDark) {
-                    root.setAttribute('data-theme', 'dark');
-                } else {
-                    root.setAttribute('data-theme', 'light');
-                }
+                resolved = 'light';
+            } else {
+                resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
             }
+            root.setAttribute('data-theme', resolved);
+            root.style.colorScheme = resolved;
 
             // Remove hardcoded inline background from body (set in index.html for splash)
             document.body.style.removeProperty('background');
