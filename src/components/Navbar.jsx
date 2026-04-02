@@ -305,6 +305,16 @@ const Navbar = () => {
         /* Catch-all for very narrow mobile screens even if not standalone */
         @media (max-width: 768px) {
           .navbar { box-shadow: none; }
+          .navbar::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--color-gray-50);
+            pointer-events: none;
+          }
           .logo-desktop { display: none !important; }
           .logo-mobile-pwa { display: block !important; }
           .mobile-page-title { display: block !important; }
