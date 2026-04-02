@@ -112,14 +112,18 @@ const ProfileSetup = () => {
                 console.error('Nostr profile sync failed (non-blocking):', nostrErr);
             }
 
-            // Announce new user on the BIES private relay feed
+            // Announce new user on both public and private relays
             try {
-                await nostrService.publishToBiesRelay({
+                const announceEvent = {
                     kind: 1,
                     created_at: Math.floor(Date.now() / 1000),
-                    tags: [['t', 'bies'], ['t', 'new-user']],
-                    content: `${biesName.trim()} just joined the Builder Hub! Welcome to the Highest Signal Builder Ecosystem of El Salvador.`,
-                });
+                    tags: [['t', 'bies'], ['t', 'new-user'], ['t', 'introductions'], ['t', 'buildinelsalvador']],
+                    content: `${biesName.trim()} just joined the Builder Hub! Welcome to the Highest Signal Builder Ecosystem of El Salvador. #introductions #buildinelsalvador`,
+                };
+                await Promise.allSettled([
+                    nostrService.publishToBiesRelay(announceEvent),
+                    nostrService.publishEvent(announceEvent),
+                ]);
             } catch (announceErr) {
                 console.error('New user announcement failed (non-blocking):', announceErr);
             }
