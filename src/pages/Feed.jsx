@@ -90,6 +90,15 @@ const Feed = () => {
     // Compose state
     const [composeText, setComposeText] = useState('');
     const [broadcastPublic, setBroadcastPublic] = useState(false);
+    const manualRelayToggle = useRef(false);
+
+    // Sync compose relay default to match feed tab (user can still override)
+    useEffect(() => {
+        if (!manualRelayToggle.current) {
+            setBroadcastPublic(feedMode === 'explore');
+        }
+        manualRelayToggle.current = false;
+    }, [feedMode]);
     const [posting, setPosting] = useState(false);
     const [postError, setPostError] = useState('');
     const [attachedFiles, setAttachedFiles] = useState([]); // { file, previewUrl, type, dimensions }
@@ -729,7 +738,11 @@ const Feed = () => {
                 ],
                 content: '+',
             };
-            await nostrService.publishEvent(event);
+            if (feedMode === 'private') {
+                await nostrService.publishToBiesRelay(event);
+            } else {
+                await nostrService.publishEvent(event);
+            }
             setLikedNotes(prev => new Set(prev).add(post.id));
             setNoteStats(prev => ({
                 ...prev,
@@ -1362,7 +1375,7 @@ const Feed = () => {
                     <div className="primal-compose-bottom">
                         <button
                             className={`primal-compose-relay-toggle ${broadcastPublic ? 'public' : 'private'}`}
-                            onClick={() => setBroadcastPublic(!broadcastPublic)}
+                            onClick={() => { manualRelayToggle.current = true; setBroadcastPublic(!broadcastPublic); }}
                             title={broadcastPublic ? t('feed.broadcastingPublic', 'Broadcasting to all relays') : t('feed.privateRelayOnly', 'Private relay only')}
                         >
                             {broadcastPublic ? <Globe size={13} /> : <Lock size={13} />}
