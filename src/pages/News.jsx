@@ -328,12 +328,11 @@ const News = () => {
 
           .mobile-feed-tabs {
             display: flex;
-            gap: 0.5rem;
+            align-items: stretch;
+            height: 50px;
+            width: 100%;
+            box-sizing: border-box;
             margin-bottom: 0.75rem;
-            background: var(--color-gray-100);
-            border: 1px solid #e5e7eb;
-            border-radius: var(--radius-xl, 12px);
-            padding: 0.25rem;
           }
 
           .feed-tab {
@@ -341,29 +340,23 @@ const News = () => {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.375rem;
-            padding: 0.625rem 1rem;
-            border-radius: 10px;
-            font-size: 0.85rem;
+            gap: 6px;
+            padding: 0 16px;
+            font-size: 15px;
             font-weight: 600;
             border: none;
+            border-bottom: 2px solid transparent;
             cursor: pointer;
-            transition: all 0.2s;
-            background: transparent;
-            color: #9ca3af;
+            transition: color 0.15s, border-color 0.15s;
+            background: none;
+            color: var(--feed-text-tertiary);
           }
           .feed-tab:hover {
-            color: #6b7280;
-            background: #f9fafb;
+            color: var(--feed-text-secondary);
           }
           .feed-tab.active {
-            background: #2563eb;
-            color: white;
-            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
-          }
-          .feed-tab.active:first-child {
-            background: #7c3aed;
-            box-shadow: 0 1px 3px rgba(124, 58, 237, 0.3);
+            color: var(--feed-text-primary);
+            border-bottom-color: var(--feed-accent);
           }
 
           .mobile-hidden {
@@ -378,10 +371,6 @@ const News = () => {
 
         @media (max-width: 768px) {
           .page-header { display: none !important; }
-        }
-        :global([data-theme="dark"]) .mobile-feed-tabs {
-          background: #1e2a3a;
-          border-color: #2d3748;
         }
       `}</style>
         </div>
