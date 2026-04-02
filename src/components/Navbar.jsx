@@ -226,6 +226,7 @@ const Navbar = () => {
               {[
                 { to: '/profile', label: t('nav.profile') },
                 { to: '/messages', label: t('nav.messages') },
+                ...((user?.role === 'ADMIN' || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 { to: '/news', label: t('nav.news') },
                 { to: '/about', label: t('nav.about') },
               ].map((link) => {
@@ -233,9 +234,9 @@ const Navbar = () => {
                 const linkStyle = {
                   display: 'block',
                   padding: '0.9rem 1.5rem',
-                  color: active ? 'white' : 'rgba(255,255,255,0.8)',
+                  color: link.isAdmin ? 'var(--color-secondary)' : active ? 'white' : 'rgba(255,255,255,0.8)',
                   fontSize: '1rem',
-                  fontWeight: active ? 700 : 500,
+                  fontWeight: link.isAdmin ? 700 : active ? 700 : 500,
                   textDecoration: 'none',
                   borderLeft: active ? '3px solid var(--color-secondary)' : '3px solid transparent',
                   background: active ? 'rgba(255,255,255,0.1)' : 'none',

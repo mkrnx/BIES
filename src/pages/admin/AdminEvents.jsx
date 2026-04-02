@@ -252,6 +252,11 @@ const AdminEvents = () => {
                 }
                 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
+                @media (max-width: 768px) {
+                    .header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+                    .search-wrap { display: flex; width: 100%; }
+                    .search-wrap input { width: 100%; }
+                }
             `}</style>
         </>
     );

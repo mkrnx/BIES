@@ -320,6 +320,10 @@ const AdminNewsSettings = () => {
                     font-size: 0.85rem;
                     margin-top: 0.5rem;
                 }
+                @media (max-width: 768px) {
+                    .header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+                    .livestream-row { flex-direction: column; align-items: flex-start; }
+                }
             `}</style>
         </>
     );
