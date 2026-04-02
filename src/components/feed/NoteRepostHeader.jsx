@@ -22,7 +22,7 @@ const NoteRepostHeader = ({ reposters, getDisplayName, repostTime, formatTime })
       <Repeat size={14} />
       <span>
         {label}
-        {repostTime && ` ${formatTime(repostTime)}`}
+        {repostTime && (() => { const t = formatTime(repostTime); return t === 'just now' ? ` ${t}` : ` ${t} ago`; })()}
       </span>
     </div>
   );
