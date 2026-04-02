@@ -273,7 +273,7 @@ const Navbar = () => {
       )}
 
       {/* Bitcoin Orange Line — bottom box-shadow fills any sub-pixel gap between navbar and page */}
-      <div className="navbar-orange-line" style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', flexShrink: 0, boxShadow: '0 1px 0 0 var(--color-gray-50)' }} />
+      <div className="navbar-orange-line" style={{ height: '3px', width: '100%', backgroundColor: 'var(--color-secondary)', flexShrink: 0 }} />
 
       {/* Sub-navigation portal target (Dashboard tab bar renders here on mobile) */}
       <div id="navbar-subnav" />
@@ -289,6 +289,8 @@ const Navbar = () => {
           right: 0;
           z-index: 100;
           box-shadow: var(--shadow-sm);
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
         }
 
         @media (display-mode: standalone) {
@@ -311,6 +313,8 @@ const Navbar = () => {
         /* Fill the subnav portal background so the dark navbar doesn't peek through */
         #navbar-subnav:not(:empty) {
           background: var(--color-gray-50);
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
         }
 
         .logo {
