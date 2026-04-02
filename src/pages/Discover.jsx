@@ -416,8 +416,6 @@ const Discover = () => {
   const isPWA = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
   const [discoverView, setDiscoverView] = useState('projects');
-  const [showProjects, setShowProjects] = useState(true);
-  const [showMembers, setShowMembers] = useState(true);
   const [builders, setBuilders] = useState([]);
   const [buildersLoading, setBuildersLoading] = useState(false);
   const [buildersPage, setBuildersPage] = useState(1);
@@ -431,8 +429,7 @@ const Discover = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // On mobile: use tab toggle. On desktop: use checkboxes (show both if both checked).
-  const currentView = isMobile ? discoverView : (showProjects && !showMembers ? 'projects' : !showProjects && showMembers ? 'members' : 'both');
+  const currentView = discoverView;
 
   const categories = [
     { id: 'FINTECH', label: 'Fintech' },
@@ -526,7 +523,7 @@ const Discover = () => {
   }, [searchQuery, selectedIndustries, selectedStages, minFunding, maxFunding, page, user?.id]);
 
   useEffect(() => {
-    if (currentView !== 'members' && currentView !== 'both') return;
+    if (currentView !== 'members') return;
     const fetchBuilders = async () => {
       setBuildersLoading(true);
       try {
@@ -636,7 +633,7 @@ const Discover = () => {
                 )}
               </div>
             )}
-            {(currentView === 'projects' || currentView === 'both') && (
+            {currentView === 'projects' && (
               <div className="view-toggle-container" style={{ position: 'relative' }}>
                 <button className="mobile-filter-toggle" style={{ display: 'flex', marginRight: '0.25rem' }} onClick={() => setViewMenuOpenProjects(!viewMenuOpenProjects)} aria-label="Toggle View">
                   {projectViewType === 'list' && <ListIcon size={20} />}
@@ -680,7 +677,7 @@ const Discover = () => {
           )}
         </div>
 
-        <div className="discover-mobile-tabs">
+        <div className="discover-tabs">
           <button
             className={`discover-tab ${discoverView === 'projects' ? 'active' : ''}`}
             onClick={() => setDiscoverView('projects')}
@@ -725,37 +722,7 @@ const Discover = () => {
               )}
             </div>
 
-            <div className="filter-group type-filter-desktop">
-              <label>{t('discover.type', 'Type')}</label>
-              <div className="checkbox-list">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showProjects}
-                    onChange={() => {
-                      const next = !showProjects;
-                      if (!next && !showMembers) return;
-                      setShowProjects(next);
-                    }}
-                  />
-                  {t('discover.projects', 'Projects')}
-                </label>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showMembers}
-                    onChange={() => {
-                      const next = !showMembers;
-                      if (!next && !showProjects) return;
-                      setShowMembers(next);
-                    }}
-                  />
-                  {t('discover.members', 'Members')}
-                </label>
-              </div>
-            </div>
-
-            {(currentView === 'projects' || currentView === 'both') && (
+            {currentView === 'projects' && (
               <>
             <div className="filter-group">
               <label>{t('discover.industry')}</label>
@@ -825,7 +792,7 @@ const Discover = () => {
               </>
             )}
 
-            {(currentView === 'members' || currentView === 'both') && (
+            {currentView === 'members' && (
               <>
                 <div className="filter-group">
                   <label>{t('discover.role', 'Role')}</label>
@@ -875,9 +842,8 @@ const Discover = () => {
 
         {/* Content Section */}
         <div style={{ flex: 1, width: '100%' }}>
-          {(currentView === 'projects' || currentView === 'both') && (
+          {currentView === 'projects' && (
             <>
-              {currentView === 'both' && <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginBottom: '1rem' }}>{t('discover.projects', 'Projects')}</h3>}
               <div className={projectViewType === 'list' ? 'project-list-layout' : 'project-grid'}>
                 {loading ? (
                   <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '3rem' }}>
@@ -901,9 +867,8 @@ const Discover = () => {
             </>
           )}
 
-          {(currentView === 'members' || currentView === 'both') && (
+          {currentView === 'members' && (
             <>
-              {currentView === 'both' && <h3 style={{ fontSize: '1.25rem', fontWeight: 700, marginTop: '2.5rem', marginBottom: '1rem' }}>{t('discover.members', 'Members')}</h3>}
             {buildersLoading ? (
                 <div style={{ textAlign: 'center', padding: '3rem' }}>
                     <Loader2 size={32} style={{ animation: 'spin 1s linear infinite', margin: '0 auto' }} />
@@ -1162,10 +1127,6 @@ const Discover = () => {
           margin-bottom: 0.75rem;
         }
 
-        @media (max-width: 768px) {
-          .type-filter-desktop { display: none; }
-        }
-
         .checkbox-list {
           display: flex;
           flex-direction: column;
@@ -1303,50 +1264,67 @@ const Discover = () => {
           .search-btn-desktop { display: none; }
         }
 
-        .discover-mobile-tabs {
-          display: none;
-          gap: 0.5rem;
-          margin-bottom: 0;
-          background: var(--color-gray-100);
-          border: 1px solid #e5e7eb;
-          border-radius: var(--radius-xl, 12px);
-          padding: 0.25rem;
+        .discover-tabs {
+          display: flex;
+          align-items: stretch;
+          height: 50px;
           width: 100%;
           box-sizing: border-box;
-        }
-        @media (max-width: 768px) {
-          .discover-mobile-tabs {
-            display: flex;
-          }
         }
         .discover-tab {
           flex: 1;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.375rem;
-          padding: 0.625rem 1rem;
-          border-radius: 10px;
-          font-size: 0.85rem;
+          gap: 6px;
+          padding: 0 16px;
+          font-size: 15px;
           font-weight: 600;
           border: none;
+          border-bottom: 2px solid transparent;
           cursor: pointer;
-          transition: all 0.2s;
-          background: transparent;
-          color: #9ca3af;
+          transition: color 0.15s, border-color 0.15s;
+          background: none;
+          color: var(--feed-text-tertiary);
         }
         .discover-tab:hover {
-          color: #6b7280;
-          background: #f9fafb;
+          color: var(--feed-text-secondary);
         }
         .discover-tab.active {
-          background: #FF9500;
-          color: white;
-          box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
+          color: var(--feed-text-primary);
+          border-bottom-color: var(--feed-accent);
         }
-        .discover-tab.active:nth-child(2) {
-          background: #2563eb;
-          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+        @media (max-width: 768px) {
+          .discover-tabs {
+            height: auto;
+            gap: 0.5rem;
+            background: var(--color-gray-100);
+            border: 1px solid #e5e7eb;
+            border-radius: var(--radius-xl, 12px);
+            padding: 0.25rem;
+          }
+          .discover-tab {
+            padding: 0.625rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            border-bottom: none;
+            background: transparent;
+            color: #9ca3af;
+          }
+          .discover-tab:hover {
+            color: #6b7280;
+            background: #f9fafb;
+          }
+          .discover-tab.active {
+            background: #FF9500;
+            color: white;
+            box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
+            border-bottom: none;
+          }
+          .discover-tab.active:nth-child(2) {
+            background: #2563eb;
+            box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+          }
         }
 
         .builders-layout-standard {
