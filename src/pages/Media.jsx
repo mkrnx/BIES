@@ -802,6 +802,7 @@ const Media = () => {
         .mark-read-trigger {
           display: flex;
           align-items: center;
+          align-self: center;
           justify-content: center;
           width: 34px;
           height: 34px;
