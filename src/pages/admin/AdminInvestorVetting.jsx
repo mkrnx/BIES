@@ -75,31 +75,31 @@ const AdminInvestorVetting = () => {
                         </thead>
                         <tbody>
                             {requests.map(req => (
-                                <tr key={req.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
-                                    <td className="p-4">
+                                <tr key={req.id} className="vetting-row border-b border-gray-100 last:border-0 hover:bg-gray-50/50">
+                                    <td className="p-4 vetting-user">
                                         <div className="font-medium">{req.user?.name || req.user?.email || 'Unknown User'}</div>
                                         <div className="text-xs text-gray-500 font-mono mt-1">{req.user?.id}</div>
                                     </td>
-                                    <td className="p-4 max-w-md">
+                                    <td className="p-4 max-w-md vetting-message" data-label="Message">
                                         <p className="text-sm text-gray-600 break-words">
                                             {req.message || <span className="text-gray-400 italic">No message provided</span>}
                                         </p>
                                     </td>
-                                    <td className="p-4">
+                                    <td className="p-4 vetting-date" data-label="Applied">
                                         <div className="text-sm whitespace-nowrap">
                                             {new Date(req.createdAt).toLocaleDateString()}
                                         </div>
                                     </td>
-                                    <td className="p-4">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                            ${req.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 
-                                              req.status === 'DENIED' ? 'bg-red-100 text-red-800' : 
+                                    <td className="p-4 vetting-status" data-label="Status">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                                            ${req.status === 'APPROVED' ? 'bg-green-100 text-green-800' :
+                                              req.status === 'DENIED' ? 'bg-red-100 text-red-800' :
                                               'bg-yellow-100 text-yellow-800'}`}
                                         >
                                             {req.status}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right">
+                                    <td className="p-4 text-right vetting-actions">
                                         {req.status === 'PENDING' && (
                                             <div className="flex items-center justify-end gap-2">
                                                 <button
@@ -188,6 +188,51 @@ const AdminInvestorVetting = () => {
               .h-64 { height: 16rem; }
               .animate-spin { animation: spin 1s linear infinite; }
               @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+              @media (max-width: 768px) {
+                .text-2xl { font-size: 1.25rem; }
+                table, thead, tbody, tr, th, td { display: block; }
+                thead { display: none; }
+                .vetting-row {
+                  background: var(--color-surface);
+                  border: 1px solid var(--color-gray-200);
+                  border-radius: var(--radius-lg, 0.75rem);
+                  padding: 1rem;
+                  margin-bottom: 0.75rem;
+                }
+                .vetting-user {
+                  padding: 0 0 0.5rem 0;
+                  margin-bottom: 0.25rem;
+                  border-bottom: 1px solid var(--color-gray-100);
+                }
+                .vetting-message,
+                .vetting-date,
+                .vetting-status {
+                  display: flex;
+                  align-items: flex-start;
+                  padding: 0.3rem 0;
+                  gap: 0.5rem;
+                }
+                .vetting-message::before,
+                .vetting-date::before,
+                .vetting-status::before {
+                  content: attr(data-label);
+                  font-weight: 600;
+                  font-size: 0.7rem;
+                  color: var(--color-gray-400);
+                  text-transform: uppercase;
+                  letter-spacing: 0.05em;
+                  min-width: 68px;
+                  flex-shrink: 0;
+                  padding-top: 0.1rem;
+                }
+                .vetting-actions {
+                  padding: 0.5rem 0 0 0;
+                  margin-top: 0.25rem;
+                  border-top: 1px solid var(--color-gray-100);
+                  text-align: left;
+                }
+                .max-w-md { max-width: none; }
+              }
             `}</style>
         </div>
     );

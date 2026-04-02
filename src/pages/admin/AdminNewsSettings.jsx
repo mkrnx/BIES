@@ -322,7 +322,15 @@ const AdminNewsSettings = () => {
                 }
                 @media (max-width: 768px) {
                     .header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
-                    .livestream-row { flex-direction: column; align-items: flex-start; }
+                    .header h1 { font-size: 1.25rem; }
+                    .livestream-row { flex-direction: column; align-items: stretch; }
+                    .livestream-input { width: 100%; }
+                    .add-row input,
+                    .livestream-input { min-height: 44px; font-size: 1rem; }
+                    .btn-outline,
+                    .btn-icon { min-height: 44px; min-width: 44px; }
+                    .settings-card { padding: 1rem; }
+                    .toggle-label input[type="checkbox"] { width: 22px; height: 22px; }
                 }
             `}</style>
         </>

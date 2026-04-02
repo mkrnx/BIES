@@ -565,9 +565,9 @@ const AdminUsers = () => {
                                                     <span className="font-semibold">{u.profile?.name || '—'}</span>
                                                 </div>
                                             </td>
-                                            <td>{u.email || '—'}</td>
-                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
-                                            <td>
+                                            <td data-label="Email">{u.email || '—'}</td>
+                                            <td data-label="Npub" className="mobile-hide" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
+                                            <td data-label="Role">
                                                 <select
                                                     value={u.role}
                                                     onChange={(e) => handleRoleChange(u.id, e.target.value)}
@@ -583,8 +583,8 @@ const AdminUsers = () => {
                                                     {!isAdmin && u.role === 'ADMIN' && <option value="ADMIN">ADMIN</option>}
                                                 </select>
                                             </td>
-                                            <td>{u._count?.projects || 0}</td>
-                                            <td>
+                                            <td data-label="Projects" className="mobile-hide">{u._count?.projects || 0}</td>
+                                            <td data-label="Verified" className="mobile-hide">
                                                 {u.isVerified ? (
                                                     <CheckCircle size={16} style={{ color: '#16a34a' }} />
                                                 ) : (
@@ -598,12 +598,12 @@ const AdminUsers = () => {
                                                     </button>
                                                 )}
                                             </td>
-                                            <td>
+                                            <td data-label="Status">
                                                 <span className={`status-badge ${u.isBanned ? 'banned' : 'active'}`}>
                                                     {u.isBanned ? 'Banned' : 'Active'}
                                                 </span>
                                             </td>
-                                            <td>{new Date(u.createdAt).toLocaleDateString()}</td>
+                                            <td data-label="Joined" className="mobile-hide">{new Date(u.createdAt).toLocaleDateString()}</td>
                                             <td>
                                                 <div className="action-group">
                                                     {/* Ban / Unban */}
@@ -706,11 +706,11 @@ const AdminUsers = () => {
                                                     <span className="font-semibold">{u.profile?.name || '—'}</span>
                                                 </div>
                                             </td>
-                                            <td>{u.email || '—'}</td>
-                                            <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
-                                            <td><span style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>{u.role}</span></td>
-                                            <td>{u._count?.projects || 0}</td>
-                                            <td style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
+                                            <td data-label="Email">{u.email || '—'}</td>
+                                            <td data-label="Npub" className="mobile-hide" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
+                                            <td data-label="Role"><span style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>{u.role}</span></td>
+                                            <td data-label="Projects" className="mobile-hide">{u._count?.projects || 0}</td>
+                                            <td data-label="Deleted" style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)' }}>
                                                 {u.deletedAt ? new Date(u.deletedAt).toLocaleDateString() : '—'}
                                             </td>
                                             <td>
@@ -926,8 +926,65 @@ const AdminUsers = () => {
                 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
                 @media (max-width: 768px) {
+                    .header { flex-direction: column; gap: 0.75rem; }
+                    .header h1 { font-size: 1.25rem; }
                     .toolbar { flex-direction: column; align-items: stretch; }
-                    .header { flex-direction: column; gap: 1rem; }
+                    .filters { flex-wrap: wrap; }
+                    .search-wrap { display: flex; }
+                    .search-wrap input { width: 100%; }
+                    .table-container { background: none; box-shadow: none; overflow: visible; }
+                    .data-table,
+                    .data-table thead,
+                    .data-table tbody,
+                    .data-table tr,
+                    .data-table th,
+                    .data-table td { display: block; }
+                    .data-table thead { display: none; }
+                    .data-table tr {
+                        background: var(--color-surface);
+                        border: 1px solid var(--color-gray-200);
+                        border-radius: var(--radius-lg);
+                        padding: 1rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .data-table tr.row-banned {
+                        border-color: #fca5a5;
+                    }
+                    .data-table td {
+                        display: flex;
+                        align-items: center;
+                        padding: 0.3rem 0;
+                        border-bottom: none;
+                        gap: 0.5rem;
+                    }
+                    .data-table td::before {
+                        content: attr(data-label);
+                        font-weight: 600;
+                        font-size: 0.7rem;
+                        color: var(--color-gray-400);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        min-width: 60px;
+                        flex-shrink: 0;
+                    }
+                    .data-table td:first-child {
+                        font-size: 1rem;
+                        font-weight: 600;
+                        padding-bottom: 0.5rem;
+                        margin-bottom: 0.25rem;
+                        border-bottom: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:first-child::before { display: none; }
+                    .data-table td.mobile-hide { display: none; }
+                    .data-table td:last-child {
+                        padding-top: 0.5rem;
+                        margin-top: 0.25rem;
+                        border-top: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:last-child::before { display: none; }
+                    .action-group { gap: 0.5rem; }
+                    .icon-btn { padding: 0.5rem; }
+                    .role-select { min-height: 36px; }
                 }
             `}</style>
         </>

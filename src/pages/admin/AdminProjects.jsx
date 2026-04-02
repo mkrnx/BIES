@@ -228,10 +228,10 @@ const AdminProjects = () => {
                             {projects.map(p => (
                                 <tr key={p.id}>
                                     <td className="font-semibold">{p.title}</td>
-                                    <td>{p.owner?.profile?.name || p.owner?.email || '—'}</td>
-                                    <td>{p.category}</td>
-                                    <td>{statusBadge(p.status)}</td>
-                                    <td>
+                                    <td data-label="Owner">{p.owner?.profile?.name || p.owner?.email || '—'}</td>
+                                    <td data-label="Category">{p.category}</td>
+                                    <td data-label="Status">{statusBadge(p.status)}</td>
+                                    <td data-label="Featured" className="mobile-hide">
                                         <button
                                             className={`icon-btn ${p.isFeatured ? 'featured-active' : ''}`}
                                             onClick={() => handleFeature(p.id, p.isFeatured)}
@@ -241,7 +241,7 @@ const AdminProjects = () => {
                                             <Star size={16} fill={p.isFeatured ? 'currentColor' : 'none'} />
                                         </button>
                                     </td>
-                                    <td>{new Date(p.createdAt).toLocaleDateString()}</td>
+                                    <td data-label="Created" className="mobile-hide">{new Date(p.createdAt).toLocaleDateString()}</td>
                                     <td>
                                         <div className="action-group">
                                             {p.status === 'pending-review' && (
@@ -523,8 +523,61 @@ const AdminProjects = () => {
                 }
                 .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
                 @media (max-width: 768px) {
+                    .header h1 { font-size: 1.25rem; }
                     .toolbar { flex-direction: column; align-items: stretch; }
-                    .tabs { overflow-x: auto; }
+                    .tabs { overflow-x: auto; scrollbar-width: none; }
+                    .tabs::-webkit-scrollbar { display: none; }
+                    .search-wrap { display: flex; }
+                    .search-wrap input { width: 100%; }
+                    .table-container { background: none; box-shadow: none; overflow: visible; }
+                    .data-table,
+                    .data-table thead,
+                    .data-table tbody,
+                    .data-table tr,
+                    .data-table th,
+                    .data-table td { display: block; }
+                    .data-table thead { display: none; }
+                    .data-table tr {
+                        background: var(--color-surface);
+                        border: 1px solid var(--color-gray-200);
+                        border-radius: var(--radius-lg);
+                        padding: 1rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .data-table td {
+                        display: flex;
+                        align-items: center;
+                        padding: 0.3rem 0;
+                        border-bottom: none;
+                        gap: 0.5rem;
+                    }
+                    .data-table td::before {
+                        content: attr(data-label);
+                        font-weight: 600;
+                        font-size: 0.7rem;
+                        color: var(--color-gray-400);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        min-width: 72px;
+                        flex-shrink: 0;
+                    }
+                    .data-table td:first-child {
+                        font-size: 1rem;
+                        font-weight: 600;
+                        padding-bottom: 0.5rem;
+                        margin-bottom: 0.25rem;
+                        border-bottom: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:first-child::before { display: none; }
+                    .data-table td.mobile-hide { display: none; }
+                    .data-table td:last-child {
+                        padding-top: 0.5rem;
+                        margin-top: 0.25rem;
+                        border-top: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:last-child::before { display: none; }
+                    .action-group { gap: 0.5rem; }
+                    .icon-btn { padding: 0.5rem; }
                 }
             `}</style>
         </>

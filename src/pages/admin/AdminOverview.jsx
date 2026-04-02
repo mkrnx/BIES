@@ -101,7 +101,17 @@ const AdminOverview = () => {
                 .value-row .value { font-size: 1.75rem; font-weight: 700; font-family: var(--font-mono); }
                 .action-hint { font-size: 0.8rem; color: var(--color-gray-500); }
                 @media (max-width: 768px) {
-                    .stats-grid { grid-template-columns: 1fr; }
+                    .header { margin-bottom: 1.25rem; }
+                    .header h1 { font-size: 1.25rem; }
+                    .stats-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                        gap: 0.75rem;
+                        margin-bottom: 2rem;
+                    }
+                    .stat-box { padding: 1rem; }
+                    .value-row .value { font-size: 1.35rem; }
+                    .stat-box .label { font-size: 0.8rem; margin-bottom: 0.25rem; }
+                    .action-hint { font-size: 0.7rem; }
                 }
             `}</style>
         </>
