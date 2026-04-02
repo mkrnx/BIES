@@ -56,6 +56,7 @@ const MobileBottomNav = () => {
         background: 'var(--color-primary-nav, var(--color-primary))',
         borderTop: '3px solid #FF5B00',
         zIndex: 10000,
+        WebkitTransform: 'translateZ(0)', /* force GPU compositing on iOS — belt-and-suspenders fix for position:fixed in scroll contexts */
       }} className="mobile-bottom-nav">
         {tabs.map((tab) => {
           if (tab.auth && !isAuthenticated) {

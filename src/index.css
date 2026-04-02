@@ -671,6 +671,10 @@ textarea {
     padding-top: calc(73px + env(safe-area-inset-top, 0px));
     padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px));
     /* space for bottom nav + safe area */
+    overflow-x: clip; /* prevent horizontal overflow without creating a scroll container —
+                         body already has overflow-x:hidden on mobile, so this is safe.
+                         Using clip instead of hidden avoids the implicit overflow-y:auto
+                         that breaks position:fixed on iOS WebKit. */
   }
 
   .container {

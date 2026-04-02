@@ -227,6 +227,11 @@ const Dashboard = () => {
             padding-top: 96px;
             flex: 1;
             min-height: 0;
+            /* Override desktop overflow-y:auto / overflow-x:hidden so this element
+               is NOT a scroll container on mobile. Nested scroll containers break
+               position:fixed on iOS WebKit (bottom nav floats away). Let the body
+               be the sole scroll container on mobile. */
+            overflow: visible;
           }
         }
       `}</style>
