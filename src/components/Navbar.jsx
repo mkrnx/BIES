@@ -294,37 +294,27 @@ const Navbar = () => {
         }
 
         @media (display-mode: standalone) {
-          .navbar {
-            padding-bottom: 6px;
-          }
           .logo-desktop { display: none !important; }
           .logo-mobile-pwa { display: block !important; }
           .mobile-page-title { display: block !important; }
+          #navbar-subnav {
+            padding-bottom: 6px;
+          }
         }
 
         /* Catch-all for very narrow mobile screens even if not standalone */
         @media (max-width: 768px) {
-          .navbar { box-shadow: none; }
-          .navbar::after {
-            content: '';
-            position: absolute;
-            bottom: -2px;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: var(--color-gray-50);
-            pointer-events: none;
+          .navbar {
+            box-shadow: 0 2px 0 0 var(--color-gray-50);
           }
           .logo-desktop { display: none !important; }
           .logo-mobile-pwa { display: block !important; }
           .mobile-page-title { display: block !important; }
         }
 
-        /* Fill the subnav portal background so the dark navbar doesn't peek through */
-        #navbar-subnav:not(:empty) {
+        /* Always match the content background so navbar navy never bleeds through */
+        #navbar-subnav {
           background: var(--color-gray-50);
-          -webkit-backface-visibility: hidden;
-          backface-visibility: hidden;
         }
 
         .logo {
