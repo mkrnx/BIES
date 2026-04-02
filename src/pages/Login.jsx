@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone } from 'lucide-react';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
+import { isLikelyExtensionInterference } from '../services/keytrService';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
@@ -73,8 +74,12 @@ const Login = () => {
 
     const friendlyPasskeyError = (msg = '') => {
         if (/rp\.?id.*origin|origin.*rp\.?id/i.test(msg)) {
-            return 'This browser doesn\'t support cross-origin passkeys. ' +
-                'Please use Chrome, Edge, or Safari instead.';
+            if (isLikelyExtensionInterference(msg)) {
+                return 'A password manager extension is intercepting passkey requests. ' +
+                    'Disable it (e.g. Bitwarden, 1Password) and try again.';
+            }
+            return 'Cross-origin passkey failed. Try disabling password manager extensions, ' +
+                'or use Chrome, Edge, or Safari.';
         }
         if (/PRF.*not (available|supported)|not support.*PRF/i.test(msg)) {
             return 'Could not decrypt your passkey. Try using the same browser and device where you originally saved it.';
