@@ -10,6 +10,7 @@ import {
     updateEventSchema,
     deleteEvent,
     listMyEvents,
+    listAttendingEvents,
     endorseEvent,
     rsvpEvent,
     cancelRsvp,
@@ -22,6 +23,7 @@ router.get('/', optionalAuth, listEvents);
 
 // Protected: my events (must come before /:id to avoid shadowing)
 router.get('/my', authenticate, listMyEvents);
+router.get('/attending', authenticate, listAttendingEvents);
 
 // Public single event
 router.get('/:id', optionalAuth, getEvent);
