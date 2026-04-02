@@ -1305,12 +1305,8 @@ const Discover = () => {
 
         .discover-mobile-tabs {
           display: none;
-          gap: 0.5rem;
-          margin-bottom: 0;
-          background: var(--color-gray-100);
-          border: 1px solid #e5e7eb;
-          border-radius: var(--radius-xl, 12px);
-          padding: 0.25rem;
+          align-items: stretch;
+          height: 50px;
           width: 100%;
           box-sizing: border-box;
         }
@@ -1324,29 +1320,23 @@ const Discover = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.375rem;
-          padding: 0.625rem 1rem;
-          border-radius: 10px;
-          font-size: 0.85rem;
+          gap: 6px;
+          padding: 0 16px;
+          font-size: 15px;
           font-weight: 600;
           border: none;
+          border-bottom: 2px solid transparent;
           cursor: pointer;
-          transition: all 0.2s;
-          background: transparent;
-          color: #9ca3af;
+          transition: color 0.15s, border-color 0.15s;
+          background: none;
+          color: var(--feed-text-tertiary);
         }
         .discover-tab:hover {
-          color: #6b7280;
-          background: #f9fafb;
+          color: var(--feed-text-secondary);
         }
         .discover-tab.active {
-          background: #FF9500;
-          color: white;
-          box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
-        }
-        .discover-tab.active:nth-child(2) {
-          background: #2563eb;
-          box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+          color: var(--feed-text-primary);
+          border-bottom-color: var(--feed-accent);
         }
 
         .builders-layout-standard {
