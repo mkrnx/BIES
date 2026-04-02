@@ -13,32 +13,32 @@ const AdminDashboard = () => {
           <div className="menu-group">
             <p className="menu-label">Admin Panel</p>
             <NavLink to="/admin" end className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <LayoutDashboard size={18} /> Overview
+              <LayoutDashboard size={18} /> <span>Overview</span>
             </NavLink>
             <NavLink to="/admin/projects" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <Folder size={18} /> Projects
+              <Folder size={18} /> <span>Projects</span>
             </NavLink>
             <NavLink to="/admin/events" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <Calendar size={18} /> Events
+              <Calendar size={18} /> <span>Events</span>
             </NavLink>
             <NavLink to="/admin/users" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <Users size={18} /> Users
+              <Users size={18} /> <span>Users</span>
             </NavLink>
             <NavLink to="/admin/audit-log" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <FileText size={18} /> Audit Log
+              <FileText size={18} /> <span>Audit</span>
             </NavLink>
             <NavLink to="/admin/news-settings" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <Newspaper size={18} /> News Settings
+              <Newspaper size={18} /> <span>News</span>
             </NavLink>
             <NavLink to="/admin/investor-vetting" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
-              <Users size={18} /> Investor Vetting
+              <Users size={18} /> <span>Vetting</span>
             </NavLink>
           </div>
 
           <div className="menu-group mt-auto">
             <div className="divider"></div>
             <button onClick={logout} className="sidebar-link text-error">
-              <LogOut size={18} /> Logout
+              <LogOut size={18} /> <span>Logout</span>
             </button>
           </div>
         </div>
@@ -111,12 +111,50 @@ const AdminDashboard = () => {
         }
         @media (max-width: 768px) {
           .dashboard-layout { flex-direction: column; }
-          .sidebar { width: 100%; padding: 0.5rem; overflow-x: auto; flex-direction: row; border-right: none; border-bottom: 1px solid var(--color-gray-200); height: auto; }
-          .sidebar-menu { flex-direction: row; padding: 0; width: 100%; gap: 0.5rem; }
-          .menu-label, .divider, .mt-auto { display: none; }
-          .menu-group { display: flex; gap: 0.5rem; width: 100%; flex-direction: row; }
-          .sidebar-link { white-space: nowrap; width: auto; justify-content: center; padding: 0.5rem; margin-bottom: 0; }
+          .sidebar {
+            width: 100%;
+            border-right: none;
+            border-bottom: 1px solid var(--color-gray-200);
+            height: auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
+          }
+          .sidebar-menu {
+            flex-direction: row;
+            padding: 0.5rem 0.75rem;
+            width: max-content;
+            min-width: 100%;
+            gap: 0;
+            justify-content: center;
+          }
+          .menu-label { display: none; }
+          .divider { display: none; }
+          .menu-group {
+            flex-direction: row;
+            gap: 0.25rem;
+            width: auto;
+          }
+          .menu-group:last-child { margin-top: 0; }
+          .mt-auto { margin-top: 0; }
+          .sidebar-link {
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2px;
+            padding: 0.5rem 0.6rem;
+            margin-bottom: 0;
+            min-width: 44px;
+            border-radius: var(--radius-md);
+            font-size: 0.65rem;
+          }
           .sidebar-link span { display: none; }
+          .sidebar-link.active span {
+            display: block;
+            font-size: 0.6rem;
+            line-height: 1;
+          }
+          .dashboard-content { padding: 1rem; }
         }
       `}</style>
     </div>
