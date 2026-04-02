@@ -1,71 +1,9 @@
 /**
- * Notification manager — handles sound alerts and browser notifications
+ * Notification manager — handles browser notifications
  * for incoming messages. Works in both browser tabs and standalone PWA.
  */
 
-let audioCtx = null;
 const recentlyNotified = new Set();
-
-// ─── Audio context (lazy, unlocked on first user gesture) ────────────────────
-
-function getAudioContext() {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    return audioCtx;
-}
-
-// Pre-warm audio context on first user interaction (required by mobile browsers)
-if (typeof document !== 'undefined') {
-    const unlock = () => {
-        try { getAudioContext(); } catch { /* noop */ }
-    };
-    ['click', 'touchstart', 'keydown'].forEach(evt =>
-        document.addEventListener(evt, unlock, { once: true, passive: true })
-    );
-}
-
-// ─── Sound synthesis ─────────────────────────────────────────────────────────
-
-/**
- * Play a short two-tone notification chime via Web Audio API.
- */
-export function playMessageSound() {
-    try {
-        const ctx = getAudioContext();
-        const now = ctx.currentTime;
-
-        // Tone 1 — C6 (1046 Hz)
-        const osc1 = ctx.createOscillator();
-        const gain1 = ctx.createGain();
-        osc1.type = 'sine';
-        osc1.frequency.value = 1046.5;
-        gain1.gain.setValueAtTime(0.18, now);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        osc1.connect(gain1);
-        gain1.connect(ctx.destination);
-        osc1.start(now);
-        osc1.stop(now + 0.15);
-
-        // Tone 2 — E6 (1318 Hz), slightly delayed for a pleasant chime
-        const osc2 = ctx.createOscillator();
-        const gain2 = ctx.createGain();
-        osc2.type = 'sine';
-        osc2.frequency.value = 1318.5;
-        gain2.gain.setValueAtTime(0, now + 0.08);
-        gain2.gain.linearRampToValueAtTime(0.18, now + 0.1);
-        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
-        osc2.connect(gain2);
-        gain2.connect(ctx.destination);
-        osc2.start(now + 0.08);
-        osc2.stop(now + 0.35);
-    } catch {
-        // Audio not available or not yet unlocked
-    }
-}
 
 // ─── Vibration (mobile haptic feedback) ──────────────────────────────────────
 
@@ -92,7 +30,7 @@ export function showBrowserNotification(senderName, content, onClick) {
             badge: '/icons/icon-192.png',
             tag: 'bies-dm-' + senderName, // groups per sender
             renotify: true,
-            silent: true, // we handle our own sound
+            silent: true,
         });
 
         notification.onclick = () => {
@@ -129,7 +67,6 @@ export function getNotificationPermission() {
 /**
  * Notify the user of a new incoming message.
  *
- * - Plays the notification chime
  * - Vibrates on mobile
  * - Shows a browser notification if the page is hidden
  * - Deduplicates by messageId so the same message doesn't trigger twice
@@ -152,7 +89,6 @@ export function notifyIncomingMessage(messageId, senderName, content, onClick) {
         }
     }
 
-    playMessageSound();
     vibrate();
 
     // Only show browser notification when page is not focused
