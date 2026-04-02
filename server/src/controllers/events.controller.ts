@@ -324,7 +324,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
-                if (field === 'isOfficial' && req.body[field] === true && req.user!.role !== 'ADMIN') {
+                if (field === 'isOfficial' && req.body[field] === true && !req.user!.isAdmin) {
                     continue;
                 }
                 data[field] = req.body[field];
@@ -438,7 +438,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
         });
 
         if (!existing) { res.status(404).json({ error: 'Event not found' }); return; }
-        if (existing.hostId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (existing.hostId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
@@ -452,7 +452,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
         const data: any = {};
         for (const field of allowedFields) {
             if (req.body[field] !== undefined) {
-                if (field === 'isOfficial' && req.body[field] === true && req.user!.role !== 'ADMIN') {
+                if (field === 'isOfficial' && req.body[field] === true && !req.user!.isAdmin) {
                     continue;
                 }
                 data[field] = req.body[field];
@@ -557,7 +557,7 @@ export async function deleteEvent(req: Request, res: Response): Promise<void> {
         });
 
         if (!existing) { res.status(404).json({ error: 'Event not found' }); return; }
-        if (existing.hostId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (existing.hostId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
@@ -589,7 +589,7 @@ export async function deleteEvent(req: Request, res: Response): Promise<void> {
  */
 export async function endorseEvent(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Admin only' }); return;
         }
 

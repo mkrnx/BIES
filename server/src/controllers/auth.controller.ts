@@ -258,7 +258,7 @@ export async function register(req: Request, res: Response): Promise<void> {
         }
 
         // Generate JWT
-        const token = generateToken(user.id, user.role);
+        const token = generateToken(user.id, user.role, user.isAdmin);
 
         res.status(201).json({
             user: {
@@ -266,6 +266,7 @@ export async function register(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
+                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,
@@ -308,7 +309,7 @@ export async function login(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const token = generateToken(user.id, user.role);
+        const token = generateToken(user.id, user.role, user.isAdmin);
 
         // Decrypt the custodial nostr private key so the client can sign
         // NIP-42 AUTH challenges for the private relay.
@@ -330,6 +331,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
+                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,
@@ -443,7 +445,8 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             user = await prisma.user.create({
                 data: {
                     nostrPubkey: pubkey,
-                    role: isEnvAdmin ? 'ADMIN' : 'MEMBER',
+                    role: 'MEMBER',
+                    isAdmin: isEnvAdmin,
                     isBanned: bannedUserIds.length > 0,
                     profile: {
                         create: {
@@ -491,14 +494,20 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 });
             }
 
-        } else if (isEnvAdmin && user.role !== 'ADMIN') {
-            // Promote existing user to admin if their pubkey is in the admin list
+        } else if (isEnvAdmin && !user.isAdmin) {
+            // Grant admin flag without changing their existing role
             user = await prisma.user.update({
                 where: { id: user.id },
-                data: { role: 'ADMIN' },
+                data: { isAdmin: true },
                 include: { profile: true },
             });
-        }
+        } else if (!isEnvAdmin && user.isAdmin) {
+            // Revoke admin flag if pubkey was removed from ADMIN_PUBKEYS
+            user = await prisma.user.update({
+                where: { id: user.id },
+                data: { isAdmin: false },
+                include: { profile: true },
+            });
 
         // Store fingerprint for existing users (builds fingerprint database)
         await storeFingerprint(user.id, fingerprint, req);
@@ -509,7 +518,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             return;
         }
 
-        const token = generateToken(user.id, user.role);
+        const token = generateToken(user.id, user.role, user.isAdmin);
 
         // Add pubkey to relay whitelist so user can publish to the BIES relay
         addToRelayWhitelist(pubkey);
@@ -520,6 +529,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
+                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,
@@ -567,7 +577,8 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             email: user.email,
             nostrPubkey: user.nostrPubkey,
             role: user.role,
-            isAdmin: user.role === 'ADMIN',
+                isAdmin: user.isAdmin,
+            isAdmin: user.isAdmin,
             profile: profileData,
             ...(nostrNsec ? { nostrNsec } : {}),
         });
@@ -627,7 +638,7 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
         }
 
         const token = jwt.sign(
-            { userId: user.id, role: user.role },
+            { userId: user.id, role: user.role, isAdmin: user.isAdmin },
             config.jwtSecret,
             { expiresIn: '7d' },
         );
@@ -638,6 +649,7 @@ export async function demoLogin(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
+                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,

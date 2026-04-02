@@ -18,7 +18,7 @@ router.use(authenticate);
 router.get('/', listInvestments);
 router.get('/stats/:projectId', getProjectFundingStats);
 router.get('/:id', getInvestment);
-router.post('/', requireRole('INVESTOR', 'ADMIN'), validate(createInvestmentSchema), createInvestment);
+router.post('/', requireRole('INVESTOR'), validate(createInvestmentSchema), createInvestment);
 router.put('/:id', validate(updateInvestmentSchema), updateInvestment);
 
 export default router;

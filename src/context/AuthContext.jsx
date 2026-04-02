@@ -376,8 +376,8 @@ export const AuthProvider = ({ children }) => {
             isBuilder: user?.role === 'BUILDER',
             isInvestor: user?.role === 'INVESTOR',
             isMod: user?.role === 'MOD',
-            isAdmin: user?.role === 'ADMIN',
-            isStaff: user?.role === 'ADMIN' || user?.role === 'MOD',
+            isAdmin: !!user?.isAdmin,
+            isStaff: !!user?.isAdmin || user?.role === 'MOD',
         }}>
             {children}
             {showPasskeyPrompt && (

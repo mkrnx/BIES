@@ -571,16 +571,14 @@ const AdminUsers = () => {
                                                 <select
                                                     value={u.role}
                                                     onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                                    disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
+                                                    disabled={actionLoading === u.id || ((u.isAdmin || u.role === 'MOD') && !isAdmin)}
                                                     className="role-select"
-                                                    title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can change admin/mod roles' : ''}
+                                                    title={(u.isAdmin || u.role === 'MOD') && !isAdmin ? 'Only admins can change admin/mod roles' : ''}
                                                 >
                                                     <option value="BUILDER">BUILDER</option>
                                                     <option value="INVESTOR">INVESTOR</option>
                                                     {isAdmin && <option value="MOD">MOD</option>}
                                                     {!isAdmin && u.role === 'MOD' && <option value="MOD">MOD</option>}
-                                                    {isAdmin && <option value="ADMIN">ADMIN</option>}
-                                                    {!isAdmin && u.role === 'ADMIN' && <option value="ADMIN">ADMIN</option>}
                                                 </select>
                                             </td>
                                             <td data-label="Projects" className="mobile-hide">{u._count?.projects || 0}</td>
@@ -610,8 +608,8 @@ const AdminUsers = () => {
                                                     <button
                                                         className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
                                                         onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
-                                                        title={(u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin ? 'Only admins can ban other admins or mods' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
-                                                        disabled={actionLoading === u.id || ((u.role === 'ADMIN' || u.role === 'MOD') && !isAdmin)}
+                                                        title={(u.isAdmin || u.role === 'MOD') && !isAdmin ? 'Only admins can ban other admins or mods' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
+                                                        disabled={actionLoading === u.id || ((u.isAdmin || u.role === 'MOD') && !isAdmin)}
                                                     >
                                                         <Ban size={16} />
                                                     </button>

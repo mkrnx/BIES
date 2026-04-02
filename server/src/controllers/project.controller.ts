@@ -204,7 +204,7 @@ export async function getProject(req: Request, res: Response): Promise<void> {
         // Only allow owner/admin to view unpublished projects
         if (!project.isPublished) {
             const isOwner = req.user && project.ownerId === req.user.id;
-            const isAdmin = req.user && req.user.role === 'ADMIN';
+            const isAdmin = req.user && req.user.isAdmin;
             if (!isOwner && !isAdmin) {
                 res.status(404).json({ error: 'Project not found' });
                 return;
@@ -305,7 +305,7 @@ export async function updateProject(req: Request, res: Response): Promise<void> 
         });
 
         if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
-        if (existing.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (existing.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized to update this project' }); return;
         }
 
@@ -378,7 +378,7 @@ export async function deleteProject(req: Request, res: Response): Promise<void> 
         });
 
         if (!existing) { res.status(404).json({ error: 'Project not found' }); return; }
-        if (existing.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (existing.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized to delete this project' }); return;
         }
 
@@ -410,7 +410,7 @@ export async function postProjectUpdate(req: Request, res: Response): Promise<vo
         });
 
         if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
-        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (project.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
@@ -461,7 +461,7 @@ export async function getProjectDeck(req: Request, res: Response): Promise<void>
         if (!project.deckKey) { res.status(404).json({ error: 'No pitch deck uploaded for this project' }); return; }
 
         const isOwner = project.ownerId === req.user!.id;
-        const isAdmin = req.user!.role === 'ADMIN';
+        const isAdmin = req.user!.isAdmin;
         const isInvestor = req.user!.role === 'INVESTOR';
 
         // Owner and admin always have access
@@ -581,7 +581,7 @@ export async function listDeckRequests(req: Request, res: Response): Promise<voi
         });
 
         if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
-        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (project.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
@@ -659,7 +659,7 @@ export async function reviewDeckRequest(req: Request, res: Response): Promise<vo
         });
 
         if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
-        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (project.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 
@@ -722,7 +722,7 @@ export async function submitProject(req: Request, res: Response): Promise<void> 
 
         // Notify admins
         const admins = await prisma.user.findMany({
-            where: { role: 'ADMIN' },
+            where: { isAdmin: true },
             select: { id: true },
         });
         for (const admin of admins) {

@@ -14,8 +14,8 @@ const router = Router();
 router.post('/view/:projectId', optionalAuth, recordProjectView);
 
 // Protected analytics
-router.get('/dashboard', authenticate, requireRole('BUILDER', 'ADMIN'), getBuilderDashboard);
-router.get('/investor-dashboard', authenticate, requireRole('INVESTOR', 'ADMIN'), getInvestorDashboard);
+router.get('/dashboard', authenticate, requireRole('BUILDER'), getBuilderDashboard);
+router.get('/investor-dashboard', authenticate, requireRole('INVESTOR'), getInvestorDashboard);
 router.get('/project/:id', authenticate, getProjectAnalytics);
 router.get('/platform', authenticate, requireRole('ADMIN'), getPlatformStats);
 
