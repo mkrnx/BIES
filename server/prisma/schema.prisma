@@ -21,7 +21,8 @@ model User {
   passwordHash     String?  @map("password_hash")
   nostrPubkey      String   @unique @map("nostr_pubkey")
   encryptedPrivkey String?  @map("encrypted_privkey")
-  role             String   @default("MEMBER") // BUILDER | INVESTOR | MOD | ADMIN | MEMBER | EDUCATOR | EVENT_HOST
+  role             String   @default("MEMBER") // BUILDER | INVESTOR | MOD | MEMBER | EDUCATOR | EVENT_HOST
+  isAdmin          Boolean  @default(false) @map("is_admin")
   isVerified       Boolean  @default(false) @map("is_verified")
   isBanned         Boolean  @default(false) @map("is_banned")
   deletedAt        DateTime? @map("deleted_at")

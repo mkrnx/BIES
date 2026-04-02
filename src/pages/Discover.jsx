@@ -592,7 +592,7 @@ const Discover = () => {
 
       <div className="search-row">
         <div className="search-left-column">
-          {(mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
+          {(mode === 'builder' || user?.role === 'BUILDER' || user?.isAdmin || user?.role === 'MOD') && (
             <Link to="/dashboard/builder/new-project" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
               <Plus size={18} /><span>{t('discover.newProject')}</span>
             </Link>
@@ -669,7 +669,7 @@ const Discover = () => {
             </button>
             <button className="btn btn-primary search-btn-desktop" onClick={() => { }}>{t('common.search')}</button>
           </div>
-          {isPWA && (mode === 'builder' || user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD') && (
+          {isPWA && (mode === 'builder' || user?.role === 'BUILDER' || user?.isAdmin || user?.role === 'MOD') && (
             <Link to="/dashboard/builder/new-project" className="pwa-create-btn" title={t('discover.newProject')} style={{
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               width: 44, height: 44, minWidth: 44, borderRadius: '50%',
@@ -926,7 +926,7 @@ const Discover = () => {
                         
                         const roleTags = [];
                         if (builder.user?.role === 'INVESTOR') roleTags.push('Investor');
-                        if (builder.user?.role === 'ADMIN') roleTags.push('Admin');
+                        if (builder.user?.isAdmin) roleTags.push('Admin');
                         if (builder.user?.role === 'MOD') roleTags.push('Moderator');
                         if (builder.user?._count?.projects > 0) roleTags.push('Builder');
                         if (builder.user?._count?.hostedEvents > 0) roleTags.push('Event Host');
@@ -941,7 +941,7 @@ const Discover = () => {
                                         <div className="builder-avatar-wrap-icons">
                                             {avatarContent}
                                             {builder.user?.role === 'MOD' && <div className="badge-shield" title="Moderator">🛡️</div>}
-                                            {builder.user?.role === 'ADMIN' && <div className="badge-shield" title="Admin">👑</div>}
+                                            {builder.user?.isAdmin && <div className="badge-shield" title="Admin">👑</div>}
                                         </div>
                                         <h3 className="builder-name-icons">{builder.name}</h3>
                                     </div>
@@ -956,7 +956,7 @@ const Discover = () => {
                                         <div className="builder-avatar-wrap-list relative">
                                             {avatarContent}
                                             {builder.user?.role === 'MOD' && <div className="badge-shield list-badge" title="Moderator">🛡️</div>}
-                                            {builder.user?.role === 'ADMIN' && <div className="badge-shield list-badge" title="Admin">👑</div>}
+                                            {builder.user?.isAdmin && <div className="badge-shield list-badge" title="Admin">👑</div>}
                                         </div>
                                         <div className="builder-info-list" style={{ flex: 1, overflow: 'hidden' }}>
                                             <h3 className="font-semibold text-lg" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{builder.name}</h3>
@@ -999,7 +999,7 @@ const Discover = () => {
                                     <div className="h-48 bg-gray-100 relative builder-avatar-wrap-standard">
                                         {avatarContent}
                                         {builder.user?.role === 'MOD' && <div className="badge-shield standard-badge" title="Moderator">🛡️</div>}
-                                        {builder.user?.role === 'ADMIN' && <div className="badge-shield standard-badge" title="Admin">👑</div>}
+                                        {builder.user?.isAdmin && <div className="badge-shield standard-badge" title="Admin">👑</div>}
                                     </div>
                                     <div className="p-5 flex-1 flex flex-col">
                                         <h3 className="font-semibold text-xl mb-1">{builder.name}</h3>

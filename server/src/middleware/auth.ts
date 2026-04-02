@@ -13,6 +13,7 @@ declare global {
                 email: string | null;
                 nostrPubkey: string;
                 role: string;
+                isAdmin: boolean;
             };
         }
     }
@@ -21,6 +22,7 @@ declare global {
 interface JwtPayload {
     userId: string;
     role: string;
+    isAdmin: boolean;
 }
 
 /**
@@ -54,6 +56,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
                 email: true,
                 nostrPubkey: true,
                 role: true,
+                isAdmin: true,
             },
         });
 
@@ -98,6 +101,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
                 email: true,
                 nostrPubkey: true,
                 role: true,
+                isAdmin: true,
             },
         });
 
@@ -113,11 +117,18 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
 
 /**
  * Require specific role(s). Must be used AFTER authenticate middleware.
+ * Admins (isAdmin flag) pass any role gate automatically.
  */
 export function requireRole(...roles: string[]) {
     return (req: Request, res: Response, next: NextFunction): void => {
         if (!req.user) {
             res.status(401).json({ error: 'Authentication required' });
+            return;
+        }
+
+        // Admins pass any role gate
+        if (req.user.isAdmin) {
+            next();
             return;
         }
 
@@ -141,8 +152,8 @@ export function isAdminPubkey(nostrPubkey: string): boolean {
 /**
  * Generate JWT for a user.
  */
-export function generateToken(userId: string, role: string): string {
-    return jwt.sign({ userId, role }, config.jwtSecret, {
+export function generateToken(userId: string, role: string, isAdmin: boolean = false): string {
+    return jwt.sign({ userId, role, isAdmin }, config.jwtSecret, {
         algorithm: 'HS256',
         expiresIn: config.jwtExpiresIn,
     } as jwt.SignOptions);

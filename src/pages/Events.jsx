@@ -614,7 +614,7 @@ const Events = () => {
 
             <div className="search-row">
                 <div className="search-left-column">
-                    {(user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
+                    {(user?.role === 'BUILDER' || user?.isAdmin || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
                         <Link to="/events/create" className="btn btn-primary create-project-btn" style={{ display: 'flex', width: '100%', boxSizing: 'border-box', gap: '0.5rem', justifyContent: 'center' }}>
                             <Plus size={18} /><span>{t('events.createEvent')}</span>
                         </Link>
@@ -656,7 +656,7 @@ const Events = () => {
                         </button>
                         <button className="btn btn-primary search-btn-desktop">{t('common.search')}</button>
                     </div>
-                    {isPWA && (user?.role === 'BUILDER' || user?.role === 'ADMIN' || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
+                    {isPWA && (user?.role === 'BUILDER' || user?.isAdmin || user?.role === 'MOD' || user?.role === 'INVESTOR') && (
                         <Link to="/events/create" className="pwa-create-btn" title="Create Event" style={{
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
                             width: 44, height: 44, minWidth: 44, borderRadius: '50%',

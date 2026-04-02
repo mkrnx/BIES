@@ -120,7 +120,7 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
                 include: {
                     user: {
                         select: {
-                            id: true, nostrPubkey: true, role: true,
+                            id: true, nostrPubkey: true, role: true, isAdmin: true,
                             isVerified: true,
                             _count: { select: { projects: true, followers: true, hostedEvents: true } },
                         },
@@ -185,7 +185,7 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
             include: {
                 user: {
                     select: {
-                        id: true, nostrPubkey: true, role: true, isVerified: true,
+                        id: true, nostrPubkey: true, role: true, isAdmin: true, isVerified: true,
                         projects: {
                             where: { isPublished: true },
                             select: {
@@ -394,7 +394,7 @@ export async function getMyProfile(req: Request, res: Response): Promise<void> {
             include: {
                 user: {
                     select: {
-                        id: true, email: true, nostrPubkey: true, role: true, isVerified: true,
+                        id: true, email: true, nostrPubkey: true, role: true, isAdmin: true, isVerified: true,
                         projects: {
                             orderBy: { createdAt: 'desc' },
                             select: {

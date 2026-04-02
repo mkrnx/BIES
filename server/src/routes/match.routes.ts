@@ -8,6 +8,6 @@ const router = Router();
 router.get('/projects/:id/matches', authenticate, getProjectMatches);
 
 // Investor sees recommended projects
-router.get('/investors/recommendations', authenticate, requireRole('INVESTOR', 'ADMIN'), getInvestorRecommendations);
+router.get('/investors/recommendations', authenticate, requireRole('INVESTOR'), getInvestorRecommendations);
 
 export default router;

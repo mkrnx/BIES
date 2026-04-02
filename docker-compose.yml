@@ -15,7 +15,7 @@ services:
       CORS_ORIGIN: "https://bies.sovit.xyz"
       YOUTUBE_CHANNEL_ID: "UCBgvGPST3o9QWCqiSZOgjmQ"
       TWITTER_COOKIES_PATH: "/app/twitter-cookies.txt"
-      ADMIN_PUBKEYS: "85ea5f36ad90cb6e9100fb3e445c9a100d945563e07913100c84664dbfef2250,de7ab932ca17278b2144a6628c3531a0628fcc7b58074111d6e5b949ecb0e377"
+      ADMIN_PUBKEYS: "de7ab932ca17278b2144a6628c3531a0628fcc7b58074111d6e5b949ecb0e377,4e275e00e0b7d22b19b6cd236d28976f6db46b91f152ff384a71343918022256,d0e958dae5d5a0601948cbe029b44b38de123b233546cb171cbaefa5a3536807"
     volumes:
       - bies-data:/app/data
       - bies-uploads:/app/uploads

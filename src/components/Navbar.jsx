@@ -163,7 +163,7 @@ const Navbar = () => {
                       </Link>
                       <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.messages')}</Link>
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.dashboard')}</Link>
-                      {(user?.role === 'ADMIN' || user?.role === 'MOD') && (
+                      {(user?.isAdmin || user?.role === 'MOD') && (
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
                       )}
                       <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.settings')}</Link>
@@ -226,7 +226,7 @@ const Navbar = () => {
               {[
                 { to: '/profile', label: t('nav.profile') },
                 { to: '/messages', label: t('nav.messages') },
-                ...((user?.role === 'ADMIN' || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
+                ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 { to: '/news', label: t('nav.news') },
                 { to: '/about', label: t('nav.about') },
               ].map((link) => {

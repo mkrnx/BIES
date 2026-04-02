@@ -26,8 +26,8 @@ import {
 
 const router = Router();
 
-// All admin routes require ADMIN or MOD role
-router.use(authenticate, requireRole('ADMIN', 'MOD'));
+// All admin routes require isAdmin flag or MOD role
+router.use(authenticate, requireRole('MOD'));
 
 // Users
 router.get('/users', listUsers);

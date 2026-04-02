@@ -1,6 +1,6 @@
 /**
  * Admin controller — platform moderation and management.
- * All routes require role = ADMIN or MOD.
+ * All routes require isAdmin flag or role = MOD.
  */
 
 import { Request, Response } from 'express';
@@ -39,7 +39,7 @@ export async function listUsers(req: Request, res: Response): Promise<void> {
                 take,
                 orderBy: { createdAt: 'desc' },
                 select: {
-                    id: true, email: true, nostrPubkey: true, role: true,
+                    id: true, email: true, nostrPubkey: true, role: true, isAdmin: true,
                     isVerified: true, isBanned: true, createdAt: true,
                     profile: { select: { name: true, avatar: true, company: true } },
                     _count: { select: { projects: true, investments: true } },
@@ -72,9 +72,9 @@ export async function banUser(req: Request, res: Response): Promise<void> {
         // Only admins can ban other admins or mods
         const targetUser = await prisma.user.findUnique({
             where: { id: req.params.id },
-            select: { role: true },
+            select: { role: true, isAdmin: true },
         });
-        if ((targetUser?.role === 'ADMIN' || targetUser?.role === 'MOD') && req.user!.role !== 'ADMIN') {
+        if ((targetUser?.isAdmin || targetUser?.role === 'MOD') && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can ban other admins or mods' }); return;
         }
 
@@ -115,17 +115,17 @@ export async function banUser(req: Request, res: Response): Promise<void> {
 export async function setUserRole(req: Request, res: Response): Promise<void> {
     try {
         const { role } = req.body;
-        if (!['BUILDER', 'INVESTOR', 'MOD', 'ADMIN'].includes(role)) {
+        if (!['BUILDER', 'INVESTOR', 'MOD', 'MEMBER'].includes(role)) {
             res.status(400).json({ error: 'Invalid role' }); return;
         }
 
         // Only admins can promote/demote to MOD or ADMIN, or demote existing admins/mods
         const targetUser = await prisma.user.findUnique({
             where: { id: req.params.id },
-            select: { role: true },
+            select: { role: true, isAdmin: true },
         });
-        const isPrivilegedRole = (r: string) => r === 'ADMIN' || r === 'MOD';
-        if ((isPrivilegedRole(role) || isPrivilegedRole(targetUser?.role || '')) && req.user!.role !== 'ADMIN') {
+        
+        if ((role === 'MOD' || targetUser?.role === 'MOD') && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can promote or demote admins and mods' }); return;
         }
 
@@ -237,7 +237,7 @@ export async function hardDeleteProject(req: Request, res: Response): Promise<vo
  */
 export async function moveProjectOwnership(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can transfer project ownership' }); return;
         }
 
@@ -355,7 +355,7 @@ export async function getAuditLogs(req: Request, res: Response): Promise<void> {
  */
 export async function deleteUser(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can delete users' }); return;
         }
 
@@ -408,7 +408,7 @@ export async function deleteUser(req: Request, res: Response): Promise<void> {
  */
 export async function listTrashedUsers(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can view trash' }); return;
         }
 
@@ -431,7 +431,7 @@ export async function listTrashedUsers(req: Request, res: Response): Promise<voi
                 take,
                 orderBy: { deletedAt: 'desc' },
                 select: {
-                    id: true, email: true, nostrPubkey: true, role: true,
+                    id: true, email: true, nostrPubkey: true, role: true, isAdmin: true,
                     isVerified: true, isBanned: true, createdAt: true, deletedAt: true,
                     profile: { select: { name: true, avatar: true } },
                     _count: { select: { projects: true } },
@@ -456,7 +456,7 @@ export async function listTrashedUsers(req: Request, res: Response): Promise<voi
  */
 export async function restoreUser(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can restore users' }); return;
         }
 
@@ -502,7 +502,7 @@ export async function restoreUser(req: Request, res: Response): Promise<void> {
  */
 export async function purgeUser(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can purge users' }); return;
         }
 
@@ -552,7 +552,7 @@ export async function purgeUser(req: Request, res: Response): Promise<void> {
  */
 export async function syncAccounts(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can sync accounts' }); return;
         }
 
@@ -881,7 +881,7 @@ export async function listAdminProjects(req: Request, res: Response): Promise<vo
  */
 export async function listInvestorRequests(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can view investor requests' }); return;
         }
         const requests = await prisma.investorRequest.findMany({
@@ -909,7 +909,7 @@ export async function listInvestorRequests(req: Request, res: Response): Promise
  */
 export async function reviewInvestorRequest(req: Request, res: Response): Promise<void> {
     try {
-        if (req.user!.role !== 'ADMIN') {
+        if (!req.user!.isAdmin) {
             res.status(403).json({ error: 'Only admins can review investor requests' }); return;
         }
 

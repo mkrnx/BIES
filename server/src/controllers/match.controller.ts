@@ -22,7 +22,7 @@ export async function getProjectMatches(req: Request, res: Response): Promise<vo
 
         if (!project) { res.status(404).json({ error: 'Project not found' }); return; }
 
-        if (project.ownerId !== req.user!.id && req.user!.role !== 'ADMIN') {
+        if (project.ownerId !== req.user!.id && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' }); return;
         }
 

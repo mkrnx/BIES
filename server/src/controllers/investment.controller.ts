@@ -53,7 +53,7 @@ export async function listInvestments(req: Request, res: Response): Promise<void
         } else if (role === 'BUILDER') {
             // Show investments in builder's own projects
             where.project = { ownerId: userId };
-        } else if (role === 'ADMIN') {
+        } else if (req.user!.isAdmin) {
             // Admin can filter by projectId
             if (projectId) where.projectId = projectId;
         }
@@ -127,7 +127,7 @@ export async function getInvestment(req: Request, res: Response): Promise<void> 
         }
 
         const isParty = investment.investorId === userId || investment.project.ownerId === userId;
-        if (!isParty && req.user!.role !== 'ADMIN') {
+        if (!isParty && !req.user!.isAdmin) {
             res.status(403).json({ error: 'Not authorized' });
             return;
         }
@@ -231,7 +231,7 @@ export async function updateInvestment(req: Request, res: Response): Promise<voi
 
         const isBuilder = investment.project.ownerId === userId;
         const isInvestor = investment.investorId === userId;
-        const isAdmin = req.user!.role === 'ADMIN';
+        const isAdmin = req.user!.isAdmin;
 
         if (!isBuilder && !isInvestor && !isAdmin) {
             res.status(403).json({ error: 'Not authorized' });
