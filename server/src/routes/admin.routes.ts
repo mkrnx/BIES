@@ -12,6 +12,7 @@ import {
     syncAccounts,
     featureProject,
     hardDeleteProject,
+    moveProjectOwnership,
     listAdminProjects,
     reviewProject,
     listAdminEvents,
@@ -46,6 +47,7 @@ router.put('/investor-requests/:id/review', reviewInvestorRequest);
 router.get('/projects', listAdminProjects);
 router.put('/projects/:id/feature', featureProject);
 router.put('/projects/:id/review', reviewProject);
+router.put('/projects/:id/owner', moveProjectOwnership);   // ADMIN only (enforced in controller)
 router.delete('/projects/:id', hardDeleteProject);
 
 // Events

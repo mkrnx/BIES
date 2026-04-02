@@ -1,7 +1,95 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircle, XCircle, Star, ExternalLink, Trash2, Loader2, Search } from 'lucide-react';
+import { CheckCircle, XCircle, Star, ExternalLink, Trash2, Loader2, Search, ArrowRightLeft } from 'lucide-react';
 import { adminApi } from '../../services/api';
+
+const MoveOwnerModal = ({ project, onClose, onSuccess }) => {
+    const [userSearch, setUserSearch] = useState('');
+    const [users, setUsers] = useState([]);
+    const [searching, setSearching] = useState(false);
+    const [selected, setSelected] = useState(null);
+    const [submitting, setSubmitting] = useState(false);
+
+    const searchUsers = async () => {
+        if (!userSearch.trim()) return;
+        setSearching(true);
+        try {
+            const res = await adminApi.users({ search: userSearch, limit: 10 });
+            setUsers((res?.data || []).filter(u => u.id !== project.currentOwner?.id));
+        } catch {
+            setUsers([]);
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const handleSubmit = async () => {
+        if (!selected) return;
+        if (!window.confirm(`Transfer "${project.projectTitle}" to ${selected.profile?.name || selected.email || selected.id}?`)) return;
+        setSubmitting(true);
+        try {
+            await adminApi.changeProjectOwner(project.projectId, selected.id);
+            onSuccess();
+        } catch {
+            alert('Failed to transfer ownership');
+        } finally {
+            setSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-content" onClick={e => e.stopPropagation()}>
+                <h3>Move Project Ownership</h3>
+                <p className="modal-subtitle">
+                    Transfer <strong>{project.projectTitle}</strong> to a new owner.
+                </p>
+                <p className="modal-current">
+                    Current owner: <strong>{project.currentOwner?.profile?.name || project.currentOwner?.email || '—'}</strong>
+                </p>
+
+                <div className="modal-search">
+                    <input
+                        type="text"
+                        placeholder="Search users by name or email..."
+                        value={userSearch}
+                        onChange={e => setUserSearch(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && searchUsers()}
+                    />
+                    <button onClick={searchUsers} disabled={searching || !userSearch.trim()}>
+                        {searching ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} /> : 'Search'}
+                    </button>
+                </div>
+
+                {users.length > 0 && (
+                    <ul className="user-list">
+                        {users.map(u => (
+                            <li
+                                key={u.id}
+                                className={`user-item ${selected?.id === u.id ? 'selected' : ''}`}
+                                onClick={() => setSelected(u)}
+                            >
+                                <span className="user-name">{u.profile?.name || u.email || u.id}</span>
+                                <span className="user-role">{u.role}</span>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+
+                <div className="modal-actions">
+                    <button className="btn-cancel" onClick={onClose}>Cancel</button>
+                    <button
+                        className="btn-confirm"
+                        disabled={!selected || submitting}
+                        onClick={handleSubmit}
+                    >
+                        {submitting ? 'Transferring...' : 'Transfer Ownership'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const TABS = [
     { key: 'pending-review', label: 'Pending Review' },
@@ -17,6 +105,7 @@ const AdminProjects = () => {
     const [pagination, setPagination] = useState({ page: 1, total: 0, totalPages: 1 });
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(null);
+    const [moveModal, setMoveModal] = useState(null); // { projectId, projectTitle, currentOwner }
 
     const fetchProjects = useCallback(async (page = 1) => {
         setLoading(true);
@@ -175,6 +264,18 @@ const AdminProjects = () => {
                                                     </button>
                                                 </>
                                             )}
+                                            <button
+                                                className="icon-btn transfer"
+                                                onClick={() => setMoveModal({
+                                                    projectId: p.id,
+                                                    projectTitle: p.title,
+                                                    currentOwner: p.owner,
+                                                })}
+                                                title="Move Ownership"
+                                                disabled={actionLoading === p.id}
+                                            >
+                                                <ArrowRightLeft size={16} />
+                                            </button>
                                             <Link to={`/project/${p.id}`} className="icon-btn" title="View">
                                                 <ExternalLink size={16} />
                                             </Link>
@@ -207,6 +308,17 @@ const AdminProjects = () => {
                         onClick={() => fetchProjects(pagination.page + 1)}
                     >Next</button>
                 </div>
+            )}
+
+            {moveModal && (
+                <MoveOwnerModal
+                    project={moveModal}
+                    onClose={() => setMoveModal(null)}
+                    onSuccess={() => {
+                        setMoveModal(null);
+                        fetchProjects(pagination.page);
+                    }}
+                />
             )}
 
             <style jsx>{`
@@ -314,6 +426,8 @@ const AdminProjects = () => {
                 .icon-btn.reject:hover { background: var(--color-red-tint); }
                 .icon-btn.delete { color: #dc2626; }
                 .icon-btn.delete:hover { background: var(--color-red-tint); }
+                .icon-btn.transfer { color: #6366f1; }
+                .icon-btn.transfer:hover { background: #eef2ff; }
                 .icon-btn.featured-active { color: #eab308; }
                 .icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination {
@@ -333,6 +447,81 @@ const AdminProjects = () => {
                 }
                 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
+                .modal-overlay {
+                    position: fixed; inset: 0;
+                    background: rgba(0,0,0,0.5);
+                    display: flex; align-items: center; justify-content: center;
+                    z-index: 1000;
+                }
+                .modal-content {
+                    background: var(--color-surface);
+                    border-radius: var(--radius-lg);
+                    padding: 1.5rem;
+                    width: 100%;
+                    max-width: 480px;
+                    box-shadow: var(--shadow-lg, 0 10px 30px rgba(0,0,0,0.2));
+                }
+                .modal-content h3 { margin: 0 0 0.25rem; }
+                .modal-subtitle { color: var(--color-gray-500); font-size: 0.875rem; margin: 0 0 0.25rem; }
+                .modal-current { color: var(--color-gray-500); font-size: 0.8rem; margin: 0 0 1rem; }
+                .modal-search { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; }
+                .modal-search input {
+                    flex: 1;
+                    padding: 0.5rem 0.75rem;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
+                    font-size: 0.875rem;
+                    outline: none;
+                }
+                .modal-search input:focus { border-color: var(--color-primary); }
+                .modal-search button {
+                    padding: 0.5rem 1rem;
+                    background: var(--color-primary);
+                    color: white;
+                    border: none;
+                    border-radius: var(--radius-md);
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                }
+                .modal-search button:disabled { opacity: 0.5; cursor: not-allowed; }
+                .user-list {
+                    list-style: none; padding: 0; margin: 0 0 1rem;
+                    max-height: 200px; overflow-y: auto;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
+                }
+                .user-item {
+                    display: flex; justify-content: space-between; align-items: center;
+                    padding: 0.5rem 0.75rem;
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                    border-bottom: 1px solid var(--color-gray-100);
+                }
+                .user-item:last-child { border-bottom: none; }
+                .user-item:hover { background: var(--color-gray-50, #f9fafb); }
+                .user-item.selected { background: #eef2ff; border-color: #6366f1; }
+                .user-name { font-weight: 500; }
+                .user-role { font-size: 0.75rem; color: var(--color-gray-400); text-transform: uppercase; }
+                .modal-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+                .btn-cancel {
+                    padding: 0.5rem 1rem;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: var(--radius-md);
+                    background: var(--color-surface);
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                }
+                .btn-confirm {
+                    padding: 0.5rem 1rem;
+                    background: #6366f1;
+                    color: white;
+                    border: none;
+                    border-radius: var(--radius-md);
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                    font-weight: 500;
+                }
+                .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
                 @media (max-width: 768px) {
                     .toolbar { flex-direction: column; align-items: stretch; }
                     .tabs { overflow-x: auto; }

@@ -230,6 +230,79 @@ export async function hardDeleteProject(req: Request, res: Response): Promise<vo
     }
 }
 
+/**
+ * PUT /admin/projects/:id/owner
+ * Transfer project ownership to a different user. ADMIN only.
+ * Body: { newOwnerId: string }
+ */
+export async function moveProjectOwnership(req: Request, res: Response): Promise<void> {
+    try {
+        if (req.user!.role !== 'ADMIN') {
+            res.status(403).json({ error: 'Only admins can transfer project ownership' }); return;
+        }
+
+        const { newOwnerId } = req.body;
+        if (!newOwnerId || typeof newOwnerId !== 'string') {
+            res.status(400).json({ error: 'newOwnerId is required' }); return;
+        }
+
+        const project = await prisma.project.findUnique({
+            where: { id: req.params.id },
+            select: {
+                id: true, title: true, ownerId: true,
+                owner: { select: { id: true, profile: { select: { name: true } } } },
+            },
+        });
+        if (!project) {
+            res.status(404).json({ error: 'Project not found' }); return;
+        }
+        if (project.ownerId === newOwnerId) {
+            res.status(400).json({ error: 'New owner is already the current owner' }); return;
+        }
+
+        const newOwner = await prisma.user.findUnique({
+            where: { id: newOwnerId, deletedAt: null },
+            select: { id: true, profile: { select: { name: true } } },
+        });
+        if (!newOwner) {
+            res.status(404).json({ error: 'New owner not found' }); return;
+        }
+
+        await prisma.project.update({
+            where: { id: req.params.id },
+            data: { ownerId: newOwnerId },
+        });
+
+        await cache.delPattern('projects:');
+        await cache.del(`projectDetail:${req.params.id}`);
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'PROJECT_OWNERSHIP_TRANSFERRED',
+                resource: `project:${req.params.id}`,
+                metadata: JSON.stringify({
+                    projectTitle: project.title,
+                    previousOwnerId: project.ownerId,
+                    previousOwnerName: project.owner?.profile?.name || '',
+                    newOwnerId,
+                    newOwnerName: newOwner.profile?.name || '',
+                }),
+            },
+        });
+
+        res.json({
+            message: 'Project ownership transferred',
+            projectId: project.id,
+            previousOwnerId: project.ownerId,
+            newOwnerId,
+        });
+    } catch (error) {
+        console.error('Move project ownership error:', error);
+        res.status(500).json({ error: 'Failed to transfer project ownership' });
+    }
+}
+
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 /**

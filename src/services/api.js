@@ -313,6 +313,7 @@ export const adminApi = {
     verifyUser: (id) => put(`/admin/users/${id}/verify`, {}),
     featureProject: (id, featured) => put(`/admin/projects/${id}/feature`, { featured }),
     deleteProject: (id) => del(`/admin/projects/${id}`),
+    changeProjectOwner: (id, newOwnerId) => put(`/admin/projects/${id}/owner`, { newOwnerId }),
     listProjects: (params = {}) => get('/admin/projects', params),
     reviewProject: (id, action) => put(`/admin/projects/${id}/review`, { action }),
     listEvents: (params = {}) => get('/admin/events', params),
