@@ -119,10 +119,12 @@ const AdminDashboard = () => {
             overflow-x: auto;
             overflow-y: hidden;
             -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
           }
+          .sidebar::-webkit-scrollbar { display: none; }
           .sidebar-menu {
             flex-direction: row;
-            padding: 0.5rem 0.75rem;
+            padding: 0.5rem 0.5rem;
             width: max-content;
             min-width: 100%;
             gap: 0;
@@ -132,29 +134,32 @@ const AdminDashboard = () => {
           .divider { display: none; }
           .menu-group {
             flex-direction: row;
-            gap: 0.25rem;
+            gap: 0.125rem;
             width: auto;
           }
-          .menu-group:last-child { margin-top: 0; }
-          .mt-auto { margin-top: 0; }
+          .menu-group:last-child { display: none; }
           .sidebar-link {
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 2px;
-            padding: 0.5rem 0.6rem;
+            padding: 0.4rem 0.5rem;
             margin-bottom: 0;
             min-width: 44px;
+            min-height: 44px;
             border-radius: var(--radius-md);
-            font-size: 0.65rem;
+            font-size: 0.6rem;
+            white-space: nowrap;
           }
-          .sidebar-link span { display: none; }
-          .sidebar-link.active span {
+          .sidebar-link span {
             display: block;
             font-size: 0.6rem;
             line-height: 1;
           }
-          .dashboard-content { padding: 1rem; }
+          .dashboard-content {
+            padding: 1rem;
+            padding-bottom: 80px;
+          }
         }
       `}</style>
     </div>

@@ -105,16 +105,16 @@ const AdminEvents = () => {
                             {events.map(e => (
                                 <tr key={e.id}>
                                     <td className="font-semibold">{e.title}</td>
-                                    <td>{e.host?.profile?.name || e.host?.email || '—'}</td>
-                                    <td>{e.category}</td>
-                                    <td>{formatDate(e.startDate)}</td>
-                                    <td>{e._count?.attendees || 0}{e.maxAttendees ? ` / ${e.maxAttendees}` : ''}</td>
-                                    <td>
+                                    <td data-label="Host">{e.host?.profile?.name || e.host?.email || '—'}</td>
+                                    <td data-label="Category">{e.category}</td>
+                                    <td data-label="Date">{formatDate(e.startDate)}</td>
+                                    <td data-label="Attendees" className="mobile-hide">{e._count?.attendees || 0}{e.maxAttendees ? ` / ${e.maxAttendees}` : ''}</td>
+                                    <td data-label="Published" className="mobile-hide">
                                         <span className={`status-badge ${e.isPublished ? 'active' : 'draft'}`}>
                                             {e.isPublished ? 'Yes' : 'No'}
                                         </span>
                                     </td>
-                                    <td>
+                                    <td data-label="Featured" className="mobile-hide">
                                         <button
                                             className={`icon-btn ${e.isFeatured ? 'featured-active' : ''}`}
                                             onClick={() => handleFeature(e.id, e.isFeatured)}
@@ -254,8 +254,58 @@ const AdminEvents = () => {
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
                 @media (max-width: 768px) {
                     .header { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+                    .header h1 { font-size: 1.25rem; }
                     .search-wrap { display: flex; width: 100%; }
                     .search-wrap input { width: 100%; }
+                    .table-container { background: none; box-shadow: none; overflow: visible; }
+                    .data-table,
+                    .data-table thead,
+                    .data-table tbody,
+                    .data-table tr,
+                    .data-table th,
+                    .data-table td { display: block; }
+                    .data-table thead { display: none; }
+                    .data-table tr {
+                        background: var(--color-surface);
+                        border: 1px solid var(--color-gray-200);
+                        border-radius: var(--radius-lg);
+                        padding: 1rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .data-table td {
+                        display: flex;
+                        align-items: center;
+                        padding: 0.3rem 0;
+                        border-bottom: none;
+                        gap: 0.5rem;
+                    }
+                    .data-table td::before {
+                        content: attr(data-label);
+                        font-weight: 600;
+                        font-size: 0.7rem;
+                        color: var(--color-gray-400);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        min-width: 72px;
+                        flex-shrink: 0;
+                    }
+                    .data-table td:first-child {
+                        font-size: 1rem;
+                        font-weight: 600;
+                        padding-bottom: 0.5rem;
+                        margin-bottom: 0.25rem;
+                        border-bottom: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:first-child::before { display: none; }
+                    .data-table td.mobile-hide { display: none; }
+                    .data-table td:last-child {
+                        padding-top: 0.5rem;
+                        margin-top: 0.25rem;
+                        border-top: 1px solid var(--color-gray-100);
+                    }
+                    .data-table td:last-child::before { display: none; }
+                    .action-group { gap: 0.5rem; }
+                    .icon-btn { padding: 0.5rem; }
                 }
             `}</style>
         </>

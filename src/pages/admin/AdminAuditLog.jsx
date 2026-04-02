@@ -86,15 +86,15 @@ const AdminAuditLog = () => {
                         <tbody>
                             {logs.map(log => (
                                 <tr key={log.id}>
-                                    <td style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{formatDate(log.createdAt)}</td>
-                                    <td>{log.user?.profile?.name || log.user?.email || log.userId?.substring(0, 8) || '—'}</td>
-                                    <td>
+                                    <td data-label="Time" style={{ whiteSpace: 'nowrap', fontSize: '0.8rem' }}>{formatDate(log.createdAt)}</td>
+                                    <td data-label="Admin">{log.user?.profile?.name || log.user?.email || log.userId?.substring(0, 8) || '—'}</td>
+                                    <td data-label="Action">
                                         <span className="action-tag" style={{ color: actionColor(log.action) }}>
                                             {log.action}
                                         </span>
                                     </td>
-                                    <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{log.resource || '—'}</td>
-                                    <td>
+                                    <td data-label="Resource" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{log.resource || '—'}</td>
+                                    <td data-label="Details">
                                         {log.metadata && Object.keys(log.metadata).length > 0 && (
                                             <button
                                                 className="detail-toggle"
@@ -210,6 +210,45 @@ const AdminAuditLog = () => {
                 }
                 .pagination button:disabled { opacity: 0.5; cursor: not-allowed; }
                 .pagination span { font-size: 0.875rem; color: var(--color-gray-500); }
+                @media (max-width: 768px) {
+                    .header h1 { font-size: 1.25rem; }
+                    .filter-select { width: 100%; }
+                    .table-container { background: none; box-shadow: none; overflow: visible; }
+                    .data-table,
+                    .data-table thead,
+                    .data-table tbody,
+                    .data-table tr,
+                    .data-table th,
+                    .data-table td { display: block; }
+                    .data-table thead { display: none; }
+                    .data-table tr {
+                        background: var(--color-surface);
+                        border: 1px solid var(--color-gray-200);
+                        border-radius: var(--radius-lg);
+                        padding: 1rem;
+                        margin-bottom: 0.75rem;
+                    }
+                    .data-table td {
+                        display: flex;
+                        align-items: flex-start;
+                        padding: 0.3rem 0;
+                        border-bottom: none;
+                        gap: 0.5rem;
+                    }
+                    .data-table td::before {
+                        content: attr(data-label);
+                        font-weight: 600;
+                        font-size: 0.7rem;
+                        color: var(--color-gray-400);
+                        text-transform: uppercase;
+                        letter-spacing: 0.05em;
+                        min-width: 68px;
+                        flex-shrink: 0;
+                        padding-top: 0.1rem;
+                    }
+                    .action-tag { word-break: break-all; }
+                    .metadata-block { max-width: 100%; }
+                }
             `}</style>
         </>
     );
