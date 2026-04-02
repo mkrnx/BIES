@@ -36,6 +36,7 @@ model User {
   watchlist        WatchlistItem[]
   investments      Investment[]
   notifications    Notification[]
+  pushSubscriptions PushSubscription[]
   following        Follow[]          @relation("Following")
   followers        Follow[]          @relation("Followers")
   hostedEvents     Event[]
@@ -289,6 +290,27 @@ model Notification {
 
   @@index([userId, isRead])
   @@map("notifications")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Push Subscriptions (Web Push API)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  endpoint  String
+  p256dh    String
+  auth      String
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, endpoint])
+  @@index([userId])
+  @@map("push_subscriptions")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -4,8 +4,9 @@
  */
 
 import prisma from '../lib/prisma';
-import { sendToUser } from './websocket.service';
+import { sendToUser, isUserOnline } from './websocket.service';
 import { cache, cacheKey, TTL } from './redis.service';
+import { sendPushToUser, isWebPushEnabled } from './webpush.service';
 
 export type NotificationType =
     | 'NEW_MESSAGE'
@@ -68,6 +69,19 @@ export async function createNotification(params: CreateNotificationParams): Prom
                 createdAt: notification.createdAt,
             },
         });
+
+        // If user is offline, try web push as fallback
+        if (!isUserOnline(userId) && isWebPushEnabled()) {
+            sendPushToUser(userId, {
+                title,
+                body,
+                tag: `bies-${type.toLowerCase()}-${notification.id}`,
+                url: getNotificationUrl(type, data),
+                data: { notificationId: notification.id, type },
+            }).catch((err) => {
+                console.error('[Notification] Web push failed:', err);
+            });
+        }
     } catch (error) {
         console.error('[Notification] Failed to create notification:', error);
     }
@@ -335,4 +349,38 @@ export async function notifyFeedInteraction(params: {
             eventId: params.eventId,
         },
     });
+}
+
+// ─── URL helper for push notification click-through ──────────────────────────
+
+function getNotificationUrl(type: string, data: Record<string, unknown>): string {
+    switch (type) {
+        case 'NEW_MESSAGE':
+            return '/messages';
+        case 'INVESTMENT_INTEREST':
+        case 'PROJECT_VIEW':
+        case 'WATCHLIST_ADD':
+        case 'PROJECT_UPDATE':
+        case 'DECK_REQUEST':
+        case 'DECK_APPROVED':
+        case 'DECK_DENIED':
+            return data.projectId ? `/projects/${data.projectId}` : '/projects';
+        case 'FOLLOW':
+        case 'PROFILE_VIEW':
+            return data.followerId ? `/profile/${data.followerId}` :
+                   data.viewerId ? `/profile/${data.viewerId}` : '/';
+        case 'INVESTMENT_STATUS':
+            return data.projectId ? `/projects/${data.projectId}` : '/notifications';
+        case 'ZAP_RECEIVED':
+            return data.projectId ? `/projects/${data.projectId}` : '/notifications';
+        case 'EVENT_RSVP':
+            return data.eventId ? `/events/${data.eventId}` : '/events';
+        case 'POST_COMMENT':
+        case 'POST_LIKE':
+        case 'COMMENT_LIKE':
+        case 'COMMENT_REPLY':
+            return '/feed';
+        default:
+            return '/notifications';
+    }
 }

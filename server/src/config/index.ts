@@ -70,4 +70,11 @@ export const config = {
         pass: process.env.SMTP_PASS || '',
         from: process.env.SMTP_FROM || 'noreply@bies.io',
     },
+
+    // ─── Web Push (VAPID) — optional, for offline push notifications ────────
+    vapid: {
+        publicKey: process.env.VAPID_PUBLIC_KEY || '',
+        privateKey: process.env.VAPID_PRIVATE_KEY || '',
+        subject: process.env.VAPID_SUBJECT || 'mailto:admin@bies.io',
+    },
 };

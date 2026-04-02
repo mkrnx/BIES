@@ -6,7 +6,8 @@ import { useTheme } from '../context/ThemeContext';
 import { useViewPreference } from '../context/ViewContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { investorApi, preferencesApi } from '../services/api';
+import { investorApi, preferencesApi, notificationsApi } from '../services/api';
+import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, getPushSubscriptionState } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
@@ -56,6 +57,43 @@ const Settings = () => {
     const [submittingInvestor, setSubmittingInvestor] = React.useState(false);
     const [investorRequested, setInvestorRequested] = React.useState(false);
     const [investorError, setInvestorError] = React.useState('');
+
+    // Push notification state: unsupported | denied | prompt | subscribed | unsubscribed
+    const [pushState, setPushState] = useState('unsupported');
+
+    useEffect(() => {
+        (async () => {
+            if (!('PushManager' in window)) { setPushState('unsupported'); return; }
+            if (typeof Notification === 'undefined') { setPushState('unsupported'); return; }
+            if (Notification.permission === 'denied') { setPushState('denied'); return; }
+            if (Notification.permission === 'default') { setPushState('prompt'); return; }
+            const { subscribed } = await getPushSubscriptionState();
+            setPushState(subscribed ? 'subscribed' : 'unsubscribed');
+        })();
+    }, []);
+
+    const handleTogglePush = async () => {
+        if (pushState === 'subscribed') {
+            const endpoint = await unsubscribeFromPush();
+            if (endpoint) await notificationsApi.pushUnsubscribe(endpoint).catch(() => {});
+            setPushState('unsubscribed');
+        } else {
+            if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+                const perm = await requestNotificationPermission();
+                if (perm !== 'granted') { setPushState('denied'); return; }
+            }
+            try {
+                const { publicKey } = await notificationsApi.getVapidKey();
+                const sub = await subscribeToPush(publicKey);
+                if (sub) {
+                    await notificationsApi.pushSubscribe(sub);
+                    setPushState('subscribed');
+                }
+            } catch {
+                // Push registration failed
+            }
+        }
+    };
 
     // Nostr key management state
     const [nsecRevealed, setNsecRevealed] = useState(false);
@@ -301,6 +339,28 @@ const Settings = () => {
                         </div>
                     </div>
                     <button className="toggle-btn active">{t('common.on')}</button>
+                </div>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><Bell size={20} /></div>
+                        <div>
+                            <p className="setting-label">Push Notifications</p>
+                            <p className="setting-desc">
+                                {pushState === 'unsupported' && 'Not supported on this browser'}
+                                {pushState === 'denied' && 'Blocked in browser settings'}
+                                {pushState === 'prompt' && 'Get notified when the app is closed'}
+                                {pushState === 'subscribed' && 'Receiving push notifications'}
+                                {pushState === 'unsubscribed' && 'Not receiving push notifications'}
+                            </p>
+                        </div>
+                    </div>
+                    <button
+                        className={`toggle-btn ${pushState === 'subscribed' ? 'active' : ''}`}
+                        disabled={pushState === 'unsupported' || pushState === 'denied'}
+                        onClick={handleTogglePush}
+                    >
+                        {pushState === 'subscribed' ? t('common.on') : t('common.off')}
+                    </button>
                 </div>
                 <div className="setting-item">
                     <div className="setting-info">

@@ -6,6 +6,7 @@ import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey } from '../services/redis.service';
 import { notifyFeedInteraction } from '../services/notification.service';
+import { config } from '../config';
 
 /**
  * GET /notifications
@@ -189,5 +190,84 @@ export async function feedInteraction(req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Feed interaction notification error:', error);
         res.status(500).json({ error: 'Failed to create notification' });
+    }
+}
+
+// ─── Push subscription endpoints ─────────────────────────────────────────────
+
+/**
+ * GET /notifications/push/vapid-key
+ * Return the public VAPID key (needed by PushManager.subscribe on the client).
+ */
+export async function getVapidPublicKey(req: Request, res: Response): Promise<void> {
+    const key = config.vapid.publicKey;
+    if (!key) {
+        res.status(503).json({ error: 'Push notifications are not configured' });
+        return;
+    }
+    res.json({ publicKey: key });
+}
+
+/**
+ * POST /notifications/push/subscribe
+ * Store a push subscription for the authenticated user.
+ */
+export async function subscribePush(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const { endpoint, keys } = req.body;
+
+        if (!endpoint || !keys?.p256dh || !keys?.auth) {
+            res.status(400).json({ error: 'endpoint and keys (p256dh, auth) are required' });
+            return;
+        }
+
+        await prisma.pushSubscription.upsert({
+            where: {
+                userId_endpoint: { userId, endpoint },
+            },
+            update: {
+                p256dh: keys.p256dh,
+                auth: keys.auth,
+                userAgent: req.headers['user-agent'] || null,
+            },
+            create: {
+                userId,
+                endpoint,
+                p256dh: keys.p256dh,
+                auth: keys.auth,
+                userAgent: req.headers['user-agent'] || null,
+            },
+        });
+
+        res.json({ message: 'Push subscription registered' });
+    } catch (error) {
+        console.error('Push subscribe error:', error);
+        res.status(500).json({ error: 'Failed to register push subscription' });
+    }
+}
+
+/**
+ * DELETE /notifications/push/subscribe
+ * Remove a push subscription (user disabled push or unsubscribed).
+ */
+export async function unsubscribePush(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const { endpoint } = req.body;
+
+        if (!endpoint) {
+            res.status(400).json({ error: 'endpoint is required' });
+            return;
+        }
+
+        await prisma.pushSubscription.deleteMany({
+            where: { userId, endpoint },
+        });
+
+        res.json({ message: 'Push subscription removed' });
+    } catch (error) {
+        console.error('Push unsubscribe error:', error);
+        res.status(500).json({ error: 'Failed to remove push subscription' });
     }
 }

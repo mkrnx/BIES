@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft, Bell, BellOff } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
-import { searchApi } from '../services/api';
+import { searchApi, notificationsApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
-import { notifyIncomingMessage, requestNotificationPermission, getNotificationPermission } from '../utils/notificationManager';
+import { notifyIncomingMessage, requestNotificationPermission, getNotificationPermission, subscribeToPush } from '../utils/notificationManager';
 
 const Messages = () => {
     const { t } = useTranslation();
@@ -277,6 +277,15 @@ const Messages = () => {
                             onClick={async () => {
                                 const perm = await requestNotificationPermission();
                                 setNotifPermission(perm);
+                                if (perm === 'granted') {
+                                    try {
+                                        const { publicKey } = await notificationsApi.getVapidKey();
+                                        if (publicKey) {
+                                            const sub = await subscribeToPush(publicKey);
+                                            if (sub) await notificationsApi.pushSubscribe(sub);
+                                        }
+                                    } catch { /* push is best-effort */ }
+                                }
                             }}
                         >
                             <Bell size={14} />

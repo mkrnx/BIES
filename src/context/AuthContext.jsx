@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { authService } from '../services/authService';
 import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
-import { notifyIncomingMessage } from '../utils/notificationManager';
+import { notifyIncomingMessage, subscribeToPush } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
@@ -78,6 +78,21 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
+    // ─── Push subscription (silent, no prompt) ─────────────────────────────
+
+    const initPushSubscription = useCallback(async () => {
+        if (!('Notification' in window) || Notification.permission !== 'granted') return;
+        if (!('PushManager' in window)) return;
+        try {
+            const { publicKey } = await notificationsApi.getVapidKey();
+            if (!publicKey) return;
+            const subscription = await subscribeToPush(publicKey);
+            if (subscription) await notificationsApi.pushSubscribe(subscription);
+        } catch {
+            // Push is best-effort — silent failure
+        }
+    }, []);
+
     // ─── WebSocket setup ───────────────────────────────────────────────────
 
     const initWebSocket = useCallback((user) => {
@@ -106,8 +121,12 @@ export const AuthProvider = ({ children }) => {
         );
         ws.connect();
         setWsClient(ws);
+
+        // Silently register push subscription if permission already granted
+        initPushSubscription();
+
         return ws;
-    }, []);
+    }, [initPushSubscription]);
 
     // ─── Auth actions ──────────────────────────────────────────────────────
 
