@@ -604,15 +604,17 @@ const AdminUsers = () => {
                                             <td data-label="Joined" className="mobile-hide">{new Date(u.createdAt).toLocaleDateString()}</td>
                                             <td>
                                                 <div className="action-group">
-                                                    {/* Ban / Unban */}
+                                                    {/* Ban / Unban — admin only */}
+                                                    {isAdmin && (
                                                     <button
                                                         className={`icon-btn ${u.isBanned ? 'approve' : 'delete'}`}
                                                         onClick={() => handleBan(u.id, u.isBanned, u.profile?.name)}
-                                                        title={(u.isAdmin || u.role === 'MOD') && !isAdmin ? 'Only admins can ban other admins or mods' : u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
-                                                        disabled={actionLoading === u.id || ((u.isAdmin || u.role === 'MOD') && !isAdmin)}
+                                                        title={u.isBanned ? 'Unban (restore relay access)' : 'Ban (remove from relay whitelist)'}
+                                                        disabled={actionLoading === u.id}
                                                     >
                                                         <Ban size={16} />
                                                     </button>
+                                                    )}
                                                     {/* Move to trash — admin only */}
                                                     {isAdmin && (
                                                         <button

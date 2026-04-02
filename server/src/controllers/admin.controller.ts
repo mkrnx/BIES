@@ -69,13 +69,9 @@ export async function banUser(req: Request, res: Response): Promise<void> {
             res.status(400).json({ error: '"banned" must be a boolean' }); return;
         }
 
-        // Only admins can ban other admins or mods
-        const targetUser = await prisma.user.findUnique({
-            where: { id: req.params.id },
-            select: { role: true, isAdmin: true },
-        });
-        if ((targetUser?.isAdmin || targetUser?.role === 'MOD') && !req.user!.isAdmin) {
-            res.status(403).json({ error: 'Only admins can ban other admins or mods' }); return;
+        // Banning is admin-only
+        if (!req.user!.isAdmin) {
+            res.status(403).json({ error: 'Only admins can ban or unban users' }); return;
         }
 
         const user = await prisma.user.update({
