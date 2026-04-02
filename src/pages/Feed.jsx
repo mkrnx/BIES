@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { Loader2, Send, Globe, Lock, Zap, TrendingUp, Flame, Clock, Calendar, X, ImagePlus, Smile, RefreshCw, Heart, ChevronDown } from 'lucide-react';
-import { nostrService, BIES_RELAY } from '../services/nostrService';
+import { nostrService, BIES_RELAY, profileCache } from '../services/nostrService';
 import { primalService, EXPLORE_VIEWS } from '../services/primalService';
 import { nostrSigner } from '../services/nostrSigner';
 import { blossomService } from '../services/blossomService';
@@ -216,7 +216,7 @@ const Feed = () => {
             toFetch.forEach(pk => fetchedProfiles.current.add(pk));
             liveQueue.clear();
             if (toFetch.length === 0) return;
-            const profileMap = await nostrService.getProfiles(toFetch);
+            const profileMap = await nostrService.getProfiles(toFetch, [BIES_RELAY]);
             if (profileMap.size > 0) {
                 setProfiles(prev => {
                     const next = { ...prev };
@@ -324,7 +324,19 @@ const Feed = () => {
                         const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
                         toFetch.forEach(pk => fetchedProfiles.current.add(pk));
                         if (toFetch.length === 0) return;
-                        const profileMap = await nostrService.getProfiles(toFetch);
+
+                        // Instantly hydrate from localStorage cache
+                        const cached = profileCache.getMany(toFetch);
+                        if (cached.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of cached) next[pk] = p;
+                                return next;
+                            });
+                        }
+
+                        // Fetch from BIES relay only (local, fast)
+                        const profileMap = await nostrService.getProfiles(toFetch, [BIES_RELAY]);
                         if (profileMap.size > 0) {
                             setProfiles(prev => {
                                 const next = { ...prev };
@@ -1082,7 +1094,7 @@ const Feed = () => {
                         const toFetch = [...new Set(commentPubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
                         toFetch.forEach(pk => fetchedProfiles.current.add(pk));
                         if (toFetch.length === 0) return;
-                        const profileMap = await nostrService.getProfiles(toFetch);
+                        const profileMap = await nostrService.getProfiles(toFetch, [BIES_RELAY]);
                         if (profileMap.size > 0) {
                             setProfiles(prev => {
                                 const next = { ...prev };

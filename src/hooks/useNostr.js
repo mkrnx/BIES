@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { nostrService } from '../services/nostrService';
+import { nostrService, profileCache } from '../services/nostrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { nip19 } from 'nostr-tools';
 
@@ -41,13 +41,16 @@ export const useNostrFeed = (npubs, relayMode = 'combined') => {
         let eoseFired = false;
         let cancelled = false;
 
+        // Use the same relays for profile fetching as for the feed subscription
+        const profileRelays = relays;
+
         const flushLiveProfiles = async () => {
             if (liveQueue.size === 0) return;
             const toFetch = [...liveQueue].filter(pk => !fetchedProfiles.current.has(pk));
             toFetch.forEach(pk => fetchedProfiles.current.add(pk));
             liveQueue.clear();
             if (toFetch.length === 0) return;
-            const profileMap = await nostrService.getProfiles(toFetch);
+            const profileMap = await nostrService.getProfiles(toFetch, profileRelays);
             if (profileMap.size > 0) {
                 setProfiles(prev => {
                     const next = { ...prev };
@@ -115,7 +118,19 @@ export const useNostrFeed = (npubs, relayMode = 'combined') => {
                         const toFetch = [...new Set(preEosePubkeys)].filter(pk => !fetchedProfiles.current.has(pk));
                         toFetch.forEach(pk => fetchedProfiles.current.add(pk));
                         if (toFetch.length === 0) return;
-                        const profileMap = await nostrService.getProfiles(toFetch);
+
+                        // Instantly hydrate from localStorage cache
+                        const cached = profileCache.getMany(toFetch);
+                        if (cached.size > 0) {
+                            setProfiles(prev => {
+                                const next = { ...prev };
+                                for (const [pk, p] of cached) next[pk] = p;
+                                return next;
+                            });
+                        }
+
+                        // Fetch from the same relays as the feed subscription
+                        const profileMap = await nostrService.getProfiles(toFetch, profileRelays);
                         if (profileMap.size > 0) {
                             setProfiles(prev => {
                                 const next = { ...prev };
