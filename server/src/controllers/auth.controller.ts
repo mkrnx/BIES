@@ -266,7 +266,6 @@ export async function register(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
-                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,
@@ -331,7 +330,6 @@ export async function login(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
-                isAdmin: user.isAdmin,
                 profile: user.profile,
             },
             token,
@@ -508,7 +506,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 data: { isAdmin: false },
                 include: { profile: true },
             });
-
+        }
         // Store fingerprint for existing users (builds fingerprint database)
         await storeFingerprint(user.id, fingerprint, req);
 
@@ -577,7 +575,6 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             email: user.email,
             nostrPubkey: user.nostrPubkey,
             role: user.role,
-                isAdmin: user.isAdmin,
             isAdmin: user.isAdmin,
             profile: profileData,
             ...(nostrNsec ? { nostrNsec } : {}),
