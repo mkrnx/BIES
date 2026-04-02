@@ -835,6 +835,11 @@ const Events = () => {
                     background: transparent;
                 }
 
+                .search-btn-desktop {
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                }
+
                 /* Layout */
                 .content-layout {
                     display: flex;

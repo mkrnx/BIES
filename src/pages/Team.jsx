@@ -165,6 +165,9 @@ const Team = () => {
            text-align: center;
            padding: 2rem;
         }
+        .team-card h3 {
+          color: var(--color-gray-900);
+        }
         .team-img {
           width: 120px;
           height: 120px;

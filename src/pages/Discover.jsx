@@ -1125,6 +1125,10 @@ const Discover = () => {
         }
         .search-input:focus { outline: none; }
 
+        .search-btn-desktop {
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
 
         /* Layout */
         .content-layout {
