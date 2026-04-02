@@ -361,6 +361,13 @@ export const mediaApi = {
     saveReadState: (data) => put('/settings/media-read', data),
 };
 
+// ─── User Preferences (persistent across login/logout) ──────────────────────
+
+export const preferencesApi = {
+    get: () => get('/settings/preferences'),
+    save: (data) => put('/settings/preferences', data),
+};
+
 // ─── Health ───────────────────────────────────────────────────────────────────
 
 export const healthApi = {

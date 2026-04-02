@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint } from 'lucide-react';
 import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
@@ -6,7 +6,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useViewPreference } from '../context/ViewContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
-import { investorApi } from '../services/api';
+import { investorApi, preferencesApi } from '../services/api';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
@@ -19,17 +19,36 @@ const Settings = () => {
     const [eventsView, setEventsView] = useState(() => localStorage.getItem('bies_events_view') || defaultView || 'list');
     const [mediaView, setMediaView] = useState(() => localStorage.getItem('bies_media_view') || 'card');
 
+    // Load preferences from backend on mount (restores after logout/login)
+    useEffect(() => {
+        preferencesApi.get().then(prefs => {
+            if (prefs.theme && prefs.theme !== theme) setTheme(prefs.theme);
+            if (prefs.language && prefs.language !== i18n.language) i18n.changeLanguage(prefs.language);
+            if (prefs.projectsView) { setProjectsView(prefs.projectsView); localStorage.setItem('bies_projects_view', prefs.projectsView); setDefaultView(prefs.projectsView); }
+            if (prefs.membersView) { setMembersView(prefs.membersView); localStorage.setItem('bies_members_view', prefs.membersView); }
+            if (prefs.eventsView) { setEventsView(prefs.eventsView); localStorage.setItem('bies_events_view', prefs.eventsView); }
+            if (prefs.mediaView) { setMediaView(prefs.mediaView); localStorage.setItem('bies_media_view', prefs.mediaView); }
+        }).catch(() => {});
+    }, []);
+
+    // Save a preference to both localStorage and backend
+    const savePref = useCallback((key, value) => {
+        localStorage.setItem(key, value);
+        const prefKey = key.replace('bies_', '').replace(/_([a-z])/g, (_, c) => c.toUpperCase()); // bies_projects_view → projectsView
+        preferencesApi.save({ [prefKey]: value }).catch(() => {});
+    }, []);
+
     const handleViewChange = (key, setter) => (e) => {
         const v = e.target.value;
         setter(v);
-        localStorage.setItem(key, v);
-        // Keep the global default in sync with projects view for backwards compat
+        savePref(key, v);
         if (key === 'bies_projects_view') setDefaultView(v);
     };
     const { t, i18n } = useTranslation();
 
     const handleLanguageChange = (e) => {
         i18n.changeLanguage(e.target.value);
+        preferencesApi.save({ language: e.target.value }).catch(() => {});
     };
 
     const { user } = useAuth();
@@ -191,7 +210,7 @@ const Settings = () => {
                     <select
                         className="select-input"
                         value={theme}
-                        onChange={(e) => setTheme(e.target.value)}
+                        onChange={(e) => { setTheme(e.target.value); preferencesApi.save({ theme: e.target.value }).catch(() => {}); }}
                     >
                         <option value="light">{t('settings.light')}</option>
                         <option value="dark">{t('settings.dark')}</option>

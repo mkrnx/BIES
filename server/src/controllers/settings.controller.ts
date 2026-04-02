@@ -35,6 +35,7 @@ export async function getSettings(req: Request, res: Response): Promise<void> {
         res.json({
             ...settings,
             relays: JSON.parse(settings.relays || '[]'),
+            preferences: JSON.parse(settings.preferences || '{}'),
         });
     } catch (error) {
         console.error('Get settings error:', error);
@@ -138,6 +139,51 @@ export async function updateMediaRead(req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Update media read error:', error);
         res.status(500).json({ error: 'Failed to update media read state' });
+    }
+}
+
+export const updatePreferencesSchema = z.object({
+    theme: z.string().optional(),
+    language: z.string().optional(),
+    projectsView: z.string().optional(),
+    membersView: z.string().optional(),
+    eventsView: z.string().optional(),
+    mediaView: z.string().optional(),
+    defaultView: z.string().optional(),
+}).passthrough();
+
+/**
+ * GET /settings/preferences
+ */
+export async function getPreferences(req: Request, res: Response): Promise<void> {
+    try {
+        const settings = await prisma.userSettings.findUnique({ where: { userId: req.user!.id } });
+        res.json(JSON.parse(settings?.preferences || '{}'));
+    } catch (error) {
+        console.error('Get preferences error:', error);
+        res.status(500).json({ error: 'Failed to get preferences' });
+    }
+}
+
+/**
+ * PUT /settings/preferences
+ */
+export async function updatePreferences(req: Request, res: Response): Promise<void> {
+    try {
+        const settings = await prisma.userSettings.findUnique({ where: { userId: req.user!.id } });
+        const current = JSON.parse(settings?.preferences || '{}');
+        const merged = { ...current, ...req.body };
+
+        await prisma.userSettings.upsert({
+            where: { userId: req.user!.id },
+            update: { preferences: JSON.stringify(merged) },
+            create: { userId: req.user!.id, preferences: JSON.stringify(merged) },
+        });
+
+        res.json(merged);
+    } catch (error) {
+        console.error('Update preferences error:', error);
+        res.status(500).json({ error: 'Failed to update preferences' });
     }
 }
 
