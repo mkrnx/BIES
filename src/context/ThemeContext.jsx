@@ -14,15 +14,18 @@ export const ThemeProvider = ({ children }) => {
             if (themeValue === 'dark') {
                 root.setAttribute('data-theme', 'dark');
             } else if (themeValue === 'light') {
-                root.removeAttribute('data-theme');
+                root.setAttribute('data-theme', 'light');
             } else if (themeValue === 'system') {
                 const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
                 if (systemPrefersDark) {
                     root.setAttribute('data-theme', 'dark');
                 } else {
-                    root.removeAttribute('data-theme');
+                    root.setAttribute('data-theme', 'light');
                 }
             }
+
+            // Remove hardcoded inline background from body (set in index.html for splash)
+            document.body.style.removeProperty('background');
         };
 
         applyTheme(theme);
