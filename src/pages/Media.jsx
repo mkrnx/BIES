@@ -450,48 +450,35 @@ const Media = () => {
             <style jsx>{`
         .tabs {
           display: flex;
-          gap: 0.25rem;
+          align-items: stretch;
+          height: 50px;
           margin-bottom: 0;
-          background: var(--color-gray-100);
-          border: 1px solid #e5e7eb;
-          border-radius: var(--radius-xl, 12px);
-          padding: 0.25rem;
           width: 100%;
         }
 
         .tab-btn {
+          flex: 1 1 0%;
+          min-width: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 0.375rem;
-          padding: 0.625rem 1rem;
-          border-radius: 10px;
-          font-size: 0.85rem;
+          gap: 6px;
+          font-size: 15px;
           font-weight: 600;
+          background: none;
           border: none;
+          border-bottom: 2px solid transparent;
+          color: var(--feed-text-tertiary, #64748B);
           cursor: pointer;
-          transition: all 0.2s;
-          background: transparent;
-          color: #9ca3af;
-          flex: 1;
+          transition: color 0.15s, border-color 0.15s;
+          padding: 0 16px;
         }
         .tab-btn:hover {
-          color: #6b7280;
-          background: #f9fafb;
+          color: var(--feed-text-secondary, #CBD5E1);
         }
         .tab-btn.active {
-          background: #FF9500;
-          color: white;
-          box-shadow: 0 1px 3px rgba(255, 149, 0, 0.3);
-        }
-        .tab-btn.active:nth-child(2) {
-          background: #FF0000;
-          box-shadow: 0 1px 3px rgba(255, 0, 0, 0.3);
-        }
-        .tab-btn.active:nth-child(3) {
-          background: var(--color-surface);
-          color: #EF4444;
-          box-shadow: 0 1px 3px rgba(239, 68, 68, 0.2);
+          color: var(--feed-text-primary, #F8FAFC);
+          border-bottom-color: var(--feed-accent, #5b9cf6);
         }
 
         /* Substack Cards */
@@ -665,10 +652,10 @@ const Media = () => {
         /* View Toggle Dropdown */
         .view-toggle-container {
           position: relative;
-          margin-left: auto;
+          flex: 0 0 auto;
+          display: flex;
+          align-items: center;
           padding-left: 0.5rem;
-          border-left: 1px solid var(--color-gray-300);
-          flex-shrink: 0;
         }
         .view-trigger {
           display: flex;
@@ -680,12 +667,12 @@ const Media = () => {
           border: none;
           cursor: pointer;
           background: transparent;
-          color: #9ca3af;
-          transition: all 0.15s;
+          color: var(--feed-text-tertiary, #64748B);
+          transition: color 0.15s;
         }
         .view-trigger:hover {
-          color: var(--color-primary);
-          background: var(--color-gray-100);
+          color: var(--feed-text-secondary, #CBD5E1);
+          background: var(--color-gray-100, #1E293B);
         }
         .view-menu-dropdown {
           position: absolute;
