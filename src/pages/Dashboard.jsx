@@ -216,7 +216,7 @@ const Dashboard = () => {
             background: var(--color-gray-50);
             padding: 4px 0 2px;
             overflow-x: auto;
-            overflow-y: hidden;
+            -webkit-overflow-scrolling: touch;
             border-bottom: 1px solid var(--color-gray-200);
             margin-top: -1px;
           }

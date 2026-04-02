@@ -709,13 +709,10 @@ textarea {
   }
 }
 
-/* On mobile, ensure app-content covers the full viewport with the correct background.
-   margin-top: -1px closes any subpixel gap between the fixed navbar and the
-   page content that can expose the navbar's dark background on iOS Safari. */
+/* On mobile, ensure app-content covers the full viewport with the correct background */
 @media (max-width: 768px) {
   .app-content {
     background-color: var(--color-gray-50);
-    margin-top: -1px;
   }
 
   /* Paint the safe-area strip below the bottom nav with the nav's colour
