@@ -160,3 +160,88 @@ export function notifyIncomingMessage(messageId, senderName, content, onClick) {
         showBrowserNotification(senderName, content, onClick);
     }
 }
+
+// ─── Web Push subscription ──────────────────────────────────────────────────
+
+/**
+ * Convert a base64url-encoded VAPID key to the Uint8Array format
+ * required by PushManager.subscribe().
+ */
+function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; i++) {
+        outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+}
+
+/**
+ * Subscribe to web push notifications.
+ * Requires: service worker registered, Notification permission 'granted',
+ * and a valid VAPID public key from the backend.
+ * Returns the PushSubscription, or null if subscription failed.
+ */
+export async function subscribeToPush(vapidPublicKey) {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return null;
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+
+        // Check for existing subscription first
+        let subscription = await registration.pushManager.getSubscription();
+        if (subscription) return subscription;
+
+        subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+
+        return subscription;
+    } catch (error) {
+        console.error('[Push] Subscription failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Unsubscribe from web push notifications.
+ * Returns the endpoint string for backend cleanup, or null.
+ */
+export async function unsubscribeFromPush() {
+    if (!('serviceWorker' in navigator)) return null;
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        if (!subscription) return null;
+
+        const endpoint = subscription.endpoint;
+        await subscription.unsubscribe();
+        return endpoint;
+    } catch (error) {
+        console.error('[Push] Unsubscribe failed:', error);
+        return null;
+    }
+}
+
+/**
+ * Check if the user currently has an active push subscription.
+ */
+export async function getPushSubscriptionState() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return { supported: false, subscribed: false };
+    }
+
+    try {
+        const registration = await navigator.serviceWorker.ready;
+        const subscription = await registration.pushManager.getSubscription();
+        return { supported: true, subscribed: !!subscription };
+    } catch {
+        return { supported: true, subscribed: false };
+    }
+}

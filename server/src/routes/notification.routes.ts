@@ -7,11 +7,19 @@ import {
     markAllRead,
     deleteNotification,
     feedInteraction,
+    getVapidPublicKey,
+    subscribePush,
+    unsubscribePush,
 } from '../controllers/notification.controller';
 
 const router = Router();
 
 router.use(authenticate);
+
+// Push subscription routes (must be before /:id param routes)
+router.get('/push/vapid-key', getVapidPublicKey);
+router.post('/push/subscribe', subscribePush);
+router.delete('/push/subscribe', unsubscribePush);
 
 router.get('/', listNotifications);
 router.get('/count', getUnreadCount);

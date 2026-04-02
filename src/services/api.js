@@ -249,6 +249,11 @@ export const notificationsApi = {
      * Fire-and-forget — errors are silently ignored.
      */
     feedInteraction: (data) => post('/notifications/feed-interaction', data).catch(() => {}),
+
+    // Push subscription management
+    getVapidKey: () => get('/notifications/push/vapid-key'),
+    pushSubscribe: (subscription) => post('/notifications/push/subscribe', subscription.toJSON()),
+    pushUnsubscribe: (endpoint) => request('DELETE', '/notifications/push/subscribe', { endpoint }),
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────
