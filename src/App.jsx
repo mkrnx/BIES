@@ -1,11 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { UserModeProvider, useUserMode } from './context/UserModeContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { ThemeProvider } from './context/ThemeContext';
-import { ViewProvider } from './context/ViewContext';
+import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
-import './i18n';
+import { preferencesApi } from './services/api';
+import i18n from './i18n';
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
@@ -94,6 +95,23 @@ const AdminRoute = ({ children }) => {
 const AppContent = () => {
     const { user } = useAuth();
     const location = useLocation();
+    const { setTheme } = useTheme();
+    const { setDefaultView } = useViewPreference();
+    const prefsLoaded = useRef(false);
+
+    // Restore user preferences from backend on login
+    useEffect(() => {
+        if (!user || prefsLoaded.current) return;
+        prefsLoaded.current = true;
+        preferencesApi.get().then(prefs => {
+            if (prefs.theme) setTheme(prefs.theme);
+            if (prefs.language) i18n.changeLanguage(prefs.language);
+            if (prefs.projectsView) { localStorage.setItem('bies_projects_view', prefs.projectsView); setDefaultView(prefs.projectsView); }
+            if (prefs.membersView) localStorage.setItem('bies_members_view', prefs.membersView);
+            if (prefs.eventsView) localStorage.setItem('bies_events_view', prefs.eventsView);
+            if (prefs.mediaView) localStorage.setItem('bies_media_view', prefs.mediaView);
+        }).catch(() => {});
+    }, [user]);
 
     // Scroll to top on route change (bottom nav, links, etc.)
     useEffect(() => {

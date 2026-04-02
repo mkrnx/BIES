@@ -10,6 +10,9 @@ import {
     getMediaRead,
     updateMediaRead,
     updateMediaReadSchema,
+    getPreferences,
+    updatePreferences,
+    updatePreferencesSchema,
     deleteAccount,
 } from '../controllers/settings.controller';
 
@@ -22,6 +25,8 @@ router.put('/notifications', validate(updateNotificationSettingsSchema), updateN
 router.put('/relays', validate(updateRelaysSchema), updateRelays);
 router.get('/media-read', getMediaRead);
 router.put('/media-read', validate(updateMediaReadSchema), updateMediaRead);
+router.get('/preferences', getPreferences);
+router.put('/preferences', validate(updatePreferencesSchema), updatePreferences);
 router.delete('/account', deleteAccount);
 
 export default router;
