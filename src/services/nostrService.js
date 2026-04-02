@@ -2,6 +2,49 @@ import { SimplePool, nip19, finalizeEvent, generateSecretKey, getPublicKey } fro
 import * as nip44 from 'nostr-tools/nip44';
 import { nostrSigner } from './nostrSigner.js';
 
+// ─── Persistent profile cache (localStorage) ────────────────────────────────
+
+const PROFILE_CACHE_KEY = 'bies_nostr_profiles';
+const PROFILE_CACHE_TTL = 3600 * 1000; // 1 hour
+const PROFILE_CACHE_VERSION = 1;
+
+export const profileCache = {
+    _getStore() {
+        try {
+            const raw = localStorage.getItem(PROFILE_CACHE_KEY);
+            if (!raw) return { v: PROFILE_CACHE_VERSION, profiles: {} };
+            const store = JSON.parse(raw);
+            if (store.v !== PROFILE_CACHE_VERSION) return { v: PROFILE_CACHE_VERSION, profiles: {} };
+            return store;
+        } catch { return { v: PROFILE_CACHE_VERSION, profiles: {} }; }
+    },
+    getMany(pubkeys) {
+        const store = this._getStore();
+        const now = Date.now();
+        const result = new Map();
+        for (const pk of pubkeys) {
+            const entry = store.profiles[pk];
+            if (entry && (now - entry.ts) < PROFILE_CACHE_TTL) {
+                result.set(pk, entry.data);
+            }
+        }
+        return result;
+    },
+    setMany(profileMap) {
+        const store = this._getStore();
+        const now = Date.now();
+        for (const [pk, data] of profileMap) {
+            store.profiles[pk] = { data, ts: now };
+        }
+        // Evict entries older than 24h to prevent unbounded growth
+        const cutoff = now - 86400000;
+        for (const pk of Object.keys(store.profiles)) {
+            if (store.profiles[pk].ts < cutoff) delete store.profiles[pk];
+        }
+        try { localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(store)); } catch { /* quota */ }
+    },
+};
+
 // Private BIES relay (set via env or falls back to relative WebSocket URL)
 // Use import.meta.env.BASE_URL (from vite.config base) so the path works
 // both in dev (/relay) and production.
@@ -117,43 +160,61 @@ class NostrService {
     }
 
     /**
-     * Batch-fetch profiles for multiple pubkeys in a single relay query.
+     * Batch-fetch profiles for multiple pubkeys.
      * Returns a Map of pubkey → merged profile object.
-     * Use this after EOSE when you have all the pubkeys you need.
+     *
+     * @param {string[]} pubkeys - hex pubkeys
+     * @param {string[]} [relays] - specific relays to query (default: BIES + public)
      */
-    async getProfiles(pubkeys) {
+    async getProfiles(pubkeys, relays) {
         const unique = [...new Set(pubkeys)].filter(Boolean);
         if (unique.length === 0) return new Map();
 
+        // Phase 1: return cached profiles instantly
+        const cached = profileCache.getMany(unique);
+        const missing = unique.filter(pk => !cached.has(pk));
+        if (missing.length === 0) return cached;
+
+        // Phase 2: fetch missing from relays
         try {
-            const allRelays = [this.biesRelay, ...this.publicRelays];
-            const events = await this.pool.querySync(allRelays, { kinds: [0], authors: unique });
+            const result = new Map(cached);
+            const targetRelays = relays || [this.biesRelay, ...this.publicRelays];
+            const events = await this.pool.querySync(targetRelays, { kinds: [0], authors: missing });
+            const fetched = this._mergeProfileEvents(events);
+            for (const [pk, p] of fetched) result.set(pk, p);
 
-            const byPubkey = new Map();
-            for (const evt of events) {
-                if (!byPubkey.has(evt.pubkey)) byPubkey.set(evt.pubkey, []);
-                byPubkey.get(evt.pubkey).push(evt);
-            }
+            // Persist newly fetched profiles to cache
+            if (fetched.size > 0) profileCache.setMany(fetched);
 
-            const result = new Map();
-            for (const [pubkey, evts] of byPubkey) {
-                evts.sort((a, b) => b.created_at - a.created_at);
-                let merged = {};
-                for (const evt of evts) {
-                    try {
-                        const data = JSON.parse(evt.content);
-                        for (const [key, value] of Object.entries(data)) {
-                            if (value && !merged[key]) merged[key] = value;
-                        }
-                    } catch { /* skip malformed */ }
-                }
-                result.set(pubkey, merged);
-            }
             return result;
         } catch (error) {
             console.error('[Nostr] Batch profile fetch failed:', error);
-            return new Map();
+            return cached;
         }
+    }
+
+    /** Merge multiple kind:0 events per pubkey into one profile object. */
+    _mergeProfileEvents(events) {
+        const byPubkey = new Map();
+        for (const evt of events) {
+            if (!byPubkey.has(evt.pubkey)) byPubkey.set(evt.pubkey, []);
+            byPubkey.get(evt.pubkey).push(evt);
+        }
+        const result = new Map();
+        for (const [pubkey, evts] of byPubkey) {
+            evts.sort((a, b) => b.created_at - a.created_at);
+            let merged = {};
+            for (const evt of evts) {
+                try {
+                    const data = JSON.parse(evt.content);
+                    for (const [key, value] of Object.entries(data)) {
+                        if (value && !merged[key]) merged[key] = value;
+                    }
+                } catch { /* skip malformed */ }
+            }
+            result.set(pubkey, merged);
+        }
+        return result;
     }
 
     // Fetch user profile (Kind 0 — NIP-01 + NIP-24 extra metadata fields)
@@ -161,6 +222,10 @@ class NostrService {
     // then merges any missing fields from older events so we get the
     // most complete profile (banner, picture, etc.).
     async getProfile(pubkey) {
+        // Check cache first
+        const cached = profileCache.getMany([pubkey]);
+        if (cached.has(pubkey)) return cached.get(pubkey);
+
         try {
             const filter = { kinds: [0], authors: [pubkey] };
             const allRelays = [this.biesRelay, ...this.publicRelays];
@@ -168,29 +233,12 @@ class NostrService {
 
             if (!events || events.length === 0) return null;
 
-            // Sort newest-first so the primary profile is the latest event
-            events.sort((a, b) => b.created_at - a.created_at);
+            const fetched = this._mergeProfileEvents(events);
+            const profile = fetched.get(pubkey) || null;
 
-            // Start with the newest event, then merge any missing fields
-            // from older events (some relays may have stale Kind 0 that
-            // still contains fields like banner that were dropped in a
-            // later publish by a client that didn't preserve all fields).
-            let merged = {};
-            for (const evt of events) {
-                try {
-                    const data = JSON.parse(evt.content);
-                    // Only fill in fields that are missing/empty in merged
-                    for (const [key, value] of Object.entries(data)) {
-                        if (value && !merged[key]) {
-                            merged[key] = value;
-                        }
-                    }
-                } catch {
-                    // skip malformed content
-                }
-            }
+            if (profile) profileCache.setMany(new Map([[pubkey, profile]]));
 
-            return merged;
+            return profile;
         } catch (error) {
             console.error('Error fetching profile:', error);
             return null;
