@@ -437,6 +437,7 @@ model UserSettings {
   notifyFollows        Boolean @default(true) @map("notify_follows")
   notifyProjectUpdates Boolean @default(true) @map("notify_project_updates")
   relays               String  @default("[]") // JSON array of relay URLs
+  mediaReadItems       String  @default("{}") @map("media_read_items") // JSON: { watched: [...], read: [...] }
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @updatedAt @map("updated_at")
 

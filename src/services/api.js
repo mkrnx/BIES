@@ -258,6 +258,7 @@ export const eventsApi = {
     // params: { category, upcoming, search, isOfficial, isEndorsed, page, limit }
 
     listMine: (params = {}) => get('/events/my', params),
+    listAttending: (params = {}) => get('/events/attending', params),
 
     get: (id) => get(`/events/${id}`),
 
@@ -356,6 +357,8 @@ export const newsApi = {
 export const mediaApi = {
     substack: () => get('/media/substack'),
     youtube: () => get('/media/youtube'),
+    getReadState: () => get('/settings/media-read'),
+    saveReadState: (data) => put('/settings/media-read', data),
 };
 
 // ─── Health ───────────────────────────────────────────────────────────────────

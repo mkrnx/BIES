@@ -31,6 +31,65 @@ const VisibilityBadge = ({ visibility }) => {
     );
 };
 
+const RSVP_OPTIONS = [
+    { value: 'GOING', label: 'Going' },
+    { value: 'INTERESTED', label: 'Interested' },
+    { value: 'NOT_GOING', label: 'Not Going' },
+];
+
+const AttendingActionMenu = ({ event, onChangeRsvp, onRemove }) => {
+    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState({ top: 0, left: 0 });
+    const btnRef = useRef(null);
+    const navigate = useNavigate();
+
+    const handleToggle = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!open && btnRef.current) {
+            const rect = btnRef.current.getBoundingClientRect();
+            setPos({ top: rect.bottom + 4, left: rect.right });
+        }
+        setOpen(v => !v);
+    };
+
+    const close = () => setOpen(false);
+
+    return (
+        <>
+            <button ref={btnRef} className="action-menu-trigger" onClick={handleToggle} title="Actions">
+                <MoreHorizontal size={18} />
+            </button>
+            {open && ReactDOM.createPortal(
+                <>
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 9998 }} onClick={close} />
+                    <div className="ctx-menu" style={{ position: 'fixed', top: pos.top, left: pos.left, transform: 'translateX(-100%)', zIndex: 9999 }}>
+                        <button className="ctx-item" onClick={() => { close(); navigate(`/events/${event.id}`); }}>
+                            <ExternalLink size={15} /> View Event
+                        </button>
+                        <div className="ctx-submenu-header">RSVP Status</div>
+                        {RSVP_OPTIONS.map(opt => (
+                            <button
+                                key={opt.value}
+                                className={`ctx-item ${event.rsvpStatus === opt.value ? 'ctx-active' : ''}`}
+                                onClick={() => { close(); onChangeRsvp(event.id, opt.value); }}
+                            >
+                                {opt.label}
+                                {event.rsvpStatus === opt.value && <Check size={12} style={{ marginLeft: 'auto' }} />}
+                            </button>
+                        ))}
+                        <div className="ctx-divider" />
+                        <button className="ctx-item ctx-delete" onClick={() => { close(); onRemove(event.id, event.title); }}>
+                            <Trash2 size={15} /> Remove from My Events
+                        </button>
+                    </div>
+                </>,
+                document.body
+            )}
+        </>
+    );
+};
+
 const ActionMenu = ({ event, onDelete, onVisibilityChange, onCopyLink }) => {
     const [open, setOpen] = useState(false);
     const [showVisibility, setShowVisibility] = useState(false);
@@ -117,7 +176,12 @@ const MyEvents = () => {
     const [actionLoading, setActionLoading] = useState(null);
 
     const { data: eventsData, loading, refetch } = useApiQuery(eventsApi.listMine);
+    const { data: attendingData, loading: attendingLoading, refetch: refetchAttending } = useApiQuery(eventsApi.listAttending);
     const eventList = Array.isArray(eventsData?.data) ? eventsData.data : Array.isArray(eventsData) ? eventsData : [];
+    const attendingList = Array.isArray(attendingData?.data) ? attendingData.data : Array.isArray(attendingData) ? attendingData : [];
+    // Exclude events I'm hosting from the attending list
+    const hostedIds = new Set(eventList.map(e => e.id));
+    const attendingOnly = attendingList.filter(e => !hostedIds.has(e.id));
 
     const filteredEvents = eventList.filter(e => {
         const vis = (e.visibility || 'DRAFT').toLowerCase();
@@ -153,6 +217,31 @@ const MyEvents = () => {
         }
     }, [refetch]);
 
+    const handleChangeRsvp = useCallback(async (id, status) => {
+        setActionLoading(id);
+        try {
+            await eventsApi.rsvp(id, status);
+            refetchAttending();
+        } catch {
+            alert('Failed to update RSVP.');
+        } finally {
+            setActionLoading(null);
+        }
+    }, [refetchAttending]);
+
+    const handleRemoveAttending = async (id, title) => {
+        if (!window.confirm(`Remove "${title}" from your events?`)) return;
+        setActionLoading(id);
+        try {
+            await eventsApi.cancelRsvp(id);
+            refetchAttending();
+        } catch {
+            alert('Failed to remove event.');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
     const handleCopyLink = (id) => {
         const base = window.location.origin;
         navigator.clipboard.writeText(`${base}/events/${id}`);
@@ -171,7 +260,7 @@ const MyEvents = () => {
         return c.replace(/_/g, ' ').split(' ').map(w => w[0] + w.slice(1).toLowerCase()).join(' ');
     };
 
-    if (loading) {
+    if (loading && attendingLoading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '4rem' }}>
                 <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
@@ -305,6 +394,68 @@ const MyEvents = () => {
                     </div>
                 )}
             </div>
+
+            {/* Events I'm Attending */}
+            {attendingOnly.length > 0 && (
+                <div className="card-container" style={{ marginTop: '2rem' }}>
+                    <div className="toolbar">
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700 }}>Events I'm Attending</h3>
+                    </div>
+                    <div className="table-wrapper">
+                        <table className="events-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ minWidth: '160px' }}>Event Name</th>
+                                    <th>Host</th>
+                                    <th>Date</th>
+                                    <th>RSVP</th>
+                                    <th>Attendees</th>
+                                    <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {attendingOnly.map(event => (
+                                    <tr key={event.id} style={{ opacity: actionLoading === event.id ? 0.5 : 1 }}>
+                                        <td>
+                                            <Link to={`/events/${event.id}`} className="event-name-link">
+                                                {event.title}
+                                            </Link>
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-600)', fontSize: '0.88rem' }}>
+                                            {event.host?.profile?.name || 'Unknown'}
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            {formatDate(event.startDate)}
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                padding: '2px 8px', borderRadius: 99,
+                                                fontSize: '0.72rem', fontWeight: 700,
+                                                color: event.rsvpStatus === 'GOING' ? 'var(--badge-success-text)' : 'var(--badge-warning-text)',
+                                                background: event.rsvpStatus === 'GOING' ? 'var(--badge-success-bg)' : 'var(--badge-warning-bg)',
+                                            }}>
+                                                {event.rsvpStatus === 'GOING' ? 'Going' : 'Interested'}
+                                            </span>
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem' }}>
+                                            {event.attendeeCount || 0}
+                                            {event.maxAttendees ? ` / ${event.maxAttendees}` : ''}
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <AttendingActionMenu
+                                                event={event}
+                                                onChangeRsvp={handleChangeRsvp}
+                                                onRemove={handleRemoveAttending}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             <style jsx>{`
                 .event-name-link {

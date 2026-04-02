@@ -186,6 +186,54 @@ export async function listMyEvents(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * GET /events/attending — events the current user has RSVP'd to
+ */
+export async function listAttendingEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const { page = '1', limit = '50' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const attendeeRecords = await prisma.eventAttendee.findMany({
+            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED'] } },
+            include: {
+                event: {
+                    include: {
+                        _count: { select: { attendees: true } },
+                        host: { select: { id: true, nostrPubkey: true, profile: { select: { name: true, avatar: true } } } },
+                    },
+                },
+            },
+            orderBy: { joinedAt: 'desc' },
+            skip,
+            take,
+        });
+
+        const total = await prisma.eventAttendee.count({
+            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED'] } },
+        });
+
+        const data = attendeeRecords.map((a) => ({
+            ...a.event,
+            tags: JSON.parse(a.event.tags || '[]'),
+            guestList: JSON.parse(a.event.guestList || '[]'),
+            customSections: JSON.parse((a.event as any).customSections || '[]'),
+            attendeeCount: a.event._count.attendees,
+            rsvpStatus: a.status,
+            host: a.event.host,
+        }));
+
+        res.json({
+            data,
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('List attending events error:', error);
+        res.status(500).json({ error: 'Failed to list attending events' });
+    }
+}
+
+/**
  * GET /events/:id
  * Get a single event with attendee info.
  */

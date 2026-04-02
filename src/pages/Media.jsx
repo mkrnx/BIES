@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Loader2, LayoutGrid, List, Grid3X3, Columns, Check } from 'lucide-react';
+import { Loader2, LayoutGrid, List, Grid3X3, Columns, Check, BookCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { mediaApi, newsApi } from '../services/api';
 
@@ -30,9 +30,32 @@ const Media = () => {
     const [watchedIds, setWatchedIds] = useState(() => getStoredSet(WATCHED_KEY));
     const [readIds, setReadIds] = useState(() => getStoredSet(READ_KEY));
     const [contextMenu, setContextMenu] = useState(null); // { id, type, x, y }  type: 'video' | 'article'
+    const [selectMode, setSelectMode] = useState(false);
+    const [pendingSelections, setPendingSelections] = useState(new Set()); // items toggled during this session
+    const [hasChanges, setHasChanges] = useState(false);
     const viewRef = useRef(null);
     const longPressTimer = useRef(null);
     const contextMenuRef = useRef(null);
+
+    // Load read state from backend on mount, merge with localStorage
+    useEffect(() => {
+        mediaApi.getReadState().then(data => {
+            if (data.watched?.length) {
+                setWatchedIds(prev => {
+                    const merged = new Set([...prev, ...data.watched]);
+                    saveStoredSet(WATCHED_KEY, merged);
+                    return merged;
+                });
+            }
+            if (data.read?.length) {
+                setReadIds(prev => {
+                    const merged = new Set([...prev, ...data.read]);
+                    saveStoredSet(READ_KEY, merged);
+                    return merged;
+                });
+            }
+        }).catch(() => {});
+    }, []);
 
     const toggleWatched = useCallback((videoId) => {
         setWatchedIds(prev => {
@@ -42,6 +65,57 @@ const Media = () => {
             return next;
         });
         setContextMenu(null);
+    }, []);
+
+    const enterSelectMode = useCallback(() => {
+        setPendingSelections(new Set());
+        setHasChanges(false);
+        setSelectMode(true);
+        setContextMenu(null);
+    }, []);
+
+    const cancelSelectMode = useCallback(() => {
+        // Revert any pending toggles
+        pendingSelections.forEach(id => {
+            if (activeTab === 'youtube') {
+                setWatchedIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                    saveStoredSet(WATCHED_KEY, next);
+                    return next;
+                });
+            } else {
+                setReadIds(prev => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id); else next.add(id);
+                    saveStoredSet(READ_KEY, next);
+                    return next;
+                });
+            }
+        });
+        setSelectMode(false);
+        setPendingSelections(new Set());
+        setHasChanges(false);
+    }, [pendingSelections, activeTab]);
+
+    const saveSelectMode = useCallback(() => {
+        // Persist to backend
+        mediaApi.saveReadState({
+            watched: [...watchedIds],
+            read: [...readIds],
+        }).catch(() => {});
+        setSelectMode(false);
+        setPendingSelections(new Set());
+        setHasChanges(false);
+    }, [watchedIds, readIds]);
+
+    const toggleSelectItem = useCallback((id) => {
+        setPendingSelections(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+        setHasChanges(true);
     }, []);
 
     const toggleRead = useCallback((link) => {
@@ -128,6 +202,73 @@ const Media = () => {
             .catch(() => {});
     }, []);
 
+    // In select mode, clicking an item toggles its read/watched state instead of navigating
+    const handleItemClick = useCallback((e, id, type) => {
+        if (!selectMode) return; // let normal click/navigation happen
+        e.preventDefault();
+        e.stopPropagation();
+        // Toggle the read/watched state
+        if (type === 'video') {
+            setWatchedIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                saveStoredSet(WATCHED_KEY, next);
+                return next;
+            });
+        } else {
+            setReadIds(prev => {
+                const next = new Set(prev);
+                if (next.has(id)) next.delete(id); else next.add(id);
+                saveStoredSet(READ_KEY, next);
+                return next;
+            });
+        }
+        toggleSelectItem(id);
+    }, [selectMode, toggleSelectItem]);
+
+    // Props to spread on any media item in select mode vs normal mode
+    const itemProps = useCallback((id, type) => {
+        if (selectMode) {
+            return {
+                onClick: (e) => handleItemClick(e, id, type),
+                style: { cursor: 'pointer' },
+            };
+        }
+        return {
+            onPointerDown: (e) => handlePointerDown(e, id, type),
+            onPointerUp: handlePointerUp,
+            onPointerLeave: handlePointerUp,
+            onContextMenu: (e) => { e.preventDefault(); openContextMenu(e, id, type); },
+        };
+    }, [selectMode, handleItemClick, handlePointerDown, handlePointerUp, openContextMenu]);
+
+    // Matches .watched-check position & size: bottom:4, right:4, 20x20
+    const SelectBox = ({ checked }) => {
+        if (!selectMode) return null;
+        return (
+            <div style={{
+                position: 'absolute',
+                bottom: 4,
+                right: 4,
+                width: 20,
+                height: 20,
+                borderRadius: '50%',
+                border: checked ? '2px solid #10b981' : '2px solid white',
+                background: checked ? '#16a34a' : 'rgba(255,255,255,0.85)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 5,
+                pointerEvents: 'none',
+                boxShadow: checked ? '0 2px 6px rgba(16,185,129,0.4)' : '0 1px 3px rgba(0,0,0,0.3)',
+                transition: 'all 0.15s ease',
+                color: 'white',
+            }}>
+                {checked && <Check size={12} strokeWidth={3} />}
+            </div>
+        );
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -154,23 +295,42 @@ const Media = () => {
             <div className="tabs">
                 <button
                     className={`tab-btn ${activeTab === 'substack' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('substack')}
+                    onClick={() => { setActiveTab('substack'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
                 >
                     Substack
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'youtube' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('youtube')}
+                    onClick={() => { setActiveTab('youtube'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
                 >
                     YouTube
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'live' ? 'active' : ''}`}
-                    onClick={() => setActiveTab('live')}
+                    onClick={() => { setActiveTab('live'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
                 >
                     {liveSettings.livestreamActive && <span className="live-dot" />}
                     Live
                 </button>
+                {activeTab !== 'live' && (
+                    selectMode ? (
+                        <button
+                            className={`mark-read-trigger ${hasChanges ? 'has-changes' : ''}`}
+                            onClick={hasChanges ? saveSelectMode : cancelSelectMode}
+                            title={hasChanges ? 'Save changes' : 'Cancel'}
+                        >
+                            {hasChanges ? <Check size={16} /> : <X size={16} />}
+                        </button>
+                    ) : (
+                        <button
+                            className="mark-read-trigger"
+                            onClick={enterSelectMode}
+                            title="Mark as Read"
+                        >
+                            <BookCheck size={16} />
+                        </button>
+                    )
+                )}
                 <div className="view-toggle-container" ref={viewRef}>
                     <button
                         className="view-trigger"
@@ -217,14 +377,10 @@ const Media = () => {
                                     {substackItems.map((item, idx) => {
                                         const isRead = readIds.has(item.link);
                                         return (
-                                            <div key={idx} className="substack-card"
-                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
-                                                onPointerUp={handlePointerUp}
-                                                onPointerLeave={handlePointerUp}
-                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
-                                            >
+                                            <div key={idx} className={`substack-card ${selectMode ? 'select-mode' : ''} ${selectMode && isRead ? 'selected' : ''}`} {...itemProps(item.link, 'article')}>
                                                 {item.thumbnail && (
                                                     <div className="card-img" style={{ backgroundImage: `url(${item.thumbnail})` }}>
+                                                        <SelectBox checked={isRead} />
                                                         {isRead && <div className="watched-tag">Read</div>}
                                                     </div>
                                                 )}
@@ -232,9 +388,9 @@ const Media = () => {
                                                     <div className="meta">{formatDate(item.date)} • {item.author || 'Build In El Salvador'}</div>
                                                     <h3>{item.title}</h3>
                                                     <p>{item.excerpt}</p>
-                                                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
+                                                    {!selectMode && <a href={item.link} target="_blank" rel="noopener noreferrer" className="read-more">
                                                         Read on Substack →
-                                                    </a>
+                                                    </a>}
                                                 </div>
                                             </div>
                                         );
@@ -245,17 +401,13 @@ const Media = () => {
                                     {substackItems.map((item, idx) => {
                                         const isRead = readIds.has(item.link);
                                         return (
-                                            <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="list-row"
-                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
-                                                onPointerUp={handlePointerUp}
-                                                onPointerLeave={handlePointerUp}
-                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
-                                            >
+                                            <a key={idx} href={selectMode ? undefined : item.link} target={selectMode ? undefined : '_blank'} rel="noopener noreferrer" className={`list-row ${selectMode ? 'select-mode' : ''} ${selectMode && isRead ? 'selected' : ''}`} {...itemProps(item.link, 'article')}>
                                                 <div className="list-thumb-wrap">
                                                     {item.thumbnail && (
                                                         <div className="list-thumb" style={{ backgroundImage: `url(${item.thumbnail})` }} />
                                                     )}
-                                                    {isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                    <SelectBox checked={isRead} />
+                                                    {!selectMode && isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
                                                 </div>
                                                 <div className="list-info">
                                                     <h3>{item.title}</h3>
@@ -274,15 +426,11 @@ const Media = () => {
                                     {substackItems.map((item, idx) => {
                                         const isRead = readIds.has(item.link);
                                         return (
-                                            <a key={idx} href={item.link} target="_blank" rel="noopener noreferrer" className="icon-tile"
-                                                onPointerDown={(e) => handlePointerDown(e, item.link, 'article')}
-                                                onPointerUp={handlePointerUp}
-                                                onPointerLeave={handlePointerUp}
-                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.link, 'article'); }}
-                                            >
+                                            <a key={idx} href={selectMode ? undefined : item.link} target={selectMode ? undefined : '_blank'} rel="noopener noreferrer" className={`icon-tile ${selectMode ? 'select-mode' : ''} ${selectMode && isRead ? 'selected' : ''}`} {...itemProps(item.link, 'article')}>
                                                 <div className="icon-thumb" style={{ backgroundImage: item.thumbnail ? `url(${item.thumbnail})` : 'none' }}>
                                                     {!item.thumbnail && <span className="icon-placeholder">📝</span>}
-                                                    {isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                    <SelectBox checked={isRead} />
+                                                    {!selectMode && isRead && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
                                                 </div>
                                                 <div className="icon-label">{item.title}</div>
                                             </a>
@@ -304,13 +452,10 @@ const Media = () => {
                                         const autoplay = playingVideoId === item.videoId ? 1 : 0;
                                         const watched = watchedIds.has(item.videoId);
                                         return (
-                                            <div key={idx} className={`youtube-card${autoplay ? ' yt-highlighted' : ''}`} ref={autoplay ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : undefined}>
+                                            <div key={idx} className={`youtube-card${autoplay ? ' yt-highlighted' : ''}${selectMode ? ' select-mode' : ''}${selectMode && watched ? ' selected' : ''}`} ref={autoplay ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'center' }) : undefined} {...(selectMode ? itemProps(item.videoId, 'video') : {})}>
                                                 {item.videoId && (
                                                     <div className="youtube-embed"
-                                                        onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
-                                                        onPointerUp={handlePointerUp}
-                                                        onPointerLeave={handlePointerUp}
-                                                        onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                                        {...(selectMode ? {} : itemProps(item.videoId, 'video'))}
                                                     >
                                                         <iframe
                                                             width="100%"
@@ -321,6 +466,7 @@ const Media = () => {
                                                             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                                                             allowFullScreen
                                                         ></iframe>
+                                                        <SelectBox checked={watched} />
                                                         {watched && <div className="watched-tag">Watched</div>}
                                                     </div>
                                                 )}
@@ -341,17 +487,14 @@ const Media = () => {
                                     {youtubeItems.map((item, idx) => {
                                         const watched = watchedIds.has(item.videoId);
                                         return (
-                                            <div key={idx} className="list-row"
-                                                onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }}
-                                                onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
-                                                onPointerUp={handlePointerUp}
-                                                onPointerLeave={handlePointerUp}
-                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                            <div key={idx} className={`list-row ${selectMode ? 'select-mode' : ''} ${selectMode && watched ? 'selected' : ''}`}
+                                                {...(selectMode ? itemProps(item.videoId, 'video') : { onClick: () => { setPlayingVideoId(item.videoId); setViewMode('card'); }, ...itemProps(item.videoId, 'video') })}
                                                 style={{ cursor: 'pointer' }}
                                             >
                                                 <div className="list-thumb-wrap">
                                                     <div className="list-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }} />
-                                                    {watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                    <SelectBox checked={watched} />
+                                                    {!selectMode && watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
                                                 </div>
                                                 <div className="list-info">
                                                     <h3>{item.title}</h3>
@@ -369,16 +512,13 @@ const Media = () => {
                                     {youtubeItems.map((item, idx) => {
                                         const watched = watchedIds.has(item.videoId);
                                         return (
-                                            <div key={idx} className="icon-tile"
-                                                onClick={() => { setPlayingVideoId(item.videoId); setViewMode('card'); }}
-                                                onPointerDown={(e) => handlePointerDown(e, item.videoId, 'video')}
-                                                onPointerUp={handlePointerUp}
-                                                onPointerLeave={handlePointerUp}
-                                                onContextMenu={(e) => { e.preventDefault(); openContextMenu(e, item.videoId, 'video'); }}
+                                            <div key={idx} className={`icon-tile ${selectMode ? 'select-mode' : ''} ${selectMode && watched ? 'selected' : ''}`}
+                                                {...(selectMode ? itemProps(item.videoId, 'video') : { onClick: () => { setPlayingVideoId(item.videoId); setViewMode('card'); }, ...itemProps(item.videoId, 'video') })}
                                                 style={{ cursor: 'pointer' }}
                                             >
                                                 <div className="icon-thumb" style={{ backgroundImage: `url(https://img.youtube.com/vi/${item.videoId}/mqdefault.jpg)` }}>
-                                                    {watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
+                                                    <SelectBox checked={watched} />
+                                                    {!selectMode && watched && <div className="watched-check"><Check size={12} strokeWidth={3} /></div>}
                                                 </div>
                                                 <div className="icon-label">{item.title}</div>
                                             </div>
@@ -512,6 +652,8 @@ const Media = () => {
           background: var(--color-gray-200);
           background-size: cover;
           background-position: center;
+          border-radius: var(--radius-lg, 12px) var(--radius-lg, 12px) 0 0;
+          overflow: hidden;
         }
         .card-body {
           padding: 1.5rem;
@@ -670,6 +812,30 @@ const Media = () => {
           border-left: 1px solid var(--color-gray-300);
           flex-shrink: 0;
         }
+        .mark-read-trigger {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 34px;
+          height: 34px;
+          border-radius: 8px;
+          border: none;
+          cursor: pointer;
+          background: transparent;
+          color: #9ca3af;
+          transition: all 0.15s;
+        }
+        .mark-read-trigger:hover {
+          color: var(--color-primary);
+          background: var(--color-gray-100);
+        }
+        .mark-read-trigger.has-changes {
+          color: #10b981;
+          background: rgba(16, 185, 129, 0.1);
+        }
+
+        /* select-circle styles are now inline — no styled-jsx needed */
+
         .view-trigger {
           display: flex;
           align-items: center;
@@ -935,6 +1101,21 @@ const Media = () => {
           .live-chat iframe {
             height: 400px;
           }
+        }
+      `}</style>
+      <style>{`
+        .select-mode {
+          position: relative;
+          cursor: pointer !important;
+          user-select: none;
+          -webkit-user-select: none;
+          transition: all 0.2s ease;
+          border-radius: var(--radius-lg, 12px);
+        }
+        .select-mode.selected {
+          outline: 3px solid #10b981;
+          outline-offset: -1px;
+          border-radius: var(--radius-lg, 12px);
         }
       `}</style>
         </div>

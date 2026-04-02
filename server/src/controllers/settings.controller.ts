@@ -95,6 +95,52 @@ export async function updateRelays(req: Request, res: Response): Promise<void> {
     }
 }
 
+export const updateMediaReadSchema = z.object({
+    watched: z.array(z.string()).optional(),
+    read: z.array(z.string()).optional(),
+});
+
+/**
+ * GET /settings/media-read
+ */
+export async function getMediaRead(req: Request, res: Response): Promise<void> {
+    try {
+        const settings = await prisma.userSettings.findUnique({ where: { userId: req.user!.id } });
+        const data = JSON.parse(settings?.mediaReadItems || '{}');
+        res.json({ watched: data.watched || [], read: data.read || [] });
+    } catch (error) {
+        console.error('Get media read error:', error);
+        res.status(500).json({ error: 'Failed to get media read state' });
+    }
+}
+
+/**
+ * PUT /settings/media-read
+ */
+export async function updateMediaRead(req: Request, res: Response): Promise<void> {
+    try {
+        const { watched, read } = req.body;
+        const settings = await prisma.userSettings.findUnique({ where: { userId: req.user!.id } });
+        const current = JSON.parse(settings?.mediaReadItems || '{}');
+
+        const updated = {
+            watched: watched !== undefined ? watched : (current.watched || []),
+            read: read !== undefined ? read : (current.read || []),
+        };
+
+        await prisma.userSettings.upsert({
+            where: { userId: req.user!.id },
+            update: { mediaReadItems: JSON.stringify(updated) },
+            create: { userId: req.user!.id, mediaReadItems: JSON.stringify(updated) },
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Update media read error:', error);
+        res.status(500).json({ error: 'Failed to update media read state' });
+    }
+}
+
 /**
  * DELETE /settings/account
  * Delete user account. Prisma cascade handles all related records.
