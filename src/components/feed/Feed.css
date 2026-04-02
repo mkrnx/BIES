@@ -43,7 +43,7 @@
 .primal-feed-container {
   max-width: 598px;
   margin: 0 auto;
-  background: var(--feed-card-bg);
+  background: var(--feed-bg);
   min-height: calc(100vh - 73px);
   border-left: 1px solid var(--feed-divider);
   border-right: 1px solid var(--feed-divider);
@@ -58,13 +58,13 @@
 
 /* ---------- Feed header / tabs ------------------------------------------ */
 .primal-feed-header {
-  background: var(--feed-card-bg);
+  background: var(--feed-bg);
   border-bottom: 1px solid var(--feed-divider);
   padding: 0;
 }
 
 [data-theme="dark"] .primal-feed-header {
-  background: var(--color-gray-100, #1E293B);
+  background: var(--feed-bg);
 }
 
 .primal-feed-title {
@@ -646,7 +646,7 @@
   flex-direction: column;
   padding: 12px 20px;
   border-bottom: 1px solid var(--feed-divider);
-  background: var(--feed-card-bg);
+  background: var(--feed-bg);
   text-decoration: none;
   color: inherit;
   user-select: text;
