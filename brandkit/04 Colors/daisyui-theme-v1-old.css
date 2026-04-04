@@ -1,0 +1,69 @@
+/*
+ * BIES — daisyUI Theme Tokens (OLD / DEPRECATED)
+ *
+ * DO NOT USE — superseded by daisyui-theme-v2.css
+ *
+ * Issues in this version:
+ *   1. Precision too low (2 dp) — daisyUI expects 4-6 dp
+ *   2. Dark --b1 mapped to Gray 900 (#0F172A) instead of surface (#1E293B)
+ *   3. Dark --b2 mapped to #1E293B instead of surface raised (#253349)
+ *   4. Dark --b3 missing entirely
+ *   5. Many variables missing (--a, --ac, --suc, --erc, --wac, --inc)
+ *   6. Light --b1 was #F8F9FA instead of #FFFFFF
+ */
+
+
+/* ============================================
+   LIGHT MODE (old — low precision, incomplete)
+   ============================================ */
+
+[data-theme="light"] {
+  --p:  42.84% 0.17 259.70;                /* #0047AB — 2 dp, imprecise */
+  --pc: 100.00% 0 0;                       /* #FFFFFF */
+  --s:  68.26% 0.21 40.32;                 /* #FF5B00 */
+  --sc: 100.00% 0 0;                       /* #FFFFFF */
+  /* --a:  MISSING */
+  /* --ac: MISSING */
+  --n:  21.36% 0.05 257.95;                /* #0A192F */
+  --nc: 98.16% 0.00 247.84;               /* #F8F9FA */
+  --b1: 98.16% 0.00 247.84;               /* #F8F9FA — WRONG, should be #FFFFFF */
+  /* --b2: MISSING */
+  /* --b3: MISSING */
+  --bc: 21.36% 0.05 257.95;               /* #0A192F */
+  --su: 69.59% 0.15 162.48;               /* #10B981 */
+  /* --suc: MISSING */
+  --er: 63.68% 0.21 25.33;                /* #EF4444 */
+  /* --erc: MISSING */
+  --wa: 76.86% 0.16 70.08;                /* #F59E0B */
+  /* --wac: MISSING */
+  --in: 62.31% 0.19 259.81;               /* #3B82F6 */
+  /* --inc: MISSING */
+}
+
+
+/* ============================================
+   DARK MODE (old — wrong base colors, incomplete)
+   ============================================ */
+
+[data-theme="dark"] {
+  --p:  69.02% 0.15 256.90;                /* #5B9CF6 */
+  --pc: 21.36% 0.05 257.95;               /* #0A192F */
+  --s:  68.26% 0.21 40.32;                /* #FF5B00 */
+  --sc: 100.00% 0 0;                       /* #FFFFFF */
+  /* --a:  MISSING */
+  /* --ac: MISSING */
+  --n:  98.42% 0.00 247.86;               /* #F8FAFC */
+  --nc: 20.77% 0.04 265.75;               /* #0F172A */
+  --b1: 20.77% 0.04 265.75;               /* #0F172A — WRONG, should be #1E293B (surface) */
+  --b2: 27.95% 0.04 260.03;               /* #1E293B — WRONG, should be #253349 (surface raised) */
+  /* --b3: MISSING — should be #2D3B50 (surface overlay) */
+  --bc: 98.42% 0.00 247.86;               /* #F8FAFC */
+  --su: 69.59% 0.15 162.48;               /* #10B981 */
+  /* --suc: MISSING */
+  --er: 63.68% 0.21 25.33;                /* #EF4444 */
+  /* --erc: MISSING */
+  --wa: 76.86% 0.16 70.08;                /* #F59E0B */
+  /* --wac: MISSING */
+  --in: 69.02% 0.15 256.90;               /* #5B9CF6 */
+  /* --inc: MISSING */
+}
