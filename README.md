@@ -1,4 +1,4 @@
-# BIES — A Nostr Client for Productive Communities
+# BIES — A Nostr Client for Productive Communities test
 
 BIES (Build in El Salvador) is a Nostr-native community client designed for groups that need more than a feed — projects, events, investments, identity, and real payments. It's the precursor to **nostrbook**: the idea that communities should own their social graph, their data, and their money, without asking permission from a platform.
 
