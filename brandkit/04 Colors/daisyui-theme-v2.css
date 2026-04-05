@@ -1,0 +1,107 @@
+/*
+ * BIES — daisyUI Theme Tokens (CURRENT)
+ *
+ * Full-precision OKLCH values for all daisyUI color variables.
+ * Reference only — paste into a daisyUI theme config when ready.
+ *
+ * Replaces v1-old. Fixes:
+ *   - Full precision (4-6 dp) instead of 2 dp
+ *   - Dark --b1 = #1E293B (surface), --b2 = #253349 (raised), --b3 = #2D3B50 (overlay)
+ *   - Light --b1 = #FFFFFF (not #F8F9FA); #F8F9FA moved to --b2
+ *   - All 20 daisyUI variables present (content pairs included)
+ *
+ * Format: L% C H  (OKLCH)
+ *   L  = lightness   (percentage, 4 dp)
+ *   C  = chroma      (6 dp)
+ *   H  = hue angle   (6 dp)
+ */
+
+
+/* ============================================
+   LIGHT MODE
+   ============================================ */
+
+[data-theme="light"] {
+  /* Primary — Cobalt Blue #0047AB */
+  --p:   42.8418% 0.172015 259.702265;
+  --pc: 100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Secondary — Blaze Orange #FF5B00 */
+  --s:   68.2552% 0.212815 40.324704;
+  --sc: 100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Accent — Deep Cobalt #003682 */
+  --a:   35.4710% 0.138363 259.129564;
+  --ac: 100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Neutral — Deep Navy #0A192F */
+  --n:   21.3588% 0.048317 257.951043;
+  --nc:  98.1639% 0.001707 247.838993;     /* #F8F9FA */
+
+  /* Base surfaces */
+  --b1: 100.0000% 0 0;                     /* #FFFFFF  — surface */
+  --b2:  98.1639% 0.001707 247.838993;     /* #F8F9FA  — surface raised */
+  --b3:  96.8260% 0.006854 247.895567;     /* #F1F5F9  — surface overlay */
+  --bc:  21.3588% 0.048317 257.951043;     /* #0A192F  — base content */
+
+  /* Success — Emerald #10B981 */
+  --su:  69.5873% 0.149074 162.479602;
+  --suc: 26.6364% 0.062848 152.934252;     /* #052E16 */
+
+  /* Error — Red #EF4444 */
+  --er:  63.6834% 0.207849 25.331328;
+  --erc:100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Warning — Amber #F59E0B */
+  --wa:  76.8590% 0.164659 70.080390;
+  --wac: 28.5655% 0.063931 53.813257;      /* #422006 */
+
+  /* Info — Blue #3B82F6 */
+  --in:  62.3083% 0.188015 259.814527;
+  --inc:100.0000% 0 0;                     /* #FFFFFF */
+}
+
+
+/* ============================================
+   DARK MODE
+   ============================================ */
+
+[data-theme="dark"] {
+  /* Primary — Light Blue #5B9CF6 */
+  --p:   69.0162% 0.149196 256.904356;
+  --pc:  21.3588% 0.048317 257.951043;     /* #0A192F */
+
+  /* Secondary — Blaze Orange #FF5B00 */
+  --s:   68.2552% 0.212815 40.324704;
+  --sc: 100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Accent — Blue #3B82F6 */
+  --a:   62.3083% 0.188015 259.814527;
+  --ac: 100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Neutral — Near-white #F8FAFC */
+  --n:   98.4152% 0.003413 247.857544;
+  --nc:  20.7682% 0.039824 265.754874;     /* #0F172A */
+
+  /* Base surfaces */
+  --b1:  27.9495% 0.036848 260.030984;     /* #1E293B  — surface */
+  --b2:  31.9102% 0.043851 259.223079;     /* #253349  — surface raised */
+  --b3:  34.9424% 0.041321 258.316107;     /* #2D3B50  — surface overlay */
+  --bc:  98.4152% 0.003413 247.857544;     /* #F8FAFC  — base content */
+
+  /* Success — Emerald #10B981 */
+  --su:  69.5873% 0.149074 162.479602;
+  --suc: 26.6364% 0.062848 152.934252;     /* #052E16 */
+
+  /* Error — Red #EF4444 */
+  --er:  63.6834% 0.207849 25.331328;
+  --erc:100.0000% 0 0;                     /* #FFFFFF */
+
+  /* Warning — Amber #F59E0B */
+  --wa:  76.8590% 0.164659 70.080390;
+  --wac: 28.5655% 0.063931 53.813257;      /* #422006 */
+
+  /* Info — Light Blue #5B9CF6 */
+  --in:  69.0162% 0.149196 256.904356;
+  --inc: 21.3588% 0.048317 257.951043;     /* #0A192F */
+}
