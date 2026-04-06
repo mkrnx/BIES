@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { Copy, CheckCircle, ShieldAlert, ArrowRight, AlertCircle, Fingerprint, Loader2, ChevronUp, ChevronDown, AtSign, X } from 'lucide-react';
 import { keytrService } from '../services/keytrService';
+import { nostrSigner } from '../services/nostrSigner';
 import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
 import { walletApi, profilesApi } from '../services/api';
 
@@ -82,12 +83,18 @@ const Signup = () => {
         setSavingPasskey(true);
         setError('');
         try {
+            // Set up signer so keytrService can sign the kind:31777 relay event
+            nostrSigner.setNsec(keys.nsec);
             await keytrService.saveWithPasskey(keys.nsec, keys.pk);
             setPasskeySaved(true);
+            // Prevent the post-login PasskeySavePrompt modal from appearing
+            sessionStorage.setItem('bies_passkey_prompt_dismissed', '1');
         } catch (err) {
-            if (!err.cancelled) {
-                setError(err.message || 'Failed to save passkey.');
+            if (err.name === 'NotAllowedError') {
+                // User cancelled the WebAuthn prompt — not an error
+                return;
             }
+            setError(err.message || 'Failed to save passkey.');
         } finally {
             setSavingPasskey(false);
         }
