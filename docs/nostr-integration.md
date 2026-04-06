@@ -63,13 +63,13 @@ DMs are NIP-04 encrypted events published to the BIES relay. The backend stores 
 
 **How BIES uses it:**
 
-Every BIES user can claim a NIP-05 identifier: `username@bies.sovit.xyz`. The backend serves the `.well-known/nostr.json` endpoint that maps usernames to hex pubkeys.
+Every BIES user can claim a NIP-05 identifier: `username@buildinelsalvador.com`. The backend serves the `.well-known/nostr.json` endpoint that maps usernames to hex pubkeys.
 
 **Endpoints:**
 - `GET /.well-known/nostr.json?name=alice` — Returns `{ names: { alice: "<hex_pubkey>" }, relays: { ... } }`
 - `POST /api/nip05` — Claim or update NIP-05 identifier (authenticated)
 
-**Verification:** Other Nostr clients can verify a BIES user's identity by querying `bies.sovit.xyz/.well-known/nostr.json`.
+**Verification:** Other Nostr clients can verify a BIES user's identity by querying `buildinelsalvador.com/.well-known/nostr.json`.
 
 ### NIP-06: Key Generation from Seed Phrases
 

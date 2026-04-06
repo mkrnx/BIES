@@ -141,7 +141,7 @@ docker compose logs -f bies-server
 | `JWT_SECRET` | 64-char base64 string for JWT signing | `openssl rand -base64 64` |
 | `ENCRYPTION_SECRET` | 32-char string for AES-256-GCM | `openssl rand -hex 16` |
 | `DATABASE_URL` | Database connection string | `postgresql://...` or `file:../data/bies.db` |
-| `CORS_ORIGIN` | Allowed origins (comma-separated) | `https://bies.sovit.xyz` |
+| `CORS_ORIGIN` | Allowed origins (comma-separated) | `https://app.buildinelsalvador.com` |
 
 ### Recommended
 
@@ -265,7 +265,7 @@ The NIP-42 auth proxy sits between Nginx and strfry:
 | `PROXY_PORT` | `7778` | Proxy listen port |
 | `UPSTREAM_RELAY` | `ws://bies-relay:7777` | strfry address |
 | `WHITELIST_PATH` | `/app/data/whitelist.txt` | Pubkey whitelist file |
-| `RELAY_URL` | `wss://bies.sovit.xyz/relay` | Public relay URL (for NIP-42 challenge) |
+| `RELAY_URL` | `wss://relay.buildinelsalvador.com` | Public relay URL (for NIP-42 challenge) |
 | `AUTH_TIMEOUT_MS` | `60000` | Auth challenge timeout |
 
 ## File Storage

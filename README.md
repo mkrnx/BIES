@@ -79,7 +79,7 @@ BIES implements these NIPs to build a full community client on top of the Nostr 
 |-----|----------------------|
 | NIP-01 | Social feed — publishing and reading notes |
 | NIP-04 | Encrypted direct messages between members |
-| NIP-05 | Identity verification (`username@bies.sovit.xyz`) |
+| NIP-05 | Identity verification (`username@buildinelsalvador.com`) |
 | NIP-06 | BIP-39 seed phrase key generation on signup |
 | NIP-19 | Bech32 encoding for public/private keys (npub/nsec) |
 | NIP-42 | Private relay authentication — only members can read/write |

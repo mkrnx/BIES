@@ -100,7 +100,7 @@ const ProfileSetup = () => {
                 if (nostrForm.about) data.about = nostrForm.about;
                 if (nostrForm.picture || nostrProfile?.picture) data.picture = nostrForm.picture || nostrProfile?.picture;
                 if (nostrForm.website || nostrProfile?.website) data.website = nostrForm.website || nostrProfile?.website;
-                if (nip05Name.trim()) data.nip05 = `${nip05Name.trim().toLowerCase()}@bies.sovit.xyz`;
+                if (nip05Name.trim()) data.nip05 = `${nip05Name.trim().toLowerCase()}@buildinelsalvador.com`;
                 else if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
                 if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
                 if (showNostrEdit && nostrForm.name) {
@@ -247,7 +247,7 @@ const ProfileSetup = () => {
                                 </div>
                                 {nip05Name && (
                                     <p className="text-xs mt-1" style={{ color: nip05Available === false ? '#ef4444' : 'var(--color-gray-400)' }}>
-                                        {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                        {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@buildinelsalvador.com`}
                                     </p>
                                 )}
                             </div>
