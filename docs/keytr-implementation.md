@@ -4,14 +4,12 @@
 
 `@sovit.xyz/keytr` is a NIP-K1 library for passkey-encrypted Nostr private keys. It replaces BIES's original custom `passkeyService.js` (464 lines) with a standardized approach:
 
-- **Two encryption modes:**
-  - **PRF mode** — PRF + HKDF-SHA256 + AES-256-GCM (hardware-bound, requires PRF-capable authenticator)
-  - **KiH mode** (Key-in-Handle) — random 256-bit key in passkey `user.id` + AES-256-GCM (works with all authenticators including password managers)
+- **KiH mode** (Key-in-Handle) — random 256-bit key in passkey `user.id` + AES-256-GCM (works with all authenticators including password managers)
 - Encrypted keys stored as **kind:31777 events** on public Nostr relays
 - Cross-device recovery via WebAuthn discoverable credentials
 - Gateway-based registration (keytr.org primary, nostkey.org backup)
 
-Current version: `@sovit.xyz/keytr@0.5.0`
+Current version: `@sovit.xyz/keytr@0.7.1`
 
 ---
 
@@ -40,12 +38,11 @@ When `bies_keytr_credentials` exists in localStorage with a pubkey:
 ```
 stored credential pubkey
   → fetchKeytrEvents(pubkey, relays)     // targeted relay query
-  → parseKeytrEvent() to filter PRF events
-  → loginWithKeytr(prfEvents)            // WebAuthn prompt + decrypt
+  → loginWithKeytr(events)              // WebAuthn prompt + decrypt
   → encodeNsec(nsecBytes)               // return bech32 nsec
 ```
 
-One WebAuthn prompt. Fastest path (~2-5s). Falls through to discoverable if no PRF events exist or PRF login fails.
+One WebAuthn prompt. Fastest path (~2-5s). Falls through to discoverable if login fails.
 
 ### 2. Cached User Path (no credential index, but prior login)
 
@@ -54,29 +51,26 @@ When no keytr credential is indexed but `bies_user` exists in localStorage from 
 ```
 localStorage('bies_user').nostrPubkey    // hex pubkey from cached BIES user
   → fetchKeytrEvents(nostrPubkey, relays) // targeted relay query
-  → parseKeytrEvent() to filter PRF events
-  → loginWithKeytr(prfEvents)             // WebAuthn prompt + decrypt
+  → loginWithKeytr(events)               // WebAuthn prompt + decrypt
   → index credential locally              // upgrade to fast path next time
   → encodeNsec(nsecBytes)
 ```
 
-One WebAuthn prompt. Same speed as fast path. Falls through to discoverable if cached user has no pubkey, no events found, or no PRF events.
+One WebAuthn prompt. Same speed as fast path. Falls through to discoverable if cached user has no pubkey or no events found.
 
-### 3. Discoverable Path (no stored data or KiH credentials)
+### 3. Discoverable Path (no stored data)
 
-When neither credential index nor cached user pubkey is available, or when PRF login fails:
+When neither credential index nor cached user pubkey is available, or when login fails:
 
 ```
 discover(relays)                         // unified discoverable login
-  → auto-detects PRF vs KiH from userHandle
-  → PRF: step-2 targeted assertion for PRF output
-  → KiH: extract key from userHandle, query relay by #d tag
+  → extract key from userHandle, query relay by #d tag
   → decrypt nsec
-  → index credential locally with mode    // upgrade to fast path next time
+  → index credential locally              // upgrade to fast path next time
   → encodeNsec(nsecBytes)
 ```
 
-One biometric prompt. Handles both PRF and KiH credentials transparently.
+One biometric prompt. Handles credentials transparently.
 
 ---
 
@@ -87,21 +81,16 @@ One biometric prompt. Handles both PRF and KiH credentials transparently.
 Called via `keytrService.saveWithPasskey(nsec, pubkey)`:
 
 1. Decode nsec to bytes
-2. **Try PRF:** `registerPasskey()` — WebAuthn credential creation with PRF on keytr.org rpId
-3. `encryptNsec()` — AES-256-GCM encryption using PRF output
-4. **Catch `PrfNotSupportedError` → KiH fallback:**
-   - `registerKihPasskey()` — credential creation without PRF, random key in `user.id`
-   - `encryptNsec()` with `aadVersion: KEYTR_KIH_VERSION` (prevents cross-mode decryption)
-5. `buildKeytrEvent()` — construct kind:31777 event template (with `v=3` tag for KiH)
-6. Sign event via `nostrSigner.signEvent()`
-7. `publishKeytrEvent()` — publish to PUBLIC_RELAYS
-8. Index credential in localStorage with `mode` field
-
-Returns `{ mode: 'prf' | 'kih' }` so callers can display mode-appropriate feedback.
+2. `registerPasskey()` — WebAuthn credential creation on gateway rpId, returns `{ credential, keyMaterial }`
+3. `encryptNsec()` — AES-256-GCM encryption using keyMaterial with `aadVersion: KEYTR_VERSION`
+4. `buildKeytrEvent()` — construct kind:31777 event template (with `v=3` tag)
+5. Sign event via `nostrSigner.signEvent()`
+6. `publishKeytrEvent()` — publish to PUBLIC_RELAYS
+7. Index credential in localStorage
 
 ### Backup Gateway (nostkey.org)
 
-Called via `keytrService.addBackupGateway(nsec, pubkey)` — same PRF/KiH fallback flow but uses `KEYTR_GATEWAYS[1]` as rpId. Separate WebAuthn prompt.
+Called via `keytrService.addBackupGateway(nsec, pubkey)` — same flow but uses `KEYTR_GATEWAYS[1]` as rpId. Separate WebAuthn prompt.
 
 ---
 
@@ -136,12 +125,11 @@ resolve: {
 
 - **nsec never persisted** — only held in memory during active session
 - **nsecBytes zeroed** after use (`.fill(0)` in `finally` blocks)
-- **PRF output / KiH handleKey zeroed** after encryption
+- **keyMaterial zeroed** after encryption
 - **No server involvement** — backend only sees signed Nostr events, never keys
 - **Gateway rpId separation** — keytr.org and nostkey.org credentials are distinct WebAuthn origins
 - **Extension interference detection** — `isLikelyExtensionInterference()` catches password manager conflicts with cross-origin rpId
-- **AAD version separation** — PRF (v=1) and KiH (v=3) events use different AAD bytes, preventing cross-mode decryption attacks
-- **KiH trade-off** — encryption key lives in passkey `user.id` (not hardware-bound like PRF), but still protected by biometric/PIN authentication. Users with PRF-capable authenticators automatically get the stronger PRF mode.
+- **KiH encryption key** lives in passkey `user.id` (not hardware-bound), but still protected by biometric/PIN authentication
 
 ---
 
@@ -158,3 +146,4 @@ resolve: {
 | 0.3.1 | Simplified _registerOnGateway using keytr's high-level addBackupGateway |
 | 0.4.0 | Event kind 30079→31777, loginWithKeytr returns npub instead of pubkey, derive hex pubkey via nsecToHexPubkey |
 | 0.5.0 | KiH mode support (PRF-first with automatic fallback), unified discover() for login, expanded authenticator compatibility (password managers, all browsers) |
+| 0.7.1 | Removed PRF mode (KiH-only), dropped `registerKihPasskey`/`PrfNotSupportedError`/`checkPrfSupport`, `registerPasskey` now returns `keyMaterial`, `KEYTR_KIH_VERSION` → `KEYTR_VERSION`, `nsecToHexPubkey` → `nsecToPublicKey` |

@@ -81,9 +81,6 @@ const Login = () => {
             return 'Cross-origin passkey failed. Try disabling password manager extensions, ' +
                 'or use Chrome, Edge, or Safari.';
         }
-        if (/PRF.*not (available|supported)|not support.*PRF/i.test(msg)) {
-            return 'Could not decrypt your passkey. Try using the same browser and device where you originally saved it.';
-        }
         return msg || 'Passkey login failed.';
     };
 
