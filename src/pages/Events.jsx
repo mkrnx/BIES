@@ -8,96 +8,6 @@ import { eventsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useViewPreference } from '../context/ViewContext';
 
-const MOCK_OFFICIAL_EVENTS = [
-    {
-        id: 'mock-off-1',
-        title: 'Bitcoin & Business Summit El Salvador 2026',
-        description: 'The flagship annual gathering for builders, investors, and entrepreneurs building the Bitcoin economy in El Salvador. Featuring keynotes, panels, and deal-making sessions.',
-        category: 'CONFERENCE',
-        startDate: '2026-04-15T09:00:00Z',
-        location: 'Hotel Decameron, Santa Elena, El Salvador',
-        isOfficial: true,
-        isOnline: false,
-        coverImage: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&q=80',
-        externalUrl: 'https://satlantis.io',
-    },
-    {
-        id: 'mock-off-2',
-        title: 'BIES Hackathon: Lightning Applications',
-        description: 'A 48-hour hackathon focused on building Lightning Network-powered applications. Cash prizes and mentorship from top Bitcoin developers in the ecosystem.',
-        category: 'HACKATHON',
-        startDate: '2026-05-03T10:00:00Z',
-        location: 'Chivo Lab, San Salvador, El Salvador',
-        isOfficial: true,
-        isOnline: false,
-        coverImage: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=800&q=80',
-        externalUrl: 'https://satlantis.io',
-    },
-    {
-        id: 'mock-off-3',
-        title: 'Investor Demo Day — Spring 2026',
-        description: 'Top BIES-vetted startups pitch live to a curated audience of Bitcoin-native investors. Apply to present or register as an investor to attend.',
-        category: 'DEMO_DAY',
-        startDate: '2026-05-20T14:00:00Z',
-        location: 'Virtual & In-Person — San Salvador',
-        isOfficial: true,
-        isOnline: true,
-        coverImage: 'https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=800&q=80',
-        externalUrl: 'https://satlantis.io',
-    },
-];
-
-const MOCK_COMMUNITY_EVENTS = [
-    {
-        id: 'mock-com-1',
-        title: 'Bitcoin Builders Meetup — San Salvador',
-        description: 'Monthly casual meetup for developers and founders building on Bitcoin. Share what you\'re working on, swap ideas, and connect with the local community.',
-        category: 'MEETUP',
-        startDate: '2026-03-18T18:30:00Z',
-        location: 'La Ventana Café, San Salvador',
-        isOfficial: false,
-        isOnline: false,
-        coverImage: 'https://images.unsplash.com/photo-1528605105345-5344ea20e269?w=800&q=80',
-        externalUrl: 'https://lu.ma',
-    },
-    {
-        id: 'mock-com-2',
-        title: 'Nostr for Builders Workshop',
-        description: 'Hands-on session covering Nostr protocol basics, key management, and how to integrate Nostr identity into your product. Bring a laptop.',
-        category: 'WORKSHOP',
-        startDate: '2026-03-25T10:00:00Z',
-        location: 'Online — Zoom',
-        isOfficial: false,
-        isOnline: true,
-        coverImage: 'https://images.unsplash.com/photo-1516321165247-4aa89a48be55?w=800&q=80',
-        externalUrl: 'https://lu.ma',
-    },
-    {
-        id: 'mock-com-3',
-        title: 'El Salvador Founders Networking Night',
-        description: 'An informal evening for founders building in El Salvador to connect over drinks, share lessons learned, and explore collaboration opportunities.',
-        category: 'NETWORKING',
-        startDate: '2026-04-08T19:00:00Z',
-        location: 'Rooftop Bar La Terraza, Santa Tecla',
-        isOfficial: false,
-        isOnline: false,
-        coverImage: 'https://images.unsplash.com/photo-1515169067868-5387ec356754?w=800&q=80',
-        externalUrl: 'https://lu.ma',
-    },
-    {
-        id: 'mock-com-4',
-        title: 'Lightning Payments Deep Dive',
-        description: 'Technical walkthrough of Lightning payment flows, BOLT specs, and practical integration patterns for apps targeting the Salvadoran market.',
-        category: 'WORKSHOP',
-        startDate: '2026-04-22T17:00:00Z',
-        location: 'Online — Google Meet',
-        isOfficial: false,
-        isOnline: true,
-        coverImage: 'https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=800&q=80',
-        externalUrl: 'https://lu.ma',
-    },
-];
-
 const EVENT_CATEGORY_COLORS = {
     CONFERENCE: 'var(--color-blue-tint)',
     HACKATHON: 'var(--color-amber-tint)',
@@ -493,12 +403,12 @@ const Events = () => {
                 const offList = offResult?.data || offResult || [];
                 const commList = commResult?.data || commResult || [];
 
-                setRawOfficialEvents(Array.isArray(offList) && offList.length > 0 ? offList : MOCK_OFFICIAL_EVENTS);
-                setRawCommunityEvents(Array.isArray(commList) && commList.length > 0 ? commList : MOCK_COMMUNITY_EVENTS);
+                setRawOfficialEvents(Array.isArray(offList) ? offList : []);
+                setRawCommunityEvents(Array.isArray(commList) ? commList : []);
             } catch (err) {
                 console.error('Fetch events error:', err);
-                setRawOfficialEvents(MOCK_OFFICIAL_EVENTS);
-                setRawCommunityEvents(MOCK_COMMUNITY_EVENTS);
+                setRawOfficialEvents([]);
+                setRawCommunityEvents([]);
             } finally {
                 setLoading(false);
             }
