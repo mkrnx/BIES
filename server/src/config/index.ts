@@ -47,7 +47,7 @@ export const config = {
 
     // ─── Nostr ───────────────────────────────────────────────────────────────
     nostrPrivateRelay: process.env.NOSTR_PRIVATE_RELAY || '',
-    nostrPublicRelay: process.env.NOSTR_PUBLIC_RELAY || 'wss://bies.sovit.xyz/relay',
+    nostrPublicRelay: process.env.NOSTR_PUBLIC_RELAY || 'wss://relay.buildinelsalvador.com',
     nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
 
     // ─── Twitter/X (gallery-dl + browser cookies) ──────────────────────────

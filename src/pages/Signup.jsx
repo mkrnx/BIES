@@ -344,7 +344,7 @@ const Signup = () => {
                             </div>
                             {nip05Name && (
                                 <p className="text-xs" style={{ marginTop: '0.25rem', color: nip05Available === false ? '#ef4444' : 'var(--color-gray-400)' }}>
-                                    {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                    {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@buildinelsalvador.com`}
                                 </p>
                             )}
                         </div>

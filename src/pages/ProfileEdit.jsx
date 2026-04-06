@@ -318,7 +318,7 @@ const ProfileEdit = () => {
                 if (form.banner) nostrData.banner = form.banner;
                 if (form.website) nostrData.website = form.website;
                 if (form.lightningAddress) nostrData.lud16 = form.lightningAddress;
-                if (form.nip05Name) nostrData.nip05 = `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`;
+                if (form.nip05Name) nostrData.nip05 = `${form.nip05Name.toLowerCase()}@buildinelsalvador.com`;
                 if (publishPublic) {
                     await nostrService.updateProfile(nostrData);
                 } else {
@@ -879,7 +879,7 @@ const ProfileEdit = () => {
                             </div>
                             {form.nip05Name && (
                                 <p className="pe-hint" style={{ color: nip05Available === false ? '#ef4444' : undefined }}>
-                                    {nip05Available === false ? 'Taken' : `${form.nip05Name.toLowerCase()}@bies.sovit.xyz`}
+                                    {nip05Available === false ? 'Taken' : `${form.nip05Name.toLowerCase()}@buildinelsalvador.com`}
                                 </p>
                             )}
                         </div>
