@@ -29,6 +29,9 @@ import {
 } from '@sovit.xyz/keytr';
 import { PUBLIC_RELAYS } from './nostrService.js';
 
+// Override gateways: our domain first, then keytr.org and nostkey.org as backups
+const BIES_GATEWAYS = ['app.buildinelsalvador.com', ...KEYTR_GATEWAYS.filter(g => g !== 'app.buildinelsalvador.com')];
+
 const STORAGE_KEY = 'bies_keytr_credentials';
 
 // ─── localStorage credential index ─────────────────────────────────────────
@@ -137,18 +140,24 @@ export const keytrService = {
      * @returns {{ mode: 'prf' | 'kih' }}
      */
     async saveWithPasskey(nsec, pubkey) {
-        return this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[0]);
+        return this._registerOnGateway(nsec, pubkey, BIES_GATEWAYS[0]);
     },
 
     /**
-     * Register on a backup gateway (nostkey.org) — one additional biometric prompt.
+     * Register on all backup gateways (keytr.org, nostkey.org) — one biometric prompt each.
      * Call after saveWithPasskey() to add redundancy.
      *
-     * @returns {{ mode: 'prf' | 'kih' }}
+     * @returns {Promise<Array<{ gateway: string, mode: 'prf' | 'kih' }>>}
      */
     async addBackupGateway(nsec, pubkey) {
-        if (KEYTR_GATEWAYS.length < 2) throw new Error('No backup gateway configured.');
-        return this._registerOnGateway(nsec, pubkey, KEYTR_GATEWAYS[1]);
+        const backups = BIES_GATEWAYS.slice(1);
+        if (backups.length === 0) throw new Error('No backup gateway configured.');
+        const results = [];
+        for (const gw of backups) {
+            const { mode } = await this._registerOnGateway(nsec, pubkey, gw);
+            results.push({ gateway: gw, mode });
+        }
+        return results;
     },
 
     /**
