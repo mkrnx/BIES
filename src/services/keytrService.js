@@ -162,7 +162,8 @@ export const keytrService = {
 
     /**
      * @private Register a passkey + publish kind:31777 for a single gateway.
-     * PRF-first with KiH fallback.
+     * Pre-checks PRF support to avoid creating an orphaned credential on
+     * non-PRF platforms (e.g. GrapheneOS). Falls back to KiH when needed.
      */
     async _registerOnGateway(nsec, pubkey, rpId) {
         const nsecBytes = decodeNsec(nsec);
@@ -177,26 +178,35 @@ export const keytrService = {
 
         let credential, encryptedBlob, mode;
 
-        try {
-            // Try PRF registration first
-            const { credential: prfCred, prfOutput } = await registerPasskey({
-                ...regOpts,
-                pubkey,
-            });
-            try {
-                encryptedBlob = encryptNsec({
-                    nsecBytes,
-                    prfOutput,
-                    credentialId: prfCred.credentialId,
-                });
-            } finally {
-                prfOutput.fill(0);
-            }
-            credential = prfCred;
-            mode = 'prf';
-        } catch (err) {
-            if (!(err instanceof PrfNotSupportedError)) throw err;
+        // Pre-check: skip PRF entirely when the platform definitively
+        // reports no support (getClientCapabilities). This avoids creating
+        // an orphaned PRF credential followed by a second KiH credential.
+        await ensureChecked();
 
+        if (_prfSupported) {
+            try {
+                const { credential: prfCred, prfOutput } = await registerPasskey({
+                    ...regOpts,
+                    pubkey,
+                });
+                try {
+                    encryptedBlob = encryptNsec({
+                        nsecBytes,
+                        prfOutput,
+                        credentialId: prfCred.credentialId,
+                    });
+                } finally {
+                    prfOutput.fill(0);
+                }
+                credential = prfCred;
+                mode = 'prf';
+            } catch (err) {
+                if (!(err instanceof PrfNotSupportedError)) throw err;
+                // PRF reported as supported but failed at runtime — fall through to KiH
+            }
+        }
+
+        if (!credential) {
             // KiH fallback — works with all authenticators
             const { credential: kihCred, handleKey } = await registerKihPasskey(regOpts);
             try {
