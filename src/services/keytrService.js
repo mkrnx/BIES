@@ -156,9 +156,9 @@ export const keytrService = {
         try {
             encryptedBlob = encryptNsec({
                 nsecBytes,
-                prfOutput: keyMaterial,
+                keyMaterial,
                 credentialId: credential.credentialId,
-                aadVersion: KEYTR_VERSION,
+                version: KEYTR_VERSION,
             });
         } finally {
             keyMaterial.fill(0);
