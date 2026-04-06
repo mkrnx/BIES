@@ -273,11 +273,12 @@ const Signup = () => {
                             {/* ── Quick Login section (separate from backup) ── */}
                             {PASSKEY_ENABLED && passkeySupported && (
                                 <div style={{ borderTop: '1px solid var(--color-gray-200)', paddingTop: '0.75rem', marginTop: '0.25rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                    <p className="text-sm font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-600)' }}>Quick Login (Optional)</p>
+                                    <p className="text-sm font-bold" style={{ marginBottom: 2, color: 'var(--color-gray-600)' }}>Quick Login (NIP-K1)</p>
                                     <button
                                         onClick={handleSavePasskey}
                                         disabled={savingPasskey || passkeySaved}
-                                        className="w-full btn-outline py-3 rounded-full flex items-center justify-center gap-2"
+                                        className="w-full btn-primary py-3 rounded-full flex items-center justify-center gap-2"
+                                        style={{ backgroundColor: 'var(--color-warning)' }}
                                     >
                                         {passkeySaved ? (
                                             <><CheckCircle size={16} style={{ color: 'var(--color-success)' }} /> Passkey Saved</>
