@@ -81,6 +81,14 @@ const Login = () => {
             return 'Cross-origin passkey failed. Try disabling password manager extensions, ' +
                 'or use Chrome, Edge, or Safari.';
         }
+        if (/credential manager/i.test(msg)) {
+            return 'The credential manager encountered an error. ' +
+                'Try restarting your browser or use your nsec key to log in.';
+        }
+        if (/no discoverable passkey found|no event matches credential/i.test(msg)) {
+            return 'No passkey found for this device. ' +
+                'Log in with your nsec key, then set up a new passkey in Settings.';
+        }
         return msg || 'Passkey login failed.';
     };
 

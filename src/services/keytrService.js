@@ -23,12 +23,23 @@ import {
     KEYTR_VERSION,
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
-import { PUBLIC_RELAYS } from './nostrService.js';
+import { NOSTR_RELAYS } from './nostrService.js';
 
 // Override gateways: our domain first, then keytr.org and nostkey.org as backups
 const BIES_GATEWAYS = ['app.buildinelsalvador.com', ...KEYTR_GATEWAYS.filter(g => g !== 'app.buildinelsalvador.com')];
 
 const STORAGE_KEY = 'bies_keytr_credentials';
+
+/**
+ * Detect whether a keytr/WebAuthn error is a user-initiated cancellation
+ * (e.g. dismissing the passkey picker or tapping "Cancel").
+ */
+function isUserCancellation(err) {
+    if (!err) return false;
+    const msg = (err.message || String(err)).toLowerCase();
+    return msg.includes('notallowederror') || msg.includes('aborterror') ||
+           msg.includes('the operation either timed out or was not allowed');
+}
 
 // ─── localStorage credential index ─────────────────────────────────────────
 
@@ -176,7 +187,7 @@ export const keytrService = {
             pubkey,
         });
 
-        await publishKeytrEvent(signedEvent, PUBLIC_RELAYS);
+        await publishKeytrEvent(signedEvent, NOSTR_RELAYS);
 
         const creds = getStored().filter(c => c.pubkey !== pubkey);
         creds.push({ pubkey, createdAt: new Date().toISOString() });
@@ -201,7 +212,7 @@ export const keytrService = {
         if (creds.length > 0) {
             // Tier 1 — we know which pubkey to look up
             for (const { pubkey } of creds) {
-                const events = await fetchKeytrEvents(pubkey, PUBLIC_RELAYS);
+                const events = await fetchKeytrEvents(pubkey, NOSTR_RELAYS);
                 if (events.length === 0) continue;
 
                 try {
@@ -217,7 +228,7 @@ export const keytrService = {
         const raw = localStorage.getItem('bies_user');
         const cached = raw ? JSON.parse(raw) : null;
         if (cached?.nostrPubkey) {
-            const events = await fetchKeytrEvents(cached.nostrPubkey, PUBLIC_RELAYS);
+            const events = await fetchKeytrEvents(cached.nostrPubkey, NOSTR_RELAYS);
             if (events.length > 0) {
                 try {
                     const { nsecBytes } = await loginWithKeytr(events);
@@ -239,19 +250,34 @@ export const keytrService = {
             }
         }
 
-        // Tier 3 — discoverable
-        const { nsecBytes, pubkey } = await discover(PUBLIC_RELAYS);
-        try {
-            const nsec = encodeNsec(nsecBytes);
-            if (pubkey && !this.hasCredential(pubkey)) {
-                const stored = getStored();
-                stored.push({ pubkey, createdAt: new Date().toISOString() });
-                setStored(stored);
+        // Tier 3 — discoverable: try each gateway rpId
+        // Primary gateway (app.buildinelsalvador.com) is tried first so
+        // credentials registered on BIES succeed with a single prompt.
+        let lastError;
+        for (const rpId of BIES_GATEWAYS) {
+            try {
+                const { nsecBytes, pubkey } = await discover(NOSTR_RELAYS, { rpId });
+                try {
+                    const nsec = encodeNsec(nsecBytes);
+                    if (pubkey && !this.hasCredential(pubkey)) {
+                        const stored = getStored();
+                        stored.push({ pubkey, createdAt: new Date().toISOString() });
+                        setStored(stored);
+                    }
+                    return nsec;
+                } finally {
+                    nsecBytes.fill(0);
+                }
+            } catch (err) {
+                if (isUserCancellation(err)) {
+                    const cancelled = new Error('User cancelled passkey selection');
+                    cancelled.cancelled = true;
+                    throw cancelled;
+                }
+                lastError = err;
             }
-            return nsec;
-        } finally {
-            nsecBytes.fill(0);
         }
+        throw lastError || new Error('No discoverable passkey found');
     },
 
     /** Remove credential metadata for a specific pubkey. */
