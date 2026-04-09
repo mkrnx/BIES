@@ -57,6 +57,8 @@ import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
+import AdminFeedback from './pages/admin/AdminFeedback';
+import Feedback from './pages/Feedback';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -152,6 +154,7 @@ const AppContent = () => {
                     <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
                     <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
                     <Route path="/about" element={<ProtectedRoute><Team /></ProtectedRoute>} />
+                    <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
 
                     {/* Protected Routes */}
                     {/* Specific Dashboard Routes */}
@@ -186,6 +189,7 @@ const AppContent = () => {
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />
+                        <Route path="feedback" element={<AdminFeedback />} />
                     </Route>
 
                     <Route path="/project/:id" element={

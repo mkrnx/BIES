@@ -43,6 +43,7 @@ import mediaRoutes from './routes/media.routes';
 import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
 import walletRoutes from './routes/wallet.routes';
+import feedbackRoutes, { adminFeedbackRouter } from './routes/feedback.routes';
 
 const app = express();
 
@@ -193,6 +194,7 @@ app.use('/api/news', newsRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/match', matchRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

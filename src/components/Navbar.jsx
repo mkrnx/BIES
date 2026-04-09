@@ -52,6 +52,7 @@ const Navbar = () => {
     if (path.startsWith('/profile') || path.startsWith('/dashboard')) return t('pageTitles.dashboard');
     if (path.startsWith('/messages')) return t('pageTitles.messages');
     if (path.startsWith('/settings')) return t('pageTitles.settings');
+    if (path.startsWith('/feedback')) return 'Feedback';
     if (path.startsWith('/admin')) return t('pageTitles.adminPanel');
     return '';
   };
@@ -167,6 +168,7 @@ const Navbar = () => {
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
                       )}
                       <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.settings')}</Link>
+                      <Link to="/feedback" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Feedback</Link>
                     </div>
 
                     <div className="dropdown-divider"></div>
@@ -249,8 +251,9 @@ const Navbar = () => {
               })}
             </div>
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0))' }}>
-              {/* Bottom Section: FAQ, Settings, Log Out */}
+              {/* Bottom Section: Feedback, FAQ, Settings, Log Out */}
               {[
+                { to: '/feedback', label: 'Feedback' },
                 { to: '/about', label: 'FAQ' }, // FAQ points to About for now
                 { to: '/settings', label: t('nav.settings') },
               ].map(item => (

@@ -334,6 +334,9 @@ export const adminApi = {
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
     investorRequests: (params = {}) => get('/admin/investor-requests', params),
     updateInvestorRequest: (id, status) => put(`/admin/investor-requests/${id}`, { status }),
+    feedback: (params = {}) => get('/admin/feedback', params),
+    updateFeedback: (id, data) => put(`/admin/feedback/${id}`, data),
+    deleteFeedback: (id) => del(`/admin/feedback/${id}`),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────
@@ -356,6 +359,12 @@ export const newsApi = {
     twitterFeed: () => get('/news/twitter-feed'),
     liveFeed: (keyword) => get('/news/live-feed', keyword ? { keyword } : {}),
     updateSettings: (data) => put('/news/settings', data),
+};
+
+// ─── Feedback ───────────────────────────────────────────────────────────────
+
+export const feedbackApi = {
+    submit: (data) => post('/feedback', data),
 };
 
 // ─── Media (Live Feeds) ──────────────────────────────────────────────────────
