@@ -31,11 +31,12 @@ async function request(method, path, body = null, options = {}) {
 
     const res = await fetch(`${BASE_URL}${path}`, config);
 
-    // If unauthorized, clear session and reload
-    if (res.status === 401) {
+    // If unauthorized on a non-auth endpoint, clear session.
+    // Auth endpoints (login, register, challenge) return 401 for invalid
+    // credentials — that should NOT nuke an existing session.
+    if (res.status === 401 && !path.startsWith('/auth/')) {
         localStorage.removeItem('bies_token');
         localStorage.removeItem('bies_user');
-        // Dispatch a custom event so AuthContext can react
         window.dispatchEvent(new CustomEvent('bies:unauthorized'));
     }
 
@@ -334,6 +335,9 @@ export const adminApi = {
     clearCache: (pattern = '') => post('/admin/cache/clear', { pattern }),
     investorRequests: (params = {}) => get('/admin/investor-requests', params),
     updateInvestorRequest: (id, status) => put(`/admin/investor-requests/${id}`, { status }),
+    feedback: (params = {}) => get('/admin/feedback', params),
+    updateFeedback: (id, data) => put(`/admin/feedback/${id}`, data),
+    deleteFeedback: (id) => del(`/admin/feedback/${id}`),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────
@@ -356,6 +360,12 @@ export const newsApi = {
     twitterFeed: () => get('/news/twitter-feed'),
     liveFeed: (keyword) => get('/news/live-feed', keyword ? { keyword } : {}),
     updateSettings: (data) => put('/news/settings', data),
+};
+
+// ─── Feedback ───────────────────────────────────────────────────────────────
+
+export const feedbackApi = {
+    submit: (data) => post('/feedback', data),
 };
 
 // ─── Media (Live Feeds) ──────────────────────────────────────────────────────

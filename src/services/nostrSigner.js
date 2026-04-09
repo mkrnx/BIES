@@ -33,14 +33,14 @@ class NostrSigner {
     /** Restore secret key from sessionStorage (page refresh recovery). */
     _restoreFromSession() {
         try {
-            const hex = localStorage.getItem(SESSION_SK_KEY);
+            const hex = sessionStorage.getItem(SESSION_SK_KEY);
             if (!hex) return;
             const sk = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
             this._sk = sk;
             this._pubkey = getPublicKey(sk);
             this._mode = 'nsec';
         } catch {
-            localStorage.removeItem(SESSION_SK_KEY);
+            sessionStorage.removeItem(SESSION_SK_KEY);
         }
     }
 
@@ -48,7 +48,7 @@ class NostrSigner {
     _persistToSession(sk) {
         try {
             const hex = Array.from(sk).map(b => b.toString(16).padStart(2, '0')).join('');
-            localStorage.setItem(SESSION_SK_KEY, hex);
+            sessionStorage.setItem(SESSION_SK_KEY, hex);
         } catch { /* quota exceeded or unavailable — silent fail */ }
     }
 
@@ -97,7 +97,7 @@ class NostrSigner {
         this._pubkey = null;
         this._mode = null;
         localStorage.removeItem(LOGIN_METHOD_KEY);
-        try { localStorage.removeItem(SESSION_SK_KEY); } catch { /* ignore */ }
+        try { sessionStorage.removeItem(SESSION_SK_KEY); } catch { /* ignore */ }
         // Disconnect bunker if active
         import('./nostrConnectService.js').then(({ nostrConnectService }) => {
             nostrConnectService.disconnect();
