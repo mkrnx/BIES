@@ -10,7 +10,7 @@ import NostrIcon from '../components/NostrIcon';
 
 const Login = () => {
     const { t } = useTranslation();
-    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithBunkerAndCheckNew, loginWithPasskeyAndCheckNew, loginWithDemo } = useAuth();
+    const { user: authedUser, loading: authLoading, loginWithNostrAndCheckNew, loginWithNsecAndCheckNew, loginWithSeedPhraseAndCheckNew, loginWithBunkerAndCheckNew, loginWithPasskeyAndCheckNew } = useAuth();
     const navigate = useNavigate();
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -158,19 +158,7 @@ const Login = () => {
         }
     };
 
-    // TODO: Remove before production
-    const handleDemoLogin = () => {
-        const demoUser = {
-            id: 'demo-user',
-            email: 'demo@bies.dev',
-            nostrPubkey: '0000000000000000000000000000000000000000000000000000000000000000',
-            role: 'BUILDER',
-            profile: { name: 'Demo User', bio: 'Demo account for mobile testing', avatar: '', banner: '' },
-        };
-        localStorage.setItem('bies_token', 'demo-token');
-        localStorage.setItem('bies_user', JSON.stringify(demoUser));
-        window.location.href = '/feed';
-    };
+
 
     // ─── Main login form ─────────────────────────────────────────────────────
     return (
@@ -350,12 +338,6 @@ const Login = () => {
                     </Link>
                 </div>
 
-                {/* Demo login — TODO: Remove before production */}
-                <div className="mt-4 w-full">
-                    <button onClick={handleDemoLogin} disabled={loading} className="btn-demo">
-                        {loading ? 'Logging in...' : 'Demo Login (skip auth)'}
-                    </button>
-                </div>
 
                 {/* Extension hint — shown when no extension detected */}
                 {!hasNostrExtension && (
@@ -481,19 +463,6 @@ const Login = () => {
                     transition: opacity 0.2s;
                 }
                 .btn-create-account:hover { opacity: 0.9; }
-                .btn-demo {
-                    display: block;
-                    width: 100%;
-                    padding: 0.75rem 1.5rem;
-                    background: transparent;
-                    color: var(--color-gray-500);
-                    border: 1px dashed var(--color-gray-200);
-                    border-radius: 9999px;
-                    font-size: 0.85rem;
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                .btn-demo:hover { background: var(--color-gray-100); }
                 .login-link-btn {
                     background: none;
                     border: none;
