@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { LayoutDashboard, Folder, Calendar, Users, FileText, Newspaper, LogOut } from 'lucide-react';
+import { LayoutDashboard, Folder, Calendar, Users, FileText, Newspaper, MessageSquare, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
 const AdminDashboard = () => {
@@ -32,6 +32,9 @@ const AdminDashboard = () => {
             </NavLink>
             <NavLink to="/admin/investor-vetting" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
               <Users size={18} /> <span>Vetting</span>
+            </NavLink>
+            <NavLink to="/admin/feedback" className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}>
+              <MessageSquare size={18} /> <span>Feedback</span>
             </NavLink>
           </div>
 

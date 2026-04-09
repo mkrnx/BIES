@@ -49,6 +49,7 @@ model User {
   eventRSVPs      EventAttendee[]
   settings         UserSettings?
   fingerprints     BrowserFingerprint[]
+  feedback         Feedback[]
 
   @@map("users")
 }
@@ -443,6 +444,30 @@ model ContactSubmission {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@map("contact_submissions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Feedback
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Feedback {
+  id         String    @id @default(cuid())
+  userId     String    @map("user_id")
+  type       String    @default("GENERAL") // BUG | FEATURE | LOVE | GENERAL
+  message    String
+  status     String    @default("NEW") // NEW | IN_REVIEW | FIXED | WONT_FIX | PLANNED | DUPLICATE | CLOSED
+  priority   String    @default("NORMAL") // LOW | NORMAL | HIGH | URGENT
+  adminNote  String    @default("") @map("admin_note")
+  resolvedAt DateTime? @map("resolved_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([type])
+  @@map("feedback")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

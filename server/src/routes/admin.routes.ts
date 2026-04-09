@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
+import { adminFeedbackRouter } from './feedback.routes';
 import {
     listUsers,
     banUser,
@@ -58,5 +59,8 @@ router.put('/events/:id/feature', featureEvent);
 router.get('/audit-logs', getAuditLogs);
 router.post('/broadcast', broadcastMessage);
 router.post('/cache/clear', clearCache);
+
+// Feedback
+router.use('/feedback', adminFeedbackRouter);
 
 export default router;
