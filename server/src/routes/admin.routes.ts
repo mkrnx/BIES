@@ -23,6 +23,7 @@ import {
     clearCache,
     listInvestorRequests,
     reviewInvestorRequest,
+    setUserAdmin,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -35,6 +36,7 @@ router.get('/users', listUsers);
 router.get('/users/trash', listTrashedUsers);           // ADMIN only (enforced in controller)
 router.put('/users/:id/ban', banUser);
 router.put('/users/:id/role', setUserRole);
+router.put('/users/:id/admin', setUserAdmin);
 router.put('/users/:id/verify', verifyUser);
 router.put('/users/:id/restore', restoreUser);          // ADMIN only (enforced in controller)
 router.delete('/users/:id', deleteUser);                // ADMIN only (enforced in controller)

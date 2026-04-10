@@ -111,7 +111,7 @@ export async function banUser(req: Request, res: Response): Promise<void> {
 export async function setUserRole(req: Request, res: Response): Promise<void> {
     try {
         const { role } = req.body;
-        if (!['BUILDER', 'INVESTOR', 'MOD', 'MEMBER'].includes(role)) {
+        if (!['MEMBER', 'BUILDER', 'INVESTOR', 'EVENT_HOST', 'EDUCATOR', 'MOD'].includes(role)) {
             res.status(400).json({ error: 'Invalid role' }); return;
         }
 
@@ -144,6 +144,51 @@ export async function setUserRole(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Set role error:', error);
         res.status(500).json({ error: 'Failed to set user role' });
+    }
+}
+
+/**
+ * PUT /admin/users/:id/admin
+ * Grant or revoke admin access. Only admins can do this.
+ */
+export async function setUserAdmin(req: Request, res: Response): Promise<void> {
+    try {
+        if (!req.user!.isAdmin) {
+            res.status(403).json({ error: 'Only admins can grant or revoke admin access' });
+            return;
+        }
+
+        const { isAdmin } = req.body;
+        if (typeof isAdmin !== 'boolean') {
+            res.status(400).json({ error: 'isAdmin must be a boolean' });
+            return;
+        }
+
+        // Prevent admins from removing their own admin access
+        if (req.params.id === req.user!.id && !isAdmin) {
+            res.status(400).json({ error: 'You cannot remove your own admin access' });
+            return;
+        }
+
+        const user = await prisma.user.update({
+            where: { id: req.params.id },
+            data: { isAdmin },
+            select: { id: true, email: true, nostrPubkey: true, role: true, isAdmin: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: isAdmin ? 'ADMIN_GRANTED' : 'ADMIN_REVOKED',
+                resource: `user:${req.params.id}`,
+                metadata: JSON.stringify({ isAdmin }),
+            },
+        });
+
+        res.json(user);
+    } catch (error) {
+        console.error('Set admin error:', error);
+        res.status(500).json({ error: 'Failed to update admin status' });
     }
 }
 
