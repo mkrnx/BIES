@@ -7,7 +7,7 @@ import prisma from '../lib/prisma';
 import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { publishAnnouncement, publishCalendarEvent, deleteCalendarEvent, publishRSVPEvent, validateCalendarEventData } from '../services/nostr.service';
-import { notifyEventRsvp } from '../services/notification.service';
+import { notifyEventRsvp, createNotification } from '../services/notification.service';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -195,7 +195,7 @@ export async function listAttendingEvents(req: Request, res: Response): Promise<
         const take = Math.min(parseInt(limit as string, 10), 100);
 
         const attendeeRecords = await prisma.eventAttendee.findMany({
-            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED'] } },
+            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED', 'INVITED'] } },
             include: {
                 event: {
                     include: {
@@ -210,7 +210,7 @@ export async function listAttendingEvents(req: Request, res: Response): Promise<
         });
 
         const total = await prisma.eventAttendee.count({
-            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED'] } },
+            where: { userId: req.user!.id, status: { in: ['GOING', 'INTERESTED', 'INVITED'] } },
         });
 
         const data = attendeeRecords.map((a) => ({
@@ -728,5 +728,79 @@ export async function cancelRsvp(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Cancel RSVP error:', error);
         res.status(500).json({ error: 'Failed to cancel RSVP' });
+    }
+}
+
+/**
+ * POST /events/:id/invite
+ * Invite a member to an event. Creates an INVITED attendee record
+ * and sends them a notification.
+ */
+export async function inviteToEvent(req: Request, res: Response): Promise<void> {
+    try {
+        const inviterId = req.user!.id;
+        const eventId = req.params.id;
+        const { userId: targetUserId } = req.body;
+
+        if (!targetUserId) {
+            res.status(400).json({ error: 'userId is required' }); return;
+        }
+
+        const event = await prisma.event.findUnique({
+            where: { id: eventId },
+            select: { title: true, isPublished: true, hostId: true },
+        });
+
+        if (!event || !event.isPublished) {
+            res.status(404).json({ error: 'Event not found' }); return;
+        }
+
+        // Don't allow inviting yourself
+        if (targetUserId === inviterId) {
+            res.status(400).json({ error: 'You cannot invite yourself' }); return;
+        }
+
+        // Check target user exists
+        const targetUser = await prisma.user.findUnique({
+            where: { id: targetUserId },
+            select: { id: true },
+        });
+        if (!targetUser) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        // Check if already attending or invited
+        const existing = await prisma.eventAttendee.findUnique({
+            where: { eventId_userId: { eventId, userId: targetUserId } },
+        });
+
+        if (existing) {
+            res.status(409).json({ error: 'User already has an RSVP for this event' }); return;
+        }
+
+        // Create INVITED attendee record
+        await prisma.eventAttendee.create({
+            data: { eventId, userId: targetUserId, status: 'INVITED' },
+        });
+
+        // Send notification
+        const inviter = await prisma.user.findUnique({
+            where: { id: inviterId },
+            select: { profile: { select: { name: true } } },
+        });
+        const inviterName = inviter?.profile?.name || 'A BIES member';
+
+        createNotification({
+            userId: targetUserId,
+            type: 'EVENT_RSVP',
+            title: `${inviterName} invited you to "${event.title}"`,
+            body: 'You have been invited to an event. Check it out!',
+            data: { eventId, inviterId, status: 'INVITED' },
+        }).catch(() => {});
+
+        res.status(201).json({ message: 'Invitation sent' });
+    } catch (error) {
+        console.error('Invite to event error:', error);
+        res.status(500).json({ error: 'Failed to send invitation' });
     }
 }

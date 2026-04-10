@@ -432,10 +432,10 @@ const MyEvents = () => {
                                                 display: 'inline-flex', alignItems: 'center', gap: 4,
                                                 padding: '2px 8px', borderRadius: 99,
                                                 fontSize: '0.72rem', fontWeight: 700,
-                                                color: event.rsvpStatus === 'GOING' ? 'var(--badge-success-text)' : 'var(--badge-warning-text)',
-                                                background: event.rsvpStatus === 'GOING' ? 'var(--badge-success-bg)' : 'var(--badge-warning-bg)',
+                                                color: event.rsvpStatus === 'GOING' ? 'var(--badge-success-text)' : event.rsvpStatus === 'INVITED' ? 'var(--badge-info-text)' : 'var(--badge-warning-text)',
+                                                background: event.rsvpStatus === 'GOING' ? 'var(--badge-success-bg)' : event.rsvpStatus === 'INVITED' ? 'var(--badge-info-bg)' : 'var(--badge-warning-bg)',
                                             }}>
-                                                {event.rsvpStatus === 'GOING' ? 'Going' : 'Interested'}
+                                                {event.rsvpStatus === 'GOING' ? 'Going' : event.rsvpStatus === 'INVITED' ? 'Invited' : 'Interested'}
                                             </span>
                                         </td>
                                         <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem' }}>

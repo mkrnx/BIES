@@ -62,6 +62,11 @@ const CreateEvent = () => {
     const [tags, setTags] = useState([]);
     const [customSections, setCustomSections] = useState([]);
     const [relayHealth, setRelayHealth] = useState(null);
+    const [showImport, setShowImport] = useState(false);
+    const [importUrl, setImportUrl] = useState('');
+    const [importLoading, setImportLoading] = useState(false);
+    const [importError, setImportError] = useState('');
+    const [importPlatform, setImportPlatform] = useState('');
 
     useEffect(() => {
         if (form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && form.nostrPublish !== 'none') {
@@ -74,6 +79,39 @@ const CreateEvent = () => {
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
         setForm(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
+    };
+
+    const handleImportUrl = async () => {
+        if (!importUrl.trim()) return;
+        setImportError('');
+        setImportLoading(true);
+        try {
+            const data = await eventsApi.importUrl(importUrl.trim());
+            // Auto-fill form fields with imported data
+            setForm(prev => ({
+                ...prev,
+                ...(data.title && { title: data.title }),
+                ...(data.description && { description: data.description }),
+                ...(data.startDate && { startDate: data.startDate }),
+                ...(data.startTime && { startTime: data.startTime }),
+                ...(data.endDate && { endDate: data.endDate }),
+                ...(data.endTime && { endTime: data.endTime }),
+                ...(data.locationName && { locationName: data.locationName }),
+                ...(data.locationAddress && { locationAddress: data.locationAddress }),
+                ...(data.isOnline !== undefined && { isOnline: data.isOnline }),
+                ...(data.onlineUrl && { onlineUrl: data.onlineUrl }),
+                ...(data.ticketUrl && { ticketUrl: data.ticketUrl }),
+                ...(data.maxAttendees && { maxAttendees: String(data.maxAttendees) }),
+                ...(data.thumbnail && { thumbnail: data.thumbnail }),
+            }));
+            if (data.platform) setImportPlatform(data.platform);
+            setShowImport(false);
+            setImportUrl('');
+        } catch (err) {
+            setImportError(err.message || 'Failed to import event data');
+        } finally {
+            setImportLoading(false);
+        }
     };
 
     const handleImageUpload = async (e) => {
@@ -349,6 +387,55 @@ const CreateEvent = () => {
                         <p className="text-gray-500">Host a Bitcoin-native event and grow your community.</p>
                     </div>
                 </div>
+
+                {/* Import from URL */}
+                <div className="import-section">
+                    {!showImport ? (
+                        <button className="import-toggle" onClick={() => setShowImport(true)}>
+                            <LinkIcon size={16} /> Import from URL
+                            <span className="import-hint">Luma, Satlantis, Eventbrite, Meetup, and more</span>
+                        </button>
+                    ) : (
+                        <div className="import-card">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>Import Event from URL</span>
+                                <button onClick={() => { setShowImport(false); setImportError(''); }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-gray-400)', padding: '4px' }}><X size={18} /></button>
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginBottom: '0.75rem' }}>
+                                Paste a link from Luma, Satlantis, Eventos, Eventbrite, Meetup, or any event page. We'll auto-fill the form with the event details.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <input
+                                    type="url"
+                                    placeholder="https://lu.ma/your-event or any event URL..."
+                                    value={importUrl}
+                                    onChange={(e) => setImportUrl(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleImportUrl()}
+                                    className="input-field"
+                                    style={{ flex: 1 }}
+                                    disabled={importLoading}
+                                />
+                                <button
+                                    onClick={handleImportUrl}
+                                    disabled={importLoading || !importUrl.trim()}
+                                    className="import-btn"
+                                >
+                                    {importLoading ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} /> : <Upload size={16} />}
+                                    {importLoading ? 'Importing...' : 'Import'}
+                                </button>
+                            </div>
+                            {importError && (
+                                <p style={{ color: 'var(--color-error)', fontSize: '0.8rem', marginTop: '0.5rem' }}>{importError}</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {importPlatform && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', background: 'var(--color-green-tint)', color: 'var(--color-success, #16a34a)', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem', fontWeight: 500 }}>
+                        <Check size={16} /> Imported from {importPlatform.charAt(0).toUpperCase() + importPlatform.slice(1)} — review and adjust the details below
+                    </div>
+                )}
 
                 {submitError && (
                     <div className="error-banner"><AlertCircle size={16} /> {submitError}</div>
@@ -626,21 +713,21 @@ const CreateEvent = () => {
                                     <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Settings</h3>
 
                                     {(user?.isAdmin || user?.role === 'MOD') && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-orange-tint)', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
+                                        <label className="settings-option orange">
                                             <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--color-secondary)' }} />
                                             <div>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><ShieldCheck size={14} /> Official BIES Event</span>
-                                                <p style={{ fontSize: '0.73rem', color: '#b45309', margin: '0.2rem 0 0' }}>Official events appear prominently at the top of the events page.</p>
+                                                <span className="settings-option-title"><ShieldCheck size={14} /> Official BIES Event</span>
+                                                <p className="settings-option-desc">Official events appear prominently at the top of the events page.</p>
                                             </div>
                                         </label>
                                     )}
 
                                     {!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-amber-tint)', border: '1px solid #fde68a', borderRadius: '8px', cursor: 'pointer' }}>
+                                        <label className="settings-option amber">
                                             <input type="checkbox" name="endorsementRequested" checked={form.endorsementRequested} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: '#d97706' }} />
                                             <div>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><Award size={14} style={{ color: '#d97706' }} /> Request BIES Endorsement</span>
-                                                <p style={{ fontSize: '0.73rem', color: '#78350f', margin: '0.2rem 0 0' }}>Endorsed events receive a badge and increased visibility.</p>
+                                                <span className="settings-option-title"><Award size={14} /> Request BIES Endorsement</span>
+                                                <p className="settings-option-desc">Endorsed events receive a badge and increased visibility.</p>
                                             </div>
                                         </label>
                                     )}
@@ -665,13 +752,54 @@ const CreateEvent = () => {
                 .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
                 .mb-8 { margin-bottom: 2rem; }
                 .max-w-6xl { max-width: 1200px; margin: 0 auto; }
-                .page-header { margin-bottom: 2rem; }
+                .page-header { margin-bottom: 1rem; }
+                .import-section { margin-bottom: 1.5rem; }
+                .import-toggle {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.6rem 1.25rem;
+                    border: 2px dashed var(--color-gray-300);
+                    border-radius: 10px;
+                    background: none;
+                    color: var(--color-primary);
+                    font-weight: 600;
+                    font-size: 0.88rem;
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                .import-toggle:hover { border-color: var(--color-primary); background: var(--color-blue-tint); }
+                .import-hint { font-weight: 400; font-size: 0.75rem; color: var(--color-gray-400); }
+                .import-card {
+                    background: var(--color-surface);
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: 12px;
+                    padding: 1.25rem;
+                    box-shadow: var(--shadow-sm);
+                }
+                .import-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    padding: 0.75rem 1.25rem;
+                    background: var(--color-primary);
+                    color: white;
+                    border: none;
+                    border-radius: 8px;
+                    font-weight: 600;
+                    font-size: 0.88rem;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: opacity 0.15s;
+                }
+                .import-btn:hover { opacity: 0.9; }
+                .import-btn:disabled { opacity: 0.5; cursor: not-allowed; }
                 .back-link { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--color-gray-500); font-weight: 500; font-size: 0.9rem; background: none; border: none; cursor: pointer; padding: 0; margin-bottom: 0.75rem; }
                 .back-link:hover { color: var(--color-primary); }
                 .h1-title { font-size: 2rem; font-weight: 700; font-family: var(--font-display); margin-bottom: 0.25rem; }
                 .h3-title { font-size: 1.2rem; font-weight: 700; font-family: var(--font-display); }
                 .text-gray-500 { color: var(--color-gray-500); margin: 0; }
-                .error-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--color-red-tint); color: #B91C1C; border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; }
+                .error-banner { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1rem; background: var(--color-red-tint); color: var(--color-error, #B91C1C); border-radius: 8px; margin-bottom: 1.5rem; font-size: 0.9rem; }
                 .profile-card { background: var(--color-surface); border-radius: 16px; box-shadow: var(--shadow-sm); border: 1px solid var(--color-gray-200); }
                 .section-inner { padding: 2rem; }
                 .section-heading { margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid var(--color-gray-200); }
@@ -687,7 +815,7 @@ const CreateEvent = () => {
                 .form-row-label { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; align-items: start; margin-bottom: 1.75rem; }
                 .form-label { text-align: right; color: var(--color-gray-700); font-weight: 600; font-size: 0.875rem; padding-top: 0.6rem; }
                 .form-content { min-width: 0; }
-                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-surface); border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
+                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-surface); color: var(--color-text, inherit); border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
                 .input-field:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }
                 select.input-field { appearance: auto; cursor: pointer; }
                 .sidebar-form-group { margin-bottom: 1rem; }
@@ -714,6 +842,11 @@ const CreateEvent = () => {
                     .event-edit-page > .container > div[style] { flex-direction: column !important; }
                     .event-edit-page > .container > div[style] > div:last-child { width: 100% !important; }
                 }
+                .settings-option { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; cursor: pointer; margin-bottom: 0.75rem; }
+                .settings-option.orange { background: var(--color-orange-tint); border: 1px solid var(--badge-warning-bg); }
+                .settings-option.amber { background: var(--color-amber-tint); border: 1px solid var(--badge-warning-bg); }
+                .settings-option-title { display: flex; align-items: center; gap: 0.35rem; font-weight: 700; font-size: 0.85rem; color: var(--badge-warning-text); }
+                .settings-option-desc { font-size: 0.73rem; color: var(--color-gray-500); margin: 0.2rem 0 0; }
                 @media (max-width: 768px) {
                     .form-row-label { grid-template-columns: 1fr; gap: 0.5rem; }
                     .form-label { text-align: left; padding-top: 0; }

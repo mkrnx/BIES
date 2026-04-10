@@ -687,21 +687,21 @@ const EditEvent = () => {
                                     <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>Settings</h3>
 
                                     {(user?.isAdmin || user?.role === 'MOD') && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-orange-tint)', border: '1px solid #fed7aa', borderRadius: '8px', cursor: 'pointer', marginBottom: '0.75rem' }}>
+                                        <label className="settings-option orange">
                                             <input type="checkbox" name="isOfficial" checked={form.isOfficial} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: 'var(--color-secondary)' }} />
                                             <div>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><ShieldCheck size={14} /> Official BIES Event</span>
-                                                <p style={{ fontSize: '0.73rem', color: '#b45309', margin: '0.2rem 0 0' }}>Official events appear prominently at the top of the events page.</p>
+                                                <span className="settings-option-title"><ShieldCheck size={14} /> Official BIES Event</span>
+                                                <p className="settings-option-desc">Official events appear prominently at the top of the events page.</p>
                                             </div>
                                         </label>
                                     )}
 
                                     {!form.isOfficial && form.visibility !== 'DRAFT' && form.visibility !== 'PRIVATE' && (
-                                        <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', background: 'var(--color-amber-tint)', border: '1px solid #fde68a', borderRadius: '8px', cursor: 'pointer' }}>
+                                        <label className="settings-option amber">
                                             <input type="checkbox" name="endorsementRequested" checked={form.endorsementRequested} onChange={handleChange} style={{ marginTop: '2px', width: 16, height: 16, accentColor: '#d97706' }} />
                                             <div>
-                                                <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 700, fontSize: '0.85rem', color: '#92400e' }}><Award size={14} style={{ color: '#d97706' }} /> Request BIES Endorsement</span>
-                                                <p style={{ fontSize: '0.73rem', color: '#78350f', margin: '0.2rem 0 0' }}>Endorsed events receive a badge and increased visibility.</p>
+                                                <span className="settings-option-title"><Award size={14} /> Request BIES Endorsement</span>
+                                                <p className="settings-option-desc">Endorsed events receive a badge and increased visibility.</p>
                                             </div>
                                         </label>
                                     )}
@@ -748,7 +748,7 @@ const EditEvent = () => {
                 .form-row-label { display: grid; grid-template-columns: 140px 1fr; gap: 1.5rem; align-items: start; margin-bottom: 1.75rem; }
                 .form-label { text-align: right; color: var(--color-gray-700); font-weight: 600; font-size: 0.875rem; padding-top: 0.6rem; }
                 .form-content { min-width: 0; }
-                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-surface); border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
+                .input-field { width: 100%; padding: 0.75rem 1rem; border: 1px solid var(--color-gray-300); background: var(--color-surface); color: var(--color-text, inherit); border-radius: 8px; outline: none; font-size: 0.95rem; transition: all 0.2s; box-sizing: border-box; }
                 .input-field:focus { border-color: var(--color-primary); box-shadow: 0 0 0 3px rgba(0,82,204,0.1); }
                 select.input-field { appearance: auto; cursor: pointer; }
                 .sidebar-form-group { margin-bottom: 1rem; }
@@ -775,6 +775,11 @@ const EditEvent = () => {
                     .event-edit-page > .container > div[style] { flex-direction: column !important; }
                     .event-edit-page > .container > div[style] > div:last-child { width: 100% !important; }
                 }
+                .settings-option { display: flex; align-items: flex-start; gap: 0.75rem; padding: 0.75rem; border-radius: 8px; cursor: pointer; margin-bottom: 0.75rem; }
+                .settings-option.orange { background: var(--color-orange-tint); border: 1px solid var(--badge-warning-bg); }
+                .settings-option.amber { background: var(--color-amber-tint); border: 1px solid var(--badge-warning-bg); }
+                .settings-option-title { display: flex; align-items: center; gap: 0.35rem; font-weight: 700; font-size: 0.85rem; color: var(--badge-warning-text); }
+                .settings-option-desc { font-size: 0.73rem; color: var(--color-gray-500); margin: 0.2rem 0 0; }
                 @media (max-width: 768px) {
                     .form-row-label { grid-template-columns: 1fr; gap: 0.5rem; }
                     .form-label { text-align: left; padding-top: 0; }
