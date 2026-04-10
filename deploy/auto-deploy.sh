@@ -51,7 +51,7 @@ export GIT_BRANCH="$BRANCH"
 export GIT_COMMITTED_AT=$(git log -1 --format=%cI)
 
 log "Building containers..."
-if ! docker compose build >> "$LOG_FILE" 2>&1; then
+if ! docker compose build --no-cache >> "$LOG_FILE" 2>&1; then
   log "ERROR: docker compose build failed"
   exit 1
 fi
