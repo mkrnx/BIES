@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
-import { nostrService } from '../services/nostrService';
+import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
 import { notifyIncomingMessage, subscribeToPush } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService } from '../services/keytrService';
@@ -294,7 +294,9 @@ export const AuthProvider = ({ children }) => {
      */
     const seedProfileFromNostr = async (pubkey) => {
         try {
-            const nostrProfile = await nostrService.getProfile(pubkey);
+            // Explicitly fetch from public relays (Primal, Damus, etc.) since
+            // this is a new user whose profile won't be on the BIES relay yet
+            const nostrProfile = await nostrService.getProfile(pubkey, PUBLIC_RELAYS);
             if (!nostrProfile) return;
 
             const updates = {};

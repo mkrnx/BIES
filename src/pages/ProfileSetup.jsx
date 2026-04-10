@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { nostrService } from '../services/nostrService';
+import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
 import { nip19 } from 'nostr-tools';
 import { profilesApi } from '../services/api';
 import { ArrowRight, Loader2, AlertCircle, ChevronDown, ChevronUp, Send, AtSign, CheckCircle, X } from 'lucide-react';
@@ -30,9 +30,9 @@ const ProfileSetup = () => {
             return;
         }
 
-        // Fetch Nostr kind:0 profile from public relays
+        // Fetch Nostr kind:0 profile from public relays (new user won't have one on BIES yet)
         if (user?.nostrPubkey) {
-            nostrService.getProfile(user.nostrPubkey).then((profile) => {
+            nostrService.getProfile(user.nostrPubkey, PUBLIC_RELAYS).then((profile) => {
                 setNostrProfile(profile);
                 if (profile?.name) {
                     setBiesName(profile.name);
