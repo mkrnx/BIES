@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone } from 'lucide-react';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
-import { isLikelyExtensionInterference } from '../services/keytrService';
+import { isLikelyExtensionInterference, keytrService } from '../services/keytrService';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
@@ -96,6 +96,29 @@ const Login = () => {
         setError('');
         setLoading(true);
         try {
+            // If the nsec field has a real nsec, login with it and save as passkey
+            const trimmed = nsecInput.trim();
+            if (trimmed.startsWith('nsec1')) {
+                const result = await loginWithNsecAndCheckNew(trimmed);
+                if (!result.success) {
+                    setError(result.error || 'Invalid nsec key.');
+                    return;
+                }
+                // Login succeeded — now register the passkey for future logins
+                try {
+                    const pubkey = result.user?.nostrPubkey;
+                    if (pubkey) {
+                        await keytrService.saveWithPasskey(trimmed, pubkey);
+                    }
+                } catch (saveErr) {
+                    // Passkey save failed but login succeeded — continue anyway
+                    console.warn('[Login] Passkey save failed:', saveErr.message);
+                }
+                handleResult(result);
+                return;
+            }
+
+            // No nsec present — normal passkey login flow
             const result = await loginWithPasskeyAndCheckNew();
             if (result.cancelled) return;
             if (!result.success) {
