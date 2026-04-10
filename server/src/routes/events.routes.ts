@@ -14,7 +14,9 @@ import {
     endorseEvent,
     rsvpEvent,
     cancelRsvp,
+    inviteToEvent,
 } from '../controllers/events.controller';
+import { importEventFromUrl } from '../controllers/eventImport.controller';
 
 const router = Router();
 
@@ -29,11 +31,13 @@ router.get('/attending', authenticate, listAttendingEvents);
 router.get('/:id', optionalAuth, getEvent);
 
 // Protected routes
+router.post('/import-url', authenticate, importEventFromUrl);
 router.post('/', authenticate, validate(createEventSchema), createEvent);
 router.put('/:id', authenticate, validate(updateEventSchema), updateEvent);
 router.delete('/:id', authenticate, deleteEvent);
 router.put('/:id/endorse', authenticate, endorseEvent);
 router.post('/:id/rsvp', authenticate, rsvpEvent);
 router.delete('/:id/rsvp', authenticate, cancelRsvp);
+router.post('/:id/invite', authenticate, inviteToEvent);
 
 export default router;

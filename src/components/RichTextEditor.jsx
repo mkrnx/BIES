@@ -135,7 +135,7 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                     display: flex;
                     gap: 0.25rem;
                     padding: 0.5rem;
-                    background: var(--color-gray-50, #f9fafb);
+                    background: var(--color-gray-100);
                     border: 1px solid var(--color-gray-300);
                     border-top-left-radius: var(--radius-md, 8px);
                     border-top-right-radius: var(--radius-md, 8px);
@@ -150,14 +150,14 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: var(--color-gray-700);
+                    color: var(--color-text);
                     transition: all 0.1s;
                 }
                 .rte-toolbar button:hover {
                     background: var(--color-gray-200);
                 }
                 .rte-toolbar button.active {
-                    background: #e0e7ff; /* light indigo/blue */
+                    background: var(--color-blue-tint);
                     color: var(--color-primary);
                 }
                 .rte-divider {
@@ -171,7 +171,8 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
                     line-height: 1.5;
                     border-bottom-left-radius: var(--radius-md, 8px);
                     border-bottom-right-radius: var(--radius-md, 8px);
-                    background: white;
+                    background: var(--color-surface);
+                    color: var(--color-text);
                 }
                 .rte-content:empty:before {
                     content: attr(placeholder);

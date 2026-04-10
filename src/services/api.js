@@ -279,6 +279,10 @@ export const eventsApi = {
     rsvp: (id, status = 'GOING') => post(`/events/${id}/rsvp`, { status }),
 
     cancelRsvp: (id) => del(`/events/${id}/rsvp`),
+
+    invite: (id, userId) => post(`/events/${id}/invite`, { userId }),
+
+    importUrl: (url) => post('/events/import-url', { url }),
 };
 
 // ─── Analytics ────────────────────────────────────────────────────────────────

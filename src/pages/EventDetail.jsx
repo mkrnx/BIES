@@ -1,20 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Share2, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Send, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, MoreHorizontal, Copy, UserPlus, X, Search, Flag, CalendarPlus, Navigation, Edit3 } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
-import { eventsApi } from '../services/api';
+import { eventsApi, profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
 import DOMPurify from 'dompurify';
 import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
 import { useLightbox } from '../context/LightboxContext';
+import { nostrService } from '../services/nostrService';
+import { nostrSigner } from '../services/nostrSigner';
 
 const EventDetail = () => {
     const { id } = useParams();
     const { t } = useTranslation();
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, user } = useAuth();
     const lightbox = useLightbox();
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -22,6 +24,16 @@ const EventDetail = () => {
     const [rsvpStatus, setRsvpStatus] = useState(null); // null | 'GOING' | 'INTERESTED' | 'NOT_GOING'
     const [rsvpLoading, setRsvpLoading] = useState(false);
     const [showRsvpDropdown, setShowRsvpDropdown] = useState(false);
+    const [showActionMenu, setShowActionMenu] = useState(false);
+    const [showShareMenu, setShowShareMenu] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const [linkCopied, setLinkCopied] = useState(false);
+    const [inviteSearch, setInviteSearch] = useState('');
+    const [inviteResults, setInviteResults] = useState([]);
+    const [inviteSearching, setInviteSearching] = useState(false);
+    const [inviteSending, setInviteSending] = useState(null);
+    const [invitedIds, setInvitedIds] = useState(new Set());
+    const [showCoverRsvp, setShowCoverRsvp] = useState(false);
 
     const parseEvent = (data) => {
         if (!data) return data;
@@ -86,6 +98,132 @@ const EventDetail = () => {
         }
     };
 
+    // ─── Share: Copy Link ────────────────────────────────────────────────
+    const handleCopyLink = async () => {
+        const url = `${window.location.origin}/events/${id}`;
+        try {
+            await navigator.clipboard.writeText(url);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+        } catch {
+            // Fallback for older browsers
+            const ta = document.createElement('textarea');
+            ta.value = url;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 2000);
+        }
+        setShowShareMenu(false);
+    };
+
+    // ─── Add to Calendar (.ics download) ──────────────────────────────────
+    const handleAddToCalendar = () => {
+        if (!event) return;
+        const start = new Date(event.startDate || event.date);
+        const end = event.endDate ? new Date(event.endDate) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+        const fmt = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+        const esc = (s) => (s || '').replace(/[\\;,]/g, c => '\\' + c).replace(/\n/g, '\\n');
+        const loc = [event.locationName, event.locationAddress, event.location].filter(Boolean).join(', ');
+        const url = `${window.location.origin}/events/${id}`;
+        const ics = [
+            'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//BIES//Event//EN',
+            'BEGIN:VEVENT',
+            `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+            `SUMMARY:${esc(event.title)}`, `LOCATION:${esc(loc)}`,
+            `URL:${url}`,
+            `DESCRIPTION:${esc(url)}`,
+            'END:VEVENT', 'END:VCALENDAR',
+        ].join('\r\n');
+        const blob = new Blob([ics], { type: 'text/calendar' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${event.title.replace(/[^a-z0-9]/gi, '-').substring(0, 40)}.ics`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+        setShowActionMenu(false);
+    };
+
+    // ─── Open in Maps ─────────────────────────────────────────────────────
+    const handleOpenInMaps = () => {
+        const loc = event?.locationMapUrl || event?.locationAddress || event?.location;
+        if (!loc) return;
+        if (event.locationMapUrl) {
+            window.open(event.locationMapUrl, '_blank');
+        } else {
+            window.open(`https://maps.google.com/?q=${encodeURIComponent(loc)}`, '_blank');
+        }
+        setShowActionMenu(false);
+    };
+
+    // ─── Report event ─────────────────────────────────────────────────────
+    const handleReport = () => {
+        const url = `${window.location.origin}/feedback`;
+        window.open(url, '_blank');
+        setShowActionMenu(false);
+    };
+
+    // ─── Invite: Search members ───────────────────────────────────────────
+    const searchMembers = useCallback(async (q) => {
+        if (!q || q.length < 2) { setInviteResults([]); return; }
+        setInviteSearching(true);
+        try {
+            const res = await profilesApi.list({ search: q, limit: 10 });
+            const list = res?.data || res || [];
+            // Filter out the event host and current user
+            setInviteResults(list.filter(p => p.userId !== event?.hostId && p.userId !== user?.id));
+        } catch { setInviteResults([]); }
+        finally { setInviteSearching(false); }
+    }, [event?.hostId, user?.id]);
+
+    useEffect(() => {
+        const timer = setTimeout(() => searchMembers(inviteSearch), 300);
+        return () => clearTimeout(timer);
+    }, [inviteSearch, searchMembers]);
+
+    // ─── Invite: Send invitation ──────────────────────────────────────────
+    const handleInvite = async (profile) => {
+        if (!event || inviteSending) return;
+        const targetUserId = profile.userId;
+        setInviteSending(targetUserId);
+        try {
+            // 1. Backend: create notification + INVITED attendee record
+            await eventsApi.invite(id, targetUserId);
+
+            // 2. Send NIP-17 DM with event link (best-effort, don't block on failure)
+            if (nostrSigner.canSignSilently && profile.user?.nostrPubkey) {
+                const eventUrl = `${window.location.origin}/events/${id}`;
+                const dmContent = `You're invited to "${event.title}"!\n\n${eventUrl}`;
+                nostrService.sendNip17DM(profile.user.nostrPubkey, dmContent).catch(() => {});
+            }
+
+            setInvitedIds(prev => new Set([...prev, targetUserId]));
+        } catch (err) {
+            // Show a user-friendly error if already invited (409) vs generic failure
+            const msg = err?.status === 409 ? 'Already invited' : 'Failed to send invite';
+            setInvitedIds(prev => { const n = new Set(prev); n.delete(targetUserId); return n; });
+            alert(msg);
+        } finally {
+            setInviteSending(null);
+        }
+    };
+
+    // Close all dropdowns helper
+    const closeAllDropdowns = () => {
+        setShowCoverRsvp(false);
+        setShowShareMenu(false);
+        setShowActionMenu(false);
+    };
+
+    // ─── RSVP icon for cover ──────────────────────────────────────────────
+    const getRsvpIcon = () => {
+        if (rsvpStatus === 'GOING') return <CheckCircle size={18} />;
+        if (rsvpStatus === 'INTERESTED') return <Clock size={18} />;
+        return <Calendar size={18} />;
+    };
+
     const formatDate = (dateStr) => {
         if (!dateStr) return '';
         try {
@@ -145,6 +283,89 @@ const EventDetail = () => {
                     <span className={`category-badge ${(event.category || '').toLowerCase()}`}>
                         {event.category?.replace(/_/g, ' ')}
                     </span>
+
+                    {/* Cover photo action buttons */}
+                    {isAuthenticated && (
+                        <div className="cover-actions">
+                            {/* RSVP icon button */}
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    className={`cover-btn ${rsvpStatus === 'GOING' ? 'going' : rsvpStatus === 'INTERESTED' ? 'interested' : ''}`}
+                                    onClick={() => { const next = !showCoverRsvp; closeAllDropdowns(); setShowCoverRsvp(next); }}
+                                    disabled={rsvpLoading}
+                                    title={getRsvpLabel(rsvpStatus)}
+                                >
+                                    {getRsvpIcon()}
+                                </button>
+                                {showCoverRsvp && (
+                                    <>
+                                        <div className="click-overlay" onClick={() => setShowCoverRsvp(false)} />
+                                        <div className="cover-dropdown">
+                                            <button className="cover-dropdown-item" onClick={() => { handleRsvp('GOING'); setShowCoverRsvp(false); }}>
+                                                <CheckCircle size={14} /> Attending
+                                            </button>
+                                            <button className="cover-dropdown-item" onClick={() => { handleRsvp('INTERESTED'); setShowCoverRsvp(false); }}>
+                                                <Clock size={14} /> Interested
+                                            </button>
+                                            <button className="cover-dropdown-item" style={{ color: 'var(--color-error)' }} onClick={() => { handleRsvp(null); setShowCoverRsvp(false); }}>
+                                                <X size={14} /> Not Going
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Share button */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cover-btn" onClick={() => { const next = !showShareMenu; closeAllDropdowns(); setShowShareMenu(next); }} title="Share">
+                                    <Send size={18} />
+                                </button>
+                                {showShareMenu && (
+                                    <>
+                                        <div className="click-overlay" onClick={() => setShowShareMenu(false)} />
+                                        <div className="cover-dropdown" style={{ right: 0, left: 'auto', minWidth: '180px' }}>
+                                            <button className="cover-dropdown-item" onClick={handleCopyLink}>
+                                                <Copy size={14} /> {linkCopied ? 'Copied!' : 'Copy Link'}
+                                            </button>
+                                            <button className="cover-dropdown-item" onClick={() => { setShowInviteModal(true); setShowShareMenu(false); }}>
+                                                <UserPlus size={14} /> Invite Members
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+
+                            {/* Action menu (...) */}
+                            <div style={{ position: 'relative' }}>
+                                <button className="cover-btn" onClick={() => { const next = !showActionMenu; closeAllDropdowns(); setShowActionMenu(next); }} title="More options">
+                                    <MoreHorizontal size={18} />
+                                </button>
+                                {showActionMenu && (
+                                    <>
+                                        <div className="click-overlay" onClick={() => setShowActionMenu(false)} />
+                                        <div className="cover-dropdown" style={{ right: 0, left: 'auto', minWidth: '200px' }}>
+                                            <button className="cover-dropdown-item" onClick={handleAddToCalendar}>
+                                                <CalendarPlus size={14} /> Add to Calendar
+                                            </button>
+                                            {(event.locationMapUrl || event.locationAddress || event.location) && (
+                                                <button className="cover-dropdown-item" onClick={handleOpenInMaps}>
+                                                    <Navigation size={14} /> Open in Maps
+                                                </button>
+                                            )}
+                                            {user?.id === event.hostId && (
+                                                <button className="cover-dropdown-item" onClick={() => { window.location.href = `/events/edit/${id}`; }}>
+                                                    <Edit3 size={14} /> Edit Event
+                                                </button>
+                                            )}
+                                            <button className="cover-dropdown-item" style={{ color: 'var(--color-error)' }} onClick={handleReport}>
+                                                <Flag size={14} /> Report Event
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <div className="detail-grid">
@@ -178,7 +399,7 @@ const EventDetail = () => {
                                 text={description}
                                 isHtml={true}
                                 className="description rich-text-content"
-                                style={{ color: '#4b5563', fontSize: '0.95rem', lineHeight: 1.75 }}
+                                style={{ color: 'var(--color-gray-700)', fontSize: '0.95rem', lineHeight: 1.75 }}
                             />
                         </div>
 
@@ -362,6 +583,69 @@ const EventDetail = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Invite Members Modal */}
+            {showInviteModal && (
+                <>
+                    <div className="modal-overlay" onClick={() => setShowInviteModal(false)} />
+                    <div className="invite-modal">
+                        <div className="invite-modal-header">
+                            <h3>Invite Members</h3>
+                            <button onClick={() => setShowInviteModal(false)} className="invite-close"><X size={20} /></button>
+                        </div>
+                        <div className="invite-search-wrap">
+                            <Search size={16} />
+                            <input
+                                type="text"
+                                placeholder="Search members by name..."
+                                value={inviteSearch}
+                                onChange={(e) => setInviteSearch(e.target.value)}
+                                className="invite-search-input"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="invite-results">
+                            {inviteSearching && (
+                                <div className="invite-empty"><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /></div>
+                            )}
+                            {!inviteSearching && inviteSearch.length >= 2 && inviteResults.length === 0 && (
+                                <div className="invite-empty">No members found</div>
+                            )}
+                            {!inviteSearching && inviteSearch.length < 2 && (
+                                <div className="invite-empty" style={{ color: 'var(--color-gray-400)' }}>Type at least 2 characters to search</div>
+                            )}
+                            {inviteResults.map((profile) => {
+                                const alreadyInvited = invitedIds.has(profile.userId);
+                                const isSending = inviteSending === profile.userId;
+                                return (
+                                    <div key={profile.userId || profile.id} className="invite-row">
+                                        <div className="invite-avatar">
+                                            {profile.avatar ? (
+                                                <img src={getAssetUrl(profile.avatar)} alt="" />
+                                            ) : (
+                                                <span>{(profile.name || '?').charAt(0)}</span>
+                                            )}
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ fontWeight: 600, fontSize: '0.88rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.name}</div>
+                                            {profile.title && <div style={{ fontSize: '0.75rem', color: 'var(--color-gray-500)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.title}</div>}
+                                        </div>
+                                        <button
+                                            className={`invite-btn ${alreadyInvited ? 'invited' : ''}`}
+                                            onClick={() => !alreadyInvited && handleInvite(profile)}
+                                            disabled={alreadyInvited || isSending}
+                                        >
+                                            {isSending ? <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                                                : alreadyInvited ? <><Check size={14} /> Invited</>
+                                                : <><UserPlus size={14} /> Invite</>}
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </>
+            )}
 
             <style jsx>{`
                 .event-detail-page {
@@ -587,6 +871,194 @@ const EventDetail = () => {
                 }
                 .attendee-avatar img { width: 100%; height: 100%; object-fit: cover; }
 
+                /* Cover action buttons */
+                .cover-actions {
+                    position: absolute;
+                    bottom: 24px;
+                    right: 24px;
+                    z-index: 20;
+                    display: flex;
+                    gap: 0.5rem;
+                    align-items: center;
+                }
+                .cover-btn {
+                    border-radius: var(--radius-md);
+                    background: var(--color-surface-raised);
+                    color: var(--color-gray-900);
+                    border: 1px solid var(--color-gray-200);
+                    height: 42px;
+                    width: 42px;
+                    padding: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    box-shadow: var(--shadow-sm);
+                    transition: all 0.2s;
+                }
+                .cover-btn:hover { background: var(--color-surface-overlay); }
+                .cover-btn.going { background: var(--color-success); color: white; border-color: var(--color-success); }
+                .cover-btn.interested { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+                .cover-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+                .click-overlay {
+                    position: fixed;
+                    top: 0; left: 0; right: 0; bottom: 0;
+                    z-index: 30;
+                }
+                .cover-dropdown {
+                    position: absolute;
+                    bottom: calc(100% + 6px);
+                    right: 0;
+                    background: var(--color-surface);
+                    border-radius: 10px;
+                    box-shadow: var(--shadow-lg);
+                    border: 1px solid var(--color-gray-200);
+                    z-index: 31;
+                    overflow: hidden;
+                    min-width: 160px;
+                }
+                .cover-dropdown-item {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    width: 100%;
+                    padding: 0.7rem 1rem;
+                    background: none;
+                    border: none;
+                    border-bottom: 1px solid var(--color-gray-100);
+                    cursor: pointer;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                    color: var(--color-text, inherit);
+                    text-align: left;
+                }
+                .cover-dropdown-item:last-child { border-bottom: none; }
+                .cover-dropdown-item:hover { background: var(--color-gray-50); }
+
+                /* Invite modal */
+                .modal-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 200;
+                    animation: fadeIn 0.2s ease-out;
+                }
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                .invite-modal {
+                    position: fixed;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 90%;
+                    max-width: 440px;
+                    max-height: 70vh;
+                    background: var(--color-surface);
+                    border-radius: 16px;
+                    box-shadow: var(--shadow-lg);
+                    border: 1px solid var(--color-gray-200);
+                    z-index: 201;
+                    display: flex;
+                    flex-direction: column;
+                    overflow: hidden;
+                }
+                .invite-modal-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1.25rem 1.5rem;
+                    border-bottom: 1px solid var(--color-gray-200);
+                }
+                .invite-modal-header h3 {
+                    font-size: 1.1rem;
+                    font-weight: 700;
+                    margin: 0;
+                }
+                .invite-close {
+                    background: none;
+                    border: none;
+                    cursor: pointer;
+                    color: var(--color-gray-500);
+                    padding: 4px;
+                    border-radius: 6px;
+                }
+                .invite-close:hover { color: var(--color-text); background: var(--color-gray-100); }
+                .invite-search-wrap {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    margin: 1rem 1.5rem;
+                    padding: 0.6rem 0.75rem;
+                    border: 1px solid var(--color-gray-300);
+                    border-radius: 10px;
+                    color: var(--color-gray-400);
+                    background: var(--color-gray-50);
+                }
+                .invite-search-wrap:focus-within { border-color: var(--color-primary); }
+                .invite-search-input {
+                    flex: 1;
+                    border: none;
+                    outline: none;
+                    font-size: 0.9rem;
+                    background: transparent;
+                    color: var(--color-text, inherit);
+                }
+                .invite-results {
+                    flex: 1;
+                    overflow-y: auto;
+                    padding: 0 1rem 1rem;
+                }
+                .invite-empty {
+                    text-align: center;
+                    padding: 2rem;
+                    color: var(--color-gray-500);
+                    font-size: 0.85rem;
+                }
+                .invite-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.6rem 0.5rem;
+                    border-radius: 8px;
+                    transition: background 0.15s;
+                }
+                .invite-row:hover { background: var(--color-gray-50); }
+                .invite-avatar {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    background: var(--color-gray-200);
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    color: var(--color-gray-500);
+                }
+                .invite-avatar img { width: 100%; height: 100%; object-fit: cover; }
+                .invite-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--color-gray-300);
+                    background: var(--color-surface);
+                    color: var(--color-primary);
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: all 0.15s;
+                }
+                .invite-btn:hover:not(:disabled) { background: var(--color-blue-tint); border-color: var(--color-primary); }
+                .invite-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+                .invite-btn.invited { background: var(--color-green-tint); color: var(--color-success); border-color: transparent; }
+
+                @keyframes spin { to { transform: rotate(360deg); } }
+
                 @media (max-width: 768px) {
                     .hero-image { height: 250px; }
                     .detail-grid {
@@ -594,6 +1066,8 @@ const EventDetail = () => {
                     }
                     .info-card { position: static; }
                     .main-content h1 { font-size: 1.5rem; }
+                    .cover-actions { bottom: 12px; right: 12px; gap: 0.4rem; }
+                    .cover-btn { height: 36px; width: 36px; }
                 }
             `}</style>
         </div>
