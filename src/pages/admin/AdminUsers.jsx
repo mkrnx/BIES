@@ -4,7 +4,7 @@ import { CheckCircle, Ban, ExternalLink, Loader2, Search, Shield, Trash2, Refres
 import { adminApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-const ROLE_OPTIONS = ['', 'BUILDER', 'INVESTOR', 'MOD', 'ADMIN'];
+const ROLE_OPTIONS = ['', 'MEMBER', 'BUILDER', 'INVESTOR', 'EVENT_HOST', 'EDUCATOR', 'MOD', 'ADMIN'];
 
 // ─── Sync Modal ──────────────────────────────────────────────────────────────
 
@@ -427,13 +427,27 @@ const AdminUsers = () => {
     };
 
     const handleRoleChange = async (id, newRole) => {
-        if (!window.confirm(`Change role to ${newRole}?`)) return;
+        const isGrantingAdmin = newRole === 'ADMIN';
+        const confirmMsg = isGrantingAdmin
+            ? 'Grant ADMIN access to this user? They will have full admin panel privileges.'
+            : `Change role to ${newRole}?`;
+        if (!window.confirm(confirmMsg)) return;
         setActionLoading(id);
         try {
-            await adminApi.setRole(id, newRole);
+            if (isGrantingAdmin) {
+                // Grant admin flag (keeps their current role)
+                await adminApi.setAdmin(id, true);
+            } else {
+                // If user was admin and we're changing to a non-admin role, revoke admin
+                const user = users.find(u => u.id === id);
+                if (user?.isAdmin) {
+                    await adminApi.setAdmin(id, false);
+                }
+                await adminApi.setRole(id, newRole);
+            }
             fetchUsers(pagination.page);
         } catch (err) {
-            alert('Failed to change role');
+            alert(err?.message || 'Failed to change role');
         } finally {
             setActionLoading(null);
         }
@@ -569,16 +583,21 @@ const AdminUsers = () => {
                                             <td data-label="Npub" className="mobile-hide" style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8rem' }}>{truncatePubkey(u.nostrPubkey)}</td>
                                             <td data-label="Role">
                                                 <select
-                                                    value={u.role}
+                                                    value={u.isAdmin ? 'ADMIN' : u.role}
                                                     onChange={(e) => handleRoleChange(u.id, e.target.value)}
                                                     disabled={actionLoading === u.id || ((u.isAdmin || u.role === 'MOD') && !isAdmin)}
                                                     className="role-select"
                                                     title={(u.isAdmin || u.role === 'MOD') && !isAdmin ? 'Only admins can change admin/mod roles' : ''}
                                                 >
+                                                    <option value="MEMBER">MEMBER</option>
                                                     <option value="BUILDER">BUILDER</option>
                                                     <option value="INVESTOR">INVESTOR</option>
+                                                    <option value="EVENT_HOST">EVENT HOST</option>
+                                                    <option value="EDUCATOR">EDUCATOR</option>
                                                     {isAdmin && <option value="MOD">MOD</option>}
                                                     {!isAdmin && u.role === 'MOD' && <option value="MOD">MOD</option>}
+                                                    {isAdmin && <option value="ADMIN">ADMIN</option>}
+                                                    {!isAdmin && u.isAdmin && <option value="ADMIN">ADMIN</option>}
                                                 </select>
                                             </td>
                                             <td data-label="Projects" className="mobile-hide">{u._count?.projects || 0}</td>

@@ -320,6 +320,7 @@ export const adminApi = {
     users: (params = {}) => get('/admin/users', params),
     banUser: (id, banned) => put(`/admin/users/${id}/ban`, { banned }),
     setRole: (id, role) => put(`/admin/users/${id}/role`, { role }),
+    setAdmin: (id, isAdmin) => put(`/admin/users/${id}/admin`, { isAdmin }),
     verifyUser: (id) => put(`/admin/users/${id}/verify`, {}),
     featureProject: (id, featured) => put(`/admin/projects/${id}/feature`, { featured }),
     deleteProject: (id) => del(`/admin/projects/${id}`),
