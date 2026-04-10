@@ -486,10 +486,11 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
             // Auto-generate NIP-05 name for new Nostr users
             const nip05Name = await generateNip05Name(`nostr-${pubkey.substring(0, 8)}`);
             if (nip05Name && user.profile) {
-                await prisma.profile.update({
+                const updatedProfile = await prisma.profile.update({
                     where: { id: user.profile.id },
                     data: { nip05Name },
                 });
+                user = { ...user, profile: updatedProfile };
             }
 
         } else if (isEnvAdmin && !user.isAdmin) {

@@ -47,6 +47,10 @@ const ProfileSetup = () => {
                         lud16: profile.lud16 || '',
                     });
                 }
+                // Auto-fill BIES NIP-05 when user has no existing NIP-05
+                if (!profile?.nip05 && user?.profile?.nip05Name) {
+                    setNip05Name(user.profile.nip05Name);
+                }
             }).finally(() => setLoadingNostr(false));
         } else {
             setLoadingNostr(false);
@@ -104,6 +108,10 @@ const ProfileSetup = () => {
                 else if (nostrForm.nip05) data.nip05 = nostrForm.nip05;
                 if (nostrForm.lud16) data.lud16 = nostrForm.lud16;
                 if (showNostrEdit && nostrForm.name) {
+                    // User edited Nostr profile — publish to all relays
+                    await nostrService.updateProfile(data);
+                } else if (nip05Name.trim() && !nostrProfile?.nip05) {
+                    // User had no NIP-05, got BIES identity — publish to public relays so it's verifiable
                     await nostrService.updateProfile(data);
                 } else {
                     await nostrService.updateProfileToBiesRelay(data);
@@ -221,13 +229,39 @@ const ProfileSetup = () => {
                                     style={{ opacity: 0.7, cursor: 'default' }}
                                 />
                                 <p className="text-xs text-gray-400 mt-1">
-                                    You can set a BIES identity later in profile settings.
+                                    You already have a NIP-05 identity. You can also claim a <strong>@buildinelsalvador.com</strong> identity below.
                                 </p>
+                                <div style={{ marginTop: '0.75rem' }}>
+                                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                                        Claim your BIES identity (optional)
+                                    </label>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                        <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                            <AtSign size={16} style={{ position: 'absolute', left: '0.75rem', color: 'var(--color-gray-400)' }} />
+                                            <input
+                                                type="text"
+                                                className="w-full p-3 border rounded-lg input-field"
+                                                style={{ paddingLeft: '2.25rem' }}
+                                                placeholder="alice"
+                                                value={nip05Name}
+                                                onChange={e => setNip05Name(e.target.value.toLowerCase().replace(/[^a-z0-9._-]/g, ''))}
+                                            />
+                                        </div>
+                                        {nip05Checking && <Loader2 size={16} className="spin" style={{ color: 'var(--color-gray-400)' }} />}
+                                        {!nip05Checking && nip05Available === true && <CheckCircle size={16} style={{ color: '#16a34a' }} />}
+                                        {!nip05Checking && nip05Available === false && <X size={16} style={{ color: '#ef4444' }} />}
+                                    </div>
+                                    {nip05Name && (
+                                        <p className="text-xs mt-1" style={{ color: nip05Available === false ? '#ef4444' : 'var(--color-gray-400)' }}>
+                                            {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@buildinelsalvador.com`}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         ) : (
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                                    Choose your BIES identity
+                                    Your BIES Identity
                                 </label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                                     <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -250,6 +284,9 @@ const ProfileSetup = () => {
                                         {nip05Available === false ? 'Taken — try another name' : `${nip05Name.toLowerCase()}@buildinelsalvador.com`}
                                     </p>
                                 )}
+                                <p className="text-xs text-gray-400 mt-1">
+                                    We've assigned you a @buildinelsalvador.com identity. You can customize it above.
+                                </p>
                             </div>
                         )
                     )}
