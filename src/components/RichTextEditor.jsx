@@ -49,7 +49,7 @@ const RichTextEditor = ({ value, onChange, placeholder, minHeight = '120px' }) =
         const html = e.clipboardData.getData('text/html');
         const text = e.clipboardData.getData('text/plain');
         if (html) {
-            const clean = DOMPurify.sanitize(html, { ADD_ATTR: ['style'] });
+            const clean = DOMPurify.sanitize(html, { FORBID_ATTR: ['style', 'color'] });
             document.execCommand('insertHTML', false, clean);
         } else {
             document.execCommand('insertText', false, text);
