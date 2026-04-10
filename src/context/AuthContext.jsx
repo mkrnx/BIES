@@ -287,9 +287,10 @@ export const AuthProvider = ({ children }) => {
     };
 
     /**
-     * Fetch the user's Kind 0 profile from public Nostr relays
-     * and update the BIES profile with any available fields
-     * (name, avatar, banner, bio, website).
+     * Fetch the user's Kind 0 profile from public Nostr relays (Primal, Damus, etc.)
+     * and apply it to both the BIES API profile and the BIES relay (kind:0).
+     * This ensures the user's name/avatar from their existing Nostr identity
+     * shows up on BIES before they manually set it.
      */
     const seedProfileFromNostr = async (pubkey) => {
         try {
@@ -306,7 +307,16 @@ export const AuthProvider = ({ children }) => {
             if (nostrProfile.website) updates.website = nostrProfile.website;
 
             if (Object.keys(updates).length > 0) {
+                // Update the BIES backend profile (API)
                 await profilesApi.update(updates);
+
+                // Publish the kind:0 to the BIES relay so the name is visible
+                // to other users on the relay before the user edits their profile
+                try {
+                    await nostrService.updateProfileToBiesRelay(nostrProfile);
+                } catch (relayErr) {
+                    console.warn('[Auth] Failed to publish profile to BIES relay:', relayErr);
+                }
             }
         } catch (err) {
             console.error('[Auth] Failed to seed profile from Nostr:', err);
