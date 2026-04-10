@@ -7,3 +7,7 @@ DEPLOY.md
 test-results/
 relay/dev-whitelist/whitelist.txt
 server/twitter-cookies.txt
+docker-compose.override.yml
+deploy/.deployed-commit
+deploy/deploy.log
+deploy/.deploy-lock

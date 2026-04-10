@@ -44,6 +44,12 @@ if ! git reset --hard "origin/$BRANCH" >> "$LOG_FILE" 2>&1; then
   exit 1
 fi
 
+# Export git metadata for Docker build args
+export GIT_COMMIT=$(git rev-parse HEAD)
+export GIT_COMMIT_SHORT=$(git rev-parse --short HEAD)
+export GIT_BRANCH="$BRANCH"
+export GIT_COMMITTED_AT=$(git log -1 --format=%cI)
+
 log "Building containers..."
 if ! docker compose build >> "$LOG_FILE" 2>&1; then
   log "ERROR: docker compose build failed"

@@ -87,6 +87,10 @@ app.get('/api/version', (_req, res) => {
     res.json({
         version: appVersion,
         environment: config.nodeEnv,
+        commit: process.env.GIT_COMMIT ?? 'unknown',
+        commitShort: process.env.GIT_COMMIT_SHORT ?? 'unknown',
+        branch: process.env.GIT_BRANCH ?? 'unknown',
+        committedAt: process.env.GIT_COMMITTED_AT ?? null,
     });
 });
 
