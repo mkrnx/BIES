@@ -63,9 +63,9 @@ export const PUBLIC_RELAYS = [
     'wss://purplepag.es',
 ];
 
-// Relays used for NIP-17 DMs — only public relays because gift-wraps are
-// signed by throwaway keys that aren't on the BIES relay whitelist.
-export const DM_RELAYS = [...PUBLIC_RELAYS];
+// Relays used for NIP-17 DMs — includes BIES relay so whitelisted users
+// can send and receive DMs across all Nostr relays.
+export const DM_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
 // All relays (BIES relay first for priority)
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
@@ -324,8 +324,7 @@ class NostrService {
 
         const senderGiftWrap = this._createGiftWrap(sealForSender, senderPubkey, now);
 
-        // Publish gift-wraps to DM relays only (not BIES relay — throwaway
-        // keys aren't on the whitelist so the private relay would reject them).
+        // Publish gift-wraps to all DM relays (BIES + public)
         const results = await Promise.allSettled([
             ...this.pool.publish(this.dmRelays, recipientGiftWrap),
             ...this.pool.publish(this.dmRelays, senderGiftWrap),
@@ -371,8 +370,7 @@ class NostrService {
      * Subscribe to NIP-17 DMs (kind:1059 gift-wraps addressed to myPubkey)
      */
     subscribeToNip17DMs(myPubkey, callback) {
-        // Subscribe on DM relays — gift-wraps live on public relays, not the
-        // BIES relay (throwaway keys aren't whitelisted there).
+        // Subscribe on all DM relays (BIES + public).
         //
         // Pass a single filter object (not wrapped in an array) — SimplePool
         // in nostr-tools v2 double-nests arrays, producing invalid REQ
