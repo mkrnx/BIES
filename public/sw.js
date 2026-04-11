@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bies-v2';
+const CACHE_NAME = 'bies-v3';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -73,8 +73,19 @@ self.addEventListener('push', (event) => {
     },
   };
 
+  // Suppress the OS notification when the user is actively looking at a
+  // BIES window — the in-app WS handler already shows the notification in
+  // the UI, so firing a system push too would be a duplicate.
+  // "Actively looking at" = at least one client window is both visible
+  // AND focused. Background tabs / minimised PWAs still get the push.
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      const hasFocusedClient = clients.some(
+        (c) => c.visibilityState === 'visible' && c.focused === true
+      );
+      if (hasFocusedClient) return; // skip — user is already seeing it in-app
+      return self.registration.showNotification(data.title, options);
+    })
   );
 });
 
