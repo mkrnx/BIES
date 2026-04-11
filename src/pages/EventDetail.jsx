@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Send, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, MoreHorizontal, Copy, UserPlus, X, Search, Flag, CalendarPlus, Navigation, Edit3 } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Send, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, MoreHorizontal, Copy, UserPlus, X, Search, Flag, CalendarPlus, Navigation, Edit3, Radio } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { eventsApi, profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -34,6 +34,8 @@ const EventDetail = () => {
     const [inviteSending, setInviteSending] = useState(null);
     const [invitedIds, setInvitedIds] = useState(new Set());
     const [showCoverRsvp, setShowCoverRsvp] = useState(false);
+    const [relayPosting, setRelayPosting] = useState(false); // null | 'posting' | 'done' | 'error'
+    const [relayPostStatus, setRelayPostStatus] = useState(null);
 
     const parseEvent = (data) => {
         if (!data) return data;
@@ -117,6 +119,42 @@ const EventDetail = () => {
             setTimeout(() => setLinkCopied(false), 2000);
         }
         setShowShareMenu(false);
+    };
+
+    // ─── Share: Post to BIES Relay (NIP-52) ───────────────────────────────
+    const handlePostToRelay = async () => {
+        if (!event || relayPosting) return;
+        if (!nostrSigner.canSignSilently) {
+            alert('Connect a Nostr signer to post to the relay.');
+            return;
+        }
+        setRelayPosting(true);
+        setRelayPostStatus(null);
+        try {
+            const safeTags = (Array.isArray(event.tags) ? event.tags : []).filter(t => typeof t === 'string');
+            await nostrService.publishCalendarEvent({
+                id: event.id,
+                title: event.title,
+                description: event.description,
+                startDate: event.startDate || event.date,
+                endDate: event.endDate,
+                location: event.locationName || event.location,
+                locationAddress: event.locationAddress,
+                isOnline: event.isOnline,
+                onlineUrl: event.onlineUrl,
+                thumbnail: event.thumbnail,
+                ticketUrl: event.ticketUrl,
+                category: event.category,
+                tags: safeTags,
+            }, 'bies');
+            setRelayPostStatus('done');
+        } catch (err) {
+            console.error('Failed to post event to BIES relay:', err);
+            setRelayPostStatus('error');
+        } finally {
+            setRelayPosting(false);
+            setTimeout(() => { setRelayPostStatus(null); setShowShareMenu(false); }, 2000);
+        }
     };
 
     // ─── Add to Calendar (.ics download) ──────────────────────────────────
@@ -203,7 +241,10 @@ const EventDetail = () => {
         } catch (err) {
             // Show a user-friendly error if already invited (409) vs generic failure
             const msg = err?.status === 409 ? 'Already invited' : 'Failed to send invite';
-            setInvitedIds(prev => { const n = new Set(prev); n.delete(targetUserId); return n; });
+            // On 409 keep the button disabled (user IS already invited); only revert on real failures
+            if (err?.status !== 409) {
+                setInvitedIds(prev => { const n = new Set(prev); n.delete(targetUserId); return n; });
+            }
             alert(msg);
         } finally {
             setInviteSending(null);
@@ -329,6 +370,10 @@ const EventDetail = () => {
                                             </button>
                                             <button className="cover-dropdown-item" onClick={() => { setShowInviteModal(true); setShowShareMenu(false); }}>
                                                 <UserPlus size={14} /> Invite Members
+                                            </button>
+                                            <button className="cover-dropdown-item" onClick={handlePostToRelay} disabled={relayPosting}>
+                                                {relayPosting ? <Loader2 size={14} className="spin" /> : relayPostStatus === 'done' ? <CheckCircle size={14} style={{ color: 'var(--color-success, #22c55e)' }} /> : relayPostStatus === 'error' ? <AlertCircle size={14} style={{ color: 'var(--color-error)' }} /> : <Radio size={14} />}
+                                                {relayPosting ? 'Posting…' : relayPostStatus === 'done' ? 'Posted!' : relayPostStatus === 'error' ? 'Failed' : 'Post to BIES Relay'}
                                             </button>
                                         </div>
                                     </>

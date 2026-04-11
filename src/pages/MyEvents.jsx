@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck, Search, X } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck, Search, X, Mail } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { eventsApi } from '../services/api';
@@ -179,9 +179,11 @@ const MyEvents = () => {
     const { data: attendingData, loading: attendingLoading, refetch: refetchAttending } = useApiQuery(eventsApi.listAttending);
     const eventList = Array.isArray(eventsData?.data) ? eventsData.data : Array.isArray(eventsData) ? eventsData : [];
     const attendingList = Array.isArray(attendingData?.data) ? attendingData.data : Array.isArray(attendingData) ? attendingData : [];
-    // Exclude events I'm hosting from the attending list
+    // Exclude events I'm hosting from the attending list, then split invited vs attending
     const hostedIds = new Set(eventList.map(e => e.id));
-    const attendingOnly = attendingList.filter(e => !hostedIds.has(e.id));
+    const nonHosted = attendingList.filter(e => !hostedIds.has(e.id));
+    const invitedOnly = nonHosted.filter(e => e.rsvpStatus === 'INVITED');
+    const attendingOnly = nonHosted.filter(e => e.rsvpStatus !== 'INVITED');
 
     const filteredEvents = eventList.filter(e => {
         const vis = (e.visibility || 'DRAFT').toLowerCase();
@@ -394,6 +396,79 @@ const MyEvents = () => {
                     </div>
                 )}
             </div>
+
+            {/* Events Invited To */}
+            {invitedOnly.length > 0 && (
+                <div className="card-container" style={{ marginTop: '2rem' }}>
+                    <div className="toolbar">
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Mail size={16} /> Events Invited To
+                            <span style={{
+                                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                                minWidth: 22, height: 22, borderRadius: 99,
+                                fontSize: '0.72rem', fontWeight: 700,
+                                background: 'var(--badge-info-bg, #dbeafe)', color: 'var(--badge-info-text, #1d4ed8)',
+                                padding: '0 6px',
+                            }}>
+                                {invitedOnly.length}
+                            </span>
+                        </h3>
+                    </div>
+                    <div className="table-wrapper">
+                        <table className="events-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ minWidth: '160px' }}>Event Name</th>
+                                    <th>Host</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Attendees</th>
+                                    <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {invitedOnly.map(event => (
+                                    <tr key={event.id} style={{ opacity: actionLoading === event.id ? 0.5 : 1 }}>
+                                        <td>
+                                            <Link to={`/events/${event.id}`} className="event-name-link">
+                                                {event.title}
+                                            </Link>
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-600)', fontSize: '0.88rem' }}>
+                                            {event.host?.profile?.name || 'Unknown'}
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            {formatDate(event.startDate)}
+                                        </td>
+                                        <td>
+                                            <span style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                padding: '2px 8px', borderRadius: 99,
+                                                fontSize: '0.72rem', fontWeight: 700,
+                                                color: 'var(--badge-info-text, #1d4ed8)',
+                                                background: 'var(--badge-info-bg, #dbeafe)',
+                                            }}>
+                                                RSVP Pending
+                                            </span>
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem' }}>
+                                            {event.attendeeCount || 0}
+                                            {event.maxAttendees ? ` / ${event.maxAttendees}` : ''}
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <AttendingActionMenu
+                                                event={event}
+                                                onChangeRsvp={handleChangeRsvp}
+                                                onRemove={handleRemoveAttending}
+                                            />
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
 
             {/* Events I'm Attending */}
             {attendingOnly.length > 0 && (

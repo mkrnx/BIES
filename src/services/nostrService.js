@@ -326,8 +326,8 @@ class NostrService {
 
         // Publish gift-wraps to all DM relays (BIES + public)
         const results = await Promise.allSettled([
-            ...this.pool.publish(this.dmRelays, recipientGiftWrap),
-            ...this.pool.publish(this.dmRelays, senderGiftWrap),
+            ...this.pool.publish(this.dmRelays, recipientGiftWrap, { onauth: handleRelayAuth }),
+            ...this.pool.publish(this.dmRelays, senderGiftWrap, { onauth: handleRelayAuth }),
         ]);
 
         const succeeded = results.filter(r => r.status === 'fulfilled').length;

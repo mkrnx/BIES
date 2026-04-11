@@ -755,6 +755,11 @@ export async function inviteToEvent(req: Request, res: Response): Promise<void> 
             res.status(404).json({ error: 'Event not found' }); return;
         }
 
+        // Only the event host can send invitations
+        if (event.hostId !== inviterId) {
+            res.status(403).json({ error: 'Only the event host can send invitations' }); return;
+        }
+
         // Don't allow inviting yourself
         if (targetUserId === inviterId) {
             res.status(400).json({ error: 'You cannot invite yourself' }); return;
