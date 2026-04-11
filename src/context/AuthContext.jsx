@@ -7,6 +7,7 @@ import { nostrSigner } from '../services/nostrSigner';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 import PasskeySavePrompt from '../components/PasskeySavePrompt';
+import PushPermissionPrompt from '../components/PushPermissionPrompt';
 
 const AuthContext = createContext();
 
@@ -19,6 +20,7 @@ export const AuthProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+    const [showPushPrompt, setShowPushPrompt] = useState(false);
 
     // ─── Passkey save prompt ─────────────────────────────────────────────────
 
@@ -78,19 +80,41 @@ export const AuthProvider = ({ children }) => {
         };
     }, []);
 
-    // ─── Push subscription (silent, no prompt) ─────────────────────────────
+    // ─── Push subscription ─────────────────────────────────────────────────
+    //
+    // Three cases after login:
+    //   1. Permission already granted — silently (re)subscribe, no UI.
+    //   2. Permission default (never asked) — show the non-blocking banner
+    //      so the user can enable it with a click (required by browsers;
+    //      Notification.requestPermission() needs a user gesture).
+    //   3. Permission denied — do nothing; respect the user's choice.
+    //
+    // The banner is sessionStorage-gated so it only shows once per session.
 
     const initPushSubscription = useCallback(async () => {
-        if (!('Notification' in window) || Notification.permission !== 'granted') return;
-        if (!('PushManager' in window)) return;
-        try {
-            const { publicKey } = await notificationsApi.getVapidKey();
-            if (!publicKey) return;
-            const subscription = await subscribeToPush(publicKey);
-            if (subscription) await notificationsApi.pushSubscribe(subscription);
-        } catch {
-            // Push is best-effort — silent failure
+        if (!('Notification' in window) || !('PushManager' in window)) return;
+
+        if (Notification.permission === 'granted') {
+            try {
+                const { publicKey } = await notificationsApi.getVapidKey();
+                if (!publicKey) return;
+                const subscription = await subscribeToPush(publicKey);
+                if (subscription) await notificationsApi.pushSubscribe(subscription);
+            } catch {
+                // Push is best-effort — silent failure
+            }
+            return;
         }
+
+        if (Notification.permission === 'default') {
+            if (sessionStorage.getItem('bies_push_prompt_dismissed')) return;
+            setShowPushPrompt(true);
+        }
+    }, []);
+
+    const dismissPushPrompt = useCallback(() => {
+        sessionStorage.setItem('bies_push_prompt_dismissed', '1');
+        setShowPushPrompt(false);
     }, []);
 
     // ─── WebSocket setup ───────────────────────────────────────────────────
@@ -122,7 +146,8 @@ export const AuthProvider = ({ children }) => {
         ws.connect();
         setWsClient(ws);
 
-        // Silently register push subscription if permission already granted
+        // Subscribe silently if permission is granted, or show the enable
+        // banner once per session if permission is still default.
         initPushSubscription();
 
         return ws;
@@ -397,6 +422,9 @@ export const AuthProvider = ({ children }) => {
                     onClose={dismissPasskeyPrompt}
                     onSaved={handlePasskeySaved}
                 />
+            )}
+            {showPushPrompt && !showPasskeyPrompt && (
+                <PushPermissionPrompt onClose={dismissPushPrompt} />
             )}
         </AuthContext.Provider>
     );
