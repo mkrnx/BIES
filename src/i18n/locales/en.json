@@ -531,18 +531,7 @@
   "team": {
     "title": "About Build In El Salvador",
     "missionLead": "El Salvador is in the middle of a modern renaissance, and Build In El Salvador exists to tell that story.",
-    "missionBody": "We spotlight the entrepreneurs, investors, and visionaries turning this small Central American nation into a hub of innovation, freedom, and opportunity. Through interviews, articles, and events, we connect the dots between Bitcoin, business, and the bold individuals reshaping what's possible here.",
-    "getInTouch": "Get in Touch",
-    "namePlaceholder": "Name *",
-    "emailPlaceholder": "Email *",
-    "messagePlaceholder": "Message *",
-    "iAmBuilder": "I am a Builder",
-    "iAmInvestor": "I am an Investor",
-    "mediaInquiry": "Media Inquiry",
-    "other": "Other",
-    "fillFields": "Please fill in all required fields.",
-    "validEmail": "Please enter a valid email address.",
-    "somethingWrong": "Something went wrong. Please try again."
+    "missionBody": "We spotlight the entrepreneurs, investors, and visionaries turning this small Central American nation into a hub of innovation, freedom, and opportunity. Through interviews, articles, and events, we connect the dots between Bitcoin, business, and the bold individuals reshaping what's possible here."
   },
   "profile": {
     "editProfile": "Edit Profile",
