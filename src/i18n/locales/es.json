@@ -455,18 +455,7 @@
   "team": {
     "title": "Acerca de Build In El Salvador",
     "missionLead": "El Salvador esta en medio de un renacimiento moderno, y Build In El Salvador existe para contar esa historia.",
-    "missionBody": "Destacamos a los emprendedores, inversionistas y visionarios que estan convirtiendo a esta pequena nacion centroamericana en un centro de innovacion, libertad y oportunidad. A traves de entrevistas, articulos y eventos, conectamos los puntos entre Bitcoin, los negocios y las personas audaces que estan redefiniendo lo posible aqui.",
-    "getInTouch": "Contactanos",
-    "namePlaceholder": "Nombre *",
-    "emailPlaceholder": "Correo *",
-    "messagePlaceholder": "Mensaje *",
-    "iAmBuilder": "Soy Constructor",
-    "iAmInvestor": "Soy Inversionista",
-    "mediaInquiry": "Consulta de Medios",
-    "other": "Otro",
-    "fillFields": "Por favor completa todos los campos requeridos.",
-    "validEmail": "Por favor ingresa un correo electronico valido.",
-    "somethingWrong": "Algo salio mal. Por favor intenta de nuevo."
+    "missionBody": "Destacamos a los emprendedores, inversionistas y visionarios que estan convirtiendo a esta pequena nacion centroamericana en un centro de innovacion, libertad y oportunidad. A traves de entrevistas, articulos y eventos, conectamos los puntos entre Bitcoin, los negocios y las personas audaces que estan redefiniendo lo posible aqui."
   },
   "profile": {
     "editProfile": "Editar Perfil",
