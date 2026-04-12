@@ -4,6 +4,7 @@ import { validate } from '../middleware/validate';
 import {
     listEvents,
     getEvent,
+    getEventOG,
     createEvent,
     createEventSchema,
     updateEvent,
@@ -28,6 +29,7 @@ router.get('/my', authenticate, listMyEvents);
 router.get('/attending', authenticate, listAttendingEvents);
 
 // Public single event
+router.get('/:id/og', getEventOG);
 router.get('/:id', optionalAuth, getEvent);
 
 // Protected routes
