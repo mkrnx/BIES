@@ -50,52 +50,8 @@ const Team = () => {
             <section className="mission-section">
                 <div className="container text-center">
                     <h1 className="mb-4 page-header">{t('team.title')}</h1>
-                    <p className="lead">
-                        {t('team.mission')}
-                    </p>
-                </div>
-            </section>
-
-            {/* Stats */}
-            <section className="bg-white py-12 border-y">
-                <div className="container grid grid-cols-3 text-center">
-                    <div>
-                        <div className="text-3xl font-bold text-primary mb-2">150+</div>
-                        <div className="text-gray-500">{t('team.verifiedProjects')}</div>
-                    </div>
-                    <div>
-                        <div className="text-3xl font-bold text-secondary mb-2">$400M+</div>
-                        <div className="text-gray-500">{t('team.capitalDeployed')}</div>
-                    </div>
-                    <div>
-                        <div className="text-3xl font-bold text-neutral-dark mb-2">2,000+</div>
-                        <div className="text-gray-500">{t('team.jobsCreated')}</div>
-                    </div>
-                </div>
-            </section>
-
-            {/* Team */}
-            <section className="py-16 container">
-                <h2 className="text-center mb-12">{t('team.leadershipTeam')}</h2>
-                <div className="grid grid-cols-3 gap-lg">
-                    <div className="team-card">
-                        <div className="team-img"></div>
-                        <h3>Elena Castillo</h3>
-                        <p className="role">{t('team.teamMembers.elena.role')}</p>
-                        <p className="bio">{t('team.teamMembers.elena.bio')}</p>
-                    </div>
-                    <div className="team-card">
-                        <div className="team-img"></div>
-                        <h3>Marcus Green</h3>
-                        <p className="role">{t('team.teamMembers.marcus.role')}</p>
-                        <p className="bio">{t('team.teamMembers.marcus.bio')}</p>
-                    </div>
-                    <div className="team-card">
-                        <div className="team-img"></div>
-                        <h3>Roberto Diaz</h3>
-                        <p className="role">{t('team.teamMembers.roberto.role')}</p>
-                        <p className="bio">{t('team.teamMembers.roberto.bio')}</p>
-                    </div>
+                    <p className="lead">{t('team.missionLead')}</p>
+                    <p className="lead">{t('team.missionBody')}</p>
                 </div>
             </section>
 
@@ -159,31 +115,8 @@ const Team = () => {
           line-height: 1.8;
         }
 
-        .text-neutral-dark { color: var(--color-neutral-dark); }
-
-        .team-card {
-           text-align: center;
-           padding: 2rem;
-        }
-        .team-card h3 {
-          color: var(--color-gray-900);
-        }
-        .team-img {
-          width: 120px;
-          height: 120px;
-          background: var(--color-gray-200);
-          border-radius: 50%;
-          margin: 0 auto 1.5rem;
-        }
-        .role {
-          color: var(--color-primary);
-          font-weight: 600;
-          margin-bottom: 1rem;
-        }
-        .bio {
-          font-size: 0.9rem;
-          color: var(--color-gray-500);
-          line-height: 1.5;
+        .mission-section .lead + .lead {
+          margin-top: 1.25rem;
         }
 
         .textarea { resize: vertical; }

@@ -453,12 +453,9 @@
     "noResources": "Aun no hay recursos."
   },
   "team": {
-    "title": "Orquestando el Futuro",
-    "mission": "BIES (Build In El Salvador) es el puente digital entre el capital global y los constructores de la primera nacion Bitcoin. Estamos dedicados a acelerar la hiperbitcoinizacion de El Salvador a traves de transparencia, conexion e infraestructura confiable.",
-    "verifiedProjects": "Proyectos Verificados",
-    "capitalDeployed": "Capital Desplegado",
-    "jobsCreated": "Empleos Creados",
-    "leadershipTeam": "Equipo de Liderazgo",
+    "title": "Acerca de Build In El Salvador",
+    "missionLead": "El Salvador esta en medio de un renacimiento moderno, y Build In El Salvador existe para contar esa historia.",
+    "missionBody": "Destacamos a los emprendedores, inversionistas y visionarios que estan convirtiendo a esta pequena nacion centroamericana en un centro de innovacion, libertad y oportunidad. A traves de entrevistas, articulos y eventos, conectamos los puntos entre Bitcoin, los negocios y las personas audaces que estan redefiniendo lo posible aqui.",
     "getInTouch": "Contactanos",
     "namePlaceholder": "Nombre *",
     "emailPlaceholder": "Correo *",
@@ -469,24 +466,7 @@
     "other": "Otro",
     "fillFields": "Por favor completa todos los campos requeridos.",
     "validEmail": "Por favor ingresa un correo electronico valido.",
-    "somethingWrong": "Algo salio mal. Por favor intenta de nuevo.",
-    "teamMembers": {
-      "elena": {
-        "name": "Elena Castillo",
-        "role": "Directora Ejecutiva",
-        "bio": "Ex reguladora de FinTech convertida en defensora de Bitcoin. Liderando la vision estrategica de BIES."
-      },
-      "marcus": {
-        "name": "Marcus Green",
-        "role": "Director de Inversiones",
-        "bio": "20 anos en capital de riesgo. Enfocado en conectar el capital de Silicon Valley con las oportunidades salvadorenas."
-      },
-      "roberto": {
-        "name": "Roberto Diaz",
-        "role": "Director de Tecnologia",
-        "bio": "Construyendo los rieles digitales para la nueva economia. Contribuidor de codigo abierto."
-      }
-    }
+    "somethingWrong": "Algo salio mal. Por favor intenta de nuevo."
   },
   "profile": {
     "editProfile": "Editar Perfil",
