@@ -332,6 +332,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
         // Sync to Nostr Kind 0 if identity-related fields changed
         if (req.body.nip05Name !== undefined || req.body.lightningAddress !== undefined || req.body.bolt12Offer !== undefined || req.body.name !== undefined) {
             const nip05 = profile.nip05Name ? `${profile.nip05Name}@buildinelsalvador.com` : '';
+            const isLnurl = profile.lightningAddress?.toLowerCase().startsWith('lnurl1');
             publishProfileUpdate(req.user!.id, {
                 name: profile.name || '',
                 about: profile.bio || '',
@@ -339,7 +340,8 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
                 banner: profile.banner || '',
                 website: profile.website || '',
                 nip05,
-                lud16: profile.lightningAddress || '',
+                lud16: isLnurl ? '' : (profile.lightningAddress || ''),
+                lud06: isLnurl ? (profile.lightningAddress || '') : '',
                 bolt12: profile.bolt12Offer || '',
             }).catch((err) => console.error('[Nostr] Profile sync failed:', err));
         }

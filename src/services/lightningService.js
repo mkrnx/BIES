@@ -1,18 +1,54 @@
+import { bech32 } from '@scure/base';
 import { nostrSigner } from './nostrSigner.js';
 
 /**
- * Resolve a LUD-16 Lightning address to LNURL-pay metadata.
- * e.g. "user@walletofsatoshi.com" → GET https://walletofsatoshi.com/.well-known/lnurlp/user
- * @param {string} lud16 - Lightning address (user@domain)
+ * Check if a string is a raw LNURL (bech32-encoded, lnurl1... prefix).
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isLnurl(value) {
+    return typeof value === 'string' && /^lnurl1[a-z0-9]+$/i.test(value);
+}
+
+/**
+ * Decode a bech32-encoded LNURL string to its underlying HTTPS URL.
+ * @param {string} lnurl - bech32-encoded LNURL (lnurl1...)
+ * @returns {string|null} - Decoded URL or null on failure
+ */
+export function decodeLnurl(lnurl) {
+    try {
+        const decoded = bech32.decode(lnurl.toLowerCase(), 2000);
+        const bytes = bech32.fromWords(decoded.words);
+        return new TextDecoder().decode(new Uint8Array(bytes));
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Resolve a Lightning address (user@domain) or raw LNURL (lnurl1...) to LNURL-pay metadata.
+ * @param {string} addressOrLnurl - Lightning address or raw LNURL string
  * @returns {Promise<{callback: string, minSendable: number, maxSendable: number, metadata: string, allowsNostr?: boolean, nostrPubkey?: string}|null>}
  */
-export async function resolveLud16(lud16) {
-    if (!lud16 || !lud16.includes('@')) return null;
-    const [username, domain] = lud16.split('@');
-    if (!username || !domain) return null;
+export async function resolveLud16(addressOrLnurl) {
+    if (!addressOrLnurl) return null;
+
+    let url;
+    if (isLnurl(addressOrLnurl)) {
+        // Raw LNURL — decode bech32 to get the HTTPS URL directly
+        url = decodeLnurl(addressOrLnurl);
+        if (!url) return null;
+    } else if (addressOrLnurl.includes('@')) {
+        // Standard LUD-16 Lightning address
+        const [username, domain] = addressOrLnurl.split('@');
+        if (!username || !domain) return null;
+        url = `https://${domain}/.well-known/lnurlp/${username}`;
+    } else {
+        return null;
+    }
 
     try {
-        const res = await fetch(`https://${domain}/.well-known/lnurlp/${username}`);
+        const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
         if (data.status === 'ERROR') return null;
