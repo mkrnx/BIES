@@ -308,12 +308,13 @@ const ProjectDetails = () => {
                             <h3 style={{ margin: 0 }}>{t('projectDetails.coreTeam', 'Core Team')}</h3>
                             <ZapButton
                                 recipients={[
-                                    ...(project.owner?.nostrPubkey ? [{ pubkey: project.owner.nostrPubkey, name: ownerName, avatar: ownerAvatar, lud16: project.owner?.profile?.lightningAddress }] : []),
+                                    ...(project.owner?.nostrPubkey ? [{ pubkey: project.owner.nostrPubkey, name: ownerName, avatar: ownerAvatar, lud16: project.owner?.profile?.lightningAddress, bolt12Offer: project.owner?.profile?.bolt12Offer }] : []),
                                     ...teamMembers.filter(tm => tm.user?.nostrPubkey).map(tm => ({
                                         pubkey: tm.user.nostrPubkey,
                                         name: tm.user?.profile?.name || t('projectDetails.teamMember', 'Team Member'),
                                         avatar: tm.user?.profile?.avatar || '',
                                         lud16: tm.user?.profile?.lightningAddress,
+                                        bolt12Offer: tm.user?.profile?.bolt12Offer,
                                     })),
                                 ]}
                                 label={teamMembers.filter(tm => tm.user?.nostrPubkey).length > 0 ? t('projectDetails.zapTeam', 'Zap Team') : 'Zap'}

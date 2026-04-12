@@ -87,7 +87,7 @@ const ArticleDetail = () => {
                         </span>
                         {article.author?.nostrPubkey && (
                             <ZapButton
-                                recipients={[{ pubkey: article.author.nostrPubkey, name: article.author.name || article.author, avatar: '', lud16: article.author?.profile?.lightningAddress }]}
+                                recipients={[{ pubkey: article.author.nostrPubkey, name: article.author.name || article.author, avatar: '', lud16: article.author?.profile?.lightningAddress, bolt12Offer: article.author?.profile?.bolt12Offer }]}
                                 size="sm"
                             />
                         )}

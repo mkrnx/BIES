@@ -153,10 +153,20 @@ async function processZapReceipt(event: Event): Promise<void> {
         senderPubkey = event.pubkey;
     }
 
-    // Parse amount from bolt11 tag
+    // Parse amount from bolt11 or bolt12 tag, with amount tag as fallback
     const bolt11Tag = event.tags.find((t) => t[0] === 'bolt11');
     const bolt11 = bolt11Tag?.[1] || '';
-    const amountMsats = decodeBolt11Amount(bolt11);
+    const bolt12Tag = event.tags.find((t) => t[0] === 'bolt12');
+    const bolt12 = bolt12Tag?.[1] || '';
+
+    let amountMsats: bigint;
+    if (bolt11) {
+        amountMsats = decodeBolt11Amount(bolt11);
+    } else {
+        // Bolt12 receipts or non-standard: use the 'amount' tag from the zap request
+        const amountTag = event.tags.find((t) => t[0] === 'amount');
+        amountMsats = amountTag?.[1] ? BigInt(amountTag[1]) : 0n;
+    }
     if (amountMsats === 0n) return; // No valid amount
 
     const amountSats = Number(amountMsats / 1000n);
@@ -185,6 +195,7 @@ async function processZapReceipt(event: Event): Promise<void> {
             zappedEventId,
             projectId,
             bolt11,
+            bolt12,
         },
     });
 

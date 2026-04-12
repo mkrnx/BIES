@@ -578,6 +578,7 @@
     "website": "Website",
     "nip05": "NIP-05",
     "lightningAddress": "Lightning Address",
+    "bolt12Offer": "Bolt12 Offer",
     "iAmA": "I am a...",
     "buildingProject": "Building a project",
     "lookingOpportunities": "Looking for opportunities",

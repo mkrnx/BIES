@@ -45,6 +45,7 @@ const PublicProfile = ({ type }) => {
     const [nostrFollowing, setNostrFollowing] = useState(null);
     const [npubCopied, setNpubCopied] = useState(false);
     const [lnAddrCopied, setLnAddrCopied] = useState(false);
+    const [bolt12Copied, setBolt12Copied] = useState(false);
     const lightbox = useLightbox();
 
     useEffect(() => {
@@ -246,7 +247,7 @@ const PublicProfile = ({ type }) => {
                             {/* Zap — only on other people's profiles */}
                             {profile.user?.nostrPubkey && currentUser?.id !== targetUserId && (
                                 <ZapButton
-                                    recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar, lud16: profile.lightningAddress }]}
+                                    recipients={[{ pubkey: profile.user.nostrPubkey, name: profile.name, avatar: profile.avatar, lud16: profile.lightningAddress, bolt12Offer: profile.bolt12Offer }]}
                                     size={isMobile ? 'sm' : 'md'}
                                     variant="bitcoin"
                                 />
@@ -388,6 +389,31 @@ const PublicProfile = ({ type }) => {
                                     <span style={{ color: 'var(--color-gray-500)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Lightning Address</span>
                                     <span style={{ fontFamily: 'monospace' }}>{profile.lightningAddress}</span>
                                     {lnAddrCopied ? <Check size={14} style={{ color: '#15803d' }} /> : <Copy size={14} style={{ color: 'var(--color-gray-400)' }} />}
+                                </button>
+                            )}
+
+                            {/* Bolt12 Offer */}
+                            {profile.bolt12Offer && (
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(profile.bolt12Offer);
+                                        setBolt12Copied(true);
+                                        setTimeout(() => setBolt12Copied(false), 2000);
+                                    }}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                        background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(139,92,246,0.15))',
+                                        border: '1px solid rgba(139,92,246,0.25)',
+                                        borderRadius: '999px', padding: '0.35rem 0.85rem', cursor: 'pointer',
+                                        fontSize: '0.85rem', color: 'var(--color-gray-700)',
+                                        marginBottom: '1.5rem', transition: 'all 0.2s',
+                                    }}
+                                    title="Click to copy Bolt12 Offer"
+                                >
+                                    <Zap size={14} style={{ color: '#8b5cf6', flexShrink: 0 }} />
+                                    <span style={{ color: 'var(--color-gray-500)', fontWeight: 600, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.03em' }}>Bolt12</span>
+                                    <span style={{ fontFamily: 'monospace', maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{profile.bolt12Offer}</span>
+                                    {bolt12Copied ? <Check size={14} style={{ color: '#15803d' }} /> : <Copy size={14} style={{ color: 'var(--color-gray-400)' }} />}
                                 </button>
                             )}
 

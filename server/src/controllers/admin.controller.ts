@@ -648,7 +648,7 @@ export async function syncAccounts(req: Request, res: Response): Promise<void> {
                 'twitter', 'linkedin', 'github', 'company', 'title', 'tags',
                 'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
                 'portfolioCount', 'lookingFor', 'experience', 'biesProjects',
-                'showExperience', 'nostrFeedMode', 'nostrNpub', 'lightningAddress', 'isPublic',
+                'showExperience', 'nostrFeedMode', 'nostrNpub', 'lightningAddress', 'bolt12Offer', 'isPublic',
             ];
 
             for (const field of profileFields) {

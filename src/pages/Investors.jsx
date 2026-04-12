@@ -119,7 +119,7 @@ const Investors = () => {
                                             )}
                                             {investor.user?.nostrPubkey && (
                                                 <ZapButton
-                                                    recipients={[{ pubkey: investor.user.nostrPubkey, name: investor.name, avatar: investor.avatar, lud16: investor.lightningAddress }]}
+                                                    recipients={[{ pubkey: investor.user.nostrPubkey, name: investor.name, avatar: investor.avatar, lud16: investor.lightningAddress, bolt12Offer: investor.bolt12Offer }]}
                                                     size="sm"
                                                 />
                                             )}

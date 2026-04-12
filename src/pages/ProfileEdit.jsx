@@ -76,6 +76,7 @@ const ProfileEdit = () => {
         nostrName: '',
         nip05Name: '',
         lightningAddress: '',
+        bolt12Offer: '',
         customSections: [],
     });
     const [npubCopied, setNpubCopied] = useState(false);
@@ -121,6 +122,7 @@ const ProfileEdit = () => {
             if (!prev.website && nostrProfile.website) updates.website = nostrProfile.website;
             if (!prev.nostrName && nostrProfile.name) updates.nostrName = nostrProfile.name;
             if (!prev.lightningAddress && nostrProfile.lud16) updates.lightningAddress = nostrProfile.lud16;
+            if (!prev.bolt12Offer && nostrProfile.bolt12) updates.bolt12Offer = nostrProfile.bolt12;
             if (Object.keys(updates).length === 0) return prev;
             return { ...prev, ...updates };
         });
@@ -245,6 +247,7 @@ const ProfileEdit = () => {
                     nostrNpub: profile.nostrNpub || (user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : ''),
                     nip05Name: profile.nip05Name || '',
                     lightningAddress: profile.lightningAddress || '',
+                    bolt12Offer: profile.bolt12Offer || '',
                 }));
             }
         } catch {
@@ -301,6 +304,7 @@ const ProfileEdit = () => {
                 nostrNpub: form.nostrNpub,
                 nip05Name: form.nip05Name || undefined,
                 lightningAddress: form.lightningAddress,
+                bolt12Offer: form.bolt12Offer,
             };
             // Remove undefined values so Zod doesn't see them
             Object.keys(payload).forEach(k => payload[k] === undefined && delete payload[k]);
@@ -318,6 +322,7 @@ const ProfileEdit = () => {
                 if (form.banner) nostrData.banner = form.banner;
                 if (form.website) nostrData.website = form.website;
                 if (form.lightningAddress) nostrData.lud16 = form.lightningAddress;
+                if (form.bolt12Offer) nostrData.bolt12 = form.bolt12Offer;
                 if (form.nip05Name) nostrData.nip05 = `${form.nip05Name.toLowerCase()}@buildinelsalvador.com`;
                 if (publishPublic) {
                     await nostrService.updateProfile(nostrData);
@@ -856,6 +861,17 @@ const ProfileEdit = () => {
                                 <input type="text" value={form.lightningAddress} onChange={handleChange('lightningAddress')} className="pe-input pe-input-with-icon" placeholder="you@getalby.com" />
                             </div>
                             <p className="pe-hint">For zaps — Alby, WoS, Strike, etc.</p>
+                        </div>
+                        <div className="pe-field">
+                            <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                Bolt12 Offer
+                                <NostrIcon size={12} color="#8b5cf6" />
+                            </label>
+                            <div className="pe-input-icon">
+                                <Zap size={16} className="pe-icon" />
+                                <input type="text" value={form.bolt12Offer} onChange={handleChange('bolt12Offer')} className="pe-input pe-input-with-icon" placeholder="lno1..." />
+                            </div>
+                            <p className="pe-hint">For private Bolt12 zaps — Phoenix, Zeus, CLN, etc.</p>
                         </div>
                         <div className="pe-field">
                             <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>

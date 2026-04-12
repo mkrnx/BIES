@@ -173,7 +173,7 @@ const ProjectCard = ({ project, t, viewType = 'standard' }) => {
               <button className="icon-btn btn-secondary-icon" title={t('discover.requestPitchDeck')}><Download size={18} /></button>
               {project.owner?.nostrPubkey && (
                 <ZapButton
-                  recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '', lud16: project.owner?.profile?.lightningAddress }]}
+                  recipients={[{ pubkey: project.owner.nostrPubkey, name: project.owner?.profile?.name || project.owner?.name || 'Builder', avatar: project.owner?.profile?.avatar || '', lud16: project.owner?.profile?.lightningAddress, bolt12Offer: project.owner?.profile?.bolt12Offer }]}
                   size="sm"
                 />
               )}
