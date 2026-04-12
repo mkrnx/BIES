@@ -75,6 +75,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                 try {
                     const profile = await nostrService.getProfile(r.pubkey);
                     if (profile?.lud16) lud16 = profile.lud16;
+                    else if (profile?.lud06) lud16 = profile.lud06; // raw LNURL fallback
                     if (profile?.bolt12) bolt12Offer = profile.bolt12;
                     if (lud16 || bolt12Offer) {
                         resolved.push({ ...r, lud16, bolt12Offer });

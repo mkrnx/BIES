@@ -121,7 +121,7 @@ const ProfileEdit = () => {
             if (!prev.bio && nostrProfile.about) updates.bio = nostrProfile.about;
             if (!prev.website && nostrProfile.website) updates.website = nostrProfile.website;
             if (!prev.nostrName && nostrProfile.name) updates.nostrName = nostrProfile.name;
-            if (!prev.lightningAddress && nostrProfile.lud16) updates.lightningAddress = nostrProfile.lud16;
+            if (!prev.lightningAddress && (nostrProfile.lud16 || nostrProfile.lud06)) updates.lightningAddress = nostrProfile.lud16 || nostrProfile.lud06;
             if (!prev.bolt12Offer && nostrProfile.bolt12) updates.bolt12Offer = nostrProfile.bolt12;
             if (Object.keys(updates).length === 0) return prev;
             return { ...prev, ...updates };
@@ -321,7 +321,13 @@ const ProfileEdit = () => {
                 if (form.avatar) nostrData.picture = form.avatar;
                 if (form.banner) nostrData.banner = form.banner;
                 if (form.website) nostrData.website = form.website;
-                if (form.lightningAddress) nostrData.lud16 = form.lightningAddress;
+                if (form.lightningAddress) {
+                    if (form.lightningAddress.toLowerCase().startsWith('lnurl1')) {
+                        nostrData.lud06 = form.lightningAddress;
+                    } else {
+                        nostrData.lud16 = form.lightningAddress;
+                    }
+                }
                 if (form.bolt12Offer) nostrData.bolt12 = form.bolt12Offer;
                 if (form.nip05Name) nostrData.nip05 = `${form.nip05Name.toLowerCase()}@buildinelsalvador.com`;
                 if (publishPublic) {
@@ -853,14 +859,14 @@ const ProfileEdit = () => {
                         </div>
                         <div className="pe-field">
                             <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                Lightning Address (LUD-16)
+                                Lightning Address
                                 <NostrIcon size={12} color="#8b5cf6" />
                             </label>
                             <div className="pe-input-icon">
                                 <Zap size={16} className="pe-icon" />
-                                <input type="text" value={form.lightningAddress} onChange={handleChange('lightningAddress')} className="pe-input pe-input-with-icon" placeholder="you@getalby.com" />
+                                <input type="text" value={form.lightningAddress} onChange={handleChange('lightningAddress')} className="pe-input pe-input-with-icon" placeholder="you@getalby.com or lnurl1..." />
                             </div>
-                            <p className="pe-hint">For zaps — Alby, WoS, Strike, etc.</p>
+                            <p className="pe-hint">Lightning address (user@domain) or raw LNURL</p>
                         </div>
                         <div className="pe-field">
                             <label className="pe-label" style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
