@@ -529,12 +529,9 @@
     "noResources": "No resources yet."
   },
   "team": {
-    "title": "Orchestrating the Future",
-    "mission": "BIES (Build In El Salvador) is the digital bridge between global capital and the builders of the first Bitcoin nation. We are dedicated to accelerating the hyperbitcoinization of El Salvador through transparency, connection, and trusted infrastructure.",
-    "verifiedProjects": "Verified Projects",
-    "capitalDeployed": "Capital Deployed",
-    "jobsCreated": "Jobs Created",
-    "leadershipTeam": "Leadership Team",
+    "title": "About Build In El Salvador",
+    "missionLead": "El Salvador is in the middle of a modern renaissance, and Build In El Salvador exists to tell that story.",
+    "missionBody": "We spotlight the entrepreneurs, investors, and visionaries turning this small Central American nation into a hub of innovation, freedom, and opportunity. Through interviews, articles, and events, we connect the dots between Bitcoin, business, and the bold individuals reshaping what's possible here.",
     "getInTouch": "Get in Touch",
     "namePlaceholder": "Name *",
     "emailPlaceholder": "Email *",
@@ -545,24 +542,7 @@
     "other": "Other",
     "fillFields": "Please fill in all required fields.",
     "validEmail": "Please enter a valid email address.",
-    "somethingWrong": "Something went wrong. Please try again.",
-    "teamMembers": {
-      "elena": {
-        "name": "Elena Castillo",
-        "role": "Executive Director",
-        "bio": "Former FinTech regulator turned Bitcoin advocate. Leading the strategic vision of BIES."
-      },
-      "marcus": {
-        "name": "Marcus Green",
-        "role": "Head of Investment",
-        "bio": "20 years in VC. Focused on bridging Silicon Valley capital with Salvadoran opportunity."
-      },
-      "roberto": {
-        "name": "Roberto Diaz",
-        "role": "Chief Technology Officer",
-        "bio": "Building the digital rails for the new economy. Open source contributor."
-      }
-    }
+    "somethingWrong": "Something went wrong. Please try again."
   },
   "profile": {
     "editProfile": "Edit Profile",
