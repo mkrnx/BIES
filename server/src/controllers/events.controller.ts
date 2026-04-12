@@ -8,6 +8,31 @@ import { z } from 'zod';
 import { cache, cacheKey, TTL } from '../services/redis.service';
 import { publishAnnouncement, publishCalendarEvent, deleteCalendarEvent, publishRSVPEvent, validateCalendarEventData } from '../services/nostr.service';
 import { notifyEventRsvp, createNotification } from '../services/notification.service';
+import { config } from '../config';
+
+// ─── OG helpers ──────────────────────────────────────────────────────────────
+
+function escapeHtml(str: string): string {
+    return str
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#x27;');
+}
+
+function stripHtml(str: string): string {
+    return str.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/** First origin from CORS_ORIGIN (may be comma-separated in dev). */
+function getCanonicalBaseUrl(): string {
+    const origin = config.corsOrigin.split(',')[0].trim().replace(/\/$/, '');
+    return origin || 'https://bies.app';
+}
+
+/** Only allow alphanumeric + underscore + hyphen in IDs (CUID-safe). */
+const SAFE_ID_RE = /^[a-zA-Z0-9_-]+$/;
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -306,6 +331,112 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
         console.error('Get event error:', error);
         res.status(500).json({ error: 'Failed to get event' });
     }
+}
+
+/**
+ * GET /events/:id/og
+ * Return an HTML page with Open Graph meta tags for social media link previews.
+ * No auth required — crawlers (WhatsApp, Facebook, etc.) cannot send tokens.
+ */
+export async function getEventOG(req: Request, res: Response): Promise<void> {
+    const rawId = req.params.id;
+
+    // Reject IDs that contain characters unsafe for HTML interpolation
+    if (!rawId || !SAFE_ID_RE.test(rawId)) {
+        res.status(400).json({ error: 'Invalid event ID' });
+        return;
+    }
+
+    const id = rawId;
+    const baseUrl = getCanonicalBaseUrl();
+    const eventUrl = `${baseUrl}/events/${id}`;
+
+    // Default/fallback OG values
+    let ogTitle = 'BIES | Build in El Salvador';
+    let ogDescription = 'Bitcoin-native investment ecosystem connecting builders and investors in El Salvador';
+    let ogImage = `${baseUrl}/icons/icon-512.png`;
+
+    try {
+        const event = await prisma.event.findUnique({
+            where: { id },
+            select: {
+                title: true,
+                description: true,
+                startDate: true,
+                endDate: true,
+                thumbnail: true,
+                location: true,
+                locationName: true,
+                visibility: true,
+                isPublished: true,
+                host: {
+                    select: { profile: { select: { name: true } } },
+                },
+            },
+        });
+
+        // Only populate OG tags for public/visible events
+        if (event && event.visibility !== 'DRAFT' && event.visibility !== 'PRIVATE') {
+            ogTitle = escapeHtml(event.title.slice(0, 70));
+
+            // Build description: date · location · host
+            const parts: string[] = [];
+            if (event.startDate) {
+                parts.push(event.startDate.toLocaleDateString('en-US', {
+                    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+                }));
+            }
+            if (event.locationName || event.location) {
+                parts.push(escapeHtml((event.locationName || event.location || '').slice(0, 60)));
+            }
+            if (event.host?.profile?.name) {
+                parts.push(`Hosted by ${escapeHtml(event.host.profile.name)}`);
+            }
+            if (parts.length > 0) {
+                ogDescription = parts.join(' \u00b7 ');
+            } else if (event.description) {
+                ogDescription = escapeHtml(stripHtml(event.description).slice(0, 200));
+            }
+
+            if (event.thumbnail) {
+                const thumbUrl = event.thumbnail.startsWith('http')
+                    ? event.thumbnail
+                    : `${baseUrl}${event.thumbnail}`;
+                ogImage = escapeHtml(thumbUrl);
+            }
+        }
+    } catch (error) {
+        console.error('OG meta fetch error:', error);
+        // Fall through with default values
+    }
+
+    // Cache for 10 minutes — OG data changes infrequently and crawlers re-fetch
+    res.set('Cache-Control', 'public, max-age=600');
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta property="og:title" content="${ogTitle}" />
+  <meta property="og:description" content="${ogDescription}" />
+  <meta property="og:image" content="${ogImage}" />
+  <meta property="og:url" content="${eventUrl}" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="BIES" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${ogTitle}" />
+  <meta name="twitter:description" content="${ogDescription}" />
+  <meta name="twitter:image" content="${ogImage}" />
+  <meta http-equiv="refresh" content="0;url=/events/${id}" />
+  <title>${ogTitle}</title>
+</head>
+<body>
+  <p>Redirecting to <a href="/events/${id}">${ogTitle}</a>&hellip;</p>
+  <script>window.location.replace("/events/${id}");</script>
+</body>
+</html>`;
+
+    res.type('html').send(html);
 }
 
 /**
