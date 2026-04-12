@@ -106,20 +106,29 @@ export async function createZapRequest({ recipientPubkey, amountMsats, relays, e
 }
 
 /**
+ * Check if a string is a valid Bolt12 offer (starts with lno1).
+ * @param {string} offer
+ * @returns {boolean}
+ */
+export function isBolt12Offer(offer) {
+    return typeof offer === 'string' && /^lno1[a-z0-9]+$/i.test(offer);
+}
+
+/**
  * Execute a full zap flow for one or more recipients.
- * Splits the amount equally among recipients with valid lud16.
+ * Splits the amount equally among recipients with valid lud16 or bolt12Offer.
  *
  * @param {Object} params
- * @param {Array<{pubkey: string, lud16: string, name: string}>} params.recipients - Recipients with resolved lud16
+ * @param {Array<{pubkey: string, lud16: string, bolt12Offer?: string, name: string}>} params.recipients - Recipients with resolved lud16 or bolt12Offer
  * @param {number} params.totalSats - Total amount in satoshis
  * @param {string[]} params.relays - Relay URLs for zap receipts
  * @param {string} [params.eventId] - Nostr event ID being zapped
  * @param {string} [params.content] - Zap comment
  * @param {function} [params.onProgress] - Callback for progress updates: (step, total, recipient)
- * @returns {Promise<{results: Array<{recipient: string, success: boolean, bolt11?: string, preimage?: string, error?: string}>, allPaidViaWebLN: boolean}>}
+ * @returns {Promise<{results: Array<{recipient: string, success: boolean, bolt11?: string, bolt12?: string, preimage?: string, error?: string}>, allPaidViaWebLN: boolean}>}
  */
 export async function executeZapFlow({ recipients, totalSats, relays, eventId, content, onProgress }) {
-    const validRecipients = recipients.filter(r => r.lud16);
+    const validRecipients = recipients.filter(r => r.lud16 || r.bolt12Offer);
     if (validRecipients.length === 0) {
         return { results: [], allPaidViaWebLN: false };
     }

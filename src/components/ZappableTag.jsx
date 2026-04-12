@@ -47,6 +47,7 @@ const ZappableTag = ({ tag, mode = 'tag', projectId, recipients: preResolved, cl
                         name: project.owner?.profile?.name || project.owner?.email || 'Owner',
                         avatar: project.owner?.profile?.avatar || '',
                         lud16: project.owner?.profile?.lightningAddress,
+                        bolt12Offer: project.owner?.profile?.bolt12Offer,
                     });
                 }
 
@@ -58,6 +59,7 @@ const ZappableTag = ({ tag, mode = 'tag', projectId, recipients: preResolved, cl
                             name: tm.user?.profile?.name || 'Team Member',
                             avatar: tm.user?.profile?.avatar || '',
                             lud16: tm.user?.profile?.lightningAddress,
+                            bolt12Offer: tm.user?.profile?.bolt12Offer,
                         });
                     }
                 }
@@ -89,6 +91,7 @@ const ZappableTag = ({ tag, mode = 'tag', projectId, recipients: preResolved, cl
                         name: p.name || p.biesDisplayName || 'Builder',
                         avatar: p.avatar || '',
                         lud16: p.lightningAddress || '',
+                        bolt12Offer: p.bolt12Offer || '',
                     }));
 
                 if (members.length === 0) {

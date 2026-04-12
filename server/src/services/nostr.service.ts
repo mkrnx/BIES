@@ -74,6 +74,7 @@ export async function publishProfileUpdate(
         website?: string;
         nip05?: string;
         lud16?: string;
+        bolt12?: string;
     }
 ): Promise<string | null> {
     const content: Record<string, string> = {
@@ -85,6 +86,7 @@ export async function publishProfileUpdate(
     if (profile.banner) content.banner = profile.banner;
     if (profile.nip05) content.nip05 = profile.nip05;
     if (profile.lud16) content.lud16 = profile.lud16;
+    if (profile.bolt12) content.bolt12 = profile.bolt12;
 
     const event: EventTemplate = {
         kind: 0,

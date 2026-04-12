@@ -54,6 +54,7 @@ export const updateProfileSchema = z.object({
     // NIP-05 & Lightning
     nip05Name: z.string().min(3).max(30).regex(/^[a-z0-9._-]+$/, 'Only lowercase letters, numbers, dots, hyphens, underscores').optional(),
     lightningAddress: z.string().optional(),
+    bolt12Offer: z.string().regex(/^lno1[a-z0-9]+$/, 'Must be a valid Bolt12 offer (starts with lno1)').optional().or(z.literal('')),
     // Investor-specific
     investmentFocus: z.array(z.string()).optional(),
     investmentStage: z.array(z.string()).optional(),
@@ -277,6 +278,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             'investmentFocus', 'investmentStage', 'minTicket', 'maxTicket',
             'lookingFor', 'isPublic', 'nostrNpub', 'experience', 'biesProjects',
             'customSections', 'showExperience', 'nostrFeedMode', 'nip05Name', 'lightningAddress',
+            'bolt12Offer',
         ];
         const data: any = {};
         for (const field of allowedFields) {
@@ -299,8 +301,8 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
             }
         }
 
-        // Fetch old profile to detect lightning address changes
-        const oldProfile = await prisma.profile.findUnique({ where: { userId: req.user!.id }, select: { lightningAddress: true } });
+        // Fetch old profile to detect lightning address / bolt12 offer changes
+        const oldProfile = await prisma.profile.findUnique({ where: { userId: req.user!.id }, select: { lightningAddress: true, bolt12Offer: true } });
 
         // Convert arrays/objects to JSON strings for SQLite
         const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
@@ -328,7 +330,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
         }
 
         // Sync to Nostr Kind 0 if identity-related fields changed
-        if (req.body.nip05Name !== undefined || req.body.lightningAddress !== undefined || req.body.name !== undefined) {
+        if (req.body.nip05Name !== undefined || req.body.lightningAddress !== undefined || req.body.bolt12Offer !== undefined || req.body.name !== undefined) {
             const nip05 = profile.nip05Name ? `${profile.nip05Name}@buildinelsalvador.com` : '';
             publishProfileUpdate(req.user!.id, {
                 name: profile.name || '',
@@ -338,6 +340,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
                 website: profile.website || '',
                 nip05,
                 lud16: profile.lightningAddress || '',
+                bolt12: profile.bolt12Offer || '',
             }).catch((err) => console.error('[Nostr] Profile sync failed:', err));
         }
 
@@ -345,6 +348,13 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
         if (req.body.lightningAddress && req.body.lightningAddress !== oldProfile?.lightningAddress) {
             publishAnnouncement(req.user!.id, `${profile.name || 'A BIES member'} just added a Lightning address! They're ready to receive sats.`, [['t', 'lightning']]).catch((err) =>
                 console.error('[Nostr] Lightning announcement failed:', err)
+            );
+        }
+
+        // Announce Bolt12 offer addition on the BIES feed
+        if (req.body.bolt12Offer && req.body.bolt12Offer !== oldProfile?.bolt12Offer) {
+            publishAnnouncement(req.user!.id, `${profile.name || 'A BIES member'} just added a Bolt12 offer! They're ready to receive private zaps.`, [['t', 'bolt12'], ['t', 'lightning']]).catch((err) =>
+                console.error('[Nostr] Bolt12 announcement failed:', err)
             );
         }
 

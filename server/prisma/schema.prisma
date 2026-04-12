@@ -106,6 +106,7 @@ model Profile {
   // NIP-05 & Lightning
   nip05Name        String?  @unique @map("nip05_name")
   lightningAddress String   @default("") @map("lightning_address")
+  bolt12Offer      String   @default("") @map("bolt12_offer")
   // Coinos custodial wallet
   coinosUsername   String?  @unique @map("coinos_username")
   coinosToken      String?  @map("coinos_token") // Encrypted JWT for Coinos API
@@ -582,6 +583,7 @@ model ZapReceipt {
   zappedEventId   String?  @map("zapped_event_id")
   projectId       String?  @map("project_id")
   bolt11          String   @default("")
+  bolt12          String   @default("")
   createdAt       DateTime @default(now()) @map("created_at")
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)

@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
-import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
+import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest, isBolt12Offer } from '../services/lightningService';
 import { profilesApi } from '../services/api';
 import { useWallet } from '../hooks/useWallet';
 
@@ -53,8 +53,8 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
     const amount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
 
-    // Resolve lud16 for all recipients on mount.
-    // Priority: 1) lud16 passed from parent, 2) Nostr profile, 3) BIES API profile
+    // Resolve lud16 and bolt12Offer for all recipients on mount.
+    // Priority: 1) lud16/bolt12Offer passed from parent, 2) Nostr profile, 3) BIES API profile
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -62,26 +62,33 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
             for (const r of recipients) {
                 if (!r.pubkey) continue;
 
-                // 1. Use lud16 already provided by parent (from cached Nostr profile)
-                if (r.lud16) {
-                    resolved.push({ ...r, lud16: r.lud16 });
+                let lud16 = r.lud16 || '';
+                let bolt12Offer = r.bolt12Offer || '';
+
+                // If we already have a payment method from parent, use it
+                if (lud16 || bolt12Offer) {
+                    resolved.push({ ...r, lud16, bolt12Offer });
                     continue;
                 }
 
                 // 2. Fetch from Nostr relays
                 try {
                     const profile = await nostrService.getProfile(r.pubkey);
-                    if (profile?.lud16) {
-                        resolved.push({ ...r, lud16: profile.lud16 });
+                    if (profile?.lud16) lud16 = profile.lud16;
+                    if (profile?.bolt12) bolt12Offer = profile.bolt12;
+                    if (lud16 || bolt12Offer) {
+                        resolved.push({ ...r, lud16, bolt12Offer });
                         continue;
                     }
                 } catch { /* skip */ }
 
-                // 3. Fallback: check BIES API profile (lightningAddress)
+                // 3. Fallback: check BIES API profile
                 try {
                     const biesProfile = await profilesApi.get(r.pubkey);
-                    if (biesProfile?.lightningAddress) {
-                        resolved.push({ ...r, lud16: biesProfile.lightningAddress });
+                    if (biesProfile?.lightningAddress) lud16 = biesProfile.lightningAddress;
+                    if (biesProfile?.bolt12Offer) bolt12Offer = biesProfile.bolt12Offer;
+                    if (lud16 || bolt12Offer) {
+                        resolved.push({ ...r, lud16, bolt12Offer });
                         continue;
                     }
                 } catch { /* skip */ }
@@ -90,7 +97,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
             setResolvedRecipients(resolved);
             setPhase(resolved.length > 0 ? 'ready' : 'error');
             if (resolved.length === 0) {
-                setErrorMsg('No recipients have a Lightning address set.');
+                setErrorMsg('No recipients have a Lightning address or Bolt12 offer set.');
             }
         })();
         return () => { cancelled = true; };
@@ -113,14 +120,61 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
             const recipient = resolvedRecipients[i];
             setProgress({ step: i + 1, total: resolvedRecipients.length, name: recipient.name });
 
+            const msats = perRecipientAmount * 1000;
+
+            // ── Bolt12 offer path (no LNURL needed) ──────────────────────
+            if (recipient.bolt12Offer && !recipient.lud16) {
+                // Bolt12 offers can only be paid via NWC or shown as QR
+                if (nwcConnected) {
+                    try {
+                        await nwcPayInvoice(recipient.bolt12Offer);
+                        results.push({ name: recipient.name, success: true });
+                        continue;
+                    } catch (nwcErr) {
+                        console.warn('[ZapModal] NWC Bolt12 payment failed:', nwcErr.message);
+                        results.push({ name: recipient.name, success: false, error: nwcErr.message });
+                        continue;
+                    }
+                }
+                // No wallet connected — show Bolt12 offer as QR for manual payment
+                if (!hasPendingQR) {
+                    hasPendingQR = true;
+                    setBolt11(recipient.bolt12Offer);
+                    results.push({ name: recipient.name, success: false, bolt12: recipient.bolt12Offer, pending: true });
+                } else {
+                    results.push({ name: recipient.name, success: false, bolt12: recipient.bolt12Offer, error: 'Pay manually' });
+                }
+                continue;
+            }
+
+            // ── LNURL/lud16 path (existing flow, prefers Bolt12 via NWC if available) ──
             // 1. Resolve LNURL
             const lnurlData = await resolveLud16(recipient.lud16);
             if (!lnurlData) {
+                // If LNURL fails but we have a bolt12 offer, fall back to that
+                if (recipient.bolt12Offer) {
+                    if (nwcConnected) {
+                        try {
+                            await nwcPayInvoice(recipient.bolt12Offer);
+                            results.push({ name: recipient.name, success: true });
+                            continue;
+                        } catch (nwcErr) {
+                            console.warn('[ZapModal] NWC Bolt12 fallback failed:', nwcErr.message);
+                        }
+                    }
+                    if (!hasPendingQR) {
+                        hasPendingQR = true;
+                        setBolt11(recipient.bolt12Offer);
+                        results.push({ name: recipient.name, success: false, bolt12: recipient.bolt12Offer, pending: true });
+                    } else {
+                        results.push({ name: recipient.name, success: false, bolt12: recipient.bolt12Offer, error: 'Pay manually' });
+                    }
+                    continue;
+                }
                 results.push({ name: recipient.name, success: false, error: 'Could not resolve Lightning address' });
                 continue;
             }
 
-            const msats = perRecipientAmount * 1000;
             if (msats < lnurlData.minSendable || msats > lnurlData.maxSendable) {
                 const min = Math.ceil(lnurlData.minSendable / 1000);
                 const max = Math.floor(lnurlData.maxSendable / 1000);
@@ -195,7 +249,10 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const invoiceUri = bolt11 ? `lightning:${bolt11}` : '';
+    const isBolt12QR = bolt11 && bolt11.startsWith('lno1');
+    const invoiceUri = bolt11
+        ? isBolt12QR ? `bitcoin:?lno=${bolt11}` : `lightning:${bolt11}`
+        : '';
 
     return createPortal(
         <div className="zap-overlay" data-testid="zap-modal" onClick={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) onClose(); }} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} onTouchEnd={(e) => e.stopPropagation()} onTouchMove={(e) => { e.stopPropagation(); if (e.target === e.currentTarget) e.preventDefault(); }}>
@@ -329,7 +386,11 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
 
                     {phase === 'qr' && (
                         <div className="zap-qr-section" data-testid="zap-qr">
-                            <p className="zap-status-text">Scan or copy the invoice to pay</p>
+                            <p className="zap-status-text">
+                                {isBolt12QR
+                                    ? 'Scan this Bolt12 offer with a compatible wallet (Phoenix, Zeus, etc.)'
+                                    : 'Scan or copy the invoice to pay'}
+                            </p>
                             <div className="zap-qr-wrapper">
                                 <QRCodeSVG
                                     value={invoiceUri}
@@ -345,10 +406,10 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                             </div>
                             <button className="zap-copy-btn" data-testid="zap-copy-invoice" onClick={copyInvoice}>
                                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                                {copied ? 'Copied!' : 'Copy Invoice'}
+                                {copied ? 'Copied!' : isBolt12QR ? 'Copy Offer' : 'Copy Invoice'}
                             </button>
                             <a
-                                href={`lightning:${bolt11}`}
+                                href={isBolt12QR ? `bitcoin:?lno=${bolt11}` : `lightning:${bolt11}`}
                                 className="zap-open-wallet"
                             >
                                 Open in Wallet <ChevronRight size={14} />
