@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 
-const TagInput = ({ tags, onChange }) => {
+const TagInput = ({ tags, onChange, placeholder = 'Bitcoin, Lightning, Workshop…' }) => {
     const [input, setInput] = useState('');
     const inputRef = useRef(null);
 
@@ -41,7 +41,7 @@ const TagInput = ({ tags, onChange }) => {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 onBlur={handleBlur}
-                placeholder={tags.length ? '' : 'Bitcoin, Lightning, Workshop…'}
+                placeholder={tags.length ? '' : placeholder}
                 className="tag-chip-input"
             />
             <style>{`
