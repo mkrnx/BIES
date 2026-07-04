@@ -26,6 +26,8 @@ export type NotificationType =
     | 'POST_LIKE'
     | 'COMMENT_LIKE'
     | 'COMMENT_REPLY'
+    | 'LEVEL_UP'
+    | 'BADGE_EARNED'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -355,6 +357,26 @@ export async function notifyFeedInteraction(params: {
     });
 }
 
+export async function notifyLevelUp(userId: string, level: number): Promise<void> {
+    await createNotification({
+        userId,
+        type: 'LEVEL_UP',
+        title: `Level up! You reached level ${level}`,
+        body: 'Keep contributing to the community to climb the leaderboard.',
+        data: { level },
+    });
+}
+
+export async function notifyBadgeEarned(userId: string, badgeId: string): Promise<void> {
+    await createNotification({
+        userId,
+        type: 'BADGE_EARNED',
+        title: 'You earned a new badge!',
+        body: 'Check your profile to see your new badge.',
+        data: { badgeId },
+    });
+}
+
 // ─── URL helper for push notification click-through ──────────────────────────
 
 function getNotificationUrl(type: string, data: Record<string, unknown>): string {
@@ -384,6 +406,9 @@ function getNotificationUrl(type: string, data: Record<string, unknown>): string
         case 'COMMENT_LIKE':
         case 'COMMENT_REPLY':
             return '/feed';
+        case 'LEVEL_UP':
+        case 'BADGE_EARNED':
+            return '/leaderboard';
         default:
             return '/notifications';
     }
