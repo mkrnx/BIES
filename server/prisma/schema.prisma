@@ -50,6 +50,9 @@ model User {
   settings         UserSettings?
   fingerprints     BrowserFingerprint[]
   feedback         Feedback[]
+  directoryListings     DirectoryListing[]     @relation("DirectoryListingsOwned")
+  directoryMemberships  DirectoryListing[]     @relation("DirectoryListingsAsMember")
+  directoryEndorsements DirectoryEndorsement[]
 
   @@map("users")
 }
@@ -629,4 +632,63 @@ model InvestorRequest {
 
   @@index([userId])
   @@map("investor_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Directories (Farm & Certified Provider listings)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DirectoryListing {
+  id        String @id @default(cuid())
+  type      String // FARM | PROVIDER
+  name      String
+  about     String @default("")
+  photo     String @default("")            // hero + card thumbnail
+  logo      String @default("")            // circular overlay logo
+  photos    String @default("[]")
+  location  String @default("")
+  phone     String @default("")
+  whatsapp  String @default("")
+  email     String @default("")
+  website   String @default("")
+  instagram String @default("")
+  languages String @default("[]")
+  btcAccepted Boolean @default(false) @map("btc_accepted")
+  products  String @default("[]")          // FARM: [{label, icon}] chips
+  practices String @default("[]")          // FARM: regenerative|rotational-grazing|no-gmo-feed|animal-welfare
+  skills    String @default("[]")          // PROVIDER
+  bestFor   String @default("") @map("best_for")
+  pricing   String @default("")            // free text (decision)
+  comment   String @default("")
+  baseScore       Int      @default(40) @map("base_score")        // admin-set 0–60
+  reputationScore Int      @default(0)  @map("reputation_score")  // computed 0–100
+  isCertified     Boolean  @default(false) @map("is_certified")
+  certifiedAt     DateTime? @map("certified_at")
+  certificationEventId String? @map("certification_event_id")     // Phase 2
+  status      String  @default("pending-review") // draft|pending-review|active|rejected
+  isPublished Boolean @default(true) @map("is_published")
+  isFeatured  Boolean @default(false) @map("is_featured")
+  viewCount   Int     @default(0) @map("view_count")
+  nostrListingEventId String? @map("nostr_listing_event_id")
+  ownerId      String  @map("owner_id")
+  memberUserId String? @map("member_user_id")  // optional link to the pro/farm's BIES account
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  owner        User @relation("DirectoryListingsOwned", fields: [ownerId], references: [id], onDelete: Cascade)
+  memberUser   User? @relation("DirectoryListingsAsMember", fields: [memberUserId], references: [id], onDelete: SetNull)
+  endorsements DirectoryEndorsement[]
+  @@index([type, status])
+  @@map("directory_listings")
+}
+
+model DirectoryEndorsement {
+  id        String   @id @default(cuid())
+  listingId String   @map("listing_id")
+  userId    String   @map("user_id")
+  comment   String   @default("")
+  createdAt DateTime @default(now()) @map("created_at")
+  listing DirectoryListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([listingId, userId])
+  @@map("directory_endorsements")
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X, User, LayoutGrid, List as ListIcon, Columns } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X, User, LayoutGrid, List as ListIcon, Columns, Leaf, ShieldCheck, ChevronRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectsApi, watchlistApi, profilesApi } from '../services/api';
@@ -696,6 +696,25 @@ const Discover = () => {
         </div>
       </div>
 
+      {/* Directories entry cards */}
+      <div className="directories-section">
+        {/* styled-jsx only scopes DOM elements, so the visual card lives on a div inside the Link */}
+        <Link to="/discover/farms" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+          <div className="directory-entry-card">
+            <div className="directory-entry-icon"><Leaf size={20} /></div>
+            <span className="directory-entry-label">{t('directory.farmTitle')}</span>
+            <ChevronRight size={18} className="directory-entry-chevron" />
+          </div>
+        </Link>
+        <Link to="/discover/certified" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+          <div className="directory-entry-card">
+            <div className="directory-entry-icon"><ShieldCheck size={20} /></div>
+            <span className="directory-entry-label">{t('directory.certifiedTitle')}</span>
+            <ChevronRight size={18} className="directory-entry-chevron" />
+          </div>
+        </Link>
+      </div>
+
       <div className="content-layout">
         {/* Filters Sidebar */}
         <div className={`filters-column ${mobileFiltersOpen ? 'mobile-open' : ''}`}>
@@ -1128,6 +1147,60 @@ const Discover = () => {
         .search-btn-desktop {
           white-space: nowrap;
           flex-shrink: 0;
+        }
+
+        /* Directories entry cards */
+        .directories-section {
+          display: flex;
+          gap: 1rem;
+          margin-bottom: 2rem;
+        }
+        .directory-entry-card {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          padding: 0.85rem 1rem;
+          background: var(--color-surface);
+          border: 1px solid var(--color-gray-200);
+          border-radius: var(--radius-lg);
+          box-shadow: var(--shadow-sm);
+          text-decoration: none;
+          color: inherit;
+          transition: box-shadow 0.2s, border-color 0.2s;
+        }
+        .directory-entry-card:hover {
+          border-color: var(--color-primary);
+          box-shadow: var(--shadow-md);
+        }
+        .directory-entry-icon {
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          background: var(--color-blue-tint);
+          color: var(--color-primary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+        }
+        .directory-entry-label {
+          flex: 1;
+          min-width: 0;
+          font-size: 0.95rem;
+          font-weight: 600;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .directory-entry-chevron {
+          color: var(--color-gray-400);
+          flex-shrink: 0;
+        }
+        @media (max-width: 480px) {
+          .directories-section {
+            flex-direction: column;
+            gap: 0.75rem;
+          }
         }
 
         /* Layout */

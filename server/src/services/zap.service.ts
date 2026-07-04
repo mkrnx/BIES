@@ -10,6 +10,7 @@ import type { Event } from 'nostr-tools/pure';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { notifyZapReceived } from './notification.service';
+import { recomputeListingScore } from './directoryReputation.service';
 
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
@@ -206,6 +207,22 @@ async function processZapReceipt(event: Event): Promise<void> {
             data: { raisedAmount: { increment: amountSats } },
         });
     }
+
+    // Fire-and-forget: refresh directory reputation for listings linked to
+    // this recipient. Must never break zap indexing.
+    prisma.directoryListing
+        .findMany({
+            where: { memberUser: { nostrPubkey: recipientPubkey } },
+            select: { id: true },
+        })
+        .then(async (listings) => {
+            for (const { id } of listings) {
+                await recomputeListingScore(id);
+            }
+        })
+        .catch((err) => {
+            console.error('[Zap Indexer] Directory score recompute failed:', err);
+        });
 
     // Notify the recipient if they are a BIES user
     const recipientUser = await prisma.user.findUnique({
