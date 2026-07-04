@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { adminFeedbackRouter } from './feedback.routes';
 import {
     listUsers,
@@ -24,6 +25,15 @@ import {
     listInvestorRequests,
     reviewInvestorRequest,
     setUserAdmin,
+    listAdminDirectory,
+    reviewDirectoryListing,
+    reviewDirectoryListingSchema,
+    featureDirectoryListing,
+    featureDirectoryListingSchema,
+    setDirectoryScore,
+    setDirectoryScoreSchema,
+    recomputeDirectoryScores,
+    deleteDirectoryListing,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -56,6 +66,14 @@ router.delete('/projects/:id', hardDeleteProject);
 // Events
 router.get('/events', listAdminEvents);
 router.put('/events/:id/feature', featureEvent);
+
+// Directory
+router.get('/directory', listAdminDirectory);
+router.put('/directory/:id/review', validate(reviewDirectoryListingSchema), reviewDirectoryListing);
+router.put('/directory/:id/feature', validate(featureDirectoryListingSchema), featureDirectoryListing);
+router.put('/directory/:id/score', validate(setDirectoryScoreSchema), setDirectoryScore);
+router.post('/directory/recompute', recomputeDirectoryScores);
+router.delete('/directory/:id', deleteDirectoryListing);
 
 // Audit & System
 router.get('/audit-logs', getAuditLogs);
