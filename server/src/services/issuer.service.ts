@@ -82,8 +82,12 @@ export async function getIssuerKeys(): Promise<IssuerKeys | null> {
         issuerKeys = { privkey, pubkey: getPublicKey(privkey) };
         console.log(`[Issuer] Issuer identity loaded (${issuerKeys.pubkey.substring(0, 8)}...)`);
         return issuerKeys;
-    } catch (error) {
-        console.warn('[Issuer] Failed to load BIES_ISSUER_PRIVKEY — Nostr badge publishing disabled:', error);
+    } catch {
+        // Deliberately not logging the error: bech32/nip19 decode errors can
+        // embed the raw input, which may be a mistyped real private key.
+        console.warn(
+            '[Issuer] Failed to parse BIES_ISSUER_PRIVKEY (malformed hex/nsec) — Nostr badge publishing disabled'
+        );
         return null;
     }
 }
