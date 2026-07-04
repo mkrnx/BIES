@@ -68,6 +68,7 @@
     "profile": "Perfil",
     "messages": "Mensajes",
     "settings": "Configuracion",
+    "cowork": "Cowork",
     "adminPanel": "Panel de Admin",
     "switchView": "Cambiar Vista",
     "builderView": "Vista Constructor",
@@ -88,6 +89,7 @@
     "dashboard": "Panel",
     "messages": "Mensajes",
     "settings": "Configuracion",
+    "cowork": "Coworking",
     "adminPanel": "Panel de Admin",
     "farmDirectory": "Directorio de Fincas Regenerativas",
     "certifiedDirectory": "Directorio Certificado"
@@ -1374,7 +1376,75 @@
     "discover": "Descubrir",
     "events": "Eventos",
     "news": "Noticias",
-    "dashboard": "Panel"
+    "dashboard": "Panel",
+    "cowork": "Cowork"
+  },
+  "cowork": {
+    "title": "Quién está trabajando",
+    "activeCount": "{{count}} registrados",
+    "mapTitle": "Mapa de coworking",
+    "expandMap": "Ampliar mapa",
+    "checkIn": "Registrarme",
+    "checkOut": "Salir",
+    "confirmCheckout": "¿Terminar tu registro?",
+    "yourCheckIn": "Estás registrado en {{venue}}",
+    "emptyTitle": "Nadie está trabajando ahora",
+    "emptyBody": "Sé el primero: regístrate y avisa a la red dónde encontrarte.",
+    "pickOnMapHint": "Toca el mapa para colocar tu pin",
+    "form": {
+      "title": "Registrarme",
+      "venueTab": "Lista de lugares",
+      "pinTab": "Colocar pin",
+      "gpsTab": "Mi ubicación",
+      "venuePlaceholder": "Elige un lugar...",
+      "placeName": "¿Dónde estás?",
+      "useGps": "Usar mi ubicación actual",
+      "gpsError": "No pudimos obtener tu ubicación; intenta colocar un pin.",
+      "noteLabel": "Saluda / describe el lugar",
+      "notePlaceholder": "¡Acompáñame! Buen café, muchos enchufes...",
+      "spaces": "Asientos libres",
+      "menu": "Menú",
+      "wifi": "Internet",
+      "coffee": "Café",
+      "food": "Comida",
+      "duration": "Estaré aquí",
+      "hours": "{{count}}h",
+      "submit": "Publicar registro",
+      "publishing": "Publicando...",
+      "errorPublish": "No se pudo publicar tu registro. Inténtalo de nuevo.",
+      "locationRequired": "Elige una ubicación y nombra el lugar."
+    },
+    "chips": {
+      "wifi_fast": "Wifi rápido",
+      "wifi_ok": "Wifi normal",
+      "wifi_slow": "Wifi lento",
+      "menu_good": "Buen menú",
+      "menu_ok": "Menú normal",
+      "menu_basic": "Menú básico",
+      "coffee": "Café",
+      "food": "Comida",
+      "seats": "{{count}} asientos libres"
+    },
+    "card": {
+      "checkedIn": "Registrado",
+      "you": "Tú"
+    }
+  },
+  "customNav": {
+    "sectionTitle": "Navegación",
+    "settingLabel": "Barra de navegación inferior",
+    "settingDesc": "Elige qué pestañas aparecen en la barra inferior del móvil",
+    "customize": "Personalizar",
+    "title": "Personalizar navegación",
+    "subtitle": "Arrastra los iconos al dock para crear tu barra inferior",
+    "desktopNote": "La barra inferior solo aparece en dispositivos móviles; tus cambios se verán en tu teléfono",
+    "reset": "Restablecer",
+    "done": "Listo",
+    "pages": {
+      "notifications": "Alertas",
+      "cowork": "Cowork",
+      "feedback": "Comentarios"
+    }
   },
   "translation": {
     "translate": "Traducir",

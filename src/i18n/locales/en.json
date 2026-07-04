@@ -68,6 +68,7 @@
     "profile": "Profile",
     "messages": "Messages",
     "settings": "Settings",
+    "cowork": "Cowork",
     "adminPanel": "Admin Panel",
     "switchView": "Switch View",
     "builderView": "Builder View",
@@ -88,6 +89,7 @@
     "dashboard": "Dashboard",
     "messages": "Messages",
     "settings": "Settings",
+    "cowork": "Coworking",
     "adminPanel": "Admin Panel",
     "farmDirectory": "Regenerative Farm Directory",
     "certifiedDirectory": "Certified Directory"
@@ -1373,7 +1375,75 @@
     "discover": "Discover",
     "events": "Events",
     "news": "News",
-    "dashboard": "Dashboard"
+    "dashboard": "Dashboard",
+    "cowork": "Cowork"
+  },
+  "cowork": {
+    "title": "Who's coworking",
+    "activeCount": "{{count}} checked in",
+    "mapTitle": "Coworking map",
+    "expandMap": "Expand map",
+    "checkIn": "Check in",
+    "checkOut": "Check out",
+    "confirmCheckout": "End your check-in?",
+    "yourCheckIn": "You're checked in at {{venue}}",
+    "emptyTitle": "No one is coworking right now",
+    "emptyBody": "Be the first - check in and let the network know where to find you.",
+    "pickOnMapHint": "Tap the map to place your pin",
+    "form": {
+      "title": "Check in",
+      "venueTab": "Venue list",
+      "pinTab": "Drop a pin",
+      "gpsTab": "My location",
+      "venuePlaceholder": "Choose a spot...",
+      "placeName": "Where are you?",
+      "useGps": "Use my current location",
+      "gpsError": "Couldn't get your location - try dropping a pin instead.",
+      "noteLabel": "Say hi / describe the spot",
+      "notePlaceholder": "Come join me! Great coffee, plenty of outlets...",
+      "spaces": "Free seats",
+      "menu": "Menu",
+      "wifi": "Internet",
+      "coffee": "Coffee",
+      "food": "Food",
+      "duration": "I'll be here for",
+      "hours": "{{count}}h",
+      "submit": "Broadcast check-in",
+      "publishing": "Publishing...",
+      "errorPublish": "Couldn't publish your check-in. Please try again.",
+      "locationRequired": "Pick a location and name the place."
+    },
+    "chips": {
+      "wifi_fast": "Fast wifi",
+      "wifi_ok": "OK wifi",
+      "wifi_slow": "Slow wifi",
+      "menu_good": "Great menu",
+      "menu_ok": "OK menu",
+      "menu_basic": "Basic menu",
+      "coffee": "Coffee",
+      "food": "Food",
+      "seats": "{{count}} seats free"
+    },
+    "card": {
+      "checkedIn": "Checked in",
+      "you": "You"
+    }
+  },
+  "customNav": {
+    "sectionTitle": "Navigation",
+    "settingLabel": "Bottom Navigation Bar",
+    "settingDesc": "Choose which tabs appear in the mobile bottom bar",
+    "customize": "Customize",
+    "title": "Customize Navigation",
+    "subtitle": "Drag icons into the dock to build your bottom bar",
+    "desktopNote": "The bottom bar only appears on mobile devices - your changes will show on your phone",
+    "reset": "Reset to Default",
+    "done": "Done",
+    "pages": {
+      "notifications": "Alerts",
+      "cowork": "Cowork",
+      "feedback": "Feedback"
+    }
   },
   "translation": {
     "translate": "Translate",

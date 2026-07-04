@@ -32,16 +32,34 @@
     </div>
   </div>
   <script>
-    // Capture fatal JS errors that prevent React from mounting
-    window.addEventListener('error', function (e) {
+    // Capture fatal JS errors that prevent React from mounting.
+    // window.onerror masks cross-origin module errors to a bare "Script error."
+    // with no file/line — but the real Error object (e.error) usually still
+    // carries the true name/message/stack, so surface that when available.
+    function __biesShowBootError(label, detail) {
       var s = document.getElementById('splash');
-      if (s && !s._errShown) {
-        s._errShown = true;
-        var d = document.createElement('div');
-        d.style.cssText = 'margin-top:2rem;padding:1rem;text-align:center;color:#ff6b6b;font:13px monospace;max-width:90vw;word-break:break-all';
-        d.textContent = e.message + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')';
-        s.appendChild(d);
+      if (!s || s._errShown) return;
+      s._errShown = true;
+      var d = document.createElement('div');
+      d.style.cssText = 'margin-top:2rem;padding:1rem;text-align:left;color:#ff6b6b;font:12px/1.45 monospace;max-width:92vw;white-space:pre-wrap;word-break:break-word;overflow:auto;max-height:60vh';
+      d.textContent = label + ': ' + detail;
+      s.appendChild(d);
+    }
+    window.addEventListener('error', function (e) {
+      var detail;
+      if (e.error) {
+        detail = (e.error.name || 'Error') + ': ' + (e.error.message || String(e.error));
+        if (e.error.stack) detail += '\n' + String(e.error.stack).split('\n').slice(0, 4).join('\n');
+      } else {
+        detail = (e.message || 'Unknown') + ' (' + (e.filename || '').split('/').pop() + ':' + e.lineno + ')';
       }
+      __biesShowBootError('Boot error', detail);
+    });
+    window.addEventListener('unhandledrejection', function (e) {
+      var r = e && e.reason;
+      var detail = r ? ((r.name ? r.name + ': ' : '') + (r.message || String(r))) : 'unknown';
+      if (r && r.stack) detail += '\n' + String(r.stack).split('\n').slice(0, 4).join('\n');
+      __biesShowBootError('Unhandled promise rejection', detail);
     });
   </script>
   <script type="module" src="/src/main.jsx"></script>
