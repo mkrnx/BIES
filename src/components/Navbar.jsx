@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
-import { User, Search, ChevronDown, LogOut } from 'lucide-react';
+import { User, Search, ChevronDown, LogOut, Trophy } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 import NostrNotifications from './NostrNotifications';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
@@ -32,6 +32,7 @@ const Navbar = () => {
   const navLinks = [
     { label: t('nav.discover'), path: '/discover' },
     { label: t('nav.events'), path: '/events' },
+    { label: t('nav.leaderboard'), path: '/leaderboard', icon: Trophy },
     { label: t('nav.media'), path: '/media' },
     { label: t('nav.news'), path: '/news' },
     { label: t('nav.about'), path: '/about' },
@@ -45,6 +46,7 @@ const Navbar = () => {
     if (path === '/' || path === '/feed') return t('pageTitles.biesFeed');
     if (path.startsWith('/discover')) return t('pageTitles.discover', 'Discover');
     if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
+    if (path.startsWith('/leaderboard')) return t('pageTitles.leaderboard');
     if (path.startsWith('/news')) return t('pageTitles.news');
     if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return t('pageTitles.members');
     if (path.startsWith('/media')) return t('pageTitles.media');
@@ -88,8 +90,9 @@ const Navbar = () => {
               key={link.path}
               to={link.path}
               className={`nav-link ${isActive(link.path) ? 'active' : ''}`}
-              style={{ color: 'white' }}
+              style={{ color: 'white', display: 'inline-flex', alignItems: 'center', gap: '5px' }}
             >
+              {link.icon && <link.icon size={15} />}
               {link.label}
             </Link>
           ))}
@@ -229,6 +232,7 @@ const Navbar = () => {
                 { to: '/profile', label: t('nav.profile') },
                 { to: '/messages', label: t('nav.messages') },
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
+                { to: '/leaderboard', label: t('nav.leaderboard') },
                 { to: '/news', label: t('nav.news') },
                 { to: '/about', label: t('nav.about') },
               ].map((link) => {

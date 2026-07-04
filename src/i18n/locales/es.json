@@ -63,6 +63,7 @@
     "media": "Medios",
     "news": "Noticias",
     "about": "Nosotros",
+    "leaderboard": "Clasificacion",
     "home": "Inicio",
     "dashboard": "Panel",
     "profile": "Perfil",
@@ -88,7 +89,8 @@
     "dashboard": "Panel",
     "messages": "Mensajes",
     "settings": "Configuracion",
-    "adminPanel": "Panel de Admin"
+    "adminPanel": "Panel de Admin",
+    "leaderboard": "Clasificacion"
   },
   "settings": {
     "title": "Configuracion",
@@ -1286,6 +1288,109 @@
     "searchPlaceholder": "Buscar inversionistas...",
     "noInvestors": "No se encontraron inversionistas",
     "noInvestorsSearch": "No se encontraron inversionistas para \"{{query}}\""
+  },
+  "points": {
+    "leaderboard": {
+      "title": "Clasificacion",
+      "monthly": "Mensual",
+      "lifetime": "Historico",
+      "rank": "Puesto",
+      "points": "Puntos",
+      "yourRank": "Tu puesto",
+      "pastMonths": "Meses anteriores",
+      "currentMonth": "Mes actual",
+      "empty": "Aun no hay puntos en la tabla — publica en el feed para comenzar!",
+      "badgeLegend": "Insignias"
+    },
+    "level": "Nivel {{n}}",
+    "levels": {
+      "visitante": "Visitante",
+      "novato": "Novato",
+      "vecino": "Vecino",
+      "constructor": "Constructor",
+      "emprendedor": "Emprendedor",
+      "embajador": "Embajador",
+      "pionero": "Pionero",
+      "volcanero": "Volcanero",
+      "leyenda": "Leyenda de El Zonte"
+    },
+    "nextLevel": "Siguiente nivel a los {{points}} pts",
+    "rarity": {
+      "common": "Comun",
+      "uncommon": "Poco comun",
+      "rare": "Rara",
+      "legendary": "Legendaria"
+    },
+    "badges": {
+      "first-post": {
+        "name": "Primer Post",
+        "desc": "Publico su primer post en la comunidad BIES."
+      },
+      "first-reply": {
+        "name": "Primera Respuesta",
+        "desc": "Respondio a otro miembro por primera vez."
+      },
+      "first-reaction": {
+        "name": "Primera Reaccion",
+        "desc": "Reacciono a un post de la comunidad por primera vez."
+      },
+      "posts-25": {
+        "name": "Autor Prolifico",
+        "desc": "Publico 25 posts en la comunidad BIES."
+      },
+      "replies-50": {
+        "name": "Conversador",
+        "desc": "Escribio 50 respuestas a otros miembros."
+      },
+      "received-25": {
+        "name": "Apreciado",
+        "desc": "Recibio 25 reacciones de la comunidad."
+      },
+      "streak-7": {
+        "name": "Racha de 7 Dias",
+        "desc": "Activo en la comunidad 7 dias seguidos."
+      },
+      "level-5": {
+        "name": "Nivel 5",
+        "desc": "Alcanzo el nivel 5 — Emprendedor."
+      },
+      "received-100": {
+        "name": "Favorito de la Comunidad",
+        "desc": "Recibio 100 reacciones de la comunidad."
+      },
+      "streak-30": {
+        "name": "Racha de 30 Dias",
+        "desc": "Activo en la comunidad 30 dias seguidos."
+      },
+      "level-10": {
+        "name": "Nivel 10",
+        "desc": "Alcanzo el nivel 10 — Pionero."
+      },
+      "level-15": {
+        "name": "Nivel 15",
+        "desc": "Alcanzo el nivel 15 — Volcanero."
+      },
+      "monthly-top3": {
+        "name": "Podio Mensual",
+        "desc": "Termino en el top 3 de una clasificacion mensual de BIES."
+      },
+      "monthly-first": {
+        "name": "Corona del Volcan",
+        "desc": "Gano el primer lugar en una clasificacion mensual de BIES."
+      },
+      "level-20": {
+        "name": "Nivel 20",
+        "desc": "Alcanzo el nivel 20 — Leyenda de El Zonte."
+      },
+      "genesis": {
+        "name": "Genesis",
+        "desc": "Se unio a BIES en sus primeros dias."
+      }
+    },
+    "toast": {
+      "levelUp": "{{name}} alcanzo el nivel {{level}} — {{title}}!",
+      "badge": "{{name}} gano la insignia \"{{badge}}\"!"
+    }
   },
   "mobileNav": {
     "home": "Feed",

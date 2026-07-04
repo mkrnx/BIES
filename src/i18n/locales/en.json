@@ -63,6 +63,7 @@
     "media": "Media",
     "news": "News",
     "about": "About",
+    "leaderboard": "Leaderboard",
     "home": "Home",
     "dashboard": "Dashboard",
     "profile": "Profile",
@@ -88,7 +89,8 @@
     "dashboard": "Dashboard",
     "messages": "Messages",
     "settings": "Settings",
-    "adminPanel": "Admin Panel"
+    "adminPanel": "Admin Panel",
+    "leaderboard": "Leaderboard"
   },
   "settings": {
     "title": "Settings",
@@ -1285,6 +1287,109 @@
     "failedDelete": "Failed to delete event.",
     "failedVisibility": "Failed to update visibility.",
     "deleteConfirm": "Delete \"{{title}}\"? This cannot be undone."
+  },
+  "points": {
+    "leaderboard": {
+      "title": "Leaderboard",
+      "monthly": "Monthly",
+      "lifetime": "All-time",
+      "rank": "Rank",
+      "points": "Points",
+      "yourRank": "Your rank",
+      "pastMonths": "Past months",
+      "currentMonth": "Current month",
+      "empty": "No points on the board yet — post in the feed to get started!",
+      "badgeLegend": "Badges"
+    },
+    "level": "Level {{n}}",
+    "levels": {
+      "visitante": "Visitante",
+      "novato": "Novato",
+      "vecino": "Vecino",
+      "constructor": "Constructor",
+      "emprendedor": "Emprendedor",
+      "embajador": "Embajador",
+      "pionero": "Pionero",
+      "volcanero": "Volcanero",
+      "leyenda": "Leyenda de El Zonte"
+    },
+    "nextLevel": "Next level at {{points}} pts",
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "legendary": "Legendary"
+    },
+    "badges": {
+      "first-post": {
+        "name": "First Post",
+        "desc": "Published a first post in the BIES community."
+      },
+      "first-reply": {
+        "name": "First Reply",
+        "desc": "Replied to another member for the first time."
+      },
+      "first-reaction": {
+        "name": "First Reaction",
+        "desc": "Reacted to a community post for the first time."
+      },
+      "posts-25": {
+        "name": "Prolific Poster",
+        "desc": "Published 25 posts in the BIES community."
+      },
+      "replies-50": {
+        "name": "Conversationalist",
+        "desc": "Wrote 50 replies to other members."
+      },
+      "received-25": {
+        "name": "Appreciated",
+        "desc": "Received 25 reactions from the community."
+      },
+      "streak-7": {
+        "name": "7-Day Streak",
+        "desc": "Active in the community 7 days in a row."
+      },
+      "level-5": {
+        "name": "Level 5",
+        "desc": "Reached level 5 — Emprendedor."
+      },
+      "received-100": {
+        "name": "Community Favorite",
+        "desc": "Received 100 reactions from the community."
+      },
+      "streak-30": {
+        "name": "30-Day Streak",
+        "desc": "Active in the community 30 days in a row."
+      },
+      "level-10": {
+        "name": "Level 10",
+        "desc": "Reached level 10 — Pionero."
+      },
+      "level-15": {
+        "name": "Level 15",
+        "desc": "Reached level 15 — Volcanero."
+      },
+      "monthly-top3": {
+        "name": "Monthly Podium",
+        "desc": "Finished in the top 3 of a BIES monthly leaderboard."
+      },
+      "monthly-first": {
+        "name": "Corona del Volcán",
+        "desc": "Won first place on a BIES monthly leaderboard."
+      },
+      "level-20": {
+        "name": "Level 20",
+        "desc": "Reached level 20 — Leyenda de El Zonte."
+      },
+      "genesis": {
+        "name": "Genesis",
+        "desc": "Joined BIES in its earliest days."
+      }
+    },
+    "toast": {
+      "levelUp": "{{name}} reached level {{level}} — {{title}}!",
+      "badge": "{{name}} earned the \"{{badge}}\" badge!"
+    }
   },
   "mobileNav": {
     "home": "Feed",

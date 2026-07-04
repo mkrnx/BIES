@@ -39,6 +39,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
+import Leaderboard from './pages/Leaderboard';
 import Overview from './pages/Overview';
 import Following from './pages/Following';
 import NotFound from './pages/NotFound';
@@ -151,6 +152,7 @@ const AppContent = () => {
                     <Route path="/builder/:id" element={<ProtectedRoute><PublicProfile type="builder" /></ProtectedRoute>} />
                     <Route path="/investors" element={<Navigate to="/discover" replace />} />
                     <Route path="/investor/:id" element={<ProtectedRoute><PublicProfile type="investor" /></ProtectedRoute>} />
+                    <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
                     <Route path="/media" element={<ProtectedRoute><Media /></ProtectedRoute>} />
                     <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
                     <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
