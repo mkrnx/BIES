@@ -40,7 +40,7 @@ RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS server
 
-RUN apk add --no-cache tini openssl python3 py3-pip \
+RUN apk add --no-cache tini openssl sqlite python3 py3-pip \
     && pip3 install --no-cache-dir --break-system-packages gallery-dl
 
 WORKDIR /app
@@ -51,6 +51,7 @@ RUN npm ci --omit=dev
 COPY --from=server-build /app/server/dist/ dist/
 COPY --from=server-build /app/server/prisma/ prisma/
 COPY --from=server-build /app/server/node_modules/.prisma/ node_modules/.prisma/
+COPY server/docker-entrypoint.sh docker-entrypoint.sh
 COPY version.json /app/version.json
 
 # The compiled server resolves __dirname relative to dist/src/,
@@ -58,6 +59,7 @@ COPY version.json /app/version.json
 RUN mkdir -p uploads data dist/uploads \
     && rm -rf dist/uploads \
     && ln -s /app/uploads dist/uploads \
+    && chmod +x /app/docker-entrypoint.sh \
     && addgroup -g 1001 -S bies \
     && adduser -u 1001 -S bies -G bies \
     && chown -R bies:bies /app
@@ -77,8 +79,10 @@ ENV GIT_COMMIT=$GIT_COMMIT \
 
 EXPOSE 3001
 
+# Baselines pre-migration-tracking databases once, then runs
+# `prisma migrate deploy` and starts the server (docs/deployment.md)
 ENTRYPOINT ["tini", "--"]
-CMD ["sh", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/src/index.js"]
+CMD ["/app/docker-entrypoint.sh"]
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 4: Nginx for static frontend + reverse proxy (non-root)

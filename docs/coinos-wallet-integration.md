@@ -133,7 +133,7 @@ CREATE UNIQUE INDEX "profiles_coinos_username_key" ON "profiles"("coinos_usernam
 
 When a Coinos wallet is created or connected, `lightningAddress` on the profile is also set to `{username}@coinos.io`.
 
-Migration: `server/prisma/migrations/20260327000000_add_coinos_wallet_fields/migration.sql`
+Migration: included in the squashed baseline `server/prisma/migrations/20260704000000_baseline/migration.sql` (originally `20260327000000_add_coinos_wallet_fields`)
 
 ---
 

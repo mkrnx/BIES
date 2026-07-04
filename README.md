@@ -150,7 +150,7 @@ cp server/.env.example server/.env
 
 # Set up database
 cd server
-npm run db:push      # Apply schema
+npm run db:migrate   # Apply migrations (records history for later schema work)
 npm run db:seed      # Optional: populate test data
 
 # Start dev servers (two terminals)
