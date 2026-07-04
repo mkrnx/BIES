@@ -57,6 +57,7 @@ import AdminOverview from './pages/admin/AdminOverview';
 import AdminProjects from './pages/admin/AdminProjects';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminPoints from './pages/admin/AdminPoints';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
@@ -190,6 +191,7 @@ const AppContent = () => {
                         <Route path="projects" element={<AdminProjects />} />
                         <Route path="events" element={<AdminEvents />} />
                         <Route path="users" element={<AdminUsers />} />
+                        <Route path="points" element={<AdminPoints />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />

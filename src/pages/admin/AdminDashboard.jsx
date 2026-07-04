@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Folder, Calendar, Users, FileText, Newspaper, MessageSquare, ShieldCheck, LogOut } from 'lucide-react';
+import { LayoutDashboard, Folder, Calendar, Users, Trophy, FileText, Newspaper, MessageSquare, ShieldCheck, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -23,6 +23,7 @@ const AdminDashboard = () => {
     { to: '/admin/projects', label: 'Projects', icon: Folder },
     { to: '/admin/events', label: 'Events', icon: Calendar },
     { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/points', label: 'Points', icon: Trophy },
     { to: '/admin/audit-log', label: 'Audit', icon: FileText },
     { to: '/admin/news-settings', label: 'News', icon: Newspaper },
     { to: '/admin/investor-vetting', label: 'Vetting', icon: ShieldCheck },
