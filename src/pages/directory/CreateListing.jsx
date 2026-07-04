@@ -9,6 +9,7 @@ import { directoryApi, uploadApi } from '../../services/api';
 import { nostrService } from '../../services/nostrService';
 import { nostrSigner } from '../../services/nostrSigner';
 import TagInput from '../../components/TagInput';
+import MemberSearchSelect from '../../components/MemberSearchSelect';
 import ImageCropModal from '../../components/ImageCropModal';
 import { getAssetUrl } from '../../utils/assets';
 import { PRODUCE_ICON_KEYS, getProduceIcon } from './produceIcons';
@@ -59,6 +60,7 @@ const CreateListing = ({ editMode = false }) => {
     const [products, setProducts] = useState([]); // FARM: [{ label, icon }]
     const [practices, setPractices] = useState([]); // FARM
     const [skills, setSkills] = useState([]); // PROVIDER
+    const [memberLink, setMemberLink] = useState([]); // PROVIDER: 0..1 linked BIES account
 
     const [loading, setLoading] = useState(editMode);
     const [loadError, setLoadError] = useState(null);
@@ -101,6 +103,11 @@ const CreateListing = ({ editMode = false }) => {
                 setProducts(Array.isArray(listing.products) ? listing.products.filter((p) => p?.label != null) : []);
                 setPractices(Array.isArray(listing.practices) ? listing.practices : []);
                 setSkills(Array.isArray(listing.skills) ? listing.skills : []);
+                setMemberLink(listing.memberUser ? [{
+                    userId: listing.memberUser.id,
+                    name: listing.memberUser.profile?.name || 'Member',
+                    avatar: listing.memberUser.profile?.avatar || '',
+                }] : []);
             } catch (err) {
                 if (!cancelled) setLoadError(err.message || t('directory.notFound'));
             } finally {
@@ -192,6 +199,7 @@ const CreateListing = ({ editMode = false }) => {
             bestFor: form.bestFor.trim(),
             pricing: form.pricing.trim(),
             comment: form.comment.trim(),
+            memberUserId: memberLink[0]?.userId || '', // '' clears the link on update
         };
     };
 
@@ -565,7 +573,7 @@ const CreateListing = ({ editMode = false }) => {
                                 <input type="text" name="pricing" value={form.pricing} onChange={handleChange} className="dir-input" maxLength={200} />
                             </div>
 
-                            <div className="dir-form-group" style={{ marginBottom: 0 }}>
+                            <div className="dir-form-group" style={{ marginBottom: '1.6rem' }}>
                                 <label className="dir-label">{t('directory.commentLabel')}</label>
                                 <textarea
                                     name="comment"
@@ -578,7 +586,16 @@ const CreateListing = ({ editMode = false }) => {
                                 <span className="dir-char-count">{form.comment.length}/500</span>
                             </div>
 
-                            {/* A6: optional member link (memberUserId) for reputation/zaps */}
+                            {/* Optional link to the provider's BIES account (zaps + reputation signals) */}
+                            <div className="dir-form-group dir-member-link" style={{ marginBottom: 0 }}>
+                                <label className="dir-label">{t('directory.linkMember')}</label>
+                                <MemberSearchSelect
+                                    value={memberLink}
+                                    onChange={(list) => setMemberLink(list.slice(-1))}
+                                    placeholder={t('directory.linkMemberPlaceholder')}
+                                />
+                                <p className="dir-field-hint">{t('directory.linkMemberHint')}</p>
+                            </div>
                         </div>
                     )}
 
@@ -822,6 +839,13 @@ const CreateListing = ({ editMode = false }) => {
                     bottom: -18px;
                     font-size: 0.72rem;
                     color: var(--color-gray-400);
+                }
+
+                .dir-field-hint {
+                    margin: 0.4rem 0 0;
+                    font-size: 0.78rem;
+                    line-height: 1.45;
+                    color: var(--color-gray-500);
                 }
 
                 .dir-btc-toggle {

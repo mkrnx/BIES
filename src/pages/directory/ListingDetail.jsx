@@ -1,15 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
     ArrowLeft, MapPin, Phone, Instagram, Globe, Mail, ChevronRight,
     Loader2, Leaf, ShieldCheck, Edit3, AlertCircle,
     Sprout, RefreshCw, WheatOff, HeartHandshake,
+    Languages, Target, Tag, Bitcoin, ThumbsUp, BadgeCheck,
 } from 'lucide-react';
 import { directoryApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getAssetUrl } from '../../utils/assets';
 import TranslatableText from '../../components/TranslatableText';
+import ZapButton from '../../components/ZapButton';
+import CertifiedBadge from '../../components/directory/CertifiedBadge';
 import { getProduceIcon } from './produceIcons';
 
 const PRACTICE_META = {
@@ -40,23 +43,59 @@ const ListingDetail = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        let cancelled = false;
-        const fetchListing = async () => {
+    // Endorse UI state
+    const [showEndorseForm, setShowEndorseForm] = useState(false);
+    const [endorseComment, setEndorseComment] = useState('');
+    const [endorseBusy, setEndorseBusy] = useState(false);
+    const [endorseError, setEndorseError] = useState('');
+
+    // silent=true refreshes in place (after endorse/unendorse) without the full-page loader
+    const fetchListing = useCallback(async ({ silent = false } = {}) => {
+        if (!silent) {
             setLoading(true);
             setError(null);
-            try {
-                const result = await directoryApi.get(id);
-                if (!cancelled) setListing(result?.data || result);
-            } catch (err) {
-                if (!cancelled) setError(err.message || 'Failed to load listing');
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        };
-        fetchListing();
-        return () => { cancelled = true; };
+        }
+        try {
+            const result = await directoryApi.get(id);
+            setListing(result?.data || result);
+        } catch (err) {
+            if (!silent) setError(err.message || 'Failed to load listing');
+        } finally {
+            if (!silent) setLoading(false);
+        }
     }, [id]);
+
+    useEffect(() => {
+        fetchListing();
+    }, [fetchListing]);
+
+    const handleEndorse = async () => {
+        setEndorseBusy(true);
+        setEndorseError('');
+        try {
+            await directoryApi.endorse(id, endorseComment.trim());
+            setEndorseComment('');
+            setShowEndorseForm(false);
+            await fetchListing({ silent: true });
+        } catch (err) {
+            setEndorseError(err.message || 'Failed to endorse');
+        } finally {
+            setEndorseBusy(false);
+        }
+    };
+
+    const handleUnendorse = async () => {
+        setEndorseBusy(true);
+        setEndorseError('');
+        try {
+            await directoryApi.unendorse(id);
+            await fetchListing({ silent: true });
+        } catch (err) {
+            setEndorseError(err.message || 'Failed to remove endorsement');
+        } finally {
+            setEndorseBusy(false);
+        }
+    };
 
     const isProviderPath = location.pathname.startsWith('/discover/certified');
     const isFarm = listing ? listing.type === 'FARM' : !isProviderPath;
@@ -107,6 +146,25 @@ const ListingDetail = () => {
     const products = Array.isArray(listing.products) ? listing.products.filter((p) => p?.label) : [];
     const practices = (Array.isArray(listing.practices) ? listing.practices : []).filter((p) => PRACTICE_META[p]);
     const skills = Array.isArray(listing.skills) ? listing.skills.filter(Boolean) : [];
+    const languages = Array.isArray(listing.languages) ? listing.languages.filter(Boolean) : [];
+
+    // Endorsements (included on GET /:id, newest first)
+    const endorsements = Array.isArray(listing.endorsements) ? listing.endorsements : [];
+    const endorsementCount = listing._count?.endorsements ?? endorsements.length;
+    const hasEndorsed = !!user?.id && endorsements.some((e) => e.userId === user.id);
+    const canEndorse = !!user?.id && !isOwner;
+
+    // Zap recipient — same shape as Discover's member/project cards
+    const memberProfile = listing.memberUser?.profile || {};
+    const zapRecipients = listing.memberUser?.nostrPubkey
+        ? [{
+            pubkey: listing.memberUser.nostrPubkey,
+            name: memberProfile.name || listing.name,
+            avatar: memberProfile.avatar || '',
+            lud16: memberProfile.lightningAddress || '',
+            bolt12Offer: memberProfile.bolt12Offer || '',
+        }]
+        : [];
 
     // Learn More rows — only render entries with values
     const instagramValue = (listing.instagram || '').trim();
@@ -188,21 +246,33 @@ const ListingDetail = () => {
 
                         <div className="dir-head-row">
                             <h1 className="dir-detail-name">{listing.name}</h1>
-                            {canEdit && (
-                                <Link
-                                    to={`/discover/directory/${listing.id}/edit`}
-                                    style={{
-                                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                                        padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-full)',
-                                        border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)',
-                                        color: 'var(--color-gray-700)', textDecoration: 'none',
-                                        fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
-                                    }}
-                                >
-                                    <Edit3 size={14} /> {t('directory.editListing')}
-                                </Link>
-                            )}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                                {zapRecipients.length > 0 && (
+                                    <ZapButton recipients={zapRecipients} size="sm" />
+                                )}
+                                {canEdit && (
+                                    <Link
+                                        to={`/discover/directory/${listing.id}/edit`}
+                                        style={{
+                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                            padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-full)',
+                                            border: '1px solid var(--color-gray-300)', background: 'var(--color-surface)',
+                                            color: 'var(--color-gray-700)', textDecoration: 'none',
+                                            fontSize: '0.82rem', fontWeight: 600, whiteSpace: 'nowrap', flexShrink: 0,
+                                        }}
+                                    >
+                                        <Edit3 size={14} /> {t('directory.editListing')}
+                                    </Link>
+                                )}
+                            </div>
                         </div>
+
+                        {/* Farms also get scores — surface the certified mark universally */}
+                        {isFarm && listing.isCertified && (
+                            <div style={{ margin: '0.15rem 0 0.6rem' }}>
+                                <CertifiedBadge size="md" />
+                            </div>
+                        )}
 
                         {listing.location && (
                             <div className="dir-detail-meta">
@@ -280,7 +350,7 @@ const ListingDetail = () => {
                         </>
                     ) : (
                         <>
-                            {/* PROVIDER branch — minimal in A5, completed in Session A6 */}
+                            {/* PROVIDER branch */}
                             {skills.length > 0 && (
                                 <section className="dir-detail-section">
                                     <h2 style={sectionTitleStyle}>{t('directory.skillsLabel')}</h2>
@@ -291,6 +361,46 @@ const ListingDetail = () => {
                                     </div>
                                 </section>
                             )}
+
+                            {/* Info rows: languages / best-for / pricing / BTC */}
+                            {(languages.length > 0 || listing.bestFor || listing.pricing || listing.btcAccepted) && (
+                                <section className="dir-detail-section dir-info-rows">
+                                    {languages.length > 0 && (
+                                        <div className="dir-detail-meta">
+                                            <Languages size={17} />
+                                            <span><span className="dir-info-label">{t('directory.languages')}:</span> {languages.join(', ')}</span>
+                                        </div>
+                                    )}
+                                    {listing.bestFor && (
+                                        <div className="dir-detail-meta">
+                                            <Target size={17} />
+                                            <span><span className="dir-info-label">{t('directory.bestFor')}:</span> {listing.bestFor}</span>
+                                        </div>
+                                    )}
+                                    {listing.pricing && (
+                                        <div className="dir-detail-meta">
+                                            <Tag size={17} />
+                                            <span><span className="dir-info-label">{t('directory.pricing')}:</span> {listing.pricing}</span>
+                                        </div>
+                                    )}
+                                    {listing.btcAccepted && (
+                                        <div className="dir-detail-meta dir-btc-row">
+                                            <Bitcoin size={17} />
+                                            <span className="dir-info-label">{t('directory.btcAccepted')}</span>
+                                        </div>
+                                    )}
+                                </section>
+                            )}
+
+                            {/* Reputation */}
+                            <section className="dir-detail-section dir-reputation-block">
+                                <h2 style={sectionTitleStyle}>{t('directory.reputation')}</h2>
+                                <div className="dir-reputation-row">
+                                    <span className="dir-score-big">{listing.reputationScore ?? 0}%</span>
+                                    {listing.isCertified && <CertifiedBadge size="md" />}
+                                </div>
+                                <p className="dir-reputation-hint">{t('directory.reputationHint')}</p>
+                            </section>
 
                             {listing.about && (
                                 <section className="dir-detail-section">
@@ -307,7 +417,107 @@ const ListingDetail = () => {
                                 </section>
                             )}
 
-                            {/* A6: provider reputation/endorsements/zap */}
+                            {listing.comment && (
+                                <section className="dir-detail-section">
+                                    <blockquote className="dir-comment-quote">{listing.comment}</blockquote>
+                                </section>
+                            )}
+
+                            {/* Endorsements */}
+                            <section className="dir-detail-section dir-endorsements">
+                                <div className="dir-endorse-head">
+                                    <h2 style={{ ...sectionTitleStyle, margin: 0 }}>
+                                        {t('directory.endorsements')} ({endorsementCount})
+                                    </h2>
+                                    {canEndorse && (hasEndorsed ? (
+                                        <button
+                                            type="button"
+                                            className="dir-endorse-btn endorsed"
+                                            onClick={handleUnendorse}
+                                            disabled={endorseBusy}
+                                        >
+                                            {endorseBusy
+                                                ? <Loader2 size={15} style={{ animation: 'spin 1s linear infinite' }} />
+                                                : <BadgeCheck size={15} />}
+                                            {t('directory.endorsed')}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            className="dir-endorse-btn"
+                                            onClick={() => { setShowEndorseForm((v) => !v); setEndorseError(''); }}
+                                            disabled={endorseBusy}
+                                        >
+                                            <ThumbsUp size={15} />
+                                            {t('directory.endorse')}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {endorseError && (
+                                    <p className="dir-endorse-error">{endorseError}</p>
+                                )}
+
+                                {showEndorseForm && !hasEndorsed && (
+                                    <div className="dir-endorse-form">
+                                        <textarea
+                                            className="dir-endorse-textarea"
+                                            value={endorseComment}
+                                            onChange={(e) => setEndorseComment(e.target.value)}
+                                            placeholder={t('directory.endorsePlaceholder')}
+                                            maxLength={500}
+                                            rows={2}
+                                        />
+                                        <div className="dir-endorse-actions">
+                                            <button
+                                                type="button"
+                                                className="dir-endorse-cancel"
+                                                onClick={() => { setShowEndorseForm(false); setEndorseComment(''); }}
+                                                disabled={endorseBusy}
+                                            >
+                                                {t('common.cancel')}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="dir-endorse-submit"
+                                                onClick={handleEndorse}
+                                                disabled={endorseBusy}
+                                            >
+                                                {endorseBusy && <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />}
+                                                {t('directory.endorse')}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {endorsements.length === 0 ? (
+                                    <p className="dir-no-endorsements">{t('directory.noEndorsements')}</p>
+                                ) : (
+                                    <div className="dir-endorsement-list">
+                                        {endorsements.map((e) => {
+                                            const endorserName = e.user?.profile?.name || 'Member';
+                                            const endorserAvatar = e.user?.profile?.avatar || '';
+                                            return (
+                                                <div key={e.id} className="dir-endorsement-item">
+                                                    <div className="dir-endorsement-avatar">
+                                                        {endorserAvatar ? (
+                                                            <img src={getAssetUrl(endorserAvatar)} alt={endorserName} />
+                                                        ) : (
+                                                            <span>{endorserName[0].toUpperCase()}</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="dir-endorsement-body">
+                                                        <span className="dir-endorsement-name">{endorserName}</span>
+                                                        {e.comment && (
+                                                            <p className="dir-endorsement-comment">{e.comment}</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
+                            </section>
                         </>
                     )}
 
@@ -508,6 +718,209 @@ const ListingDetail = () => {
                     font-weight: 600;
                     color: var(--color-gray-700);
                     line-height: 1.3;
+                }
+
+                .dir-info-rows .dir-detail-meta {
+                    margin-bottom: 0.55rem;
+                }
+                .dir-info-rows .dir-detail-meta:last-child {
+                    margin-bottom: 0;
+                }
+                .dir-info-label {
+                    font-weight: 600;
+                    color: var(--color-gray-700);
+                }
+                .dir-btc-row {
+                    color: #f7931a;
+                    font-weight: 600;
+                }
+                .dir-btc-row .dir-info-label {
+                    color: inherit;
+                }
+
+                .dir-reputation-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.85rem;
+                    flex-wrap: wrap;
+                }
+                .dir-score-big {
+                    font-size: 2.4rem;
+                    font-weight: 800;
+                    line-height: 1;
+                    color: var(--color-primary);
+                }
+                .dir-reputation-hint {
+                    margin: 0.5rem 0 0;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500);
+                }
+
+                .dir-comment-quote {
+                    margin: 0;
+                    padding: 0.65rem 1rem;
+                    border-left: 3px solid var(--color-secondary);
+                    background: var(--color-orange-tint);
+                    border-radius: 0 var(--radius-md) var(--radius-md) 0;
+                    font-size: 0.95rem;
+                    font-style: italic;
+                    line-height: 1.6;
+                    color: var(--color-gray-700);
+                    white-space: pre-wrap;
+                }
+
+                .dir-endorse-head {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.75rem;
+                    margin-bottom: 0.85rem;
+                }
+
+                .dir-endorse-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 0.4rem 0.95rem;
+                    border-radius: var(--radius-full);
+                    border: 1px solid var(--color-primary);
+                    background: var(--color-surface);
+                    color: var(--color-primary);
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    flex-shrink: 0;
+                    transition: background 0.15s, color 0.15s;
+                }
+                .dir-endorse-btn:hover:not(:disabled) {
+                    background: var(--color-blue-tint);
+                }
+                .dir-endorse-btn.endorsed {
+                    background: var(--color-primary);
+                    color: white;
+                }
+                .dir-endorse-btn:disabled {
+                    opacity: 0.6;
+                    cursor: default;
+                }
+
+                .dir-endorse-error {
+                    margin: 0 0 0.75rem;
+                    font-size: 0.82rem;
+                    color: var(--color-error, #b91c1c);
+                }
+
+                .dir-endorse-form {
+                    margin-bottom: 1rem;
+                }
+                .dir-endorse-textarea {
+                    width: 100%;
+                    box-sizing: border-box;
+                    padding: 0.6rem 0.85rem;
+                    border: 1px solid var(--color-gray-300);
+                    border-radius: var(--radius-md);
+                    background: var(--color-surface);
+                    color: inherit;
+                    font-size: 0.9rem;
+                    font-family: inherit;
+                    resize: vertical;
+                    outline: none;
+                }
+                .dir-endorse-textarea:focus {
+                    border-color: var(--color-primary);
+                    box-shadow: 0 0 0 3px rgba(0, 82, 204, 0.1);
+                }
+                .dir-endorse-actions {
+                    display: flex;
+                    justify-content: flex-end;
+                    gap: 0.5rem;
+                    margin-top: 0.5rem;
+                }
+                .dir-endorse-cancel {
+                    padding: 0.4rem 0.9rem;
+                    border-radius: var(--radius-full);
+                    border: 1px solid var(--color-gray-300);
+                    background: none;
+                    color: var(--color-gray-600);
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                .dir-endorse-submit {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 5px;
+                    padding: 0.4rem 1.1rem;
+                    border-radius: var(--radius-full);
+                    border: none;
+                    background: var(--color-primary);
+                    color: white;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                }
+                .dir-endorse-submit:disabled,
+                .dir-endorse-cancel:disabled {
+                    opacity: 0.6;
+                    cursor: default;
+                }
+
+                .dir-no-endorsements {
+                    margin: 0;
+                    font-size: 0.88rem;
+                    color: var(--color-gray-500);
+                }
+
+                .dir-endorsement-list {
+                    display: flex;
+                    flex-direction: column;
+                }
+                .dir-endorsement-item {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.75rem;
+                    padding: 0.8rem 0;
+                }
+                .dir-endorsement-item + .dir-endorsement-item {
+                    border-top: 1px solid var(--color-gray-200);
+                }
+                .dir-endorsement-avatar {
+                    width: 38px;
+                    height: 38px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    flex-shrink: 0;
+                    background: var(--color-blue-tint);
+                    color: var(--color-primary);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 0.9rem;
+                    font-weight: 700;
+                }
+                .dir-endorsement-avatar img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    display: block;
+                }
+                .dir-endorsement-body {
+                    flex: 1;
+                    min-width: 0;
+                    padding-top: 2px;
+                }
+                .dir-endorsement-name {
+                    display: block;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                }
+                .dir-endorsement-comment {
+                    margin: 0.2rem 0 0;
+                    font-size: 0.88rem;
+                    line-height: 1.55;
+                    color: var(--color-gray-600);
+                    overflow-wrap: break-word;
                 }
 
                 .dir-learn-list {

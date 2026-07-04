@@ -61,6 +61,15 @@ const ownerSelect = {
     },
 };
 
+// Detail-page memberUser include — adds the lightning fields the frontend
+// ZapButton passes as lud16/bolt12Offer (same shape Discover's cards use).
+const memberUserSelect = {
+    select: {
+        id: true, nostrPubkey: true, role: true,
+        profile: { select: { name: true, avatar: true, lightningAddress: true, bolt12Offer: true } },
+    },
+};
+
 function parseListing(listing: any): any {
     return {
         ...listing,
@@ -172,7 +181,7 @@ export async function getListing(req: Request, res: Response): Promise<void> {
             where: { id: req.params.id },
             include: {
                 owner: ownerSelect,
-                memberUser: ownerSelect,
+                memberUser: memberUserSelect,
                 endorsements: {
                     orderBy: { createdAt: 'desc' },
                     include: { user: ownerSelect },

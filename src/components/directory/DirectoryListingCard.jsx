@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Phone, ChevronRight, Leaf, ShieldCheck, Bitcoin } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAssetUrl } from '../../utils/assets';
+import CertifiedBadge from './CertifiedBadge';
 
 /**
  * Directory listing card (list row) per the mockup:
@@ -63,13 +64,7 @@ const DirectoryListingCard = ({ listing, type = 'FARM' }) => {
                             {typeof listing.reputationScore === 'number' && (
                                 <span className="dir-score-pill">{listing.reputationScore}%</span>
                             )}
-                            {listing.isCertified && (
-                                /* Placeholder pill — replaced by <CertifiedBadge/> in Session A6 */
-                                <span className="dir-certified-pill">
-                                    <ShieldCheck size={12} />
-                                    {t('directory.certifiedBadge')}
-                                </span>
-                            )}
+                            {listing.isCertified && <CertifiedBadge size="sm" />}
                             {listing.btcAccepted && (
                                 <Bitcoin size={15} className="dir-btc-icon" aria-label={t('directory.btcAccepted')} />
                             )}
@@ -174,17 +169,6 @@ const DirectoryListingCard = ({ listing, type = 'FARM' }) => {
                     color: var(--color-primary);
                     font-size: 0.75rem;
                     font-weight: 700;
-                    padding: 2px 8px;
-                    border-radius: var(--radius-full);
-                }
-                .dir-certified-pill {
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 4px;
-                    background: var(--color-primary);
-                    color: white;
-                    font-size: 0.7rem;
-                    font-weight: 600;
                     padding: 2px 8px;
                     border-radius: var(--radius-full);
                 }
