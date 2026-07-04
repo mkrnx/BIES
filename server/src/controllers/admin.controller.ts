@@ -4,11 +4,19 @@
  */
 
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { cache } from '../services/redis.service';
+import { cache, cacheKey } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
 import { isAdminPubkey } from '../middleware/auth';
+import {
+    applyPoints,
+    recomputeAllScores,
+    monthOf,
+    isUniqueViolation,
+} from '../services/points.service';
+import { BADGES } from '../services/badges.catalog';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1144,5 +1152,251 @@ export async function featureEvent(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Feature event error:', error);
         res.status(500).json({ error: 'Failed to feature event' });
+    }
+}
+
+// ─── Points & badges (gamification) ──────────────────────────────────────────
+
+const POINT_REASONS = [
+    'POST',
+    'REPLY',
+    'REACTION_GIVEN',
+    'REACTION_RECEIVED',
+    'QUALITY_BONUS',
+    'ADMIN_ADJUST',
+] as const;
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const adjustPointsSchema = z.object({
+    userId: z.string().min(1),
+    points: z
+        .number()
+        .int()
+        .min(-1000)
+        .max(1000)
+        .refine((v) => v !== 0, { message: 'points must be nonzero' }),
+    reason: z.string().min(1).max(200),
+});
+
+export const grantBadgeSchema = z.object({
+    userId: z.string().min(1),
+    badgeId: z.string().min(1),
+    month: z.string().regex(MONTH_RE, 'month must be YYYY-MM').optional(),
+});
+
+/** Both leaderboard scopes go stale after any ledger/badge mutation. */
+async function invalidateLeaderboardCache(): Promise<void> {
+    await Promise.all([
+        cache.del(cacheKey.leaderboard('monthly')),
+        cache.del(cacheKey.leaderboard('lifetime')),
+    ]);
+}
+
+/**
+ * POST /admin/points/adjust
+ * Signed ADMIN_ADJUST ledger row — the ledger stays authoritative, counters
+ * are never mutated directly (applyPoints rolls the entry into UserScore).
+ */
+export async function adjustPoints(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, points, reason } = req.body as z.infer<typeof adjustPointsSchema>;
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        const now = new Date();
+        await applyPoints(userId, {
+            nostrEventId: null,
+            kind: null,
+            reason: 'ADMIN_ADJUST',
+            points,
+            month: monthOf(now),
+            targetEventId: null,
+            meta: { adminId: req.user!.id, note: reason },
+            eventCreatedAt: now,
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'POINTS_ADJUSTED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ points, note: reason }),
+            },
+        });
+
+        await invalidateLeaderboardCache();
+
+        const score = await prisma.userScore.findUnique({ where: { userId } });
+        res.json(score);
+    } catch (error) {
+        console.error('Adjust points error:', error);
+        res.status(500).json({ error: 'Failed to adjust points' });
+    }
+}
+
+/**
+ * GET /admin/points/events
+ * Browse the PointEvent ledger with optional userId/reason filters.
+ */
+export async function listPointEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, reason, page = '1', limit = '50' } = req.query;
+        const pageNum = Math.max(parseInt(page as string, 10) || 1, 1);
+        const take = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 100);
+        const skip = (pageNum - 1) * take;
+
+        const where: any = {};
+        if (userId && typeof userId === 'string') where.userId = userId;
+        if (reason && typeof reason === 'string') {
+            if (!POINT_REASONS.includes(reason as any)) {
+                res.status(400).json({ error: 'Invalid reason filter' }); return;
+            }
+            where.reason = reason;
+        }
+
+        const [events, total] = await Promise.all([
+            prisma.pointEvent.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: {
+                            nostrPubkey: true,
+                            profile: { select: { name: true, avatar: true } },
+                        },
+                    },
+                },
+            }),
+            prisma.pointEvent.count({ where }),
+        ]);
+
+        const parsed = events.map((e) => {
+            let meta: unknown = {};
+            try { meta = JSON.parse(e.meta || '{}'); } catch { /* keep {} */ }
+            return { ...e, meta };
+        });
+
+        res.json({
+            data: parsed,
+            pagination: { page: pageNum, limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('List point events error:', error);
+        res.status(500).json({ error: 'Failed to list point events' });
+    }
+}
+
+/**
+ * POST /admin/points/recompute
+ * Rebuild every UserScore from the PointEvent ledger.
+ */
+export async function recomputePoints(req: Request, res: Response): Promise<void> {
+    try {
+        await recomputeAllScores();
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'POINTS_RECOMPUTED',
+                resource: 'points:all',
+                metadata: '{}',
+            },
+        });
+
+        await invalidateLeaderboardCache();
+
+        res.json({ message: 'All scores recomputed from ledger' });
+    } catch (error) {
+        console.error('Recompute points error:', error);
+        res.status(500).json({ error: 'Failed to recompute scores' });
+    }
+}
+
+/**
+ * POST /admin/points/badges/grant
+ * Manually award a catalog badge (month omitted = permanent badge).
+ */
+export async function grantBadge(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, badgeId, month } = req.body as z.infer<typeof grantBadgeSchema>;
+
+        const def = BADGES.find((b) => b.id === badgeId);
+        if (!def) {
+            res.status(400).json({ error: `Unknown badge "${badgeId}"` }); return;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        let badge;
+        try {
+            badge = await prisma.userBadge.create({
+                data: { userId, badgeId, month: month ?? '' },
+            });
+        } catch (error) {
+            if (isUniqueViolation(error)) {
+                res.status(409).json({ error: 'User already has this badge' }); return;
+            }
+            throw error;
+        }
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'BADGE_GRANTED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ badgeId, month: month ?? '' }),
+            },
+        });
+
+        res.status(201).json({ ...badge, rarity: def.rarity, icon: def.icon });
+    } catch (error) {
+        console.error('Grant badge error:', error);
+        res.status(500).json({ error: 'Failed to grant badge' });
+    }
+}
+
+/**
+ * DELETE /admin/points/badges/:userId/:badgeId
+ * Revoke a permanent badge (month ''). Monthly badges are rollover-owned.
+ */
+export async function revokeBadge(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, badgeId } = req.params;
+
+        const result = await prisma.userBadge.deleteMany({
+            where: { userId, badgeId, month: '' },
+        });
+        if (result.count === 0) {
+            res.status(404).json({ error: 'Badge not found for this user' }); return;
+        }
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'BADGE_REVOKED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ badgeId }),
+            },
+        });
+
+        res.json({ message: 'Badge revoked' });
+    } catch (error) {
+        console.error('Revoke badge error:', error);
+        res.status(500).json({ error: 'Failed to revoke badge' });
     }
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { adminFeedbackRouter } from './feedback.routes';
 import {
     listUsers,
@@ -24,6 +25,13 @@ import {
     listInvestorRequests,
     reviewInvestorRequest,
     setUserAdmin,
+    adjustPoints,
+    adjustPointsSchema,
+    listPointEvents,
+    recomputePoints,
+    grantBadge,
+    grantBadgeSchema,
+    revokeBadge,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -56,6 +64,13 @@ router.delete('/projects/:id', hardDeleteProject);
 // Events
 router.get('/events', listAdminEvents);
 router.put('/events/:id/feature', featureEvent);
+
+// Points & badges (gamification)
+router.post('/points/adjust', validate(adjustPointsSchema), adjustPoints);
+router.get('/points/events', listPointEvents);
+router.post('/points/recompute', recomputePoints);
+router.post('/points/badges/grant', validate(grantBadgeSchema), grantBadge);
+router.delete('/points/badges/:userId/:badgeId', revokeBadge);
 
 // Audit & System
 router.get('/audit-logs', getAuditLogs);
