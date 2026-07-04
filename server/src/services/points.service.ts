@@ -17,6 +17,7 @@ import { notifyLevelUp, notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
 import { getQualityBonus } from './quality.service';
 import { BADGES, LEVEL_TITLES } from './badges.catalog';
+import { publishBadgeAward } from './badges.publisher';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -523,12 +524,16 @@ export async function checkBadges(userId: string, opts: ScoreOpts = {}): Promise
         if (!badge.check(score, user)) continue;
 
         try {
-            await prisma.userBadge.create({
+            const userBadge = await prisma.userBadge.create({
                 data: { userId, badgeId: badge.id, month: '' },
             });
-            // B4: publishBadgeAward here (NIP-58 kind-8 via issuer.service)
             if (!opts.silent) {
                 await notifyBadgeEarned(userId, badge.id);
+                // NIP-58 kind-8 award — no-op when BIES_ISSUER_PRIVKEY is
+                // unset; a null nostrAwardEventId is retried by the pending
+                // sweep (badges.publisher.ts). During backfill (silent) the
+                // publish is suppressed and bulk-published afterwards.
+                await publishBadgeAward(userBadge);
             }
         } catch (error) {
             if (!isUniqueViolation(error)) throw error; // already awarded

@@ -29,6 +29,7 @@ import {
 } from './points.service';
 import { notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
+import { publishBadgeAward, publishPendingAwards } from './badges.publisher';
 
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
@@ -169,6 +170,10 @@ async function backfill(pool: Awaited<ReturnType<typeof getPool>>): Promise<void
         `[Points] Backfill complete — ${events.length} relay events processed, ` +
             `${ledgerRows} ledger rows, ${scores.length} users scored`
     );
+
+    // Backfill awards badges silently (no NIP-58 publishes mid-sweep) —
+    // bulk-publish the pending awards now that the sweep is complete.
+    await publishPendingAwards();
 }
 
 /** Open the live subscription, resuming from the ledger's last event time. */
@@ -221,6 +226,11 @@ export function startPointsMaintenanceLoop(): void {
     const tick = () => {
         runMonthlyRollover().catch((error) =>
             console.error('[Points] Monthly rollover failed:', error)
+        );
+        // Retry NIP-58 awards whose publish was skipped or failed
+        // (nostrAwardEventId still null). No-op when the issuer is disabled.
+        publishPendingAwards().catch((error) =>
+            console.error('[Badges] Pending award sweep failed:', error)
         );
     };
 
@@ -350,9 +360,11 @@ async function awardMonthlyBadge(
     month: string
 ): Promise<void> {
     try {
-        await prisma.userBadge.create({ data: { userId, badgeId, month } });
-        // B4: publishBadgeAward here (NIP-58 kind-8 via issuer.service)
+        const userBadge = await prisma.userBadge.create({ data: { userId, badgeId, month } });
         await notifyBadgeEarned(userId, badgeId);
+        // NIP-58 kind-8 award — no-op when the issuer is disabled; retried by
+        // the pending sweep if the publish fails.
+        await publishBadgeAward(userBadge);
     } catch (error) {
         if (!isUniqueViolation(error)) throw error; // already awarded — re-run stays quiet
     }

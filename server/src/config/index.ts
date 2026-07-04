@@ -50,6 +50,15 @@ export const config = {
     nostrPublicRelay: process.env.NOSTR_PUBLIC_RELAY || 'wss://relay.buildinelsalvador.com',
     nostrRelays: (process.env.NOSTR_RELAYS || 'wss://relay.damus.io,wss://relay.primal.net,wss://nos.lol').split(','),
 
+    // ─── BIES issuer identity (NIP-58 badges, certification labels) ──────────
+    // Hex or nsec private key. Unset ⇒ Nostr badge publishing is disabled
+    // (in-app badges keep working).
+    issuerPrivkey: process.env.BIES_ISSUER_PRIVKEY || '',
+
+    // ─── Public app origin ────────────────────────────────────────────────────
+    // Used to build absolute URLs embedded in Nostr events (badge artwork).
+    appPublicUrl: (process.env.APP_PUBLIC_URL || 'https://app.buildinelsalvador.com').replace(/\/+$/, ''),
+
     // ─── Twitter/X (gallery-dl + browser cookies) ──────────────────────────
     twitterCookiesPath: process.env.TWITTER_COOKIES_PATH || '',
 

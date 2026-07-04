@@ -14,6 +14,7 @@ import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
 import { startPointsScorer, startPointsMaintenanceLoop } from './services/points.indexer';
+import { publishBadgeDefinitions } from './services/badges.publisher';
 
 // ─── Version ─────────────────────────────────────────────────────────────────
 const versionFile = path.resolve(__dirname, '..', '..', 'version.json');
@@ -254,6 +255,13 @@ server.listen(config.port, () => {
     } catch (err) {
         console.error('[Points] Maintenance loop failed to start:', err);
     }
+
+    // NIP-58 badge definitions (kind 30009, replaceable — republish is
+    // harmless). Whitelists the issuer pubkey on the relay first; skipped
+    // with one warn log when BIES_ISSUER_PRIVKEY is unset.
+    publishBadgeDefinitions().catch((err) =>
+        console.error('[Badges] Definition publish failed:', err)
+    );
 });
 
 export default app;
