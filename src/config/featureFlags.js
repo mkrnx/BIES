@@ -3,3 +3,5 @@ export const PASSKEY_ENABLED = true;
 export const NIP46_ENABLED = true;
 export const COINOS_SIGNUP_WALLET = false; // Auto-provision Coinos custodial wallet on signup
 export const COINOS_ENABLED = false;       // Allow connecting Coinos wallet in Settings
+export const COWORK_ENABLED = true; // Cowork check-in page (/cowork)
+export const CUSTOM_BOTTOM_NAV_ENABLED = true; // Customizable mobile bottom navbar
