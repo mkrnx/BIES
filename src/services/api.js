@@ -250,6 +250,21 @@ export const zapsApi = {
     projectZapStats: (projectId) => get(`/zaps/stats/${projectId}`),
 };
 
+// ─── Points & Gamification ────────────────────────────────────────────────────
+
+export const pointsApi = {
+    leaderboard: (params = {}) => get('/points/leaderboard', params),
+    // params: { scope: 'monthly'|'lifetime', limit }
+
+    me: () => get('/points/me'),
+
+    user: (pubkey) => get(`/points/user/${pubkey}`),
+
+    badges: () => get('/points/badges'),
+
+    month: (m) => get(`/points/months/${m}`),
+};
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export const notificationsApi = {
@@ -362,6 +377,11 @@ export const adminApi = {
     feedback: (params = {}) => get('/admin/feedback', params),
     updateFeedback: (id, data) => put(`/admin/feedback/${id}`, data),
     deleteFeedback: (id) => del(`/admin/feedback/${id}`),
+    adjustPoints: (data) => post('/admin/points/adjust', data),
+    listPointEvents: (params = {}) => get('/admin/points/events', params),
+    recomputePoints: () => post('/admin/points/recompute', {}),
+    grantBadge: (data) => post('/admin/points/badges/grant', data),
+    revokeBadge: (userId, badgeId) => del(`/admin/points/badges/${userId}/${badgeId}`),
     listDirectory: (params = {}) => get('/admin/directory', params),
     reviewDirectoryListing: (id, action) => put(`/admin/directory/${id}/review`, { action }),
     featureDirectoryListing: (id, featured) => put(`/admin/directory/${id}/feature`, { featured }),

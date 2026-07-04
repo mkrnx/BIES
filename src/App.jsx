@@ -13,6 +13,7 @@ import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
 import VersionIndicator from './components/VersionIndicator';
+import GamificationToast from './components/GamificationToast';
 
 // Pages
 import Landing from './pages/Landing';
@@ -43,6 +44,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
+import Leaderboard from './pages/Leaderboard';
 import Overview from './pages/Overview';
 import Following from './pages/Following';
 import NotFound from './pages/NotFound';
@@ -64,6 +66,7 @@ import AdminProjects from './pages/admin/AdminProjects';
 import AdminEvents from './pages/admin/AdminEvents';
 import AdminDirectory from './pages/admin/AdminDirectory';
 import AdminUsers from './pages/admin/AdminUsers';
+import AdminPoints from './pages/admin/AdminPoints';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
@@ -169,6 +172,7 @@ const AppContent = () => {
                     <Route path="/builder/:id" element={<ProtectedRoute><PublicProfile type="builder" /></ProtectedRoute>} />
                     <Route path="/investors" element={<Navigate to="/discover" replace />} />
                     <Route path="/investor/:id" element={<ProtectedRoute><PublicProfile type="investor" /></ProtectedRoute>} />
+                    <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
                     <Route path="/media" element={<ProtectedRoute><Media /></ProtectedRoute>} />
                     <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
                     <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
@@ -209,6 +213,7 @@ const AppContent = () => {
                         <Route path="events" element={<AdminEvents />} />
                         <Route path="directory" element={<AdminDirectory />} />
                         <Route path="users" element={<AdminUsers />} />
+                        <Route path="points" element={<AdminPoints />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />
@@ -266,6 +271,7 @@ const AppContent = () => {
                 </Routes>
             </div>
             {user && location.pathname !== '/settings/navbar' && <MobileBottomNav />}
+            {user && <GamificationToast />}
             <VersionIndicator />
         </>
     );

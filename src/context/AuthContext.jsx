@@ -137,6 +137,10 @@ export const AuthProvider = ({ children }) => {
                         () => { window.location.href = '/messages'; }
                     );
                 }
+                // Gamification broadcasts (level-ups, monthly winners) → global toast
+                if (msg.type === 'gamification') {
+                    window.dispatchEvent(new CustomEvent('bies:gamification', { detail: msg }));
+                }
             },
             // onConnect
             null,

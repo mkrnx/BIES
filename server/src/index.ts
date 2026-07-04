@@ -13,6 +13,8 @@ import { auditLog } from './middleware/audit';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
+import { startPointsScorer, startPointsMaintenanceLoop } from './services/points.indexer';
+import { publishBadgeDefinitions } from './services/badges.publisher';
 
 // ─── Version ─────────────────────────────────────────────────────────────────
 const versionFile = path.resolve(__dirname, '..', '..', 'version.json');
@@ -44,6 +46,7 @@ import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
 import walletRoutes from './routes/wallet.routes';
 import feedbackRoutes, { adminFeedbackRouter } from './routes/feedback.routes';
+import pointsRoutes from './routes/points.routes';
 import directoryRoutes from './routes/directory.routes';
 
 const app = express();
@@ -200,6 +203,7 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/match', matchRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/points', pointsRoutes);
 app.use('/api/directory', directoryRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
@@ -238,6 +242,28 @@ server.listen(config.port, () => {
     // Initialize Web Push notifications
     initWebPush();
     cleanupStaleSubscriptions().catch(() => {});
+
+    // Points scorer (relay indexer) + monthly rollover loop — a scorer
+    // failure must never take down the API.
+    try {
+        startPointsScorer().catch((err) =>
+            console.error('[Points] Scorer failed to start:', err)
+        );
+    } catch (err) {
+        console.error('[Points] Scorer failed to start:', err);
+    }
+    try {
+        startPointsMaintenanceLoop();
+    } catch (err) {
+        console.error('[Points] Maintenance loop failed to start:', err);
+    }
+
+    // NIP-58 badge definitions (kind 30009, replaceable — republish is
+    // harmless). Whitelists the issuer pubkey on the relay first; skipped
+    // with one warn log when BIES_ISSUER_PRIVKEY is unset.
+    publishBadgeDefinitions().catch((err) =>
+        console.error('[Badges] Definition publish failed:', err)
+    );
 });
 
 export default app;

@@ -875,7 +875,11 @@ const Feed = () => {
                 ],
                 content: '+',
             };
-            await nostrService.publishEvent(event);
+            if (feedMode === 'private') {
+                await nostrService.publishToBiesRelay(event);
+            } else {
+                await nostrService.publishEvent(event);
+            }
             setLikedComments(prev => new Set(prev).add(comment.id));
             // Notify the comment author (fire-and-forget)
             if (user) {

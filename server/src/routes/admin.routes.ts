@@ -25,6 +25,13 @@ import {
     listInvestorRequests,
     reviewInvestorRequest,
     setUserAdmin,
+    adjustPoints,
+    adjustPointsSchema,
+    listPointEvents,
+    recomputePoints,
+    grantBadge,
+    grantBadgeSchema,
+    revokeBadge,
     listAdminDirectory,
     reviewDirectoryListing,
     reviewDirectoryListingSchema,
@@ -67,6 +74,12 @@ router.delete('/projects/:id', hardDeleteProject);
 router.get('/events', listAdminEvents);
 router.put('/events/:id/feature', featureEvent);
 
+// Points & badges (gamification)
+router.post('/points/adjust', validate(adjustPointsSchema), adjustPoints);
+router.get('/points/events', listPointEvents);
+router.post('/points/recompute', recomputePoints);
+router.post('/points/badges/grant', validate(grantBadgeSchema), grantBadge);
+router.delete('/points/badges/:userId/:badgeId', revokeBadge);
 // Directory
 router.get('/directory', listAdminDirectory);
 router.put('/directory/:id/review', validate(reviewDirectoryListingSchema), reviewDirectoryListing);

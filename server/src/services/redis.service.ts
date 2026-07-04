@@ -196,6 +196,7 @@ export const TTL = {
     SITE_SETTINGS: 300,      // 5 min
     MATCH_RESULTS: 120,      // 2 min
     FOLLOW_LIST: 120,        // 2 min
+    LEADERBOARD: 60,         // 1 min – points leaderboard
 };
 
 // ─── Cache key builders ───────────────────────────────────────────────────────
@@ -226,4 +227,5 @@ export const cacheKey = {
     twitterFeed: () => 'twitter:feed',
     liveNewsFeed: () => 'newsfeed:live',
     siteSettings: () => 'site_settings:default',
+    leaderboard: (scope: string) => `leaderboard:${scope}`,
 };

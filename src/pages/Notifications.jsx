@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Bell, Check, Trash2, Loader2 } from 'lucide-react';
+import { Bell, Check, Trash2, Loader2, Trophy, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../services/api';
 
@@ -64,6 +64,18 @@ const Notifications = () => {
         return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
     };
 
+    // Gamification notification types get a distinctive icon
+    const typeIcon = (type) => {
+        switch (type) {
+            case 'LEVEL_UP':
+                return { icon: <Trophy size={17} />, color: '#D97706', bg: 'rgba(217, 119, 6, 0.12)' };
+            case 'BADGE_EARNED':
+                return { icon: <Award size={17} />, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)' };
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="container py-8">
             <div className="header">
@@ -100,6 +112,15 @@ const Notifications = () => {
                         <div key={notif.id} className={`notif-item ${!notif.isRead ? 'unread' : ''}`}>
                             <div className="notif-content">
                                 {!notif.isRead && <div className="dot-indicator"></div>}
+                                {typeIcon(notif.type) && (
+                                    <div
+                                        className="notif-type-icon"
+                                        style={{ color: typeIcon(notif.type).color, background: typeIcon(notif.type).bg }}
+                                        data-testid={`notif-icon-${notif.type}`}
+                                    >
+                                        {typeIcon(notif.type).icon}
+                                    </div>
+                                )}
                                 <div className="notif-body">
                                     <p className="notif-title">{notif.title}</p>
                                     {notif.body && <p className="notif-text">{notif.body}</p>}
@@ -194,6 +215,16 @@ const Notifications = () => {
                     background: var(--color-primary);
                     border-radius: 50%;
                     margin-top: 6px;
+                    flex-shrink: 0;
+                }
+
+                .notif-type-icon {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     flex-shrink: 0;
                 }
 
