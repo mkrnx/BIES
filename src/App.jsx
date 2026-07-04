@@ -43,6 +43,10 @@ import Overview from './pages/Overview';
 import Following from './pages/Following';
 import NotFound from './pages/NotFound';
 
+import DirectoryList from './pages/directory/DirectoryList';
+import ListingDetail from './pages/directory/ListingDetail';
+import CreateListing from './pages/directory/CreateListing';
+
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
@@ -134,6 +138,13 @@ const AppContent = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
 
+                    {/* Directories (declared before the generic /discover route) */}
+                    <Route path="/discover/farms" element={<ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute>} />
+                    <Route path="/discover/farms/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
+                    <Route path="/discover/certified" element={<ProtectedRoute><DirectoryList type="PROVIDER" /></ProtectedRoute>} />
+                    <Route path="/discover/certified/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
+                    <Route path="/discover/directory/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
+                    <Route path="/discover/directory/:id/edit" element={<ProtectedRoute><CreateListing editMode /></ProtectedRoute>} />
                     <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
                     <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
                     <Route path="/events/create" element={

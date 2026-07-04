@@ -43,6 +43,8 @@ const Navbar = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/' || path === '/feed') return t('pageTitles.biesFeed');
+    if (path.startsWith('/discover/farms')) return t('pageTitles.farmDirectory');
+    if (path.startsWith('/discover/certified')) return t('pageTitles.certifiedDirectory');
     if (path.startsWith('/discover')) return t('pageTitles.discover', 'Discover');
     if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
     if (path.startsWith('/news')) return t('pageTitles.news');

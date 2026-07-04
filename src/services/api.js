@@ -157,6 +157,25 @@ export const projectsApi = {
         post(`/projects/${id}/updates`, { title, content }),
 };
 
+// ─── Directory (Farms & Certified Providers) ─────────────────────────────────
+
+export const directoryApi = {
+    list: (params = {}) => get('/directory', params),
+    // params: { type, search, certified, btc, language, sort, page, limit, ownerId }
+
+    get: (id) => get(`/directory/${id}`),
+
+    create: (data) => post('/directory', data),
+
+    update: (id, data) => put(`/directory/${id}`, data),
+
+    delete: (id) => del(`/directory/${id}`),
+
+    endorse: (id, comment = '') => post(`/directory/${id}/endorse`, { comment }),
+
+    unendorse: (id) => del(`/directory/${id}/endorse`),
+};
+
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 export const uploadApi = {
@@ -343,6 +362,12 @@ export const adminApi = {
     feedback: (params = {}) => get('/admin/feedback', params),
     updateFeedback: (id, data) => put(`/admin/feedback/${id}`, data),
     deleteFeedback: (id) => del(`/admin/feedback/${id}`),
+    listDirectory: (params = {}) => get('/admin/directory', params),
+    reviewDirectoryListing: (id, action) => put(`/admin/directory/${id}/review`, { action }),
+    featureDirectoryListing: (id, featured) => put(`/admin/directory/${id}/feature`, { featured }),
+    setDirectoryScore: (id, baseScore) => put(`/admin/directory/${id}/score`, { baseScore }),
+    recomputeDirectoryScores: () => post('/admin/directory/recompute', {}),
+    deleteDirectoryListing: (id) => del(`/admin/directory/${id}`),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────

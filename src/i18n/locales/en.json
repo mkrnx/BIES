@@ -88,7 +88,9 @@
     "dashboard": "Dashboard",
     "messages": "Messages",
     "settings": "Settings",
-    "adminPanel": "Admin Panel"
+    "adminPanel": "Admin Panel",
+    "farmDirectory": "Regenerative Farm Directory",
+    "certifiedDirectory": "Certified Directory"
   },
   "settings": {
     "title": "Settings",
@@ -1285,6 +1287,46 @@
     "failedDelete": "Failed to delete event.",
     "failedVisibility": "Failed to update visibility.",
     "deleteConfirm": "Delete \"{{title}}\"? This cannot be undone."
+  },
+  "directory": {
+    "farmTitle": "Farm Directory",
+    "certifiedTitle": "Certified Directory",
+    "searchFarms": "Search farms, products, or locations",
+    "searchProviders": "Search professionals, skills, or locations",
+    "sectionFarms": "Regenerative Farms",
+    "sectionFarmsSub": "Find local farms across El Salvador",
+    "sectionCertified": "BIES Certified Professionals",
+    "sectionCertifiedSub": "Trusted providers vetted by the BIES community",
+    "directoriesSection": "Directories",
+    "addListing": "Add Listing",
+    "whatTheyProduce": "What They Produce",
+    "aboutFarm": "About the Farm",
+    "practicesLabel": "Farming Practices",
+    "practices": {
+      "regenerative": "Regenerative",
+      "rotationalGrazing": "Rotational Grazing",
+      "noGmoFeed": "No GMO Feed",
+      "animalWelfare": "Animal Welfare"
+    },
+    "learnMore": "Learn More",
+    "certifiedBadge": "BIES Network Certified",
+    "reputation": "Reputation",
+    "bestFor": "Best For",
+    "pricing": "Pricing",
+    "languages": "Languages",
+    "btcAccepted": "Bitcoin Accepted",
+    "certifiedOnly": "BIES Certified only",
+    "acceptsBitcoin": "Accepts Bitcoin",
+    "minScore": "Minimum reputation",
+    "anyScore": "Any score",
+    "endorse": "Endorse",
+    "endorsed": "Endorsed",
+    "submittedForReview": "Your listing was submitted for review. It will appear in the directory once approved.",
+    "pendingBanner": "This listing is pending review and is only visible to you.",
+    "noFarms": "No farms found",
+    "noProviders": "No professionals found",
+    "noResultsSearch": "No results for \"{{query}}\"",
+    "comingSoon": "Coming soon"
   },
   "mobileNav": {
     "home": "Feed",

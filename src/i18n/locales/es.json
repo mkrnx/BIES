@@ -88,7 +88,9 @@
     "dashboard": "Panel",
     "messages": "Mensajes",
     "settings": "Configuracion",
-    "adminPanel": "Panel de Admin"
+    "adminPanel": "Panel de Admin",
+    "farmDirectory": "Directorio de Fincas Regenerativas",
+    "certifiedDirectory": "Directorio Certificado"
   },
   "settings": {
     "title": "Configuracion",
@@ -1286,6 +1288,46 @@
     "searchPlaceholder": "Buscar inversionistas...",
     "noInvestors": "No se encontraron inversionistas",
     "noInvestorsSearch": "No se encontraron inversionistas para \"{{query}}\""
+  },
+  "directory": {
+    "farmTitle": "Directorio de Fincas",
+    "certifiedTitle": "Directorio Certificado",
+    "searchFarms": "Buscar fincas, productos o ubicaciones",
+    "searchProviders": "Buscar profesionales, habilidades o ubicaciones",
+    "sectionFarms": "Fincas Regenerativas",
+    "sectionFarmsSub": "Encuentra fincas locales en todo El Salvador",
+    "sectionCertified": "Profesionales Certificados BIES",
+    "sectionCertifiedSub": "Proveedores de confianza avalados por la comunidad BIES",
+    "directoriesSection": "Directorios",
+    "addListing": "Agregar Listado",
+    "whatTheyProduce": "Que Producen",
+    "aboutFarm": "Sobre la Finca",
+    "practicesLabel": "Practicas Agricolas",
+    "practices": {
+      "regenerative": "Regenerativa",
+      "rotationalGrazing": "Pastoreo Rotativo",
+      "noGmoFeed": "Sin Alimento Transgenico",
+      "animalWelfare": "Bienestar Animal"
+    },
+    "learnMore": "Conoce Mas",
+    "certifiedBadge": "Certificado por la Red BIES",
+    "reputation": "Reputacion",
+    "bestFor": "Ideal Para",
+    "pricing": "Precios",
+    "languages": "Idiomas",
+    "btcAccepted": "Acepta Bitcoin",
+    "certifiedOnly": "Solo certificados BIES",
+    "acceptsBitcoin": "Acepta Bitcoin",
+    "minScore": "Reputacion minima",
+    "anyScore": "Cualquier puntaje",
+    "endorse": "Recomendar",
+    "endorsed": "Recomendado",
+    "submittedForReview": "Tu listado fue enviado para revision. Aparecera en el directorio una vez aprobado.",
+    "pendingBanner": "Este listado esta pendiente de revision y solo es visible para ti.",
+    "noFarms": "No se encontraron fincas",
+    "noProviders": "No se encontraron profesionales",
+    "noResultsSearch": "Sin resultados para \"{{query}}\"",
+    "comingSoon": "Proximamente"
   },
   "mobileNav": {
     "home": "Feed",
