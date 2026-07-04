@@ -1315,6 +1315,14 @@
       "leyenda": "Leyenda de El Zonte"
     },
     "nextLevel": "Siguiente nivel a los {{points}} pts",
+    "profile": {
+      "title": "Puntos de la Comunidad",
+      "monthly": "Este mes",
+      "lifetime": "Historico",
+      "streak": "Racha de dias",
+      "badges": "Insignias",
+      "noBadges": "Aun no tienes insignias — publica, responde y reacciona en el feed para ganar la primera!"
+    },
     "rarity": {
       "common": "Comun",
       "uncommon": "Poco comun",
@@ -1389,7 +1397,8 @@
     },
     "toast": {
       "levelUp": "{{name}} alcanzo el nivel {{level}} — {{title}}!",
-      "badge": "{{name}} gano la insignia \"{{badge}}\"!"
+      "badge": "{{name}} gano la insignia \"{{badge}}\"!",
+      "monthlyWinners": "Ganadores del mes: {{winners}}"
     }
   },
   "mobileNav": {

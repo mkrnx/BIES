@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare, Trophy } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
-import { profilesApi } from '../services/api';
+import { profilesApi, pointsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLightbox } from '../context/LightboxContext';
@@ -46,6 +46,7 @@ const PublicProfile = ({ type }) => {
     const [npubCopied, setNpubCopied] = useState(false);
     const [lnAddrCopied, setLnAddrCopied] = useState(false);
     const [bolt12Copied, setBolt12Copied] = useState(false);
+    const [points, setPoints] = useState(null);
     const lightbox = useLightbox();
 
     useEffect(() => {
@@ -136,6 +137,22 @@ const PublicProfile = ({ type }) => {
         }).catch(() => { });
     }, [profile?.user?.id, profile?.userId]);
 
+    // Fetch gamification points/badges — silent-fail, unscored profiles render nothing
+    useEffect(() => {
+        if (!profile) return;
+        let pubkey = profile.user?.nostrPubkey;
+        if (!pubkey && profile.nostrNpub) {
+            try {
+                const decoded = nip19.decode(profile.nostrNpub);
+                if (decoded.type === 'npub') pubkey = decoded.data;
+            } catch {
+                // Invalid npub — skip
+            }
+        }
+        if (!pubkey) return;
+        pointsApi.user(pubkey).then(setPoints).catch(() => { });
+    }, [profile]);
+
     if (loading) {
         return (
             <div className="profile-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
@@ -153,6 +170,11 @@ const PublicProfile = ({ type }) => {
     const npub = profile.user?.nostrPubkey
         ? nip19.npubEncode(profile.user.nostrPubkey)
         : profile.nostrNpub;
+
+    // Points UI renders only for scored users; badge strip is deduped by badgeId
+    const hasPoints = Boolean(points && (points.lifetimePoints > 0 || (points.badges || []).length > 0));
+    const profileBadges = hasPoints ? [...new Map(points.badges.map(b => [b.badgeId, b])).values()] : [];
+    const MAX_BADGE_CHIPS = 8;
 
     return (
         <div className="profile-page">
@@ -447,7 +469,55 @@ const PublicProfile = ({ type }) => {
                                         )}
                                     </div>
                                 )}
+                                {/* Points stats */}
+                                {hasPoints && (
+                                    <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', paddingLeft: '1.5rem', borderLeft: '1px solid var(--color-gray-200)' }} data-testid="profile-points">
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center', background: 'var(--color-blue-tint)',
+                                            color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600,
+                                            padding: '2px 10px', borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap',
+                                        }}>
+                                            Lv {points.level} · {t(points.titleKey)}
+                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                            <Trophy size={16} style={{ color: 'var(--color-secondary)' }} />
+                                            <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)' }}>{points.lifetimePoints}</span>
+                                            <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('points.leaderboard.points', 'Points')}</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
+
+                            {/* Badge strip */}
+                            {profileBadges.length > 0 && (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '1.5rem' }} data-testid="profile-badges">
+                                    {profileBadges.slice(0, MAX_BADGE_CHIPS).map((b) => (
+                                        <span
+                                            key={b.badgeId}
+                                            title={t(`points.badges.${b.badgeId}.name`)}
+                                            style={{
+                                                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)',
+                                                borderRadius: 'var(--radius-full)', padding: '4px 10px 4px 6px',
+                                                fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-gray-700)', cursor: 'default',
+                                            }}
+                                        >
+                                            <img src={`/badges/${b.badgeId}.png`} alt="" width="20" height="20" style={{ borderRadius: '50%', flexShrink: 0 }} />
+                                            {t(`points.badges.${b.badgeId}.name`)}
+                                        </span>
+                                    ))}
+                                    {profileBadges.length > MAX_BADGE_CHIPS && (
+                                        <span style={{
+                                            display: 'inline-flex', alignItems: 'center',
+                                            background: 'var(--color-gray-100)', border: '1px solid var(--color-gray-200)',
+                                            borderRadius: 'var(--radius-full)', padding: '4px 10px',
+                                            fontSize: '0.78rem', fontWeight: 600, color: 'var(--color-gray-500)',
+                                        }}>
+                                            +{profileBadges.length - MAX_BADGE_CHIPS}
+                                        </span>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         {/* About/Bio */}

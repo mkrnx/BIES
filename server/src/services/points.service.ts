@@ -493,6 +493,7 @@ export async function applyPoints(
                     pubkey: user.nostrPubkey,
                     name: user.profile?.name || undefined,
                     level: levelAfter,
+                    titleKey: titleKeyFor(levelAfter),
                 });
             }
         } catch (error) {

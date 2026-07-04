@@ -11,6 +11,7 @@ import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
 import VersionIndicator from './components/VersionIndicator';
+import GamificationToast from './components/GamificationToast';
 
 // Pages
 import Landing from './pages/Landing';
@@ -239,6 +240,7 @@ const AppContent = () => {
                 </Routes>
             </div>
             {user && <MobileBottomNav />}
+            {user && <GamificationToast />}
             <VersionIndicator />
         </>
     );

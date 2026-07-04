@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, Navigate } from 'react-router-dom';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil, Users, Copy, Check } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Pencil, Users, Copy, Check, Trophy, Flame, Award } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
-import { profilesApi } from '../services/api';
+import { profilesApi, pointsApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
@@ -33,9 +33,11 @@ const Profile = () => {
     const [nostrFollowers, setNostrFollowers] = useState(null);
     const [nostrFollowing, setNostrFollowing] = useState(null);
     const [npubCopied, setNpubCopied] = useState(false);
+    const [points, setPoints] = useState(null);
 
     useEffect(() => {
         loadProfile();
+        pointsApi.me().then(setPoints).catch(() => { });
     }, []);
 
     const loadProfile = async () => {
@@ -88,6 +90,17 @@ const Profile = () => {
     const npub = user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : profile?.nostrNpub;
     const role = user?.role || 'BUILDER';
     const projectsTitle = role === 'INVESTOR' ? 'Invested In' : 'Working On';
+
+    // Progress toward the next level: level N spans 10·N² → 10·(N+1)² lifetime points
+    const RARITY_COLORS = { legendary: '#D97706', rare: '#7C3AED', uncommon: '#2563EB', common: '#64748B' };
+    let levelProgress = 0;
+    if (points) {
+        const levelFloor = 10 * points.level * points.level;
+        const span = points.nextLevelAt - levelFloor;
+        levelProgress = span > 0
+            ? Math.max(0, Math.min(100, Math.round(((points.lifetimePoints - levelFloor) / span) * 100)))
+            : 0;
+    }
 
     return (
         <div className="profile-page">
@@ -238,6 +251,92 @@ const Profile = () => {
                 <div className="profile-grid">
                     {/* Left Column - Main Content */}
                     <div className="profile-main space-y-6">
+                        {/* Community Points */}
+                        {points && (
+                            <div className="profile-card" data-testid="points-card">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' }}>
+                                    <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>
+                                        <Trophy size={20} style={{ color: 'var(--color-secondary)' }} />
+                                        {t('points.profile.title', 'Community Points')}
+                                    </h3>
+                                    <span style={{
+                                        display: 'inline-flex', alignItems: 'center', background: 'var(--color-blue-tint)',
+                                        color: 'var(--color-primary)', fontSize: '0.8rem', fontWeight: 600,
+                                        padding: '3px 12px', borderRadius: 'var(--radius-full)', whiteSpace: 'nowrap',
+                                    }}>
+                                        Lv {points.level} · {t(points.titleKey)}
+                                    </span>
+                                </div>
+
+                                {/* Progress to next level */}
+                                <div style={{ marginBottom: '1.25rem' }}>
+                                    <div style={{ height: '8px', background: 'var(--color-gray-100)', borderRadius: 'var(--radius-full)', overflow: 'hidden' }}>
+                                        <div style={{
+                                            height: '100%', width: `${levelProgress}%`, background: 'var(--color-primary)',
+                                            borderRadius: 'var(--radius-full)', transition: 'width 0.4s ease',
+                                        }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.35rem', fontSize: '0.75rem', color: 'var(--color-gray-500)' }}>
+                                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>{points.lifetimePoints} pts</span>
+                                        <span>{t('points.nextLevel', { points: points.nextLevelAt })}</span>
+                                    </div>
+                                </div>
+
+                                {/* Totals */}
+                                <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>{points.monthlyPoints}</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('points.profile.monthly', 'This month')}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>{points.lifetimePoints}</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('points.profile.lifetime', 'All-time')}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <Flame size={16} style={{ color: 'var(--color-secondary)' }} />
+                                        <span style={{ fontWeight: 700, color: 'var(--color-gray-900)', fontFamily: 'var(--font-display)', fontVariantNumeric: 'tabular-nums' }}>{points.streakDays}</span>
+                                        <span style={{ color: 'var(--color-gray-500)', fontSize: '0.875rem' }}>{t('points.profile.streak', 'Day streak')}</span>
+                                    </div>
+                                </div>
+
+                                {/* Badge gallery */}
+                                <div style={{ borderTop: '1px solid var(--color-gray-100)', paddingTop: '1rem' }}>
+                                    <h4 style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '0 0 0.75rem',
+                                        fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase',
+                                        letterSpacing: '0.04em', color: 'var(--color-gray-500)',
+                                    }}>
+                                        <Award size={15} />
+                                        {t('points.profile.badges', 'Badges')}
+                                    </h4>
+                                    {(points.badges || []).length > 0 ? (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }} data-testid="badge-gallery">
+                                            {points.badges.map((b) => (
+                                                <span
+                                                    key={`${b.badgeId}-${b.month || 'permanent'}`}
+                                                    title={t(`points.badges.${b.badgeId}.desc`)}
+                                                    style={{
+                                                        display: 'inline-flex', alignItems: 'center', gap: '6px',
+                                                        background: 'var(--color-surface)',
+                                                        border: `1px solid ${RARITY_COLORS[b.rarity] || 'var(--color-gray-200)'}`,
+                                                        borderRadius: 'var(--radius-full)', padding: '4px 10px 4px 6px',
+                                                        fontSize: '0.78rem', fontWeight: 500, color: 'var(--color-gray-700)', cursor: 'default',
+                                                    }}
+                                                >
+                                                    <img src={`/badges/${b.badgeId}.png`} alt="" width="20" height="20" style={{ borderRadius: '50%', flexShrink: 0 }} />
+                                                    {t(`points.badges.${b.badgeId}.name`)}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>
+                                            {t('points.profile.noBadges', 'No badges yet — post, reply, and react in the feed to earn your first one!')}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Experience */}
                         {profile.experience && profile.experience.length > 0 && (
                             <div className="profile-card">

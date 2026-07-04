@@ -1314,6 +1314,14 @@
       "leyenda": "Leyenda de El Zonte"
     },
     "nextLevel": "Next level at {{points}} pts",
+    "profile": {
+      "title": "Community Points",
+      "monthly": "This month",
+      "lifetime": "All-time",
+      "streak": "Day streak",
+      "badges": "Badges",
+      "noBadges": "No badges yet — post, reply, and react in the feed to earn your first one!"
+    },
     "rarity": {
       "common": "Common",
       "uncommon": "Uncommon",
@@ -1388,7 +1396,8 @@
     },
     "toast": {
       "levelUp": "{{name}} reached level {{level}} — {{title}}!",
-      "badge": "{{name}} earned the \"{{badge}}\" badge!"
+      "badge": "{{name}} earned the \"{{badge}}\" badge!",
+      "monthlyWinners": "Monthly winners: {{winners}}"
     }
   },
   "mobileNav": {
