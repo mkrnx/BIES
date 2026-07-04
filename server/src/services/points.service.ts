@@ -4,8 +4,8 @@
  * ups and awards badges.
  *
  * This module is deliberately relay-free: the indexer/backfill wiring
- * (`startPointsScorer`, subscription, maintenance loop) lands in the next
- * session and will feed events into `processEvent`.
+ * (`startPointsScorer`, subscription, maintenance loop) lives in
+ * `points.indexer.ts` and feeds events into `processEvent`.
  *
  * The PointEvent ledger is authoritative; UserScore is a cache. Ledger rows
  * carry the *event* timestamp in `createdAt` so rate limits, daily caps and
@@ -171,7 +171,7 @@ export function classifyEvent(event: NostrEventLike): Classification | null {
 
 // ─── Date helpers (all UTC, event-time based) ────────────────────────────────
 
-function monthOf(date: Date): string {
+export function monthOf(date: Date): string {
     return date.toISOString().slice(0, 7); // 'YYYY-MM'
 }
 
@@ -192,7 +192,7 @@ function isNextUtcDay(prevDay: string, day: string): boolean {
     return curr - prev === 86_400_000;
 }
 
-function isUniqueViolation(error: unknown): boolean {
+export function isUniqueViolation(error: unknown): boolean {
     return (
         typeof error === 'object' &&
         error !== null &&

@@ -13,6 +13,7 @@ import { auditLog } from './middleware/audit';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
+import { startPointsScorer, startPointsMaintenanceLoop } from './services/points.indexer';
 
 // ─── Version ─────────────────────────────────────────────────────────────────
 const versionFile = path.resolve(__dirname, '..', '..', 'version.json');
@@ -44,6 +45,7 @@ import matchRoutes from './routes/match.routes';
 import nip05Routes from './routes/nip05.routes';
 import walletRoutes from './routes/wallet.routes';
 import feedbackRoutes, { adminFeedbackRouter } from './routes/feedback.routes';
+import pointsRoutes from './routes/points.routes';
 
 const app = express();
 
@@ -199,6 +201,7 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/match', matchRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/points', pointsRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
@@ -236,6 +239,21 @@ server.listen(config.port, () => {
     // Initialize Web Push notifications
     initWebPush();
     cleanupStaleSubscriptions().catch(() => {});
+
+    // Points scorer (relay indexer) + monthly rollover loop — a scorer
+    // failure must never take down the API.
+    try {
+        startPointsScorer().catch((err) =>
+            console.error('[Points] Scorer failed to start:', err)
+        );
+    } catch (err) {
+        console.error('[Points] Scorer failed to start:', err);
+    }
+    try {
+        startPointsMaintenanceLoop();
+    } catch (err) {
+        console.error('[Points] Maintenance loop failed to start:', err);
+    }
 });
 
 export default app;
