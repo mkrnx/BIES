@@ -8,6 +8,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { cache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
+import { publishDirectoryListing } from '../services/nostr.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
 import { isAdminPubkey } from '../middleware/auth';
 import { recomputeListingScore, recomputeAllScores } from '../services/directoryReputation.service';
@@ -1247,11 +1248,27 @@ export async function reviewDirectoryListing(req: Request, res: Response): Promi
         const listing = await prisma.directoryListing.update({
             where: { id: req.params.id },
             data,
-            select: { id: true, name: true, status: true, ownerId: true },
+            select: {
+                id: true, name: true, status: true, ownerId: true,
+                memberUserId: true, type: true, about: true, photo: true,
+                location: true, products: true, skills: true,
+            },
         });
 
         if (action === 'approve') {
-            // A3: publishDirectoryListing here
+            // Mirror to Nostr as a NIP-99 classified listing (kind:30402),
+            // signed by the linked member's key when set, else the owner's.
+            publishDirectoryListing(listing.memberUserId ?? listing.ownerId, listing)
+                .then(async (eventId) => {
+                    if (eventId) {
+                        await prisma.directoryListing.update({
+                            where: { id: listing.id },
+                            data: { nostrListingEventId: eventId },
+                        });
+                    }
+                })
+                .catch((err) => console.error('[Nostr] Directory listing sync failed:', err));
+
             recomputeListingScore(listing.id).catch((err) =>
                 console.error('[Admin] Directory score recompute failed:', err)
             );
@@ -1279,7 +1296,7 @@ export async function reviewDirectoryListing(req: Request, res: Response): Promi
             },
         });
 
-        res.json(listing);
+        res.json({ id: listing.id, name: listing.name, status: listing.status, ownerId: listing.ownerId });
     } catch (error) {
         console.error('Review directory listing error:', error);
         res.status(500).json({ error: 'Failed to review directory listing' });

@@ -848,6 +848,62 @@ class NostrService {
     }
 
     /**
+     * Publish a directory listing as a NIP-99 classified listing (kind:30402).
+     * For Nostr-native users — signs via browser extension. Twin of the
+     * server's publishDirectoryListing (nostr.service.ts): same kind, tags,
+     * and content. Returns the signed event id so callers can persist it
+     * as nostrListingEventId.
+     * @param {Object} listing - { id, type, name, about, photo, location, products, skills }
+     */
+    async publishDirectoryListing(listing) {
+        const pubkey = await nostrSigner.getPublicKey();
+        const about = listing.about || '';
+        const tags = [
+            ['d', listing.id],
+            ['title', listing.name],
+            ['summary', about.slice(0, 200)],
+            ['t', 'bies'],
+            ['t', 'directory'],
+            ['t', listing.type === 'FARM' ? 'farm' : 'services'],
+        ];
+
+        // One topic tag per product label (FARM) or skill (PROVIDER),
+        // deduped and capped at 10 to avoid tag spam.
+        const rawItems = listing.type === 'FARM' ? listing.products : listing.skills;
+        let items = [];
+        if (typeof rawItems === 'string') {
+            try { items = JSON.parse(rawItems || '[]'); } catch { items = []; }
+        } else if (Array.isArray(rawItems)) {
+            items = rawItems;
+        }
+        const seen = new Set(['bies', 'directory', 'farm', 'services']);
+        for (const item of items) {
+            const label = typeof item === 'string' ? item : item?.label;
+            if (typeof label !== 'string') continue;
+            const value = label.trim().toLowerCase();
+            if (!value || seen.has(value)) continue;
+            seen.add(value);
+            tags.push(['t', value]);
+            if (seen.size >= 14) break; // 4 base topic tags + max 10 item tags
+        }
+
+        if (listing.photo) tags.push(['image', listing.photo]);
+        if (listing.location) tags.push(['location', listing.location]);
+
+        const event = {
+            kind: 30402,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: about,
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        await Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
+    }
+
+    /**
      * Publish a NIP-65 relay list metadata event (kind:10002).
      * For Nostr-native users — signs via browser extension.
      * Tags BIES relay as write, public relays as read.

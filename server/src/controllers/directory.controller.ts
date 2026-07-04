@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { recomputeListingScore } from '../services/directoryReputation.service';
+import { publishDirectoryListing } from '../services/nostr.service';
 import { z } from 'zod';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
@@ -292,6 +293,22 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
         recomputeListingScore(listing.id).catch((err) =>
             console.error('[Directory] Score recompute failed:', err)
         );
+
+        // Re-mirror to Nostr only when the listing is live (replaceable
+        // kind:30402 keyed by d-tag = listing id), signed by the linked
+        // member's key when set, else the owner's.
+        if (listing.status === 'active') {
+            publishDirectoryListing(listing.memberUserId ?? listing.ownerId, listing)
+                .then(async (eventId) => {
+                    if (eventId) {
+                        await prisma.directoryListing.update({
+                            where: { id: listing.id },
+                            data: { nostrListingEventId: eventId },
+                        });
+                    }
+                })
+                .catch((err) => console.error('[Nostr] Directory listing sync failed:', err));
+        }
 
         res.json(parseListing(listing));
     } catch (error) {
