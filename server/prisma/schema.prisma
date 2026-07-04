@@ -50,6 +50,10 @@ model User {
   settings         UserSettings?
   fingerprints     BrowserFingerprint[]
   feedback         Feedback[]
+  pointEvents      PointEvent[]
+  score            UserScore?
+  badges           UserBadge[]
+  leaderboardSnapshots LeaderboardSnapshot[]
 
   @@map("users")
 }
@@ -629,4 +633,81 @@ model InvestorRequest {
 
   @@index([userId])
   @@map("investor_requests")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Gamification (points ledger, scores, badges, leaderboards)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model PointEvent {
+  id            String   @id @default(cuid())
+  userId        String   @map("user_id")
+  nostrEventId  String?  @map("nostr_event_id")
+  kind          Int?
+  reason        String   // POST | REPLY | REACTION_GIVEN | REACTION_RECEIVED | QUALITY_BONUS | ADMIN_ADJUST
+  points        Int      // 0 (audit rows) and negative (admin adjust) allowed
+  month         String   // 'YYYY-MM' (UTC, from event timestamp)
+  targetEventId String?  @map("target_event_id")
+  meta          String   @default("{}") // JSON: rateLimited, dailyCapped, aiScore, ...
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([nostrEventId, userId, reason])
+  @@index([userId, month])
+  @@index([userId, targetEventId])
+  @@index([userId, reason, createdAt])
+  @@map("point_events")
+}
+
+model UserScore {
+  userId            String    @id @map("user_id")
+  monthlyPoints     Int       @default(0) @map("monthly_points")
+  lifetimePoints    Int       @default(0) @map("lifetime_points")
+  level             Int       @default(0)
+  currentMonth      String    @map("current_month") // 'YYYY-MM' the monthlyPoints belong to
+  lastScoredNoteAt  DateTime? @map("last_scored_note_at")
+  streakDays        Int       @default(0) @map("streak_days")
+  lastActiveDay     String?   @map("last_active_day") // 'YYYY-MM-DD' UTC
+  postCount         Int       @default(0) @map("post_count")
+  replyCount        Int       @default(0) @map("reply_count")
+  reactionsGiven    Int       @default(0) @map("reactions_given")
+  reactionsReceived Int       @default(0) @map("reactions_received")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([monthlyPoints])
+  @@index([lifetimePoints])
+  @@map("user_scores")
+}
+
+model UserBadge {
+  id                String   @id @default(cuid())
+  userId            String   @map("user_id")
+  badgeId           String   @map("badge_id")
+  month             String   @default("") // '' = permanent; 'YYYY-MM' for monthly badges
+  nostrAwardEventId String?  @map("nostr_award_event_id") // NIP-58 kind-8 award event id
+  awardedAt         DateTime @default(now()) @map("awarded_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId, month])
+  @@index([userId])
+  @@map("user_badges")
+}
+
+model LeaderboardSnapshot {
+  id        String   @id @default(cuid())
+  month     String   // 'YYYY-MM'
+  userId    String   @map("user_id")
+  rank      Int
+  points    Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([month, userId])
+  @@index([month, rank])
+  @@map("leaderboard_snapshots")
 }
