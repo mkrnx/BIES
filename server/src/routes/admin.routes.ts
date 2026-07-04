@@ -32,6 +32,15 @@ import {
     grantBadge,
     grantBadgeSchema,
     revokeBadge,
+    listAdminDirectory,
+    reviewDirectoryListing,
+    reviewDirectoryListingSchema,
+    featureDirectoryListing,
+    featureDirectoryListingSchema,
+    setDirectoryScore,
+    setDirectoryScoreSchema,
+    recomputeDirectoryScores,
+    deleteDirectoryListing,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -71,6 +80,13 @@ router.get('/points/events', listPointEvents);
 router.post('/points/recompute', recomputePoints);
 router.post('/points/badges/grant', validate(grantBadgeSchema), grantBadge);
 router.delete('/points/badges/:userId/:badgeId', revokeBadge);
+// Directory
+router.get('/directory', listAdminDirectory);
+router.put('/directory/:id/review', validate(reviewDirectoryListingSchema), reviewDirectoryListing);
+router.put('/directory/:id/feature', validate(featureDirectoryListingSchema), featureDirectoryListing);
+router.put('/directory/:id/score', validate(setDirectoryScoreSchema), setDirectoryScore);
+router.post('/directory/recompute', recomputeDirectoryScores);
+router.delete('/directory/:id', deleteDirectoryListing);
 
 // Audit & System
 router.get('/audit-logs', getAuditLogs);

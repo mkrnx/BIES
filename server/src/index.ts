@@ -47,6 +47,7 @@ import nip05Routes from './routes/nip05.routes';
 import walletRoutes from './routes/wallet.routes';
 import feedbackRoutes, { adminFeedbackRouter } from './routes/feedback.routes';
 import pointsRoutes from './routes/points.routes';
+import directoryRoutes from './routes/directory.routes';
 
 const app = express();
 
@@ -203,6 +204,7 @@ app.use('/api/match', matchRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/points', pointsRoutes);
+app.use('/api/directory', directoryRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

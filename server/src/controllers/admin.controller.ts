@@ -9,7 +9,9 @@ import prisma from '../lib/prisma';
 import { cache, cacheKey } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
+import { publishDirectoryListing } from '../services/nostr.service';
 import { isAdminPubkey } from '../middleware/auth';
+import { recomputeListingScore, recomputeAllScores as recomputeAllDirectoryScores } from '../services/directoryReputation.service';
 import {
     applyPoints,
     recomputeAllScores,
@@ -1398,5 +1400,255 @@ export async function revokeBadge(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Revoke badge error:', error);
         res.status(500).json({ error: 'Failed to revoke badge' });
+    }
+}
+
+
+// ─── Directory Listings ──────────────────────────────────────────────────────
+
+export const reviewDirectoryListingSchema = z.object({
+    action: z.enum(['approve', 'reject']),
+});
+
+export const featureDirectoryListingSchema = z.object({
+    featured: z.boolean(),
+});
+
+export const setDirectoryScoreSchema = z.object({
+    baseScore: z.number().int().min(0).max(60),
+});
+
+function parseDirectoryListing(listing: any): any {
+    return {
+        ...listing,
+        photos: JSON.parse(listing.photos || '[]'),
+        languages: JSON.parse(listing.languages || '[]'),
+        products: JSON.parse(listing.products || '[]'),
+        practices: JSON.parse(listing.practices || '[]'),
+        skills: JSON.parse(listing.skills || '[]'),
+    };
+}
+
+/**
+ * GET /admin/directory
+ * List all directory listings (all statuses) with optional type/status
+ * filters, search, and pagination.
+ */
+export async function listAdminDirectory(req: Request, res: Response): Promise<void> {
+    try {
+        const { type, status, search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (type && typeof type === 'string') where.type = type.toUpperCase();
+        if (status && typeof status === 'string') where.status = status;
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { name: { contains: search } },
+                { about: { contains: search } },
+                { location: { contains: search } },
+            ];
+        }
+
+        const [listings, total] = await Promise.all([
+            prisma.directoryListing.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    owner: {
+                        select: {
+                            id: true, email: true,
+                            profile: { select: { name: true, avatar: true } },
+                        },
+                    },
+                    memberUser: {
+                        select: {
+                            id: true,
+                            profile: { select: { name: true } },
+                        },
+                    },
+                    _count: { select: { endorsements: true } },
+                },
+            }),
+            prisma.directoryListing.count({ where }),
+        ]);
+
+        res.json({
+            data: listings.map(parseDirectoryListing),
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list directory error:', error);
+        res.status(500).json({ error: 'Failed to list directory listings' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/review
+ * Approve or reject a directory listing submission.
+ * Body: { action: 'approve' | 'reject' }
+ */
+export async function reviewDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        const { action } = req.body;
+
+        const data: any = action === 'approve'
+            ? { status: 'active', isPublished: true }
+            : { status: 'rejected' };
+
+        const listing = await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data,
+            select: {
+                id: true, name: true, status: true, ownerId: true,
+                memberUserId: true, type: true, about: true, photo: true,
+                location: true, products: true, skills: true,
+            },
+        });
+
+        if (action === 'approve') {
+            // Mirror to Nostr as a NIP-99 classified listing (kind:30402),
+            // signed by the linked member's key when set, else the owner's.
+            publishDirectoryListing(listing.memberUserId ?? listing.ownerId, listing)
+                .then(async (eventId) => {
+                    if (eventId) {
+                        await prisma.directoryListing.update({
+                            where: { id: listing.id },
+                            data: { nostrListingEventId: eventId },
+                        });
+                    }
+                })
+                .catch((err) => console.error('[Nostr] Directory listing sync failed:', err));
+
+            recomputeListingScore(listing.id).catch((err) =>
+                console.error('[Admin] Directory score recompute failed:', err)
+            );
+        }
+
+        // Notify listing owner
+        await prisma.notification.create({
+            data: {
+                userId: listing.ownerId,
+                type: 'SYSTEM',
+                title: action === 'approve' ? 'Directory Listing Approved' : 'Directory Listing Not Approved',
+                body: action === 'approve'
+                    ? `Your directory listing "${listing.name}" has been approved and is now live.`
+                    : `Your directory listing "${listing.name}" was not approved. Please review and resubmit.`,
+                data: JSON.stringify({ listingId: listing.id }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: action === 'approve' ? 'DIRECTORY_LISTING_APPROVED' : 'DIRECTORY_LISTING_REJECTED',
+                resource: `directory:${req.params.id}`,
+                metadata: JSON.stringify({ listingName: listing.name }),
+            },
+        });
+
+        res.json({ id: listing.id, name: listing.name, status: listing.status, ownerId: listing.ownerId });
+    } catch (error) {
+        console.error('Review directory listing error:', error);
+        res.status(500).json({ error: 'Failed to review directory listing' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/feature
+ * Feature or unfeature a directory listing.
+ * Body: { featured: boolean }
+ */
+export async function featureDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        const { featured } = req.body;
+
+        const listing = await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data: { isFeatured: featured },
+        });
+
+        res.json({ id: listing.id, isFeatured: listing.isFeatured });
+    } catch (error) {
+        console.error('Feature directory listing error:', error);
+        res.status(500).json({ error: 'Failed to feature directory listing' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/score
+ * Set the admin base score (0–60) and recompute the reputation score.
+ * Body: { baseScore: number }
+ */
+export async function setDirectoryScore(req: Request, res: Response): Promise<void> {
+    try {
+        const { baseScore } = req.body;
+
+        await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data: { baseScore },
+        });
+
+        await recomputeListingScore(req.params.id);
+
+        const listing = await prisma.directoryListing.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, baseScore: true, reputationScore: true, isCertified: true, certifiedAt: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'DIRECTORY_SCORE_SET',
+                resource: `directory:${req.params.id}`,
+                metadata: JSON.stringify({ baseScore }),
+            },
+        });
+
+        res.json(listing);
+    } catch (error) {
+        console.error('Set directory score error:', error);
+        res.status(500).json({ error: 'Failed to set directory score' });
+    }
+}
+
+/**
+ * POST /admin/directory/recompute
+ * Recompute reputation scores for all directory listings.
+ */
+export async function recomputeDirectoryScores(req: Request, res: Response): Promise<void> {
+    try {
+        await recomputeAllDirectoryScores();
+        res.json({ message: 'Directory scores recomputed' });
+    } catch (error) {
+        console.error('Recompute directory scores error:', error);
+        res.status(500).json({ error: 'Failed to recompute directory scores' });
+    }
+}
+
+/**
+ * DELETE /admin/directory/:id
+ * Hard delete a directory listing.
+ */
+export async function deleteDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        await prisma.directoryListing.delete({ where: { id: req.params.id } });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'DIRECTORY_LISTING_DELETED',
+                resource: `directory:${req.params.id}`,
+                metadata: '{}',
+            },
+        });
+
+        res.json({ message: 'Listing permanently deleted' });
+    } catch (error) {
+        console.error('Delete directory listing error:', error);
+        res.status(500).json({ error: 'Failed to delete directory listing' });
     }
 }

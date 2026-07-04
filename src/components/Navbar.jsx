@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { User, Search, ChevronDown, LogOut, Trophy } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 import NostrNotifications from './NostrNotifications';
+import { COWORK_ENABLED } from '../config/featureFlags';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 import logoIconDark from '../assets/logo-icon-dark.svg';
 
@@ -44,6 +45,8 @@ const Navbar = () => {
   const getPageTitle = () => {
     const path = location.pathname;
     if (path === '/' || path === '/feed') return t('pageTitles.biesFeed');
+    if (path.startsWith('/discover/farms')) return t('pageTitles.farmDirectory');
+    if (path.startsWith('/discover/certified')) return t('pageTitles.certifiedDirectory');
     if (path.startsWith('/discover')) return t('pageTitles.discover', 'Discover');
     if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
     if (path.startsWith('/leaderboard')) return t('pageTitles.leaderboard');
@@ -51,8 +54,10 @@ const Navbar = () => {
     if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return t('pageTitles.members');
     if (path.startsWith('/media')) return t('pageTitles.media');
     if (path.startsWith('/about')) return t('pageTitles.about');
+    if (path.startsWith('/cowork')) return t('pageTitles.cowork');
     if (path.startsWith('/profile') || path.startsWith('/dashboard')) return t('pageTitles.dashboard');
     if (path.startsWith('/messages')) return t('pageTitles.messages');
+    if (path === '/settings/navbar') return t('customNav.title');
     if (path.startsWith('/settings')) return t('pageTitles.settings');
     if (path.startsWith('/feedback')) return 'Feedback';
     if (path.startsWith('/admin')) return t('pageTitles.adminPanel');
@@ -166,6 +171,9 @@ const Navbar = () => {
                         {t('nav.profile')}
                       </Link>
                       <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.messages')}</Link>
+                      {COWORK_ENABLED && (
+                        <Link to="/cowork" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.cowork')}</Link>
+                      )}
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.dashboard')}</Link>
                       {(user?.isAdmin || user?.role === 'MOD') && (
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
@@ -231,6 +239,7 @@ const Navbar = () => {
               {[
                 { to: '/profile', label: t('nav.profile') },
                 { to: '/messages', label: t('nav.messages') },
+                ...(COWORK_ENABLED ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 { to: '/leaderboard', label: t('nav.leaderboard') },
                 { to: '/news', label: t('nav.news') },

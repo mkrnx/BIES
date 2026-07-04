@@ -5,6 +5,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
+import { BottomNavProvider, useBottomNav } from './context/BottomNavContext';
+import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED } from './config/featureFlags';
 import { preferencesApi } from './services/api';
 import i18n from './i18n';
 import Navbar from './components/Navbar';
@@ -33,6 +35,8 @@ import Profile from './pages/Profile';
 import ProfileEdit from './pages/ProfileEdit';
 import Messages from './pages/Messages';
 import Settings from './pages/Settings';
+import CustomizeNavbar from './pages/CustomizeNavbar';
+import Cowork from './pages/Cowork';
 import ProjectDetails from './pages/ProjectDetails';
 import Notifications from './pages/Notifications';
 import ArticleDetail from './pages/ArticleDetail';
@@ -45,6 +49,10 @@ import Overview from './pages/Overview';
 import Following from './pages/Following';
 import NotFound from './pages/NotFound';
 
+import DirectoryList from './pages/directory/DirectoryList';
+import ListingDetail from './pages/directory/ListingDetail';
+import CreateListing from './pages/directory/CreateListing';
+
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
@@ -56,6 +64,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminProjects from './pages/admin/AdminProjects';
 import AdminEvents from './pages/admin/AdminEvents';
+import AdminDirectory from './pages/admin/AdminDirectory';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminPoints from './pages/admin/AdminPoints';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
@@ -103,6 +112,7 @@ const AppContent = () => {
     const location = useLocation();
     const { setTheme } = useTheme();
     const { setDefaultView } = useViewPreference();
+    const { applyServerTabs } = useBottomNav();
     const prefsLoaded = useRef(false);
 
     // Restore user preferences from backend on login
@@ -116,6 +126,7 @@ const AppContent = () => {
             if (prefs.membersView) localStorage.setItem('bies_members_view', prefs.membersView);
             if (prefs.eventsView) localStorage.setItem('bies_events_view', prefs.eventsView);
             if (prefs.mediaView) localStorage.setItem('bies_media_view', prefs.mediaView);
+            if (Array.isArray(prefs.bottomNavTabs)) applyServerTabs(prefs.bottomNavTabs);
         }).catch(() => {});
     }, [user]);
 
@@ -137,6 +148,13 @@ const AppContent = () => {
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
 
+                    {/* Directories (declared before the generic /discover route) */}
+                    <Route path="/discover/farms" element={<ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute>} />
+                    <Route path="/discover/farms/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
+                    <Route path="/discover/certified" element={<ProtectedRoute><DirectoryList type="PROVIDER" /></ProtectedRoute>} />
+                    <Route path="/discover/certified/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
+                    <Route path="/discover/directory/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
+                    <Route path="/discover/directory/:id/edit" element={<ProtectedRoute><CreateListing editMode /></ProtectedRoute>} />
                     <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
                     <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
                     <Route path="/events/create" element={
@@ -160,6 +178,9 @@ const AppContent = () => {
                     <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
                     <Route path="/about" element={<ProtectedRoute><Team /></ProtectedRoute>} />
                     <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+                    {COWORK_ENABLED && (
+                        <Route path="/cowork" element={<ProtectedRoute><Cowork /></ProtectedRoute>} />
+                    )}
 
                     {/* Protected Routes */}
                     {/* Specific Dashboard Routes */}
@@ -190,6 +211,7 @@ const AppContent = () => {
                         <Route index element={<AdminOverview />} />
                         <Route path="projects" element={<AdminProjects />} />
                         <Route path="events" element={<AdminEvents />} />
+                        <Route path="directory" element={<AdminDirectory />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="points" element={<AdminPoints />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
@@ -229,6 +251,13 @@ const AppContent = () => {
                             <Settings />
                         </ProtectedRoute>
                     } />
+                    {CUSTOM_BOTTOM_NAV_ENABLED && (
+                        <Route path="/settings/navbar" element={
+                            <ProtectedRoute>
+                                <CustomizeNavbar />
+                            </ProtectedRoute>
+                        } />
+                    )}
                     <Route path="/notifications" element={
                         <ProtectedRoute>
                             <Notifications />
@@ -241,7 +270,7 @@ const AppContent = () => {
                     } />
                 </Routes>
             </div>
-            {user && <MobileBottomNav />}
+            {user && location.pathname !== '/settings/navbar' && <MobileBottomNav />}
             {user && <GamificationToast />}
             <VersionIndicator />
         </>
@@ -253,13 +282,15 @@ function App() {
         <AuthProvider>
             <ThemeProvider>
                 <ViewProvider>
-                    <UserModeProvider>
-                        <LightboxProvider>
-                            <Router basename="/" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                                <AppContent />
-                            </Router>
-                        </LightboxProvider>
-                    </UserModeProvider>
+                    <BottomNavProvider>
+                        <UserModeProvider>
+                            <LightboxProvider>
+                                <Router basename="/" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                                    <AppContent />
+                                </Router>
+                            </LightboxProvider>
+                        </UserModeProvider>
+                    </BottomNavProvider>
                 </ViewProvider>
             </ThemeProvider>
         </AuthProvider>

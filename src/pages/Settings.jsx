@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint, Smartphone } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
 import { useTheme } from '../context/ThemeContext';
@@ -10,7 +11,7 @@ import { investorApi, preferencesApi, notificationsApi } from '../services/api';
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, getPushSubscriptionState } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
-import { PASSKEY_ENABLED } from '../config/featureFlags';
+import { PASSKEY_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED } from '../config/featureFlags';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
@@ -327,6 +328,24 @@ const Settings = () => {
                     </select>
                 </div>
             </div>
+
+            {CUSTOM_BOTTOM_NAV_ENABLED && (
+            <div className="settings-section">
+                <h2>{t('customNav.sectionTitle')}</h2>
+                <div className="setting-item">
+                    <div className="setting-info">
+                        <div className="icon-box"><Smartphone size={20} /></div>
+                        <div>
+                            <p className="setting-label">{t('customNav.settingLabel')}</p>
+                            <p className="setting-desc">{t('customNav.settingDesc')}</p>
+                        </div>
+                    </div>
+                    <Link to="/settings/navbar" className="toggle-btn" data-testid="customize-nav-link" style={{ width: 'auto', textDecoration: 'none', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        {t('customNav.customize')}
+                    </Link>
+                </div>
+            </div>
+            )}
 
             <div className="settings-section">
                 <h2>{t('settings.notifications')}</h2>

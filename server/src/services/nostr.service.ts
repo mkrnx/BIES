@@ -180,6 +180,68 @@ export async function publishProjectListing(
 }
 
 /**
+ * Publish a directory listing as a NIP-99 classified listing (Kind 30402).
+ * Signed with the linked member's custodial key (call sites pass
+ * memberUserId ?? ownerId). Returns the event id, or null for
+ * Nostr-native users (who sign client-side via the nostrService twin).
+ */
+export async function publishDirectoryListing(
+    userId: string,
+    listing: {
+        id: string;
+        type: string; // FARM | PROVIDER
+        name: string;
+        about?: string | null;
+        photo?: string | null;
+        location?: string | null;
+        products?: string | Array<{ label?: string } | string> | null; // FARM chips
+        skills?: string | string[] | null; // PROVIDER
+    }
+): Promise<string | null> {
+    const about = listing.about || '';
+    const tags: string[][] = [
+        ['d', listing.id],
+        ['title', listing.name],
+        ['summary', about.slice(0, 200)],
+        ['t', 'bies'],
+        ['t', 'directory'],
+        ['t', listing.type === 'FARM' ? 'farm' : 'services'],
+    ];
+
+    // One topic tag per product label (FARM) or skill (PROVIDER),
+    // deduped and capped at 10 to avoid tag spam.
+    const rawItems = listing.type === 'FARM' ? listing.products : listing.skills;
+    let items: unknown[] = [];
+    if (typeof rawItems === 'string') {
+        try { items = JSON.parse(rawItems || '[]'); } catch { items = []; }
+    } else if (Array.isArray(rawItems)) {
+        items = rawItems;
+    }
+    const seen = new Set(['bies', 'directory', 'farm', 'services']);
+    for (const item of items) {
+        const label = typeof item === 'string' ? item : (item as { label?: unknown })?.label;
+        if (typeof label !== 'string') continue;
+        const value = label.trim().toLowerCase();
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        tags.push(['t', value]);
+        if (seen.size >= 14) break; // 4 base topic tags + max 10 item tags
+    }
+
+    if (listing.photo) tags.push(['image', listing.photo]);
+    if (listing.location) tags.push(['location', listing.location]);
+
+    const event: EventTemplate = {
+        kind: 30402,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: about,
+    };
+
+    return publishEvent(userId, event);
+}
+
+/**
  * Publish a NIP-65 relay list metadata event (Kind 10002).
  * Tags BIES relay as write, public relays as read.
  */
