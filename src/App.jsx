@@ -58,6 +58,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminProjects from './pages/admin/AdminProjects';
 import AdminEvents from './pages/admin/AdminEvents';
+import AdminDirectory from './pages/admin/AdminDirectory';
 import AdminUsers from './pages/admin/AdminUsers';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
@@ -197,6 +198,7 @@ const AppContent = () => {
                         <Route index element={<AdminOverview />} />
                         <Route path="projects" element={<AdminProjects />} />
                         <Route path="events" element={<AdminEvents />} />
+                        <Route path="directory" element={<AdminDirectory />} />
                         <Route path="users" element={<AdminUsers />} />
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
