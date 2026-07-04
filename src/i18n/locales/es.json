@@ -1310,6 +1310,12 @@
       "animalWelfare": "Bienestar Animal"
     },
     "learnMore": "Conoce Mas",
+    "notFound": "Listado no encontrado",
+    "notFoundDesc": "Este listado no existe o fue eliminado.",
+    "backToDirectory": "Volver al Directorio",
+    "editListing": "Editar Listado",
+    "about": "Acerca de",
+    "skillsLabel": "Habilidades",
     "certifiedBadge": "Certificado por la Red BIES",
     "reputation": "Reputacion",
     "bestFor": "Ideal Para",

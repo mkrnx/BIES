@@ -1309,6 +1309,12 @@
       "animalWelfare": "Animal Welfare"
     },
     "learnMore": "Learn More",
+    "notFound": "Listing not found",
+    "notFoundDesc": "This listing doesn't exist or has been removed.",
+    "backToDirectory": "Back to Directory",
+    "editListing": "Edit Listing",
+    "about": "About",
+    "skillsLabel": "Skills",
     "certifiedBadge": "BIES Network Certified",
     "reputation": "Reputation",
     "bestFor": "Best For",
