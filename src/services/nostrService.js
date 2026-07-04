@@ -467,6 +467,13 @@ class NostrService {
     }
 
     /**
+     * Subscribe to the private BIES relay only (handles the NIP-42 AUTH challenge).
+     */
+    subscribeToBiesRelay(filter, onevent) {
+        return this.pool.subscribeMany([this.biesRelay], filter, { onevent, onauth: handleRelayAuth });
+    }
+
+    /**
      * Update the user's Nostr profile (kind:0 metadata).
      * Signs via browser extension and publishes to all relays.
      * @param {Object} profileData - { name, about, picture, website, nip05, banner, lud16, ... }

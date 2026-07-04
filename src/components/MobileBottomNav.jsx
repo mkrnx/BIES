@@ -1,8 +1,10 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { MessageSquare, Compass, Calendar, Play, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { useBottomNav } from '../context/BottomNavContext';
+import { NAV_PAGES_BY_ID } from '../config/navPages';
 
 const itemStyle = (active) => ({
   display: 'flex',
@@ -34,13 +36,8 @@ const MobileBottomNav = () => {
   const { isAuthenticated } = useAuth();
   const { t } = useTranslation();
 
-  const tabs = [
-    { path: '/feed', icon: MessageSquare, label: t('mobileNav.home') },
-    { path: '/discover', icon: Compass, label: t('mobileNav.discover') },
-    { path: '/events', icon: Calendar, label: t('mobileNav.events') },
-    { path: '/media', icon: Play, label: t('nav.media') },
-    { path: '/dashboard', icon: User, label: t('mobileNav.dashboard'), auth: true },
-  ];
+  const { tabs: tabIds } = useBottomNav();
+  const tabs = tabIds.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
@@ -61,7 +58,7 @@ const MobileBottomNav = () => {
         {tabs.map((tab) => {
           if (tab.auth && !isAuthenticated) {
             return (
-              <Link key="login" to="/login" style={itemStyle(false)}>
+              <Link key={'login-' + tab.id} to="/login" style={itemStyle(false)} data-testid={'bottom-nav-' + tab.id}>
                 <div style={iconWrapStyle(false)}><User size={22} strokeWidth={1.8} /></div>
                 <span>{t('common.login')}</span>
               </Link>
@@ -70,11 +67,11 @@ const MobileBottomNav = () => {
           const Icon = tab.icon;
           const active = isActive(tab.path);
           return (
-            <Link key={tab.path} to={tab.path} style={itemStyle(active)}>
+            <Link key={tab.path} to={tab.path} style={itemStyle(active)} data-testid={'bottom-nav-' + tab.id}>
               <div style={iconWrapStyle(active)}>
                 <Icon size={22} strokeWidth={active ? 2.5 : 1.8} />
               </div>
-              <span>{tab.label}</span>
+              <span>{t(tab.labelKey)}</span>
             </Link>
           );
         })}
