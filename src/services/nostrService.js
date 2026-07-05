@@ -76,6 +76,13 @@ export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
  * (in-memory key or browser extension, depending on login method).
  */
 async function handleRelayAuth(evt) {
+    // Relay AUTH fires from websocket callbacks — no user gesture. Signers
+    // that need one (Amber/NIP-55 navigates to another app) must never be
+    // invoked here; private-relay access degrades gracefully instead.
+    if (!nostrSigner.canSignSilently) {
+        console.warn('[Nostr] Skipping relay AUTH — signer requires user interaction');
+        return undefined;
+    }
     try {
         return await nostrSigner.signEvent(evt);
     } catch (err) {
@@ -101,6 +108,11 @@ class NostrService {
             const biesNorm = this.biesRelay.replace(/\/+$/, '');
             if (normalized === biesNorm) {
                 return async (evt) => {
+                    // No user gesture in relay callbacks — see handleRelayAuth.
+                    if (!nostrSigner.canSignSilently) {
+                        console.warn('[Nostr] Skipping relay AUTH — signer requires user interaction');
+                        return undefined;
+                    }
                     console.log('[Nostr] AUTH challenge received for BIES relay, signing...');
                     try {
                         const signed = await nostrSigner.signEvent(evt);

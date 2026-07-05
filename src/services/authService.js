@@ -194,18 +194,16 @@ export const authService = {
     // ─── Bunker login (NIP-46 remote signer) ───────────────────────────────
 
     /**
-     * Login using a NIP-46 remote signer (Amber, nsecBunker, etc.).
-     * Connects via bunker:// URI or name@domain, then does the same
-     * challenge-response flow — signing happens on the remote device.
+     * Shared challenge-response pipeline for external signers: get the pubkey
+     * from the signer, sign the kind-27235 challenge remotely, exchange it for
+     * a JWT. Does NOT set the nostrSigner mode — callers do that.
+     * Returns { user, pubkey }.
      */
-    loginWithBunker: async (bunkerInput) => {
-        const { nostrConnectService } = await import('./nostrConnectService.js');
-        const bunkerSigner = await nostrConnectService.connect(bunkerInput);
-
-        const pubkey = await bunkerSigner.getPublicKey();
+    _completeSignerLogin: async (signer) => {
+        const pubkey = await signer.getPublicKey();
         const { challenge } = await authApi.nostrChallenge(pubkey);
 
-        const signedEvent = await bunkerSigner.signEvent({
+        const signedEvent = await signer.signEvent({
             kind: 27235,
             created_at: Math.floor(Date.now() / 1000),
             tags: [],
@@ -217,7 +215,107 @@ export const authService = {
 
         authService.setToken(token);
         authService.setCachedUser(user);
+        return { user, pubkey };
+    },
+
+    /**
+     * Login using a NIP-46 remote signer (Amber, nsecBunker, etc.).
+     * Connects via bunker:// URI or name@domain, then does the same
+     * challenge-response flow — signing happens on the remote device.
+     */
+    loginWithBunker: async (bunkerInput) => {
+        const { nostrConnectService } = await import('./nostrConnectService.js');
+        const bunkerSigner = await nostrConnectService.connect(bunkerInput);
+
+        const { user, pubkey } = await authService._completeSignerLogin(bunkerSigner);
         nostrSigner.setBunkerMode(pubkey);
+        return user;
+    },
+
+    /**
+     * Login with a BunkerSigner that is already connected — the
+     * nostrconnect:// client-initiated pairing (see NostrConnectQR).
+     */
+    loginWithConnectedBunker: async (bunkerSigner) => {
+        const { user, pubkey } = await authService._completeSignerLogin(bunkerSigner);
+        nostrSigner.setBunkerMode(pubkey);
+        return user;
+    },
+
+    // ─── Amber login (NIP-55 Android intents) ───────────────────────────────
+    //
+    // Two app-switch round trips, each landing on /amber-callback:
+    //   1. startAmberLogin()  — get_public_key with permissions → Amber
+    //   2. continueAmberLogin(pubkey) — fetch challenge NOW (5-min backend
+    //      TTL starts here, only one round trip inside it) → sign_event → Amber
+    //   3. finishAmberLogin(signedEvent) — exchange for JWT, set amber mode.
+    // State between trips lives in localStorage (the page unloads each time).
+
+    /** Kick off Amber login. MUST be called from a user gesture. */
+    startAmberLogin: async () => {
+        const { amberSignerService, AMBER_PERMISSIONS } = await import('./amberSignerService.js');
+        amberSignerService.setLoginState({ step: 'awaiting-pubkey', startedAt: Date.now() });
+        // Navigates away; the promise only settles if this tab stays alive
+        // (not-installed watchdog, or callback landing in another tab).
+        return amberSignerService.requestPublicKey(AMBER_PERMISSIONS, {
+            kind: 'login-pubkey',
+            returnPath: '/login',
+        });
+    },
+
+    /** Round trip 2 — called by the callback route with Amber's pubkey. */
+    continueAmberLogin: async (pubkeyHex) => {
+        const { amberSignerService } = await import('./amberSignerService.js');
+        const { challenge } = await authApi.nostrChallenge(pubkeyHex);
+        amberSignerService.setLoginState({
+            step: 'awaiting-challenge-sig',
+            pubkey: pubkeyHex,
+            challenge,
+            startedAt: Date.now(),
+        });
+        return amberSignerService.signEvent(
+            {
+                kind: 27235,
+                created_at: Math.floor(Date.now() / 1000),
+                tags: [],
+                content: challenge,
+                pubkey: pubkeyHex,
+            },
+            // Callback-driven (gestureless) navigation — skip the not-installed
+            // watchdog; the AmberCallback page renders a manual continue button.
+            { resume: { kind: 'login-challenge', returnPath: '/login' }, skipWatchdog: true }
+        );
+    },
+
+    /** Final step — called by the callback route with the signed challenge. */
+    finishAmberLogin: async (signedEvent) => {
+        const { amberSignerService } = await import('./amberSignerService.js');
+        const state = amberSignerService.getPendingLoginState();
+        if (!state || state.step !== 'awaiting-challenge-sig' || !state.pubkey) {
+            // The challenge callback can land in both the initiating tab (its
+            // signEvent promise resolves via a storage event) and a fresh
+            // Amber-opened tab — both call finishAmberLogin. The first clears
+            // the login state; the second must not error or re-POST the
+            // single-use challenge. If we're already authenticated, treat it
+            // as a benign duplicate and return the established user.
+            const cached = authService.getCachedUser();
+            if (authService.getToken() && cached) return cached;
+            throw new Error('Login session expired. Please try again.');
+        }
+        if (signedEvent.pubkey !== state.pubkey) {
+            throw new Error('Amber signed with a different identity than expected. Please try again.');
+        }
+
+        // Claim the challenge before the network call so a racing tab sees
+        // no pending state and takes the duplicate-success path above.
+        amberSignerService.clearLoginState();
+
+        const fingerprint = await fingerprintService.getFingerprint();
+        const { user, token } = await authApi.nostrLogin(state.pubkey, signedEvent, fingerprint);
+
+        authService.setToken(token);
+        authService.setCachedUser(user);
+        nostrSigner.setAmberMode(state.pubkey);
         return user;
     },
 
