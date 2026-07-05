@@ -2,7 +2,12 @@
  * keytrService — adapter for @sovit.xyz/keytr passkey-encrypted nsec.
  *
  * Replaces the custom passkeyService with keytr's NIP-K1 implementation:
- *   KiH → HKDF-SHA256 → AES-256-GCM → kind:31777 event → relay
+ *   PRF → HKDF-SHA256 → AES-256-GCM → kind:31777 event → relay
+ *
+ * As of keytr 0.8.0 PRF is the only registration mode (the encryption key is
+ * derived by the authenticator and never exposed to JS). Legacy KiH (v=3)
+ * credentials remain decrypt-only so existing users can log in and migrate —
+ * see migrateToPrf() and PasskeyMigratePrompt.
  *
  * Encrypted nsec lives on public Nostr relays (not localStorage).
  * A lightweight localStorage index tracks which pubkeys have credentials
@@ -15,26 +20,42 @@ import {
     registerPasskey,
     encryptNsec,
     buildKeytrEvent,
+    parseKeytrEvent,
     publishKeytrEvent,
     fetchKeytrEvents,
     loginWithKeytr,
     discover,
+    migrateFromKih,
     nsecToPublicKey,
+    checkPrfSupport,
+    PrfNotSupportedError,
     KEYTR_VERSION,
+    KEYTR_KIH_VERSION,
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { NOSTR_RELAYS } from './nostrService.js';
 
-// Override gateways: our domain first, then keytr.org and nostkey.org as backups
-const BIES_GATEWAYS = ['app.buildinelsalvador.com', ...KEYTR_GATEWAYS.filter(g => g !== 'app.buildinelsalvador.com')];
+// Override gateways: our domain first, then keytr.org and nostkey.org as backups.
+// On localhost (dev/E2E) use 'localhost' as the sole rpId — WebAuthn rejects
+// cross-origin rpIds from a localhost origin, so passkeys would otherwise be
+// untestable locally. Production behavior is unchanged.
+const BIES_GATEWAYS = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
+    ? ['localhost']
+    : ['app.buildinelsalvador.com', ...KEYTR_GATEWAYS.filter(g => g !== 'app.buildinelsalvador.com')];
 
 const STORAGE_KEY = 'bies_keytr_credentials';
+const MIGRATED_KEY = 'bies_kih_migrated';
 
 /**
  * Detect whether a keytr/WebAuthn error is a user-initiated cancellation
  * (e.g. dismissing the passkey picker or tapping "Cancel").
+ *
+ * keytr wraps the browser's NotAllowedError in a WebAuthnError whose `name`
+ * is "WebAuthnError" (not "NotAllowedError") but whose message preserves the
+ * "operation either timed out or was not allowed" text — so callers must
+ * match on the message, not err.name. Exported for UI components.
  */
-function isUserCancellation(err) {
+export function isUserCancellation(err) {
     if (!err) return false;
     const msg = (err.message || String(err)).toLowerCase();
     return msg.includes('notallowederror') || msg.includes('aborterror') ||
@@ -58,16 +79,100 @@ function setStored(creds) {
 // ─── Support detection cache ────────────────────────────────────────────────
 
 let _webauthnAvailable = false;
+let _prfSupport = { supported: false, platformAuthenticator: false, reason: 'not checked' };
 let _checked = false;
+let _checkPromise = null;
 
 async function ensureChecked() {
     if (_checked) return;
-    _webauthnAvailable = typeof window !== 'undefined' && !!window.PublicKeyCredential;
-    _checked = true;
+    if (!_checkPromise) {
+        _checkPromise = (async () => {
+            _webauthnAvailable = typeof window !== 'undefined' && !!window.PublicKeyCredential;
+            if (_webauthnAvailable) {
+                // PRF gates *registration* only — login (incl. legacy KiH) needs
+                // just WebAuthn. Note: without getClientCapabilities() this is
+                // optimistic; PrfNotSupportedError at registration is authoritative.
+                try {
+                    _prfSupport = await checkPrfSupport();
+                } catch {
+                    _prfSupport = { supported: false, platformAuthenticator: false, reason: 'check failed' };
+                }
+            }
+            _checked = true;
+        })();
+    }
+    return _checkPromise;
 }
 
 // Kick off the check immediately on import (non-blocking).
 ensureChecked();
+
+// ─── KiH → PRF migration bookkeeping ────────────────────────────────────────
+
+/**
+ * dTags of KiH events already migrated, keyed by pubkey. Needed because a
+ * kind:5 deletion can fail to publish (soft-fail in migrateFromKih): the stale
+ * v=3 event would otherwise re-trigger the migration prompt forever, while its
+ * credential has been signal-removed from the browser picker and can't be
+ * re-migrated.
+ */
+function getMigratedDTags(pubkey) {
+    try {
+        const map = JSON.parse(localStorage.getItem(MIGRATED_KEY)) || {};
+        return map[pubkey] || [];
+    } catch {
+        return [];
+    }
+}
+
+function addMigratedDTag(pubkey, dTag) {
+    let map;
+    try {
+        map = JSON.parse(localStorage.getItem(MIGRATED_KEY)) || {};
+    } catch {
+        map = {};
+    }
+    const list = map[pubkey] || [];
+    if (!list.includes(dTag)) list.push(dTag);
+    map[pubkey] = list;
+    localStorage.setItem(MIGRATED_KEY, JSON.stringify(map));
+}
+
+/**
+ * Extract legacy KiH credentials from a user's kind:31777 events.
+ * Pure helper (exported for tests).
+ *
+ * @param {Array} events - kind:31777 events
+ * @param {string[]} migratedDTags - dTags to exclude (already migrated)
+ * @returns {Array<{rpId: string, dTag: string}>}
+ */
+export function extractKihInfo(events, migratedDTags = []) {
+    const kih = [];
+    for (const ev of events) {
+        try {
+            const parsed = parseKeytrEvent(ev);
+            if (parsed.version === KEYTR_KIH_VERSION && !migratedDTags.includes(parsed.credentialIdBase64url)) {
+                kih.push({ rpId: parsed.rpId, dTag: parsed.credentialIdBase64url });
+            }
+        } catch {
+            // Skip unparseable events
+        }
+    }
+    return kih;
+}
+
+/**
+ * Set after a successful passkey login: { pubkey, kihCredentials, hasKih }.
+ * Module state (not storage) by design — the migration prompt renders in the
+ * same page session right after login; a reload clears it and the next
+ * explicit passkey login re-detects.
+ */
+let _lastLoginInfo = null;
+
+function setLastLoginInfo(pubkey, events) {
+    const kihCredentials = extractKihInfo(events, getMigratedDTags(pubkey));
+    _lastLoginInfo = { pubkey, kihCredentials, hasKih: kihCredentials.length > 0 };
+}
 
 // ─── Legacy migration ───────────────────────────────────────────────────────
 
@@ -95,6 +200,15 @@ export function isLikelyExtensionInterference(message) {
     );
 }
 
+/**
+ * Detect keytr's PrfNotSupportedError (authenticator can't do PRF — e.g.
+ * password-manager extensions, Firefox on Android, some older security keys).
+ * Registration is impossible for these; login with existing credentials still works.
+ */
+export function isPrfUnsupportedError(err) {
+    return err instanceof PrfNotSupportedError || err?.name === 'PrfNotSupportedError';
+}
+
 // ─── Public API ─────────────────────────────────────────────────────────────
 
 export const keytrService = {
@@ -107,6 +221,22 @@ export const keytrService = {
     async checkSupport() {
         await ensureChecked();
         return _webauthnAvailable;
+    },
+
+    /**
+     * PRF capability report ({ supported, platformAuthenticator, reason }).
+     * Gates *registration* UI only — login must stay WebAuthn-gated so legacy
+     * KiH credentials keep working on non-PRF browsers.
+     */
+    async checkPrfSupport() {
+        await ensureChecked();
+        return _prfSupport;
+    },
+
+    /** Whether a new passkey can (likely) be registered on this device. */
+    async canRegisterPasskey() {
+        await ensureChecked();
+        return _webauthnAvailable && _prfSupport.supported;
     },
 
     /** Whether a keytr credential exists for the given pubkey (or any). */
@@ -161,6 +291,7 @@ export const keytrService = {
             rpName: rpId.split('.')[0],
             userName: pubkey.slice(0, 16),
             userDisplayName: 'BIES Account',
+            pubkey, // required in keytr 0.8.0 — stored as user.id for discoverable login
         });
 
         let encryptedBlob;
@@ -179,7 +310,7 @@ export const keytrService = {
             credential,
             encryptedBlob,
             clientName: 'bies',
-            version: String(KEYTR_VERSION),
+            version: KEYTR_VERSION,
         });
 
         const signedEvent = await nostrSigner.signEvent({
@@ -217,6 +348,7 @@ export const keytrService = {
 
                 try {
                     const { nsecBytes } = await loginWithKeytr(events);
+                    setLastLoginInfo(pubkey, events);
                     try { return encodeNsec(nsecBytes); } finally { nsecBytes.fill(0); }
                 } catch {
                     // login failed — fall through to next tier
@@ -233,6 +365,7 @@ export const keytrService = {
                 try {
                     const { nsecBytes } = await loginWithKeytr(events);
                     const recoveredPk = nsecToPublicKey(nsecBytes);
+                    setLastLoginInfo(recoveredPk, events);
                     try {
                         const nsec = encodeNsec(nsecBytes);
                         if (!this.hasCredential(recoveredPk)) {
@@ -264,6 +397,16 @@ export const keytrService = {
                         stored.push({ pubkey, createdAt: new Date().toISOString() });
                         setStored(stored);
                     }
+                    // discover() doesn't expose which event decrypted — re-fetch
+                    // for KiH detection. Best-effort: never blocks the login.
+                    if (pubkey) {
+                        try {
+                            const events = await fetchKeytrEvents(pubkey, NOSTR_RELAYS);
+                            setLastLoginInfo(pubkey, events);
+                        } catch {
+                            _lastLoginInfo = null;
+                        }
+                    }
                     return nsec;
                 } finally {
                     nsecBytes.fill(0);
@@ -278,6 +421,64 @@ export const keytrService = {
             }
         }
         throw lastError || new Error('No discoverable passkey found');
+    },
+
+    /**
+     * KiH info detected during the last successful passkey login, or null.
+     * Shape: { pubkey, kihCredentials: [{rpId, dTag}], hasKih }.
+     */
+    getLastLoginKihInfo() {
+        return _lastLoginInfo;
+    },
+
+    /**
+     * Migrate a legacy KiH credential on one gateway to PRF.
+     *
+     * Runs two WebAuthn ceremonies (discover the old KiH passkey, register the
+     * new PRF one), publishes the new v=1 event BEFORE the kind:5 deletion of
+     * the old v=3 event, and signs both internally with the recovered nsec.
+     * One rpId per call — loop over gateways for multi-gateway users.
+     *
+     * @param {object} opts
+     * @param {string} opts.rpId - gateway of the old (and new) credential
+     * @param {string} [opts.expectedPubkey] - pubkey we believe is migrating
+     * @returns {Promise<{pubkey: string, deletionPublished: boolean, pubkeyMismatch: boolean, rpId: string}>}
+     */
+    async migrateToPrf({ rpId, expectedPubkey }) {
+        const result = await migrateFromKih({
+            relays: NOSTR_RELAYS,
+            rpId,
+            rpName: rpId.split('.')[0],
+            userName: (expectedPubkey || '').slice(0, 16) || 'bies-user',
+            userDisplayName: 'BIES Account',
+            clientName: 'bies',
+        });
+        // The signer already holds the key in memory — we don't need the nsec.
+        result.nsecBytes.fill(0);
+
+        // Refresh the localStorage credential index
+        const creds = getStored().filter(c => c.pubkey !== result.pubkey);
+        creds.push({ pubkey: result.pubkey, createdAt: new Date().toISOString() });
+        setStored(creds);
+
+        // Record the migrated dTag so a failed kind:5 deletion can't re-trigger prompts
+        addMigratedDTag(result.pubkey, result.oldDTag);
+        if (!result.deletionPublished) {
+            console.warn('[keytr] kind:5 deletion of the old KiH event failed to publish (non-fatal)');
+        }
+
+        // Prune this rpId from the in-memory KiH info
+        if (_lastLoginInfo?.kihCredentials) {
+            _lastLoginInfo.kihCredentials = _lastLoginInfo.kihCredentials.filter(c => c.rpId !== rpId);
+            _lastLoginInfo.hasKih = _lastLoginInfo.kihCredentials.length > 0;
+        }
+
+        return {
+            pubkey: result.pubkey,
+            deletionPublished: result.deletionPublished,
+            pubkeyMismatch: !!expectedPubkey && result.pubkey !== expectedPubkey,
+            rpId,
+        };
     },
 
     /** Remove credential metadata for a specific pubkey. */

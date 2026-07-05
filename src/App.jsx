@@ -14,6 +14,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import ModeSelectionModal from './components/ModeSelectionModal';
 import VersionIndicator from './components/VersionIndicator';
 import GamificationToast from './components/GamificationToast';
+import SignerToast from './components/SignerToast';
 
 // Pages
 import Landing from './pages/Landing';
@@ -42,6 +43,7 @@ import Notifications from './pages/Notifications';
 import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AmberCallback from './pages/AmberCallback';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Leaderboard from './pages/Leaderboard';
@@ -147,6 +149,8 @@ const AppContent = () => {
                     } />
                     <Route path="/login" element={<Login />} />
                     <Route path="/signup" element={<Signup />} />
+                    {/* NIP-55 Amber intent callback (public — used mid-login) */}
+                    <Route path="/amber-callback" element={<AmberCallback />} />
 
                     {/* Directories (declared before the generic /discover route) */}
                     <Route path="/discover/farms" element={<ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute>} />
@@ -272,6 +276,8 @@ const AppContent = () => {
             </div>
             {user && location.pathname !== '/settings/navbar' && <MobileBottomNav />}
             {user && <GamificationToast />}
+            {/* Unconditional: NIP-46 auth-url toasts must show during login, pre-auth */}
+            <SignerToast />
             <VersionIndicator />
         </>
     );

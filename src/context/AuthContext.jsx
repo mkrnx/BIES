@@ -7,6 +7,7 @@ import { nostrSigner } from '../services/nostrSigner';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
 import PasskeySavePrompt from '../components/PasskeySavePrompt';
+import PasskeyMigratePrompt from '../components/PasskeyMigratePrompt';
 import PushPermissionPrompt from '../components/PushPermissionPrompt';
 
 const AuthContext = createContext();
@@ -20,6 +21,7 @@ export const AuthProvider = ({ children }) => {
     const [notifications, setNotifications] = useState([]);
     const [unreadCount, setUnreadCount] = useState(0);
     const [showPasskeyPrompt, setShowPasskeyPrompt] = useState(false);
+    const [showMigratePrompt, setShowMigratePrompt] = useState(false);
     const [showPushPrompt, setShowPushPrompt] = useState(false);
 
     // ─── Passkey save prompt ─────────────────────────────────────────────────
@@ -34,8 +36,10 @@ export const AuthProvider = ({ children }) => {
         if (keytrService.hasCredential(nostrSigner.pubkey)) return;
         if (sessionStorage.getItem('bies_passkey_prompt_dismissed')) return;
 
-        const supported = await keytrService.checkSupport();
-        if (!supported) return;
+        // Registration is PRF-only as of keytr 0.8.0 — don't offer a save
+        // that would throw on non-PRF authenticators.
+        const prf = await keytrService.checkPrfSupport();
+        if (!prf.supported) return;
 
         setShowPasskeyPrompt(true);
     }, []);
@@ -47,6 +51,37 @@ export const AuthProvider = ({ children }) => {
 
     const handlePasskeySaved = useCallback(() => {
         setShowPasskeyPrompt(false);
+    }, []);
+
+    // ─── KiH → PRF migration prompt ─────────────────────────────────────────
+
+    /**
+     * After an explicit passkey login, offer to upgrade legacy KiH (v=3)
+     * credentials to PRF. Silent when PRF is unavailable (KiH login keeps
+     * working), snoozed for 7 days on dismissal.
+     */
+    const maybePromptKihMigration = useCallback(async () => {
+        if (!PASSKEY_ENABLED) return;
+        const info = keytrService.getLastLoginKihInfo();
+        if (!info?.hasKih) return;
+        if (sessionStorage.getItem('bies_kih_migration_prompt_dismissed')) return;
+        const snooze = Number(localStorage.getItem('bies_kih_migration_snooze_until') || 0);
+        if (Date.now() < snooze) return;
+
+        const prf = await keytrService.checkPrfSupport();
+        if (!prf.supported) return;
+
+        setShowMigratePrompt(true);
+    }, []);
+
+    const dismissMigratePrompt = useCallback(() => {
+        sessionStorage.setItem('bies_kih_migration_prompt_dismissed', '1');
+        localStorage.setItem('bies_kih_migration_snooze_until', String(Date.now() + 7 * 24 * 3600 * 1000));
+        setShowMigratePrompt(false);
+    }, []);
+
+    const handleMigrated = useCallback(() => {
+        setShowMigratePrompt(false);
     }, []);
 
     // ─── Session restore on mount ──────────────────────────────────────────
@@ -61,6 +96,12 @@ export const AuthProvider = ({ children }) => {
                     setUser(user);
                     initWebSocket(user);
                     fetchInitialNotifications();
+                    // Warm up the NIP-46 connection so the first signing action
+                    // doesn't stall on a cold reconnect. Guarded to bunker mode
+                    // only — tryRestore() for 'nsec' would fire a WebAuthn prompt.
+                    if (nostrSigner.storedMethod === 'bunker') {
+                        nostrSigner.tryRestore().catch(() => {});
+                    }
                 }
             })
             .finally(() => {
@@ -238,11 +279,48 @@ export const AuthProvider = ({ children }) => {
         return { ...result, needsProfileSetup: isNew };
     };
 
+    /**
+     * Adopt a user whose JWT was already established outside AuthContext
+     * (the Amber NIP-55 callback route — authService.finishAmberLogin).
+     * Wires React state + WebSocket and returns the post-login target path.
+     */
+    const completeExternalLogin = (user) => {
+        setUser(user);
+        initWebSocket(user);
+
+        const isNew = user?.profile?.name?.startsWith('nostr:');
+        if (isNew && user?.nostrPubkey) {
+            seedProfileFromNostr(user.nostrPubkey).catch(() => {});
+        }
+        return isNew ? '/profile-setup' : '/feed';
+    };
+
+    /**
+     * Login with an already-paired BunkerSigner (nostrconnect:// QR flow).
+     * Same pipeline as loginWithBunkerAndCheckNew, minus the pairing step.
+     */
+    const loginWithNostrConnect = async (signer) => {
+        try {
+            const user = await authService.loginWithConnectedBunker(signer);
+            setUser(user);
+            initWebSocket(user);
+
+            const isNew = user?.profile?.name?.startsWith('nostr:');
+            if (isNew && user?.nostrPubkey) {
+                seedProfileFromNostr(user.nostrPubkey).catch(() => {});
+            }
+            return { success: true, user, needsProfileSetup: isNew };
+        } catch (error) {
+            return { success: false, error: error.message };
+        }
+    };
+
     const loginWithPasskey = async () => {
         try {
             const user = await authService.loginWithPasskey();
             setUser(user);
             initWebSocket(user);
+            maybePromptKihMigration();
             return { success: true, user };
         } catch (error) {
             if (error.cancelled) return { success: false, cancelled: true };
@@ -405,6 +483,8 @@ export const AuthProvider = ({ children }) => {
             loginWithSeedPhraseAndCheckNew,
             loginWithBunker,
             loginWithBunkerAndCheckNew,
+            loginWithNostrConnect,
+            completeExternalLogin,
             loginWithPasskey,
             loginWithPasskeyAndCheckNew,
             loginWithEmail,
@@ -427,7 +507,13 @@ export const AuthProvider = ({ children }) => {
                     onSaved={handlePasskeySaved}
                 />
             )}
-            {showPushPrompt && !showPasskeyPrompt && (
+            {showMigratePrompt && !showPasskeyPrompt && (
+                <PasskeyMigratePrompt
+                    onClose={dismissMigratePrompt}
+                    onMigrated={handleMigrated}
+                />
+            )}
+            {showPushPrompt && !showPasskeyPrompt && !showMigratePrompt && (
                 <PushPermissionPrompt onClose={dismissPushPrompt} />
             )}
         </AuthContext.Provider>

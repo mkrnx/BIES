@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle, X, ArrowLeft, Bell, BellOff } from 'lucide-react';
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
+import { nostrSigner } from '../services/nostrSigner';
+import { Link } from 'react-router-dom';
 import { searchApi, notificationsApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
 import { notifyIncomingMessage, requestNotificationPermission, getNotificationPermission, subscribeToPush } from '../utils/notificationManager';
@@ -44,8 +46,14 @@ const Messages = () => {
     const messageInputRef = useRef(null);
     profilesRef.current = profiles;
 
+    // NIP-17 DMs need bulk NIP-44 decryption (2 ops per gift-wrap, up to
+    // ~100 wraps per sync) — with an Amber NIP-55 session every op is a full
+    // app switch, which is unusable. Block and steer to NIP-46 instead.
+    const isAmberSigner = nostrSigner.storedMethod === 'amber';
+
     // Auto-connect on mount
     useEffect(() => {
+        if (isAmberSigner) return; // never fire the decrypt loop under NIP-55
         if (!publicKey && !loading) {
             connect();
         }
@@ -221,6 +229,27 @@ const Messages = () => {
         .sort((a, b) => (b.lastMessage?.created_at || 0) - (a.lastMessage?.created_at || 0));
 
     const activeMessages = activeChatPubkey ? (conversations[activeChatPubkey] || []) : [];
+
+    // Amber (NIP-55) sessions can't drive messaging — see comment above.
+    if (isAmberSigner) {
+        return (
+            <div className="messages-page">
+                <div className="connect-container">
+                    <div className="connect-card">
+                        <Lock size={48} className="mb-4 text-primary" />
+                        <h2>Private Messages</h2>
+                        <p className="text-gray-500 mb-6 text-center">
+                            {t('messages.amberSignerWarning')}
+                        </p>
+                        <Link className="btn btn-primary" to="/login">
+                            {t('login.remoteSignerScan')}
+                        </Link>
+                    </div>
+                </div>
+                <style jsx>{`${sharedStyles}`}</style>
+            </div>
+        );
+    }
 
     // Not connected state
     if (!publicKey && !loading) {

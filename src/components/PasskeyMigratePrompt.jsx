@@ -1,54 +1,90 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Fingerprint, X, Loader2, Check, Shield, AlertTriangle } from 'lucide-react';
-import { keytrService, isLikelyExtensionInterference, isPrfUnsupportedError } from '../services/keytrService';
+import { ShieldCheck, X, Loader2, Check, Fingerprint, AlertTriangle } from 'lucide-react';
+import { keytrService, isLikelyExtensionInterference, isPrfUnsupportedError, isUserCancellation } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
 
 /**
- * Post-login modal prompting users who logged in with nsec/seed/email
- * to save their key with a NIP-K1 passkey via keytr for easier future logins.
+ * Post-login modal offering to migrate legacy KiH (v=3) passkeys to PRF.
+ *
+ * keytr 0.8.0 deprecated KiH decryption (the KiH key travelled through a
+ * JS-readable userHandle); migrateToPrf() re-encrypts the nsec under a new
+ * PRF passkey and retires the old event. A user may hold KiH credentials on
+ * several gateways (primary + backups) — migrateFromKih is one rpId per
+ * call, so we loop them sequentially, two biometric ceremonies each.
  *
  * @param {function} props.onClose - Called when user dismisses
- * @param {function} props.onSaved - Called after passkey saved successfully
+ * @param {function} props.onMigrated - Called after all gateways migrated
  */
-const PasskeySavePrompt = ({ onClose, onSaved }) => {
+const PasskeyMigratePrompt = ({ onClose, onMigrated }) => {
     const { t } = useTranslation();
-    const [phase, setPhase] = useState('prompt'); // prompt | saving | success | error
+    const [phase, setPhase] = useState('prompt'); // prompt | migrating | success | error
     const [errorMsg, setErrorMsg] = useState('');
+    const [progress, setProgress] = useState({ current: 0, total: 0, gateway: '' });
+    // Snapshot the detection once — migrateToPrf prunes it as gateways complete.
+    const infoRef = useRef(keytrService.getLastLoginKihInfo());
 
-    const handleSave = async () => {
-        setPhase('saving');
+    const uniqueRpIds = () => {
+        const creds = infoRef.current?.kihCredentials || [];
+        return [...new Set(creds.map(c => c.rpId))];
+    };
+
+    const handleUpgrade = async () => {
+        const rpIds = uniqueRpIds();
+        if (rpIds.length === 0) { onMigrated?.(); return; }
+        const expectedPubkey = infoRef.current?.pubkey || nostrSigner.pubkey;
+
+        setPhase('migrating');
         setErrorMsg('');
-        try {
-            const nsec = nostrSigner.getNsec();
-            const pubkey = nostrSigner.pubkey;
-            if (!nsec || !pubkey) throw new Error('Key not available');
-            await keytrService.saveWithPasskey(nsec, pubkey);
-            setPhase('success');
-            setTimeout(() => {
-                onSaved?.();
-            }, 1500);
-        } catch (err) {
-            if (err.name === 'NotAllowedError') {
-                // User cancelled the WebAuthn prompt
-                setPhase('prompt');
-                return;
-            }
-            if (isPrfUnsupportedError(err)) {
+
+        let done = 0;
+        for (let i = 0; i < rpIds.length; i++) {
+            const rpId = rpIds[i];
+            setProgress({ current: i + 1, total: rpIds.length, gateway: rpId });
+            try {
+                const result = await keytrService.migrateToPrf({ rpId, expectedPubkey });
+                if (result.pubkeyMismatch) {
+                    console.warn('[PasskeyMigrate] Migrated a passkey belonging to a different identity:', result.pubkey);
+                }
+                done++;
+            } catch (err) {
+                if (isUserCancellation(err)) {
+                    // User cancelled the WebAuthn ceremony — nothing was
+                    // published. (keytr wraps NotAllowedError in WebAuthnError,
+                    // so err.name would not match — check the message.)
+                    setPhase('prompt');
+                    return;
+                }
+                if (isPrfUnsupportedError(err)) {
+                    setPhase('error');
+                    setErrorMsg(t('passkeyMigrate.prfUnsupported'));
+                    return;
+                }
+                if ((err.message || '').includes('already a PRF credential')) {
+                    setPhase('error');
+                    setErrorMsg(t('passkeyMigrate.wrongPasskey', { gateway: rpId }));
+                    return;
+                }
                 setPhase('error');
-                setErrorMsg(t('passkeySave.prfUnsupported'));
+                if (done > 0) {
+                    setErrorMsg(t('passkeyMigrate.partialSuccess', { done, total: rpIds.length }));
+                } else {
+                    setErrorMsg(err.message || 'Migration failed.');
+                }
                 return;
             }
-            setPhase('error');
-            setErrorMsg(err.message || 'Failed to save passkey.');
         }
+
+        setPhase('success');
+        setTimeout(() => {
+            onMigrated?.();
+        }, 1500);
     };
 
     return (
-        <div className="psp-overlay" onClick={(e) => { if (e.target === e.currentTarget && phase !== 'saving') onClose(); }}>
+        <div className="psp-overlay" onClick={(e) => { if (e.target === e.currentTarget && phase !== 'migrating') onClose(); }}>
             <div className="psp-card">
-                {/* Close button (hidden during save) */}
-                {phase !== 'saving' && phase !== 'success' && (
+                {phase !== 'migrating' && phase !== 'success' && (
                     <button className="psp-close" onClick={onClose}>
                         <X size={18} />
                     </button>
@@ -58,37 +94,34 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                 {phase === 'prompt' && (
                     <div className="psp-content">
                         <div className="psp-icon">
-                            <Fingerprint size={36} />
+                            <ShieldCheck size={36} />
                         </div>
-                        <h3 className="psp-title">{t('passkeySave.title')}</h3>
-                        <p className="psp-desc">{t('passkeySave.description')}</p>
+                        <h3 className="psp-title">{t('passkeyMigrate.title')}</h3>
+                        <p className="psp-desc">{t('passkeyMigrate.description')}</p>
 
-                        <div className="psp-benefits">
-                            <div className="psp-benefit">
-                                <Shield size={16} />
-                                <span>{t('passkeySave.benefitEncrypted')}</span>
-                            </div>
-                            <div className="psp-benefit">
-                                <Fingerprint size={16} />
-                                <span>{t('passkeySave.benefitBiometric')}</span>
-                            </div>
-                        </div>
-
-                        <button className="psp-save-btn" onClick={handleSave}>
+                        <button className="psp-save-btn" onClick={handleUpgrade}>
                             <Fingerprint size={18} />
-                            {t('passkeySave.saveButton')}
+                            {t('passkeyMigrate.upgradeButton')}
                         </button>
                         <button className="psp-skip-btn" onClick={onClose}>
-                            {t('passkeySave.notNow')}
+                            {t('passkeyMigrate.notNow')}
                         </button>
                     </div>
                 )}
 
-                {/* Saving phase */}
-                {phase === 'saving' && (
+                {/* Migrating phase */}
+                {phase === 'migrating' && (
                     <div className="psp-content psp-center">
                         <Loader2 size={32} className="psp-spin" />
-                        <p className="psp-status">{t('passkeySave.saving')}</p>
+                        {progress.total > 1 && (
+                            <p className="psp-status psp-strong">
+                                {t('passkeyMigrate.migratingGateway', { current: progress.current, total: progress.total })}
+                            </p>
+                        )}
+                        <p className="psp-status">{t('passkeyMigrate.migrating')}</p>
+                        <p className="psp-status psp-hint">
+                            {t('passkeyMigrate.pickOldHint', { gateway: progress.gateway })}
+                        </p>
                     </div>
                 )}
 
@@ -98,8 +131,8 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                         <div className="psp-success-icon">
                             <Check size={32} />
                         </div>
-                        <h3 className="psp-title">{t('passkeySave.saved')}</h3>
-                        <p className="psp-status">{t('passkeySave.savedDesc')}</p>
+                        <h3 className="psp-title">{t('passkeyMigrate.success')}</h3>
+                        <p className="psp-status">{t('passkeyMigrate.successDesc')}</p>
                     </div>
                 )}
 
@@ -113,11 +146,11 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                                 <span>This error is usually caused by a password manager browser extension (such as Bitwarden, 1Password, or Dashlane) intercepting the passkey request. Try disabling your password manager's passkey/WebAuthn feature and retry.</span>
                             </div>
                         )}
-                        <button className="psp-save-btn" onClick={handleSave}>
-                            {t('passkeySave.tryAgain')}
+                        <button className="psp-save-btn" onClick={handleUpgrade}>
+                            {t('passkeyMigrate.tryAgain')}
                         </button>
                         <button className="psp-skip-btn" onClick={onClose}>
-                            {t('passkeySave.skip')}
+                            {t('passkeyMigrate.skip')}
                         </button>
                     </div>
                 )}
@@ -211,27 +244,6 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                     line-height: 1.5;
                 }
 
-                .psp-benefits {
-                    width: 100%;
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                    margin-bottom: 1.5rem;
-                }
-
-                .psp-benefit {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.6rem;
-                    padding: 0.6rem 0.75rem;
-                    background: var(--color-gray-100);
-                    border-radius: 0.6rem;
-                    font-size: 0.8rem;
-                    color: var(--color-gray-600);
-                }
-
-                .psp-benefit svg { flex-shrink: 0; color: #4338ca; }
-
                 .psp-save-btn {
                     width: 100%;
                     display: flex;
@@ -278,6 +290,16 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
                     margin: 0;
                 }
 
+                .psp-strong {
+                    font-weight: 600;
+                    color: var(--color-text, inherit);
+                }
+
+                .psp-hint {
+                    font-size: 0.8rem;
+                    color: var(--color-gray-400);
+                }
+
                 .psp-success-icon {
                     width: 56px;
                     height: 56px;
@@ -316,4 +338,4 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
     );
 };
 
-export default PasskeySavePrompt;
+export default PasskeyMigratePrompt;

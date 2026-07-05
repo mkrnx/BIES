@@ -2,11 +2,14 @@ import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone } from 'lucide-react';
-import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
+import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone, QrCode } from 'lucide-react';
+import { PASSKEY_ENABLED, NIP46_ENABLED, AMBER_NIP55_ENABLED } from '../config/featureFlags';
 import { isLikelyExtensionInterference, keytrService } from '../services/keytrService';
+import { authService } from '../services/authService';
+import { isMobileUA, isAndroid } from '../utils/device';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
+import NostrConnectQR from '../components/NostrConnectQR';
 
 const Login = () => {
     const { t } = useTranslation();
@@ -18,6 +21,9 @@ const Login = () => {
     const [seedInput, setSeedInput] = useState('');
     const [loginMode, setLoginMode] = useState('nsec'); // 'nsec', 'seed', or 'bunker'
     const [bunkerInput, setBunkerInput] = useState('');
+    // Remote-signer sub-view: QR pairing (default on mobile — tap opens the
+    // signer app) vs bunker:// paste (default on desktop).
+    const [bunkerView, setBunkerView] = useState(() => (isMobileUA() ? 'scan' : 'paste'));
     const [hasNostrExtension, setHasNostrExtension] = useState(
         typeof window !== 'undefined' && !!window.nostr
     );
@@ -84,6 +90,9 @@ const Login = () => {
         if (/credential manager/i.test(msg)) {
             return 'The credential manager encountered an error. ' +
                 'Try restarting your browser or use your nsec key to log in.';
+        }
+        if (/prf/i.test(msg)) {
+            return t('passkeySave.prfUnsupported');
         }
         if (/no discoverable passkey found|no event matches credential/i.test(msg)) {
             return 'No passkey found for this device. ' +
@@ -181,6 +190,26 @@ const Login = () => {
         }
     };
 
+    /**
+     * NIP-55 Amber login (Android). Navigates to the Amber app; the flow
+     * resumes on /amber-callback. Only the not-installed watchdog (and
+     * out-of-tab completions) settle the promise in THIS tab.
+     */
+    const handleAmberLogin = async () => {
+        setError('');
+        try {
+            await authService.startAmberLogin();
+        } catch (err) {
+            if (/not found/i.test(err.message || '')) {
+                setError(t('login.amberNotFound'));
+                setLoginMode('bunker');
+                setBunkerView('scan');
+            } else if (!/timed out/i.test(err.message || '')) {
+                setError(err.message || 'Amber login failed.');
+            }
+        }
+    };
+
 
 
     // ─── Main login form ─────────────────────────────────────────────────────
@@ -233,6 +262,28 @@ const Login = () => {
                                 )}
                                 <span>{loading && !nsecInput.trim() ? t('common.connecting') : t('login.loginWithExtension')}</span>
                             </button>
+                        )}
+                        {AMBER_NIP55_ENABLED && isAndroid() && (
+                            <>
+                                <button
+                                    onClick={handleAmberLogin}
+                                    disabled={loading}
+                                    className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
+                                >
+                                    <Smartphone size={20} />
+                                    <span>{t('login.signInWithAmberApp')}</span>
+                                </button>
+                                <p className="login-hint" style={{ textAlign: 'center', margin: 0 }}>
+                                    {t('login.amberHint')}{' '}
+                                    <button
+                                        type="button"
+                                        className="login-link-btn"
+                                        onClick={() => { setLoginMode('bunker'); setBunkerView('scan'); setError(''); }}
+                                    >
+                                        {t('login.remoteSignerScan')}
+                                    </button>
+                                </p>
+                            </>
                         )}
                     </div>
                 )}
@@ -323,34 +374,61 @@ const Login = () => {
 
                 {/* Login with remote signer (NIP-46) */}
                 {loginMode === 'bunker' && (
-                    <form onSubmit={handleBunkerLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        <div className="key-input-wrapper">
-                            <Smartphone size={16} className="key-input-icon" />
-                            <input
-                                type="text"
-                                placeholder="bunker://... or name@domain.com"
-                                value={bunkerInput}
-                                onChange={(e) => setBunkerInput(e.target.value)}
-                                className="key-input"
-                                autoComplete="off"
-                            />
+                    <div className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Sub-toggle: QR pairing vs bunker:// paste */}
+                        <div className="mode-tabs">
+                            <button
+                                type="button"
+                                className={`mode-tab ${bunkerView === 'scan' ? 'active' : ''}`}
+                                onClick={() => { setBunkerView('scan'); setError(''); }}
+                            >
+                                <QrCode size={14} /> {t('login.remoteSignerScan')}
+                            </button>
+                            <button
+                                type="button"
+                                className={`mode-tab ${bunkerView === 'paste' ? 'active' : ''}`}
+                                onClick={() => { setBunkerView('paste'); setError(''); }}
+                            >
+                                <Key size={14} /> {t('login.remoteSignerPaste')}
+                            </button>
                         </div>
-                        <button
-                            type="submit"
-                            disabled={loading || !bunkerInput.trim()}
-                            className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
-                        >
-                            {loading && bunkerInput.trim() ? (
-                                <Loader2 size={20} className="spin" />
-                            ) : (
-                                <NostrIcon size={20} color="#8b5cf6" />
-                            )}
-                            <span>{loading && bunkerInput.trim() ? 'Connecting to signer...' : 'Login with Remote Signer'}</span>
-                        </button>
+
+                        {bunkerView === 'scan' ? (
+                            <NostrConnectQR
+                                onSuccess={handleResult}
+                                onError={(msg) => setError(msg)}
+                            />
+                        ) : (
+                            <form onSubmit={handleBunkerLogin} className="w-full" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                <div className="key-input-wrapper">
+                                    <Smartphone size={16} className="key-input-icon" />
+                                    <input
+                                        type="text"
+                                        placeholder="bunker://... or name@domain.com"
+                                        value={bunkerInput}
+                                        onChange={(e) => setBunkerInput(e.target.value)}
+                                        className="key-input"
+                                        autoComplete="off"
+                                    />
+                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={loading || !bunkerInput.trim()}
+                                    className="w-full btn-login flex items-center justify-center gap-3 py-3 rounded-full"
+                                >
+                                    {loading && bunkerInput.trim() ? (
+                                        <Loader2 size={20} className="spin" />
+                                    ) : (
+                                        <NostrIcon size={20} color="#8b5cf6" />
+                                    )}
+                                    <span>{loading && bunkerInput.trim() ? t('login.connectingToSigner') : t('login.loginWithRemoteSigner')}</span>
+                                </button>
+                            </form>
+                        )}
                         <p className="login-hint" style={{ textAlign: 'center' }}>
-                            Works with Amber, nsecBunker, and other NIP-46 signers
+                            {t('login.worksWithSigners')}
                         </p>
-                    </form>
+                    </div>
                 )}
 
                 {/* Create Account */}
