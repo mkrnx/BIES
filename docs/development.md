@@ -45,8 +45,9 @@ Everything else has sensible defaults for local development.
 ```bash
 cd server
 
-# Apply Prisma schema to SQLite
-npm run db:push
+# Apply Prisma migrations to SQLite (also records the migration history,
+# so later `db:migrate` runs don't hit drift detection)
+npm run db:migrate
 
 # Optional: populate with test data
 npm run db:seed
@@ -101,12 +102,19 @@ The `/relay` proxy only works if you're running the strfry relay locally (via Do
 | `dev` | `npx tsx watch src/index.ts` | Start backend with hot reload |
 | `build` | `tsc` | Compile TypeScript to `dist/` |
 | `start` | `node dist/index.js` | Run compiled backend |
-| `db:push` | `prisma db push` | Sync schema to database (no migration) |
+| `db:push` | `prisma db push` | Sync schema to database (no migration) — throwaway scratch DBs only |
 | `db:generate` | `prisma generate` | Regenerate Prisma client |
 | `db:migrate` | `prisma migrate dev` | Create and apply a migration |
 | `db:seed` | `npx tsx prisma/seed.ts` | Populate database with test data |
 | `db:studio` | `prisma studio` | Open visual database browser (port 5555) |
 | `db:reset` | `prisma migrate reset --force` | Drop all data and re-apply migrations |
+
+> **Schema changes must ship a migration file.** Production boots with
+> `prisma migrate deploy` (see `docs/deployment.md` → Migrations), so a
+> `db push`-only change never reaches production. Use
+> `npm run db:migrate -- --name my_change` and commit the generated
+> `prisma/migrations/<timestamp>_my_change/` directory alongside
+> `schema.prisma`.
 
 ## Project Layout
 
@@ -245,12 +253,21 @@ Opens a visual database browser at `http://localhost:5555`.
 
 ### Migrations
 
-For development (SQLite), `db:push` is usually sufficient — it syncs the schema without creating migration files. For production schema changes:
+Every schema change must ship a migration file — production boots with
+`prisma migrate deploy`, so a `db:push`-only change never reaches production
+(the server would crash at runtime on missing columns). For any change to
+`schema.prisma`:
 
 ```bash
 cd server
-npm run db:migrate    # Creates a migration file and applies it
+npm run db:migrate -- --name my_change   # Creates a migration file and applies it
 ```
+
+Commit the generated `prisma/migrations/<timestamp>_my_change/` directory
+together with the `schema.prisma` change. Reserve `db:push` for throwaway
+scratch databases (test harnesses, experiments) — a db-pushed database has no
+migration history, and a later `db:migrate` against it triggers Prisma's drift
+detection and demands a full reset.
 
 ## Testing
 
@@ -311,7 +328,9 @@ The version is injected into the frontend build via Vite's `define` config (`__A
 ### Modify the database schema
 
 1. Edit `server/prisma/schema.prisma`
-2. Run `cd server && npm run db:push` (dev) or `npm run db:migrate` (prod)
+2. Run `cd server && npm run db:migrate -- --name my_change` and commit the
+   generated migration directory (required — see Migrations above; `db:push`
+   is for throwaway scratch DBs only)
 3. Prisma client regenerates automatically
 
 ### Add a translation

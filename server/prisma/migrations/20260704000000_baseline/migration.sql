@@ -5,7 +5,8 @@ CREATE TABLE "users" (
     "password_hash" TEXT,
     "nostr_pubkey" TEXT NOT NULL,
     "encrypted_privkey" TEXT,
-    "role" TEXT NOT NULL DEFAULT 'BUILDER',
+    "role" TEXT NOT NULL DEFAULT 'MEMBER',
+    "is_admin" BOOLEAN NOT NULL DEFAULT false,
     "is_verified" BOOLEAN NOT NULL DEFAULT false,
     "is_banned" BOOLEAN NOT NULL DEFAULT false,
     "deleted_at" DATETIME,
@@ -52,10 +53,13 @@ CREATE TABLE "profiles" (
     "bies_projects" TEXT NOT NULL DEFAULT '[]',
     "custom_sections" TEXT NOT NULL DEFAULT '[]',
     "show_experience" BOOLEAN NOT NULL DEFAULT true,
-    "show_nostr_feed" BOOLEAN NOT NULL DEFAULT true,
+    "nostr_feed_mode" TEXT NOT NULL DEFAULT 'combined',
     "nostr_npub" TEXT NOT NULL DEFAULT '',
     "nip05_name" TEXT,
     "lightning_address" TEXT NOT NULL DEFAULT '',
+    "bolt12_offer" TEXT NOT NULL DEFAULT '',
+    "coinos_username" TEXT,
+    "coinos_token" TEXT,
     "is_public" BOOLEAN NOT NULL DEFAULT true,
     "view_count" INTEGER NOT NULL DEFAULT 0,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -184,6 +188,19 @@ CREATE TABLE "notifications" (
 );
 
 -- CreateTable
+CREATE TABLE "push_subscriptions" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "user_agent" TEXT,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL,
+    CONSTRAINT "push_subscriptions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "events" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "host_id" TEXT NOT NULL,
@@ -223,6 +240,7 @@ CREATE TABLE "event_attendees" (
     "event_id" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'GOING',
+    "nostr_event_id" TEXT,
     "joined_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "event_attendees_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "events" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT "event_attendees_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -276,6 +294,21 @@ CREATE TABLE "contact_submissions" (
 );
 
 -- CreateTable
+CREATE TABLE "feedback" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "type" TEXT NOT NULL DEFAULT 'GENERAL',
+    "message" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'NEW',
+    "priority" TEXT NOT NULL DEFAULT 'NORMAL',
+    "admin_note" TEXT NOT NULL DEFAULT '',
+    "resolved_at" DATETIME,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL,
+    CONSTRAINT "feedback_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
 CREATE TABLE "user_settings" (
     "id" TEXT NOT NULL PRIMARY KEY,
     "user_id" TEXT NOT NULL,
@@ -287,6 +320,8 @@ CREATE TABLE "user_settings" (
     "notify_follows" BOOLEAN NOT NULL DEFAULT true,
     "notify_project_updates" BOOLEAN NOT NULL DEFAULT true,
     "relays" TEXT NOT NULL DEFAULT '[]',
+    "media_read_items" TEXT NOT NULL DEFAULT '{}',
+    "preferences" TEXT NOT NULL DEFAULT '{}',
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" DATETIME NOT NULL,
     CONSTRAINT "user_settings_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
@@ -297,6 +332,8 @@ CREATE TABLE "site_settings" (
     "id" TEXT NOT NULL PRIMARY KEY DEFAULT 'default',
     "nostr_npubs" TEXT NOT NULL DEFAULT '[]',
     "twitter_handles" TEXT NOT NULL DEFAULT '[]',
+    "livestream_url" TEXT NOT NULL DEFAULT '',
+    "livestream_active" BOOLEAN NOT NULL DEFAULT false,
     "updated_at" DATETIME NOT NULL
 );
 
@@ -354,6 +391,7 @@ CREATE TABLE "zap_receipts" (
     "zapped_event_id" TEXT,
     "project_id" TEXT,
     "bolt11" TEXT NOT NULL DEFAULT '',
+    "bolt12" TEXT NOT NULL DEFAULT '',
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "zap_receipts_project_id_fkey" FOREIGN KEY ("project_id") REFERENCES "projects" ("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
@@ -367,6 +405,124 @@ CREATE TABLE "browser_fingerprints" (
     "user_agent" TEXT,
     "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT "browser_fingerprints_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "investor_requests" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
+    "message" TEXT NOT NULL DEFAULT '',
+    "reviewed_at" DATETIME,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "investor_requests_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "point_events" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "nostr_event_id" TEXT,
+    "kind" INTEGER,
+    "reason" TEXT NOT NULL,
+    "points" INTEGER NOT NULL,
+    "month" TEXT NOT NULL,
+    "target_event_id" TEXT,
+    "meta" TEXT NOT NULL DEFAULT '{}',
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "point_events_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "user_scores" (
+    "user_id" TEXT NOT NULL PRIMARY KEY,
+    "monthly_points" INTEGER NOT NULL DEFAULT 0,
+    "lifetime_points" INTEGER NOT NULL DEFAULT 0,
+    "level" INTEGER NOT NULL DEFAULT 0,
+    "current_month" TEXT NOT NULL,
+    "last_scored_note_at" DATETIME,
+    "streak_days" INTEGER NOT NULL DEFAULT 0,
+    "last_active_day" TEXT,
+    "post_count" INTEGER NOT NULL DEFAULT 0,
+    "reply_count" INTEGER NOT NULL DEFAULT 0,
+    "reactions_given" INTEGER NOT NULL DEFAULT 0,
+    "reactions_received" INTEGER NOT NULL DEFAULT 0,
+    "updated_at" DATETIME NOT NULL,
+    CONSTRAINT "user_scores_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "user_badges" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "user_id" TEXT NOT NULL,
+    "badge_id" TEXT NOT NULL,
+    "month" TEXT NOT NULL DEFAULT '',
+    "nostr_award_event_id" TEXT,
+    "awarded_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "user_badges_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "leaderboard_snapshots" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "month" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "rank" INTEGER NOT NULL,
+    "points" INTEGER NOT NULL,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "leaderboard_snapshots_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "directory_listings" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "type" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "about" TEXT NOT NULL DEFAULT '',
+    "photo" TEXT NOT NULL DEFAULT '',
+    "logo" TEXT NOT NULL DEFAULT '',
+    "photos" TEXT NOT NULL DEFAULT '[]',
+    "location" TEXT NOT NULL DEFAULT '',
+    "phone" TEXT NOT NULL DEFAULT '',
+    "whatsapp" TEXT NOT NULL DEFAULT '',
+    "email" TEXT NOT NULL DEFAULT '',
+    "website" TEXT NOT NULL DEFAULT '',
+    "instagram" TEXT NOT NULL DEFAULT '',
+    "languages" TEXT NOT NULL DEFAULT '[]',
+    "btc_accepted" BOOLEAN NOT NULL DEFAULT false,
+    "products" TEXT NOT NULL DEFAULT '[]',
+    "practices" TEXT NOT NULL DEFAULT '[]',
+    "skills" TEXT NOT NULL DEFAULT '[]',
+    "best_for" TEXT NOT NULL DEFAULT '',
+    "pricing" TEXT NOT NULL DEFAULT '',
+    "comment" TEXT NOT NULL DEFAULT '',
+    "base_score" INTEGER NOT NULL DEFAULT 40,
+    "reputation_score" INTEGER NOT NULL DEFAULT 0,
+    "is_certified" BOOLEAN NOT NULL DEFAULT false,
+    "certified_at" DATETIME,
+    "certification_event_id" TEXT,
+    "status" TEXT NOT NULL DEFAULT 'pending-review',
+    "is_published" BOOLEAN NOT NULL DEFAULT true,
+    "is_featured" BOOLEAN NOT NULL DEFAULT false,
+    "view_count" INTEGER NOT NULL DEFAULT 0,
+    "nostr_listing_event_id" TEXT,
+    "owner_id" TEXT NOT NULL,
+    "member_user_id" TEXT,
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" DATETIME NOT NULL,
+    CONSTRAINT "directory_listings_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "directory_listings_member_user_id_fkey" FOREIGN KEY ("member_user_id") REFERENCES "users" ("id") ON DELETE SET NULL ON UPDATE CASCADE
+);
+
+-- CreateTable
+CREATE TABLE "directory_endorsements" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "listing_id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "comment" TEXT NOT NULL DEFAULT '',
+    "created_at" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT "directory_endorsements_listing_id_fkey" FOREIGN KEY ("listing_id") REFERENCES "directory_listings" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "directory_endorsements_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users" ("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 -- CreateIndex
@@ -383,6 +539,9 @@ CREATE UNIQUE INDEX "profiles_user_id_key" ON "profiles"("user_id");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "profiles_nip05_name_key" ON "profiles"("nip05_name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "profiles_coinos_username_key" ON "profiles"("coinos_username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "project_team_members_project_id_user_id_key" ON "project_team_members"("project_id", "user_id");
@@ -403,6 +562,12 @@ CREATE INDEX "messages_recipient_id_is_read_idx" ON "messages"("recipient_id", "
 CREATE INDEX "notifications_user_id_is_read_idx" ON "notifications"("user_id", "is_read");
 
 -- CreateIndex
+CREATE INDEX "push_subscriptions_user_id_idx" ON "push_subscriptions"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "push_subscriptions_user_id_endpoint_key" ON "push_subscriptions"("user_id", "endpoint");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "event_attendees_event_id_user_id_key" ON "event_attendees"("event_id", "user_id");
 
 -- CreateIndex
@@ -416,6 +581,15 @@ CREATE INDEX "audit_logs_action_idx" ON "audit_logs"("action");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "deck_requests_project_id_investor_id_key" ON "deck_requests"("project_id", "investor_id");
+
+-- CreateIndex
+CREATE INDEX "feedback_user_id_idx" ON "feedback"("user_id");
+
+-- CreateIndex
+CREATE INDEX "feedback_status_idx" ON "feedback"("status");
+
+-- CreateIndex
+CREATE INDEX "feedback_type_idx" ON "feedback"("type");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "user_settings_user_id_key" ON "user_settings"("user_id");
@@ -440,3 +614,43 @@ CREATE INDEX "browser_fingerprints_fingerprint_hash_idx" ON "browser_fingerprint
 
 -- CreateIndex
 CREATE INDEX "browser_fingerprints_user_id_idx" ON "browser_fingerprints"("user_id");
+
+-- CreateIndex
+CREATE INDEX "investor_requests_user_id_idx" ON "investor_requests"("user_id");
+
+-- CreateIndex
+CREATE INDEX "point_events_user_id_month_idx" ON "point_events"("user_id", "month");
+
+-- CreateIndex
+CREATE INDEX "point_events_user_id_target_event_id_idx" ON "point_events"("user_id", "target_event_id");
+
+-- CreateIndex
+CREATE INDEX "point_events_user_id_reason_created_at_idx" ON "point_events"("user_id", "reason", "created_at");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "point_events_nostr_event_id_user_id_reason_key" ON "point_events"("nostr_event_id", "user_id", "reason");
+
+-- CreateIndex
+CREATE INDEX "user_scores_monthly_points_idx" ON "user_scores"("monthly_points");
+
+-- CreateIndex
+CREATE INDEX "user_scores_lifetime_points_idx" ON "user_scores"("lifetime_points");
+
+-- CreateIndex
+CREATE INDEX "user_badges_user_id_idx" ON "user_badges"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "user_badges_user_id_badge_id_month_key" ON "user_badges"("user_id", "badge_id", "month");
+
+-- CreateIndex
+CREATE INDEX "leaderboard_snapshots_month_rank_idx" ON "leaderboard_snapshots"("month", "rank");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "leaderboard_snapshots_month_user_id_key" ON "leaderboard_snapshots"("month", "user_id");
+
+-- CreateIndex
+CREATE INDEX "directory_listings_type_status_idx" ON "directory_listings"("type", "status");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "directory_endorsements_listing_id_user_id_key" ON "directory_endorsements"("listing_id", "user_id");
+

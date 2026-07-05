@@ -239,12 +239,89 @@ PostgreSQL can run in Docker or as a managed service (AWS RDS, DigitalOcean Mana
 
 ### Migrations
 
-On first deploy, the backend auto-applies pending migrations. For schema changes:
+The server container applies migrations at boot via `server/docker-entrypoint.sh`,
+which runs `prisma migrate deploy` before starting the app. Boot never uses
+`prisma db push` anymore — the old `db push --accept-data-loss` boot step could
+silently drop data on schema changes and is gone.
+
+**Baselining.** The migration history was squashed into a single baseline
+migration (`20260704000000_baseline`) because earlier schema changes were only
+ever applied with `db push` and no database has a complete `_prisma_migrations`
+table. On boot, the entrypoint handles three states:
+
+1. **Fresh/empty database** — `migrate deploy` applies the baseline and
+   everything after it.
+2. **Existing database without a baseline record** (created by `db push`,
+   `_prisma_migrations` missing or lacking the baseline row) — the entrypoint
+   first verifies the database schema actually matches `schema.prisma`
+   (`prisma migrate diff --exit-code`); a mismatch — e.g. a restored old
+   backup — aborts the boot loudly instead of mis-baselining. On a match it
+   runs `prisma migrate resolve --applied 20260704000000_baseline` once. This
+   is bookkeeping only: it records the baseline as applied and never touches
+   application tables or data. Then `migrate deploy` runs as usual.
+3. **Already-migrated database** — `migrate deploy` is a no-op (or applies
+   only newer migrations).
+
+The check is idempotent, so restarts are safe. Any other state — for example a
+failed migration row in `_prisma_migrations` (including a baseline row left by
+an interrupted first boot) — makes `migrate deploy` fail loudly with Prisma's
+own error (P3009) instead of being auto-repaired; fix it with
+`prisma migrate resolve` manually (see
+[Prisma's troubleshooting guide](https://www.prisma.io/docs/orm/prisma-migrate/workflows/patching-and-hotfixing)).
+
+Automatic baselining only applies to SQLite `file:` URLs. A pre-existing
+non-SQLite database (e.g. PostgreSQL) must be baselined manually with
+`prisma migrate resolve --applied 20260704000000_baseline` before its first
+boot on this flow (note: the committed migrations are SQLite SQL — a
+PostgreSQL deployment needs its own migration history anyway).
+
+**Before the first deploy of this flow** (and before any risky schema
+change), take a consistent snapshot of the database — pause first so the
+SQLite WAL is checkpointed:
 
 ```bash
-# Generate and apply a migration
-docker compose exec bies-server npx prisma migrate deploy
+docker compose pause bies-server
+docker compose cp bies-server:/app/data/bies.db ./pre-baseline-backup.db
+docker compose unpause bies-server
 ```
+
+**Escape hatch.** Setting `DB_BOOT_MODE=push` on the server container restores
+the legacy `db push` boot behavior in an emergency. It bypasses migration
+tracking — use it only to get a broken deploy back up. **Before removing it,
+reconcile the migration state**, or the next migrate-mode boot fails again:
+
+- If a migration had failed (P3009), its objects now exist via push — mark it
+  `prisma migrate resolve --applied <migration_name>`.
+- If push applied `schema.prisma` changes that have no migration file, codify
+  them: `prisma migrate diff --from-migrations prisma/migrations
+  --to-schema-datamodel prisma/schema.prisma --script` → save as a new
+  migration directory, commit it, and `prisma migrate resolve --applied` it on
+  the production DB (the objects already exist).
+
+**Rollback.** Reverting a deploy to a pre-migrate-flow image (old `db push`
+boot) after post-baseline migrations have been applied is destructive: push
+syncs the DB to the reverted schema (dropping those migrations' tables and
+columns) but leaves their `_prisma_migrations` rows marked applied. Before
+returning to the migrate flow, delete those stale rows
+(`DELETE FROM _prisma_migrations WHERE migration_name = '<rolled-back one>'`)
+so `migrate deploy` re-applies them; otherwise the server boots cleanly but
+crashes at runtime on the missing tables.
+
+**Making schema changes.** `db push` alone is no longer enough for production —
+every schema change must ship a migration file:
+
+```bash
+cd server
+# Creates prisma/migrations/<timestamp>_<name>/migration.sql and applies it locally
+npx prisma migrate dev --name my_change
+```
+
+Commit the generated migration directory together with the `schema.prisma`
+change. The next deploy applies it automatically at boot.
+
+The `prisma` CLI is a production dependency and is baked into the image, so
+boot-time migrations work without network access to the npm registry (the old
+setup fetched an unpinned `prisma` from npm on every container start).
 
 ## Relay Configuration
 
@@ -400,6 +477,14 @@ Common causes:
 - Missing `JWT_SECRET` or `ENCRYPTION_SECRET` in `.env`
 - Invalid `DATABASE_URL` (PostgreSQL not reachable)
 - Port 3001 already in use
+
+If the container crash-loops right after a deploy, check the logs for Prisma
+migration errors first (`P3009` failed migration, `P3018` object already
+exists). Recovery: `prisma migrate resolve --rolled-back <name>` for a
+migration that died before applying, `--applied <name>` for one whose objects
+already exist — see the Migrations section above. Note that while a deploy
+fails, `deploy/auto-deploy.sh` retries the full `--no-cache` rebuild on every
+cron tick until it succeeds (check `deploy/deploy.log`).
 
 ### Relay Auth Fails
 

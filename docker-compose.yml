@@ -42,7 +42,10 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      # Generous grace so a slow boot-time migration is not marked unhealthy
+      # mid-flight (failed probes during start_period don't count; a passing
+      # probe still flips to healthy immediately)
+      start_period: 300s
 
   bies-relay:
     build:
