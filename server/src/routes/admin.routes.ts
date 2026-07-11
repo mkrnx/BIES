@@ -41,6 +41,12 @@ import {
     setDirectoryScoreSchema,
     recomputeDirectoryScores,
     deleteDirectoryListing,
+    listAdminCourses,
+    reviewCourse,
+    reviewCourseSchema,
+    featureCourse,
+    featureCourseSchema,
+    deleteAdminCourse,
 } from '../controllers/admin.controller';
 
 const router = Router();
@@ -87,6 +93,12 @@ router.put('/directory/:id/feature', validate(featureDirectoryListingSchema), fe
 router.put('/directory/:id/score', validate(setDirectoryScoreSchema), setDirectoryScore);
 router.post('/directory/recompute', recomputeDirectoryScores);
 router.delete('/directory/:id', deleteDirectoryListing);
+
+// Courses
+router.get('/courses', listAdminCourses);
+router.put('/courses/:id/review', validate(reviewCourseSchema), reviewCourse);
+router.put('/courses/:id/feature', validate(featureCourseSchema), featureCourse);
+router.delete('/courses/:id', deleteAdminCourse);
 
 // Audit & System
 router.get('/audit-logs', getAuditLogs);

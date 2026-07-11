@@ -57,6 +57,9 @@ model User {
   directoryListings     DirectoryListing[]     @relation("DirectoryListingsOwned")
   directoryMemberships  DirectoryListing[]     @relation("DirectoryListingsAsMember")
   directoryEndorsements DirectoryEndorsement[]
+  courses               Course[]
+  enrollments           Enrollment[]
+  coursePurchases       CoursePurchase[]
 
   @@map("users")
 }
@@ -589,14 +592,17 @@ model ZapReceipt {
   comment         String   @default("")
   zappedEventId   String?  @map("zapped_event_id")
   projectId       String?  @map("project_id")
+  courseId        String?  @map("course_id")
   bolt11          String   @default("")
   bolt12          String   @default("")
   createdAt       DateTime @default(now()) @map("created_at")
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  course  Course?  @relation(fields: [courseId], references: [id], onDelete: SetNull)
 
   @@index([recipientPubkey])
   @@index([projectId])
+  @@index([courseId])
   @@index([senderPubkey])
   @@map("zap_receipts")
 }
@@ -647,7 +653,7 @@ model PointEvent {
   userId        String   @map("user_id")
   nostrEventId  String?  @map("nostr_event_id")
   kind          Int?
-  reason        String   // POST | REPLY | REACTION_GIVEN | REACTION_RECEIVED | QUALITY_BONUS | ADMIN_ADJUST
+  reason        String   // POST | REPLY | REACTION_GIVEN | REACTION_RECEIVED | QUALITY_BONUS | ADMIN_ADJUST | COURSE_COMPLETED
   points        Int      // 0 (audit rows) and negative (admin adjust) allowed
   month         String   // 'YYYY-MM' (UTC, from event timestamp)
   targetEventId String?  @map("target_event_id")
@@ -772,4 +778,131 @@ model DirectoryEndorsement {
   user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([listingId, userId])
   @@map("directory_endorsements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Courses / LMS
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Course {
+  id              String   @id @default(cuid())
+  authorId        String   @map("author_id")
+  title           String
+  summary         String   @default("")              // short description — the only body text mirrored in paid Nostr events
+  description     String   @default("")              // full markdown
+  category        String   @default("OTHER")         // BITCOIN | LIGHTNING | NOSTR | FINTECH | BUSINESS | TECHNOLOGY | OTHER
+  level           String   @default("BEGINNER")      // BEGINNER | INTERMEDIATE | ADVANCED
+  format          String   @default("SELF_PACED")    // SELF_PACED | VIDEO | LIVE | TEXT | WORKSHOP
+  coverImage      String   @default("") @map("cover_image")
+  tags            String   @default("[]")            // JSON array
+  priceSats       Int      @default(0) @map("price_sats") // 0 = free course
+  status          String   @default("draft")         // draft | pending-review | active | rejected
+  reviewNote      String   @default("") @map("review_note")
+  isPublished     Boolean  @default(true) @map("is_published")
+  isFeatured      Boolean  @default(false) @map("is_featured")
+  viewCount       Int      @default(0) @map("view_count")
+  nostrEventId    String?  @map("nostr_event_id")    // NIP-51 kind 30004 curation set (d = course id)
+  nostrPublish    String   @default("bies") @map("nostr_publish") // none | bies | public | both
+  badgeDefEventId String?  @map("badge_def_event_id") // NIP-58 kind 30009 completion-badge definition
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  lessons     Lesson[]
+  enrollments Enrollment[]
+  purchases   CoursePurchase[]
+  zapReceipts ZapReceipt[]
+
+  @@index([status, isPublished])
+  @@index([authorId])
+  @@map("courses")
+}
+
+model Lesson {
+  id            String   @id @default(cuid())
+  courseId      String   @map("course_id")
+  title         String
+  type          String   @default("TEXT")   // VIDEO | TEXT | QUIZ
+  position      Int      @default(0)
+  content       String   @default("{}")     // JSON by type — VIDEO {videoUrl}; TEXT {markdown}; QUIZ {passPct, questions:[{id,prompt,options[]}]} (no answers)
+  quizAnswerKey String?  @map("quiz_answer_key") // JSON {questionId: correctIndex} — server-only, never in client projections
+  durationSec   Int?     @map("duration_sec")
+  isFreePreview Boolean  @default(false) @map("is_free_preview")
+  nostrEventId  String?  @map("nostr_event_id") // kind 30023 (free) or 30402 (paid teaser)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  progress     LessonProgress[]
+  quizAttempts QuizAttempt[]
+
+  @@index([courseId, position])
+  @@map("lessons")
+}
+
+model Enrollment {
+  id                 String    @id @default(cuid())
+  courseId           String    @map("course_id")
+  userId             String    @map("user_id")
+  completedAt        DateTime? @map("completed_at")
+  certificateEventId String?   @map("certificate_event_id") // NIP-58 kind-8 award event id
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  course       Course           @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  progress     LessonProgress[]
+  quizAttempts QuizAttempt[]
+
+  @@unique([courseId, userId])
+  @@index([userId])
+  @@map("enrollments")
+}
+
+model LessonProgress {
+  id           String   @id @default(cuid())
+  enrollmentId String   @map("enrollment_id")
+  lessonId     String   @map("lesson_id")
+  completedAt  DateTime @default(now()) @map("completed_at")
+  meta         String   @default("{}") // JSON: secondsWatched, quizAttemptId, ...
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, lessonId])
+  @@map("lesson_progress")
+}
+
+model QuizAttempt {
+  id           String   @id @default(cuid())
+  enrollmentId String   @map("enrollment_id")
+  lessonId     String   @map("lesson_id")
+  answers      String   @default("{}") // JSON {questionId: selectedIndex}
+  scorePct     Int      @map("score_pct")
+  passed       Boolean  @default(false)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  lesson     Lesson     @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId, lessonId])
+  @@map("quiz_attempts")
+}
+
+model CoursePurchase {
+  id            String   @id @default(cuid())
+  courseId      String   @map("course_id")
+  userId        String   @map("user_id")
+  amountSats    Int      @map("amount_sats")
+  method        String   // ZAP | COINOS | ADMIN_GRANT
+  zapReceiptIds String   @default("[]") @map("zap_receipt_ids") // JSON array of consumed ZapReceipt.eventId (audit)
+  paymentHash   String   @default("") @map("payment_hash")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([userId])
+  @@map("course_purchases")
 }
