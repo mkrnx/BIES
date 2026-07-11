@@ -32,6 +32,7 @@ import {
     submitQuiz,
     quizSubmitSchema,
     getPurchaseStatus,
+    claimPurchase,
 } from '../controllers/courses.controller';
 
 const router = Router();
@@ -49,6 +50,13 @@ const quizLimiter = rateLimit({
     windowMs: 10 * 60 * 1000,
     max: 30,
     message: { error: 'Too many quiz submissions, please slow down' },
+});
+
+// Purchase claims trigger live relay queries — keep the polling sane
+const claimLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000,
+    max: 40,
+    message: { error: 'Too many claim attempts, please wait a moment' },
 });
 
 // Public catalog
@@ -85,5 +93,6 @@ router.post('/:id/lessons/:lessonId/quiz', authenticate, quizLimiter, validate(q
 
 // Purchase
 router.get('/:id/purchase', authenticate, getPurchaseStatus);
+router.post('/:id/purchase/claim', authenticate, claimLimiter, claimPurchase);
 
 export default router;

@@ -22,6 +22,7 @@ import {
     QuizContent,
     QuizAnswerKey,
 } from '../services/courses.service';
+import { claimZapPurchase } from '../services/coursePurchase.service';
 
 // ─── Constants / helpers ─────────────────────────────────────────────────────
 
@@ -1312,6 +1313,27 @@ export async function submitQuiz(req: Request, res: Response): Promise<void> {
 }
 
 // ─── Purchase (status; claim lands with the payments slice) ─────────────────
+
+/**
+ * POST /courses/:id/purchase/claim
+ * Verify the buyer's zap receipts (strict NIP-57 verification — signature,
+ * zapper-key identity, bolt11 description-hash binding, coordinate match)
+ * and create the purchase when the verified total covers the price.
+ */
+export async function claimPurchase(req: Request, res: Response): Promise<void> {
+    try {
+        const result = await claimZapPurchase(req.user!.id, req.params.id);
+        res.set('Cache-Control', 'no-store');
+        res.json(result);
+    } catch (error: any) {
+        if (error?.statusCode) {
+            res.status(error.statusCode).json({ error: error.message });
+            return;
+        }
+        console.error('Claim purchase error:', error);
+        res.status(500).json({ error: 'Failed to claim purchase' });
+    }
+}
 
 /**
  * GET /courses/:id/purchase

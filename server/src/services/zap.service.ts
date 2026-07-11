@@ -141,11 +141,13 @@ async function processZapReceipt(event: Event): Promise<void> {
     const descTag = event.tags.find((t) => t[0] === 'description');
     let senderPubkey = '';
     let comment = '';
+    let requestATag: string | null = null;
     if (descTag?.[1]) {
         try {
             const zapRequest = JSON.parse(descTag[1]) as Event;
             senderPubkey = zapRequest.pubkey || '';
             comment = zapRequest.content || '';
+            requestATag = zapRequest.tags?.find((t) => t[0] === 'a')?.[1] || null;
         } catch {
             // Malformed description — use event pubkey as fallback
             senderPubkey = event.pubkey;
@@ -184,6 +186,11 @@ async function processZapReceipt(event: Event): Promise<void> {
         }
     }
 
+    // Match addressable-event zaps (a tag) to a course — display/attribution
+    // only; entitlement verification happens in coursePurchase.service.
+    const aTag = event.tags.find((t) => t[0] === 'a')?.[1] || requestATag;
+    const courseId = aTag ? await resolveCourseFromCoordinate(aTag) : null;
+
     // Store the zap receipt
     await prisma.zapReceipt.create({
         data: {
@@ -195,10 +202,20 @@ async function processZapReceipt(event: Event): Promise<void> {
             comment,
             zappedEventId,
             projectId,
+            courseId,
             bolt11,
             bolt12,
         },
     });
+
+    // Fire-and-forget: a course zap from a known user may complete their
+    // purchase (strictly verified inside the claim path). Lazy import breaks
+    // the module cycle with coursePurchase.service.
+    if (courseId && senderPubkey) {
+        import('./coursePurchase.service.js')
+            .then(({ attemptAutoClaim }) => attemptAutoClaim(senderPubkey, courseId))
+            .catch(() => {});
+    }
 
     // Increment project funding total
     if (projectId) {
@@ -254,12 +271,40 @@ async function processZapReceipt(event: Event): Promise<void> {
 }
 
 /**
+ * Resolve an addressable coordinate (kind:pubkey:dTag) to a course id.
+ * 30004 = the course curation set (d = course id); 30402 = a paid lesson
+ * teaser (d = lesson id). The pubkey must match the course author.
+ */
+async function resolveCourseFromCoordinate(coordinate: string): Promise<string | null> {
+    const parts = coordinate.split(':');
+    if (parts.length !== 3) return null;
+    const [kind, pubkey, dTag] = parts;
+    if (!dTag || !/^[0-9a-f]{64}$/i.test(pubkey)) return null;
+
+    if (kind === '30004') {
+        const course = await prisma.course.findUnique({
+            where: { id: dTag },
+            select: { id: true, author: { select: { nostrPubkey: true } } },
+        });
+        return course && course.author.nostrPubkey === pubkey ? course.id : null;
+    }
+    if (kind === '30402') {
+        const lesson = await prisma.lesson.findUnique({
+            where: { id: dTag },
+            select: { courseId: true, course: { select: { author: { select: { nostrPubkey: true } } } } },
+        });
+        return lesson && lesson.course.author.nostrPubkey === pubkey ? lesson.courseId : null;
+    }
+    return null;
+}
+
+/**
  * Minimal bolt11 amount decoder.
  * Bolt11 invoices encode amount after 'ln' prefix and before the separator '1'.
  * Format: ln<network><amount><multiplier>1<data>
  * Multipliers: m = milli (10^-3), u = micro (10^-6), n = nano (10^-9), p = pico (10^-12)
  */
-function decodeBolt11Amount(bolt11: string): bigint {
+export function decodeBolt11Amount(bolt11: string): bigint {
     if (!bolt11) return 0n;
 
     const lower = bolt11.toLowerCase();

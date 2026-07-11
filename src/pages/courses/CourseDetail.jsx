@@ -10,6 +10,7 @@ import { getAssetUrl } from '../../utils/assets';
 import { useAuth } from '../../context/AuthContext';
 import MarkdownView from '../../components/courses/MarkdownView';
 import CertificateCard from '../../components/courses/CertificateCard';
+import CourseUnlockModal from '../../components/courses/CourseUnlockModal';
 
 const titleCase = (s) => (s ? s.charAt(0) + s.slice(1).toLowerCase() : '');
 
@@ -35,6 +36,8 @@ const CourseDetail = () => {
     const [enrolling, setEnrolling] = useState(false);
     const [enrollError, setEnrollError] = useState(null);
     const [justEnrolled, setJustEnrolled] = useState(false);
+    const [unlockInfo, setUnlockInfo] = useState(null); // purchaseStatus payload while modal open
+    const [unlockLoading, setUnlockLoading] = useState(false);
 
     const fetchCourse = useCallback(async () => {
         try {
@@ -67,6 +70,30 @@ const CourseDetail = () => {
         } finally {
             setEnrolling(false);
         }
+    };
+
+    const openUnlock = async () => {
+        setUnlockLoading(true);
+        setEnrollError(null);
+        try {
+            const info = await coursesApi.purchaseStatus(id);
+            if (info?.purchased) {
+                // Already paid (e.g. auto-claimed) — enroll and refresh
+                await coursesApi.enroll(id).catch(() => {});
+                await fetchCourse();
+            } else {
+                setUnlockInfo(info);
+            }
+        } catch (err) {
+            setEnrollError(err?.data?.error || err?.message || 'Error');
+        } finally {
+            setUnlockLoading(false);
+        }
+    };
+
+    const handleUnlocked = async () => {
+        await coursesApi.enroll(id).catch(() => {});
+        await fetchCourse();
     };
 
     if (loading) {
@@ -161,13 +188,23 @@ const CourseDetail = () => {
         }
 
         if (isPaid && !purchased) {
-            // Zap-purchase flow lands in the payments PR — button is disabled for now.
+            const hasLightning = !!course.author?.profile?.lightningAddress;
             return (
                 <div className="cta-block">
-                    <button className="cta-btn" disabled title={t('courses.unlock.body')}>
-                        ⚡ {t('courses.unlockFor', { n: course.priceSats })}
+                    <button
+                        className="cta-btn"
+                        onClick={openUnlock}
+                        disabled={unlockLoading || !hasLightning}
+                        title={hasLightning ? t('courses.unlock.body') : t('courses.unlock.noLightning')}
+                    >
+                        {unlockLoading
+                            ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                            : <>⚡ {t('courses.unlockFor', { n: course.priceSats })}</>}
                     </button>
-                    <p className="unlock-hint">{t('courses.unlock.pendingBody')}</p>
+                    <p className="unlock-hint">
+                        {hasLightning ? t('courses.unlock.body') : t('courses.unlock.noLightning')}
+                    </p>
+                    {enrollError && <p className="enroll-error">{enrollError}</p>}
                 </div>
             );
         }
@@ -323,6 +360,17 @@ const CourseDetail = () => {
                     </div>
                 </div>
             </div>
+
+            {unlockInfo && (
+                <CourseUnlockModal
+                    course={course}
+                    purchaseInfo={unlockInfo}
+                    instructorName={course.author?.profile?.name}
+                    instructorAvatar={course.author?.profile?.avatar ? getAssetUrl(course.author.profile.avatar) : undefined}
+                    onClose={() => setUnlockInfo(null)}
+                    onUnlocked={handleUnlocked}
+                />
+            )}
 
             <style jsx>{`
                 .course-detail-page {
