@@ -11,3 +11,11 @@ docker-compose.override.yml
 deploy/.deployed-commit
 deploy/deploy.log
 deploy/.deploy-lock
+
+# QA/e2e artifacts and local Claude state
+e2e/screenshots/
+e2e/test-results/
+test-results/
+.claude/settings.local.json
+.claude/worktrees/
+*.stale-bak
