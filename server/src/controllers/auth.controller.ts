@@ -7,68 +7,12 @@ import prisma from '../lib/prisma';
 import { generateToken, isAdminPubkey } from '../middleware/auth';
 import { encryptPrivateKey, decryptPrivateKey } from '../services/crypto.service';
 import { publishRelayList } from '../services/nostr.service';
+import { HEX_PUBKEY_RE, addToRelayWhitelist } from '../services/relayWhitelist.service';
+import { recordOnboardingRedemption } from '../services/voucher.service';
 import { cache } from '../services/redis.service';
 import { config } from '../config';
 import { z } from 'zod';
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
-
-// ─── Relay whitelist helper ───
-
-const HEX_PUBKEY_RE = /^[0-9a-f]{64}$/;
-
-const WHITELIST_PATH = process.env.RELAY_WHITELIST_PATH || '/app/relay-whitelist/whitelist.txt';
-
-/**
- * Add a pubkey to the Nostr relay whitelist file.
- * The strfry write-policy plugin reads this file to authorize publishers.
- */
-export function addToRelayWhitelist(pubkey: string): void {
-    try {
-        // Validate pubkey format to prevent injection into whitelist file
-        if (!HEX_PUBKEY_RE.test(pubkey)) {
-            console.error('[Relay] Invalid pubkey format, refusing to whitelist');
-            return;
-        }
-
-        const dir = path.dirname(WHITELIST_PATH);
-        if (!fs.existsSync(dir)) {
-            fs.mkdirSync(dir, { recursive: true });
-        }
-
-        // Read existing whitelist
-        let existing = '';
-        if (fs.existsSync(WHITELIST_PATH)) {
-            existing = fs.readFileSync(WHITELIST_PATH, 'utf8');
-        }
-
-        // Only add if not already present
-        if (!existing.split('\n').includes(pubkey)) {
-            fs.appendFileSync(WHITELIST_PATH, pubkey + '\n');
-            console.log(`[Relay] Added ${pubkey.substring(0, 8)}... to whitelist`);
-        }
-    } catch (err) {
-        console.error('[Relay] Failed to update whitelist:', err);
-    }
-}
-
-/**
- * Remove a pubkey from the Nostr relay whitelist file.
- * Called when a user is banned to revoke relay access.
- */
-export function removeFromRelayWhitelist(pubkey: string): void {
-    try {
-        if (!fs.existsSync(WHITELIST_PATH)) return;
-
-        const existing = fs.readFileSync(WHITELIST_PATH, 'utf8');
-        const lines = existing.split('\n').filter((line) => line !== pubkey && line.trim() !== '');
-        fs.writeFileSync(WHITELIST_PATH, lines.join('\n') + (lines.length ? '\n' : ''));
-        console.log(`[Relay] Removed ${pubkey.substring(0, 8)}... from whitelist`);
-    } catch (err) {
-        console.error('[Relay] Failed to remove from whitelist:', err);
-    }
-}
 
 // ─── Fingerprint helpers (ban evasion detection) ───
 
@@ -133,6 +77,7 @@ export const registerSchema = z.object({
     email: z.string().email(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     name: z.string().min(1).optional(),
+    voucherCode: z.string().max(64).optional(),
 });
 
 export const loginSchema = z.object({
@@ -175,7 +120,7 @@ async function generateNip05Name(baseName: string): Promise<string | null> {
  */
 export async function register(req: Request, res: Response): Promise<void> {
     try {
-        const { email, password, name, fingerprint } = req.body;
+        const { email, password, name, fingerprint, voucherCode } = req.body;
 
         // Check if email already exists
         const existingUser = await prisma.user.findUnique({ where: { email } });
@@ -242,6 +187,11 @@ export async function register(req: Request, res: Response): Promise<void> {
 
         // Add custodial pubkey to relay whitelist so email users can access the private relay
         addToRelayWhitelist(nostrPubkey);
+
+        // Attribute the signup to an onboarding voucher (fire-and-forget — never blocks signup)
+        recordOnboardingRedemption(voucherCode, user.id, req.ip || null).catch((err) =>
+            console.error('[Voucher] Onboarding attribution failed:', err)
+        );
 
         // Publish NIP-65 relay list for the new custodial user
         publishRelayList(user.id).catch((err) =>
@@ -369,7 +319,7 @@ export async function getNostrChallenge(req: Request, res: Response): Promise<vo
  */
 export async function nostrLogin(req: Request, res: Response): Promise<void> {
     try {
-        const { pubkey, signedEvent, fingerprint } = req.body;
+        const { pubkey, signedEvent, fingerprint, voucherCode } = req.body;
 
         if (!pubkey || !HEX_PUBKEY_RE.test(pubkey)) {
             res.status(400).json({ error: 'Valid hex pubkey required' });
@@ -477,6 +427,11 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 res.status(403).json({ error: 'Your account has been suspended' });
                 return;
             }
+
+            // Attribute the signup to an onboarding voucher (fire-and-forget — never blocks login)
+            recordOnboardingRedemption(voucherCode, user.id, req.ip || null).catch((err) =>
+                console.error('[Voucher] Onboarding attribution failed:', err)
+            );
 
             // Publish NIP-65 relay list for the new user
             publishRelayList(user.id).catch((err) =>

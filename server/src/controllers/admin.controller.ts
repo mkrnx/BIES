@@ -8,7 +8,7 @@ import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { cache, cacheKey } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
-import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
+import { removeFromRelayWhitelist, addToRelayWhitelist } from '../services/relayWhitelist.service';
 import { publishDirectoryListing } from '../services/nostr.service';
 import { isAdminPubkey } from '../middleware/auth';
 import { recomputeListingScore, recomputeAllScores as recomputeAllDirectoryScores } from '../services/directoryReputation.service';
