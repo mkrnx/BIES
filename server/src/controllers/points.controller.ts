@@ -10,7 +10,7 @@
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
 import { cache, cacheKey, TTL } from '../services/redis.service';
-import { monthOf, titleKeyFor, nextLevelAt } from '../services/points.service';
+import { monthOf, titleKeyFor, nextLevelAt, leaderboardOrderBy } from '../services/points.service';
 import { BADGES } from '../services/badges.catalog';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -111,7 +111,8 @@ async function loadLeaderboard(
 
     const rows = await prisma.userScore.findMany({
         where,
-        orderBy: [{ [orderField]: 'desc' }, { updatedAt: 'asc' }],
+        // Shared with the rollover snapshot so frozen ranks match live ranks.
+        orderBy: leaderboardOrderBy(orderField),
         take: LEADERBOARD_MAX,
         include: {
             user: {

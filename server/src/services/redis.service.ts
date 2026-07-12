@@ -233,3 +233,18 @@ export const cacheKey = {
     courses: (params: Record<string, string>) =>
         `courses:${new URLSearchParams(params).toString()}`,
 };
+
+// ─── Cross-module invalidation helpers ───────────────────────────────────────
+
+/**
+ * Evict both leaderboard scopes. Called wherever ranked totals mutate: live
+ * scoring (points.service applyPoints), the monthly rollover's bucket reset
+ * (points.indexer lazyMonthSync) and admin adjust/recompute — so new ranks
+ * surface immediately instead of after the 60s TTL.
+ */
+export async function invalidateLeaderboardCache(): Promise<void> {
+    await Promise.all([
+        cache.del(cacheKey.leaderboard('monthly')),
+        cache.del(cacheKey.leaderboard('lifetime')),
+    ]);
+}
