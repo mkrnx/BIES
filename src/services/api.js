@@ -473,6 +473,13 @@ export const adminApi = {
     voucherRedemptions: (id) => get(`/vouchers/${id}/redemptions`),
     revokeVoucher: (id, revokeAccess) => post(`/vouchers/${id}/revoke`, { revokeAccess }),
     revokeRedemption: (id, revokeAccess) => post(`/vouchers/redemptions/${id}/revoke`, { revokeAccess }),
+    updateFlags: (data) => put('/admin/flags', data),
+};
+
+// ─── Runtime feature flags (public read; admin write via adminApi) ──────────
+
+export const flagsApi = {
+    get: () => get('/flags'),
 };
 
 // ─── Courses (LMS) ───────────────────────────────────────────────────────────

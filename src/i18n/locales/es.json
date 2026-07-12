@@ -1956,5 +1956,61 @@
     "enrolledTab": "Inscrito",
     "studentsCount": "{{n}} estudiantes",
     "lessonsCount": "{{n}} lecciones"
+  },
+  "features": {
+    "tab": "Funciones",
+    "title": "Funciones de la App",
+    "subtitle": "Activa o desactiva funciones para todos al instante, sin redesplegar",
+    "propagationNote": "Los cambios se aplican de inmediato para ti. Los demas usuarios los reciben en unos 5 minutos (cache del servidor) o al volver a la app. Las funciones desactivadas desaparecen de la navegacion, sus paginas muestran No Encontrado y sus APIs quedan bloqueadas.",
+    "adminOnly": "Solo los administradores pueden cambiar las funciones. Los moderadores tienen acceso de solo lectura.",
+    "enabled": "Activada",
+    "disabled": "Desactivada",
+    "saveError": "No se pudo actualizar {{name}} - cambio revertido.",
+    "slugs": {
+      "directories": {
+        "name": "Directorios",
+        "description": "Directorios de fincas y proveedores certificados en Descubrir"
+      },
+      "points": {
+        "name": "Puntos y Ranking",
+        "description": "Puntos de comunidad, ranking, puntos de perfil e insignias"
+      },
+      "events": {
+        "name": "Eventos",
+        "description": "Calendario de eventos del ecosistema y paginas de eventos"
+      },
+      "media": {
+        "name": "Media",
+        "description": "Pagina de media con videos y podcasts"
+      },
+      "news": {
+        "name": "Noticias",
+        "description": "Pagina de noticias, pulso social y feed de X"
+      },
+      "messages": {
+        "name": "Mensajes",
+        "description": "Mensajes directos entre miembros"
+      },
+      "zaps": {
+        "name": "Zaps y Billetera",
+        "description": "Botones de zap Lightning y billetera Coinos"
+      },
+      "feedback": {
+        "name": "Feedback",
+        "description": "Reportes de errores y seguimiento de feedback"
+      },
+      "investors": {
+        "name": "Inversores",
+        "description": "Funciones de inversores, inversiones y verificacion"
+      },
+      "projects": {
+        "name": "Proyectos",
+        "description": "Listados y paginas de proyectos"
+      },
+      "cowork": {
+        "name": "Cowork",
+        "description": "Pagina de check-in y mapa de Cowork"
+      }
+    }
   }
 }

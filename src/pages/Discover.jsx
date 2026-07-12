@@ -9,6 +9,7 @@ import FollowIconButton from '../components/FollowIconButton';
 import { useAuth } from '../context/AuthContext';
 import { useUserMode } from '../context/UserModeContext';
 import { useViewPreference } from '../context/ViewContext';
+import { useFeature } from '../context/FeatureFlagsContext';
 import { getAssetUrl } from '../utils/assets';
 import { stripHtml } from '../utils/text';
 
@@ -398,6 +399,7 @@ const Discover = () => {
   const { user } = useAuth();
   const { mode } = useUserMode();
   const { defaultView } = useViewPreference();
+  const directoriesEnabled = useFeature('directories');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
@@ -697,33 +699,35 @@ const Discover = () => {
         </div>
       </div>
 
-      {/* Directories entry cards */}
-      <div className="directories-section">
-        {/* styled-jsx only scopes DOM elements, so the visual card lives on a div inside the Link */}
-        <Link to="/discover/farms" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
-          <div className="directory-entry-card">
-            <div className="directory-entry-icon"><Leaf size={20} /></div>
-            <span className="directory-entry-label">{t('directory.farmTitle')}</span>
-            <ChevronRight size={18} className="directory-entry-chevron" />
-          </div>
-        </Link>
-        <Link to="/discover/certified" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
-          <div className="directory-entry-card">
-            <div className="directory-entry-icon"><ShieldCheck size={20} /></div>
-            <span className="directory-entry-label">{t('directory.certifiedTitle')}</span>
-            <ChevronRight size={18} className="directory-entry-chevron" />
-          </div>
-        </Link>
-        {MARKETPLACE_ENABLED && (
-          <Link to="/discover/market" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+      {/* Directories entry cards — hidden while the `directories` feature is toggled off */}
+      {directoriesEnabled && (
+        <div className="directories-section">
+          {/* styled-jsx only scopes DOM elements, so the visual card lives on a div inside the Link */}
+          <Link to="/discover/farms" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
             <div className="directory-entry-card">
-              <div className="directory-entry-icon"><Store size={20} /></div>
-              <span className="directory-entry-label">{t('marketplace.entryLabel')}</span>
+              <div className="directory-entry-icon"><Leaf size={20} /></div>
+              <span className="directory-entry-label">{t('directory.farmTitle')}</span>
               <ChevronRight size={18} className="directory-entry-chevron" />
             </div>
           </Link>
-        )}
-      </div>
+          <Link to="/discover/certified" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+            <div className="directory-entry-card">
+              <div className="directory-entry-icon"><ShieldCheck size={20} /></div>
+              <span className="directory-entry-label">{t('directory.certifiedTitle')}</span>
+              <ChevronRight size={18} className="directory-entry-chevron" />
+            </div>
+          </Link>
+          {MARKETPLACE_ENABLED && (
+            <Link to="/discover/market" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+              <div className="directory-entry-card">
+                <div className="directory-entry-icon"><Store size={20} /></div>
+                <span className="directory-entry-label">{t('marketplace.entryLabel')}</span>
+                <ChevronRight size={18} className="directory-entry-chevron" />
+              </div>
+            </Link>
+          )}
+        </div>
+      )}
 
       <div className="content-layout">
         {/* Filters Sidebar */}

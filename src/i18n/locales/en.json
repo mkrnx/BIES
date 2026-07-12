@@ -1955,5 +1955,61 @@
     "enrolledTab": "Enrolled",
     "studentsCount": "{{n}} students",
     "lessonsCount": "{{n}} lessons"
+  },
+  "features": {
+    "tab": "Features",
+    "title": "Feature Toggles",
+    "subtitle": "Turn app features on or off for everyone, instantly - no redeploy needed",
+    "propagationNote": "Changes apply to you immediately. Other users pick them up within about 5 minutes (server cache) or on their next app focus. Disabled features disappear from navigation, their pages show Not Found and their APIs are blocked.",
+    "adminOnly": "Only administrators can change feature toggles. Moderators have read-only access.",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "saveError": "Failed to update {{name}} - change reverted.",
+    "slugs": {
+      "directories": {
+        "name": "Directories",
+        "description": "Farm and certified provider directories under Discover"
+      },
+      "points": {
+        "name": "Points & Leaderboard",
+        "description": "Community points, leaderboard, profile points and badges"
+      },
+      "events": {
+        "name": "Events",
+        "description": "Ecosystem events calendar and event pages"
+      },
+      "media": {
+        "name": "Media",
+        "description": "Media page with video and podcast feeds"
+      },
+      "news": {
+        "name": "News",
+        "description": "News page, social pulse and X feed"
+      },
+      "messages": {
+        "name": "Messages",
+        "description": "Direct messages between members"
+      },
+      "zaps": {
+        "name": "Zaps & Wallet",
+        "description": "Lightning zap buttons and the Coinos wallet"
+      },
+      "feedback": {
+        "name": "Feedback",
+        "description": "Bug reports and feedback tracker"
+      },
+      "investors": {
+        "name": "Investors",
+        "description": "Investor features, investments and vetting"
+      },
+      "projects": {
+        "name": "Projects",
+        "description": "Project listings and project pages"
+      },
+      "cowork": {
+        "name": "Cowork",
+        "description": "Cowork check-in page and map"
+      }
+    }
   }
 }

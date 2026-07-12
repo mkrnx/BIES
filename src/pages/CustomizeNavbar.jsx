@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, RotateCcw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useBottomNav } from '../context/BottomNavContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import usePointerDrag from '../hooks/usePointerDrag';
 import { NAV_PAGES, NAV_PAGES_BY_ID, MAX_TABS, MIN_TABS } from '../config/navPages';
 
@@ -25,8 +26,14 @@ const CustomizeNavbar = () => {
     const hoverIndexRef = useRef(null); // mirrors hoverIndex for synchronous reads on drop
     const [hoverIndex, setHoverIndex] = useState(null);
 
-    const dockPages = tabs.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean);
-    const gridPages = NAV_PAGES.filter((p) => !tabs.includes(p.id));
+    // Runtime feature toggles: disabled pages are hidden from both the dock
+    // and the grid so they can't be added (or seen) while off. The stored tab
+    // ids are untouched — re-enabling the feature restores the user's dock.
+    const { flags } = useFeatureFlags();
+    const featureOn = (p) => !p.flag || flags[p.flag] !== false;
+
+    const dockPages = tabs.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean).filter(featureOn);
+    const gridPages = NAV_PAGES.filter((p) => !tabs.includes(p.id)).filter(featureOn);
 
     const setHover = (idx) => {
         if (idx !== hoverIndexRef.current) {

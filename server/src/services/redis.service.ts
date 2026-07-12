@@ -194,6 +194,7 @@ export const TTL = {
     CONTENT_DETAIL: 600,     // 10 min
     TWITTER_FEED: 900,       // 15 min
     SITE_SETTINGS: 300,      // 5 min
+    FEATURE_FLAGS: 300,      // 5 min – runtime feature toggles
     MATCH_RESULTS: 120,      // 2 min
     FOLLOW_LIST: 120,        // 2 min
     LEADERBOARD: 60,         // 1 min – points leaderboard
@@ -227,6 +228,7 @@ export const cacheKey = {
     twitterFeed: () => 'twitter:feed',
     liveNewsFeed: () => 'newsfeed:live',
     siteSettings: () => 'site_settings:default',
+    featureFlags: () => 'feature_flags:default',
     leaderboard: (scope: string) => `leaderboard:${scope}`,
     courses: (params: Record<string, string>) =>
         `courses:${new URLSearchParams(params).toString()}`,

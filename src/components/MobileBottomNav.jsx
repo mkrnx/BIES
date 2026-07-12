@@ -4,6 +4,7 @@ import { User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useBottomNav } from '../context/BottomNavContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { NAV_PAGES_BY_ID } from '../config/navPages';
 
 const itemStyle = (active) => ({
@@ -37,7 +38,13 @@ const MobileBottomNav = () => {
   const { t } = useTranslation();
 
   const { tabs: tabIds } = useBottomNav();
-  const tabs = tabIds.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean);
+  const { flags } = useFeatureFlags();
+  // Runtime feature toggles exclude disabled pages even from user-customized
+  // tab sets (the stored preference is untouched, so re-enabling restores them).
+  const tabs = tabIds
+    .map((id) => NAV_PAGES_BY_ID[id])
+    .filter(Boolean)
+    .filter((tab) => !tab.flag || flags[tab.flag] !== false);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 

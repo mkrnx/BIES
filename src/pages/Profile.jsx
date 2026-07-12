@@ -5,6 +5,7 @@ import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loa
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
 import { useAuth } from '../context/AuthContext';
+import { useFeature } from '../context/FeatureFlagsContext';
 import { profilesApi, pointsApi } from '../services/api';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
@@ -34,11 +35,18 @@ const Profile = () => {
     const [nostrFollowing, setNostrFollowing] = useState(null);
     const [npubCopied, setNpubCopied] = useState(false);
     const [points, setPoints] = useState(null);
+    const pointsEnabled = useFeature('points');
 
     useEffect(() => {
         loadProfile();
-        pointsApi.me().then(setPoints).catch(() => { });
     }, []);
+
+    // Community points card — skipped entirely while the `points` feature is
+    // toggled off (refetches if the flag flips back on during the session).
+    useEffect(() => {
+        if (!pointsEnabled) return;
+        pointsApi.me().then(setPoints).catch(() => { });
+    }, [pointsEnabled]);
 
     const loadProfile = async () => {
         try {
@@ -251,8 +259,8 @@ const Profile = () => {
                 <div className="profile-grid">
                     {/* Left Column - Main Content */}
                     <div className="profile-main space-y-6">
-                        {/* Community Points */}
-                        {points && (
+                        {/* Community Points — hidden while the `points` feature is toggled off */}
+                        {pointsEnabled && points && (
                             <div className="profile-card" data-testid="points-card">
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.25rem' }}>
                                     <h3 className="h3-title" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', margin: 0 }}>

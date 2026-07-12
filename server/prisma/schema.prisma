@@ -520,6 +520,7 @@ model SiteSettings {
   twitterHandles   String   @default("[]") @map("twitter_handles")
   livestreamUrl    String   @default("") @map("livestream_url")
   livestreamActive Boolean  @default(false) @map("livestream_active")
+  featureFlags     String   @default("{}") @map("feature_flags") // JSON: { [featureSlug]: boolean } — missing slugs default enabled
   updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@map("site_settings")

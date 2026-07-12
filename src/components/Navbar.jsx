@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useUserMode } from '../context/UserModeContext';
 import { useAuth } from '../context/AuthContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import { User, Search, ChevronDown, LogOut, Trophy } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 import NostrNotifications from './NostrNotifications';
@@ -14,6 +15,8 @@ const Navbar = () => {
   const { t } = useTranslation();
   const { mode, selectMode, clearMode } = useUserMode();
   const { user, isAuthenticated, logout } = useAuth();
+  const { flags } = useFeatureFlags();
+  const featureOn = (slug) => flags[slug] !== false;
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -30,15 +33,17 @@ const Navbar = () => {
     }
   };
 
+  // `flag:` ties a link to a runtime feature toggle — disabled features
+  // disappear from the nav entirely.
   const navLinks = [
     { label: t('nav.discover'), path: '/discover' },
-    { label: t('nav.events'), path: '/events' },
+    { label: t('nav.events'), path: '/events', flag: 'events' },
     ...(BOUNTIES_ENABLED ? [{ label: t('nav.bounties'), path: '/bounties' }] : []),
-    { label: t('nav.leaderboard'), path: '/leaderboard', icon: Trophy },
-    { label: t('nav.media'), path: '/media' },
-    { label: t('nav.news'), path: '/news' },
+    { label: t('nav.leaderboard'), path: '/leaderboard', icon: Trophy, flag: 'points' },
+    { label: t('nav.media'), path: '/media', flag: 'media' },
+    { label: t('nav.news'), path: '/news', flag: 'news' },
     { label: t('nav.about'), path: '/about' },
-  ];
+  ].filter((link) => !link.flag || featureOn(link.flag));
 
   const isActive = (path) => location.pathname === path;
 
@@ -172,8 +177,10 @@ const Navbar = () => {
                       >
                         {t('nav.profile')}
                       </Link>
-                      <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.messages')}</Link>
-                      {COWORK_ENABLED && (
+                      {featureOn('messages') && (
+                        <Link to="/messages" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.messages')}</Link>
+                      )}
+                      {COWORK_ENABLED && featureOn('cowork') && (
                         <Link to="/cowork" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.cowork')}</Link>
                       )}
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.dashboard')}</Link>
@@ -181,7 +188,9 @@ const Navbar = () => {
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
                       )}
                       <Link to="/settings" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.settings')}</Link>
-                      <Link to="/feedback" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Feedback</Link>
+                      {featureOn('feedback') && (
+                        <Link to="/feedback" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>Feedback</Link>
+                      )}
                     </div>
 
                     <div className="dropdown-divider"></div>
@@ -240,12 +249,12 @@ const Navbar = () => {
               {/* Top Section: Profile, Messages, News, About */}
               {[
                 { to: '/profile', label: t('nav.profile') },
-                { to: '/messages', label: t('nav.messages') },
-                ...(COWORK_ENABLED ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
+                ...(featureOn('messages') ? [{ to: '/messages', label: t('nav.messages') }] : []),
+                ...(COWORK_ENABLED && featureOn('cowork') ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
                 ...(BOUNTIES_ENABLED ? [{ to: '/bounties', label: t('nav.bounties') }] : []),
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
-                { to: '/leaderboard', label: t('nav.leaderboard') },
-                { to: '/news', label: t('nav.news') },
+                ...(featureOn('points') ? [{ to: '/leaderboard', label: t('nav.leaderboard') }] : []),
+                ...(featureOn('news') ? [{ to: '/news', label: t('nav.news') }] : []),
                 { to: '/about', label: t('nav.about') },
               ].map((link) => {
                 const active = isActive(link.to);
@@ -269,7 +278,7 @@ const Navbar = () => {
             <div style={{ borderTop: '1px solid rgba(255,255,255,0.15)', padding: '0.5rem 0', display: 'flex', flexDirection: 'column', paddingBottom: 'calc(80px + env(safe-area-inset-bottom, 0))' }}>
               {/* Bottom Section: Feedback, FAQ, Settings, Log Out */}
               {[
-                { to: '/feedback', label: 'Feedback' },
+                ...(featureOn('feedback') ? [{ to: '/feedback', label: 'Feedback' }] : []),
                 { to: '/about', label: 'FAQ' }, // FAQ points to About for now
                 { to: '/settings', label: t('nav.settings') },
               ].map(item => (

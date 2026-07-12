@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Folder, Calendar, Users, Trophy, FileText, Newspaper, MessageSquare, ShieldCheck, Store, GraduationCap, Ticket, Target, LogOut } from 'lucide-react';
+import { LayoutDashboard, Folder, Calendar, Users, Trophy, FileText, Newspaper, MessageSquare, ShieldCheck, Store, GraduationCap, Ticket, Target, SlidersHorizontal, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -34,6 +34,7 @@ const AdminDashboard = () => {
     { to: '/admin/investor-vetting', label: 'Vetting', icon: ShieldCheck },
     { to: '/admin/vouchers', label: t('admin.vouchers.nav'), icon: Ticket },
     { to: '/admin/feedback', label: 'Feedback', icon: MessageSquare },
+    { to: '/admin/features', label: t('features.tab'), icon: SlidersHorizontal },
   ];
 
   const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
