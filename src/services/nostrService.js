@@ -1,6 +1,7 @@
 import { SimplePool, nip19, finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 import { nostrSigner } from './nostrSigner.js';
+import { buildListingTags, parseListingEvent, dedupeListings, listingNaddr } from '../utils/nip99.js';
 
 // ─── Persistent profile cache (localStorage) ────────────────────────────────
 
@@ -69,6 +70,18 @@ export const DM_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
 // All relays (BIES relay first for priority)
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
+
+// Marketplace relays — BIES relay + Shopstr's default relay set
+// (shopstr-eng/shopstr getDefaultRelays). Publishing here makes BIES
+// listings visible in Shopstr's browse feed.
+export const MARKETPLACE_RELAYS = [...new Set([
+    BIES_RELAY,
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://purplepag.es',
+    'wss://relay.primal.net',
+    'wss://relay.nostr.band',
+])];
 
 /**
  * NIP-42 auth handler — signs the AUTH challenge event so the BIES
@@ -920,6 +933,153 @@ class NostrService {
         const signedEvent = await nostrSigner.signEvent(event);
         await Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
         return signedEvent.id;
+    }
+
+    // ─── NIP-99 Marketplace (Shopstr-compatible, kind:30402) ─────────────────
+
+    /**
+     * Publish a marketplace listing (NIP-99 kind:30402, Shopstr-compatible).
+     * For Nostr-native users — signs via browser extension. Twin of the
+     * server's publishMarketplaceListing (nostr.service.ts): same tags and
+     * content (built by buildListingTags in utils/nip99.js).
+     * @param {Object} listing - form fields (see buildListingTags) plus
+     *        optional dTag/publishedAt when editing an existing listing
+     * @returns {Promise<{id: string, dTag: string, pubkey: string, naddr: string}>}
+     */
+    async publishMarketplaceListing(listing) {
+        const pubkey = await nostrSigner.getPublicKey();
+        const { tags, content, dTag } = buildListingTags(listing, {
+            dTag: listing.dTag,
+            publishedAt: listing.publishedAt,
+        });
+
+        const event = {
+            kind: 30402,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content,
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(MARKETPLACE_RELAYS, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        if (succeeded === 0) {
+            throw new Error('Failed to publish marketplace listing to any relay');
+        }
+        console.log(`[NIP-99] Marketplace listing published to ${succeeded}/${MARKETPLACE_RELAYS.length} relays`);
+
+        // Relay hints for the shareable naddr — public relays only (the BIES
+        // relay is private/NIP-42 gated, useless to external Shopstr clients).
+        const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+        return {
+            id: signedEvent.id,
+            dTag,
+            pubkey,
+            naddr: listingNaddr({ pubkey, dTag }, hintRelays),
+        };
+    }
+
+    /**
+     * Fetch marketplace listings (kind:30402), filtered to real products
+     * (title + price, no directory/investment tags) and deduped by
+     * (pubkey, d-tag). Attaches sellerName/sellerAvatar from kind:0 profiles.
+     * @param {Object} [options]
+     * @param {'bies'|'global'} [options.scope] - 'bies' queries the private
+     *        relay only; anything else queries all marketplace relays
+     * @param {string[]} [options.authors] - filter by seller pubkeys
+     * @param {number} [options.limit]
+     */
+    async fetchMarketplaceListings({ scope = 'bies', authors, limit = 100 } = {}) {
+        const relays = scope === 'bies' ? [this.biesRelay] : MARKETPLACE_RELAYS;
+        try {
+            const events = await this.pool.querySync(relays, {
+                kinds: [30402],
+                limit,
+                ...(authors ? { authors } : {}),
+            });
+
+            const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+            const listings = dedupeListings(
+                events.map(e => parseListingEvent(e, hintRelays)).filter(Boolean)
+            );
+
+            // Batch-load seller profiles (cached) and attach display info
+            const profiles = await this.getProfiles(listings.map(l => l.pubkey));
+            for (const listing of listings) {
+                const profile = profiles.get(listing.pubkey);
+                listing.sellerName = profile?.display_name || profile?.name || '';
+                listing.sellerAvatar = profile?.picture || '';
+            }
+
+            return listings;
+        } catch (error) {
+            console.error('[NIP-99] Marketplace listings fetch failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch a single marketplace listing by naddr. Queries the naddr's
+     * embedded relay hints plus all marketplace relays; returns the latest
+     * revision, or null if not found / not a marketplace listing.
+     */
+    async fetchMarketplaceListing(naddr) {
+        try {
+            const decoded = nip19.decode(naddr);
+            if (decoded.type !== 'naddr' || decoded.data.kind !== 30402) {
+                throw new Error('Not a kind:30402 naddr');
+            }
+            const { pubkey, identifier, relays: decodedRelays } = decoded.data;
+            const relays = [...new Set([...(decodedRelays || []), ...MARKETPLACE_RELAYS])];
+
+            const events = await this.pool.querySync(relays, {
+                kinds: [30402],
+                authors: [pubkey],
+                '#d': [identifier],
+                limit: 5,
+            });
+
+            const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+            const listings = dedupeListings(
+                events.map(e => parseListingEvent(e, hintRelays)).filter(Boolean)
+            );
+            return listings[0] || null;
+        } catch (error) {
+            console.error('[NIP-99] Marketplace listing fetch failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Publish a NIP-09 deletion event (kind:5) to remove a marketplace
+     * listing from all marketplace relays.
+     * @param {string} eventId - the Nostr event ID of the listing
+     * @param {string} dTag - the listing's d-tag
+     */
+    async deleteMarketplaceListing(eventId, dTag) {
+        const pubkey = await nostrSigner.getPublicKey();
+
+        const event = {
+            kind: 5,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', eventId],
+                ['a', `30402:${pubkey}:${dTag}`],
+            ],
+            content: 'Listing deleted from BIES',
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(MARKETPLACE_RELAYS, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`[NIP-09] Marketplace deletion published to ${succeeded}/${MARKETPLACE_RELAYS.length} relays`);
+        return succeeded > 0;
     }
 
     /**
