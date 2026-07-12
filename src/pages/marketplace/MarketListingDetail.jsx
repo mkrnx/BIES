@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { nostrService } from '../../services/nostrService';
 import { marketplaceApi } from '../../services/api';
-import { shopstrUrl } from '../../utils/nip99';
+import { shopstrUrl, isBlocked } from '../../utils/nip99';
 import { nostrSigner } from '../../services/nostrSigner';
 import { useAuth } from '../../context/AuthContext';
 import ZapButton from '../../components/ZapButton';
@@ -44,7 +44,17 @@ const MarketListingDetail = () => {
             setActiveImage(0);
             setRevealed(false);
             try {
-                const result = await nostrService.fetchMarketplaceListing(naddr);
+                const [result, blRes] = await Promise.all([
+                    nostrService.fetchMarketplaceListing(naddr),
+                    // Moderation blocklist applies on the detail page too, not
+                    // just the browse grid (deep links via naddr).
+                    marketplaceApi.blocklist().catch(() => null),
+                ]);
+                const bl = blRes?.data || blRes;
+                if (result && bl && isBlocked(result, bl)) {
+                    if (!cancelled) setListing(null);
+                    return;
+                }
                 // Single-listing fetch doesn't attach seller info — enrich from kind:0
                 if (result && !result.sellerName) {
                     try {

@@ -29,7 +29,8 @@ export const publishListingSchema = z.object({
 });
 
 export const deleteListingSchema = z.object({
-    eventId: z.string().min(1).max(100),
+    // Nostr event ids are 64 lowercase hex chars
+    eventId: z.string().regex(/^[0-9a-f]{64}$/),
     dTag: z.string().min(1).max(100),
 });
 
@@ -66,10 +67,17 @@ export async function publishListing(req: Request, res: Response): Promise<void>
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user!.id },
-            select: { encryptedPrivkey: true },
+            select: { encryptedPrivkey: true, isBanned: true, deletedAt: true },
         });
 
-        if (!user?.encryptedPrivkey) {
+        // authenticate() doesn't check ban status — this endpoint broadcasts
+        // signed events to public relays, so check it explicitly here.
+        if (!user || user.isBanned || user.deletedAt) {
+            res.status(403).json({ error: 'Account is not allowed to publish listings' });
+            return;
+        }
+
+        if (!user.encryptedPrivkey) {
             res.status(400).json({ error: 'No custodial key — sign and publish the listing client-side' });
             return;
         }
@@ -97,10 +105,15 @@ export async function deleteListing(req: Request, res: Response): Promise<void> 
     try {
         const user = await prisma.user.findUnique({
             where: { id: req.user!.id },
-            select: { encryptedPrivkey: true },
+            select: { encryptedPrivkey: true, isBanned: true, deletedAt: true },
         });
 
-        if (!user?.encryptedPrivkey) {
+        if (!user || user.isBanned || user.deletedAt) {
+            res.status(403).json({ error: 'Account is not allowed to publish deletions' });
+            return;
+        }
+
+        if (!user.encryptedPrivkey) {
             res.status(400).json({ error: 'No custodial key — publish the deletion client-side' });
             return;
         }

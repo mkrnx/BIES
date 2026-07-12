@@ -3,9 +3,14 @@ import { Link } from 'react-router-dom';
 import { MapPin, Package, User } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-/** Categories that hide the image behind a blur until revealed on the detail page. */
+/**
+ * Listings whose images are blurred until revealed on the detail page:
+ * a NIP-36 content-warning tag (parsed into listing.contentWarning) or an
+ * nsfw / content-warning topic tag.
+ */
 export const isSensitiveListing = (listing) =>
-    (listing?.categories || []).some((c) => c === 'nsfw' || c === 'content-warning');
+    !!listing?.contentWarning
+    || (listing?.categories || []).some((c) => c === 'nsfw' || c === 'content-warning');
 
 /** Display label for a MARKETPLACE_CATEGORIES slug, falling back to a prettified slug. */
 export const marketCategoryLabel = (t, slug) =>

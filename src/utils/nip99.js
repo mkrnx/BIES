@@ -118,13 +118,22 @@ export function shopstrUrl(naddr) {
 
 /**
  * Parse a kind:30402 event into a marketplace listing object, or null if it
- * fails the marketplace filter. BIES also publishes directory (t:directory)
- * and project (t:investment) 30402s — those are never products. Products
- * must carry both a title and a parseable price.
+ * fails the marketplace filter. BIES also publishes directory (t:directory),
+ * project (t:investment) and course-teaser (t:education) 30402s — those are
+ * never products. Products must carry both a title and a parseable price.
  *
  * @param {Object} event - raw Nostr event
  * @param {string[]} [relayHints] - relays to embed in the computed naddr
  */
+
+// BIES non-product kind:30402 usages, excluded from the marketplace feed:
+// directory listings, investment projects, and paid-course lesson teasers
+// (publishPaidLessonTeaser tags them t:education).
+const EXCLUDED_TOPIC_TAGS = ['directory', 'investment', 'education'];
+
+// Image URLs come from untrusted relay events — only render http(s).
+const isSafeImageUrl = (url) => /^https?:\/\//i.test(url);
+
 export function parseListingEvent(event, relayHints = []) {
     if (!event || event.kind !== MARKETPLACE_KIND || !Array.isArray(event.tags)) return null;
 
@@ -135,6 +144,7 @@ export function parseListingEvent(event, relayHints = []) {
     let location = '';
     let status = 'active';
     let publishedAt = null;
+    let contentWarning = false;
     const images = [];
     const topics = [];
 
@@ -144,7 +154,7 @@ export function parseListingEvent(event, relayHints = []) {
             case 'title': if (title === null) title = tag[1] ?? ''; break;
             case 'summary': if (!summary) summary = tag[1] || ''; break;
             case 'price': if (!priceTag) priceTag = tag; break;
-            case 'image': if (tag[1]) images.push(tag[1]); break;
+            case 'image': if (tag[1] && isSafeImageUrl(tag[1])) images.push(tag[1]); break;
             case 'location': if (!location) location = tag[1] || ''; break;
             case 'status': status = tag[1] === 'sold' ? 'sold' : 'active'; break;
             case 'published_at': {
@@ -152,13 +162,14 @@ export function parseListingEvent(event, relayHints = []) {
                 if (!isNaN(ts)) publishedAt = ts;
                 break;
             }
+            case 'content-warning': contentWarning = true; break; // NIP-36
             case 't': if (tag[1]) topics.push(tag[1].toLowerCase()); break;
         }
     }
 
     // Marketplace filter (see module docblock)
     if (dTag === null || !title || !priceTag) return null;
-    if (topics.includes('directory') || topics.includes('investment')) return null;
+    if (topics.some(t => EXCLUDED_TOPIC_TAGS.includes(t))) return null;
 
     const amount = Number(priceTag[1]);
     if (!Number.isFinite(amount)) return null;
@@ -178,6 +189,7 @@ export function parseListingEvent(event, relayHints = []) {
         location,
         status,
         categories,
+        contentWarning,
         publishedAt: publishedAt ?? event.created_at,
         createdAt: event.created_at,
         naddr: listingNaddr({ pubkey: event.pubkey, dTag }, relayHints),
