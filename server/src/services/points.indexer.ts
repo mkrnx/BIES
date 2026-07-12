@@ -39,8 +39,16 @@ import { isEnabled } from './featureFlags.service';
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
     if (!_pool) {
-        const { SimplePool } = await import('nostr-tools/pool');
-        _pool = new SimplePool();
+        const poolMod = await import('nostr-tools/pool');
+        // nostr-tools needs a WebSocket implementation. Node 22+ has a global
+        // one, but the node:20-alpine Docker runtime does not — without this,
+        // every connect fails with "WebSocket is not defined". Reuse the `ws`
+        // package already shipped for websocket.service.
+        if ((globalThis as { WebSocket?: unknown }).WebSocket === undefined) {
+            const ws = await import('ws');
+            poolMod.useWebSocketImplementation(ws.WebSocket);
+        }
+        _pool = new poolMod.SimplePool();
     }
     return _pool;
 }
