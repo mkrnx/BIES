@@ -16,9 +16,12 @@ const AMOUNT_PRESETS = [21, 100, 500, 1000, 5000];
  *
  * @param {Array<{pubkey: string, name: string, avatar?: string}>} props.recipients
  * @param {string} [props.eventId]
+ * @param {string} [props.aTag] - Addressable event coordinate (kind:pubkey:dTag) for NIP-57 'a' tagging
+ * @param {number} [props.fixedAmount] - Lock the amount (hides presets/custom input) — used by purchase flows
+ * @param {function} [props.onPaid] - Called with 'paid' when all payments succeed, or 'qr' when a manual QR/invoice is shown (so callers can start confirming)
  * @param {function} props.onClose
  */
-const ZapModal = ({ recipients = [], eventId, onClose }) => {
+const ZapModal = ({ recipients = [], eventId, aTag, fixedAmount, onPaid, onClose }) => {
     // Lock body scroll while modal is open (prevents background scroll on mobile)
     useEffect(() => {
         const scrollY = window.scrollY;
@@ -42,7 +45,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const nwcPayInvoice = walletPayInvoice;
     const [phase, setPhase] = useState('resolving'); // resolving | ready | paying | qr | success | error
     const [resolvedRecipients, setResolvedRecipients] = useState([]);
-    const [selectedAmount, setSelectedAmount] = useState(100);
+    const [selectedAmount, setSelectedAmount] = useState(fixedAmount || 100);
     const [customAmount, setCustomAmount] = useState('');
     const [comment, setComment] = useState('');
     const [bolt11, setBolt11] = useState('');
@@ -51,7 +54,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
     const [payResults, setPayResults] = useState([]);
     const [copied, setCopied] = useState(false);
 
-    const amount = customAmount ? parseInt(customAmount, 10) : selectedAmount;
+    const amount = fixedAmount || (customAmount ? parseInt(customAmount, 10) : selectedAmount);
 
     // Resolve lud16 and bolt12Offer for all recipients on mount.
     // Priority: 1) lud16/bolt12Offer passed from parent, 2) Nostr profile, 3) BIES API profile
@@ -191,6 +194,7 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                     amountMsats: msats,
                     relays: PUBLIC_RELAYS,
                     eventId,
+                    aTag,
                     content: comment,
                 });
             }
@@ -235,8 +239,11 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
         const allSuccess = results.every(r => r.success);
         if (allSuccess) {
             setPhase('success');
+            onPaid?.('paid');
         } else if (hasPendingQR) {
             setPhase('qr');
+            // Caller can start watching for the payment landing externally
+            onPaid?.('qr');
         } else {
             setPhase('error');
             const firstError = results.find(r => !r.success && r.error);
@@ -315,31 +322,40 @@ const ZapModal = ({ recipients = [], eventId, onClose }) => {
                                 </div>
                             )}
 
-                            {/* Amount presets */}
-                            <div className="zap-label">Amount (sats)</div>
-                            <div className="zap-amounts">
-                                {AMOUNT_PRESETS.map(a => (
-                                    <button
-                                        key={a}
-                                        className={`zap-amount-chip ${!customAmount && selectedAmount === a ? 'active' : ''}`}
-                                        data-testid={`zap-amount-${a}`}
-                                        onClick={() => { setSelectedAmount(a); setCustomAmount(''); }}
-                                    >
-                                        {a >= 1000 ? `${a / 1000}k` : a}
-                                    </button>
-                                ))}
-                            </div>
+                            {/* Amount presets (hidden when the amount is fixed by a purchase flow) */}
+                            {!fixedAmount && (
+                                <>
+                                    <div className="zap-label">Amount (sats)</div>
+                                    <div className="zap-amounts">
+                                        {AMOUNT_PRESETS.map(a => (
+                                            <button
+                                                key={a}
+                                                className={`zap-amount-chip ${!customAmount && selectedAmount === a ? 'active' : ''}`}
+                                                data-testid={`zap-amount-${a}`}
+                                                onClick={() => { setSelectedAmount(a); setCustomAmount(''); }}
+                                            >
+                                                {a >= 1000 ? `${a / 1000}k` : a}
+                                            </button>
+                                        ))}
+                                    </div>
 
-                            {/* Custom amount */}
-                            <input
-                                type="number"
-                                className="zap-custom-input"
-                                data-testid="zap-custom-amount"
-                                placeholder="Custom amount"
-                                value={customAmount}
-                                onChange={(e) => setCustomAmount(e.target.value)}
-                                min="1"
-                            />
+                                    {/* Custom amount */}
+                                    <input
+                                        type="number"
+                                        className="zap-custom-input"
+                                        data-testid="zap-custom-amount"
+                                        placeholder="Custom amount"
+                                        value={customAmount}
+                                        onChange={(e) => setCustomAmount(e.target.value)}
+                                        min="1"
+                                    />
+                                </>
+                            )}
+                            {fixedAmount > 0 && (
+                                <div className="zap-label" style={{ textAlign: 'center', fontSize: '1.05rem', color: '#f7931a', textTransform: 'none', letterSpacing: 0 }}>
+                                    ⚡ {fixedAmount.toLocaleString()} sats
+                                </div>
+                            )}
 
                             {/* Comment */}
                             <input

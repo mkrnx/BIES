@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Folder, Calendar, Users, Trophy, FileText, Newspaper, MessageSquare, ShieldCheck, Store, Ticket, LogOut } from 'lucide-react';
+import { LayoutDashboard, Folder, Calendar, Users, Trophy, FileText, Newspaper, MessageSquare, ShieldCheck, Store, GraduationCap, Ticket, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -25,6 +25,7 @@ const AdminDashboard = () => {
     { to: '/admin/projects', label: 'Projects', icon: Folder },
     { to: '/admin/events', label: 'Events', icon: Calendar },
     { to: '/admin/directory', label: 'Directory', icon: Store },
+    { to: '/admin/courses', label: 'Courses', icon: GraduationCap },
     { to: '/admin/users', label: 'Users', icon: Users },
     { to: '/admin/points', label: 'Points', icon: Trophy },
     { to: '/admin/audit-log', label: 'Audit', icon: FileText },

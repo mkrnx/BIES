@@ -70,6 +70,45 @@ export async function publishBadgeDefinitions(): Promise<void> {
     console.log(`[Badges] Published ${published}/${BADGES.length} NIP-58 badge definitions`);
 }
 
+/**
+ * Publish the kind-30009 completion-badge definition for a course —
+ * issuer-signed (platform-attested certificates, never author-signed).
+ * Replaceable via ['d', 'course-<courseId>']; re-publish on title/cover
+ * change is harmless. Returns the event id or null (issuer disabled/failed).
+ */
+export async function publishCourseBadgeDefinition(course: {
+    id: string;
+    title: string;
+    coverImage?: string | null;
+}): Promise<string | null> {
+    const issuer = await getIssuerKeys();
+    if (!issuer) return null;
+
+    await ensureIssuerWhitelisted();
+
+    const badgeId = `course-${course.id}`;
+    const image = course.coverImage || badgeImageUrl('course-default');
+    const eventId = await publishAsIssuer({
+        kind: 30009,
+        created_at: nowSeconds(),
+        tags: [
+            ['d', badgeId],
+            ['name', `Course: ${course.title}`],
+            ['description', `Completed "${course.title}" on BIES.`],
+            ['image', image, '1024x1024'],
+            ['thumb', image, '256x256'],
+        ],
+        content: '',
+    });
+    if (eventId) {
+        await prisma.course.update({
+            where: { id: course.id },
+            data: { badgeDefEventId: eventId },
+        }).catch(() => {});
+    }
+    return eventId;
+}
+
 // ─── Awards (kind 8) ─────────────────────────────────────────────────────────
 
 /**

@@ -19,6 +19,8 @@ import {
     isUniqueViolation,
 } from '../services/points.service';
 import { BADGES } from '../services/badges.catalog';
+import { publishCourseBadgeDefinition } from '../services/badges.publisher';
+import { mirrorCourseToNostr, unpublishCourseFromNostr } from '../services/courses.service';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1650,5 +1652,187 @@ export async function deleteDirectoryListing(req: Request, res: Response): Promi
     } catch (error) {
         console.error('Delete directory listing error:', error);
         res.status(500).json({ error: 'Failed to delete directory listing' });
+    }
+}
+
+// ─── Courses ─────────────────────────────────────────────────────────────────
+
+export const reviewCourseSchema = z.object({
+    action: z.enum(['approve', 'reject']),
+    note: z.string().max(1000).optional(),
+});
+
+export const featureCourseSchema = z.object({
+    featured: z.boolean(),
+});
+
+/**
+ * GET /admin/courses
+ * List all courses (all statuses) with status/search filters + pagination.
+ */
+export async function listAdminCourses(req: Request, res: Response): Promise<void> {
+    try {
+        const { status, search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (status && typeof status === 'string') where.status = status;
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { title: { contains: search } },
+                { summary: { contains: search } },
+            ];
+        }
+
+        const [courses, total] = await Promise.all([
+            prisma.course.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    author: {
+                        select: {
+                            id: true, email: true, nostrPubkey: true,
+                            profile: { select: { name: true, avatar: true, lightningAddress: true } },
+                        },
+                    },
+                    _count: { select: { lessons: true, enrollments: true, purchases: true } },
+                },
+            }),
+            prisma.course.count({ where }),
+        ]);
+
+        res.json({
+            data: courses.map((c) => ({
+                ...c,
+                tags: JSON.parse(c.tags || '[]'),
+                lessonCount: c._count.lessons,
+                studentCount: c._count.enrollments,
+                purchaseCount: c._count.purchases,
+            })),
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list courses error:', error);
+        res.status(500).json({ error: 'Failed to list courses' });
+    }
+}
+
+/**
+ * PUT /admin/courses/:id/review
+ * Approve or reject a course submission. Reviewers can never approve their
+ * own course. Approval publishes the NIP-58 completion-badge definition;
+ * the Nostr course/lesson mirror is wired at the marked seam.
+ * Body: { action: 'approve' | 'reject', note? }
+ */
+export async function reviewCourse(req: Request, res: Response): Promise<void> {
+    try {
+        const { action, note } = req.body;
+
+        const existing = await prisma.course.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, authorId: true, title: true, coverImage: true, status: true },
+        });
+        if (!existing) {
+            res.status(404).json({ error: 'Course not found' }); return;
+        }
+        // Moderation integrity: no self-approval, even for full admins.
+        if (existing.authorId === req.user!.id) {
+            res.status(403).json({ error: 'You cannot review your own course' }); return;
+        }
+
+        const data: any = action === 'approve'
+            ? { status: 'active', isPublished: true, reviewNote: '' }
+            : { status: 'rejected', reviewNote: note ?? '' };
+
+        const course = await prisma.course.update({
+            where: { id: existing.id },
+            data,
+            select: { id: true, title: true, status: true, authorId: true, coverImage: true },
+        });
+        await cache.delPattern('courses:');
+
+        if (action === 'approve') {
+            publishCourseBadgeDefinition(course)
+                .catch((err) => console.error('[Nostr] Course badge definition publish failed:', err));
+            // Mirror to Nostr: lesson events (30023/30402 teaser) + the
+            // kind-30004 course list, storing nostrEventId per row.
+            mirrorCourseToNostr(course.id)
+                .catch((err) => console.error('[Nostr] Course mirror failed:', err));
+        }
+
+        await prisma.notification.create({
+            data: {
+                userId: course.authorId,
+                type: 'SYSTEM',
+                title: action === 'approve' ? 'Course Approved' : 'Course Not Approved',
+                body: action === 'approve'
+                    ? `Your course "${course.title}" has been approved and is now live.`
+                    : `Your course "${course.title}" was not approved.${note ? ` Reviewer note: ${note}` : ' Please review and resubmit.'}`,
+                data: JSON.stringify({ courseId: course.id }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: action === 'approve' ? 'COURSE_APPROVED' : 'COURSE_REJECTED',
+                resource: `course:${req.params.id}`,
+                metadata: JSON.stringify({ courseTitle: course.title, note: note ?? '' }),
+            },
+        });
+
+        res.json({ id: course.id, title: course.title, status: course.status, authorId: course.authorId });
+    } catch (error) {
+        console.error('Review course error:', error);
+        res.status(500).json({ error: 'Failed to review course' });
+    }
+}
+
+/**
+ * PUT /admin/courses/:id/feature
+ * Toggle the featured flag.
+ */
+export async function featureCourse(req: Request, res: Response): Promise<void> {
+    try {
+        const { featured } = req.body;
+        const course = await prisma.course.update({
+            where: { id: req.params.id },
+            data: { isFeatured: Boolean(featured) },
+            select: { id: true, title: true, isFeatured: true },
+        });
+        await cache.delPattern('courses:');
+        res.json(course);
+    } catch (error) {
+        console.error('Feature course error:', error);
+        res.status(500).json({ error: 'Failed to feature course' });
+    }
+}
+
+/**
+ * DELETE /admin/courses/:id
+ * Hard delete a course.
+ */
+export async function deleteAdminCourse(req: Request, res: Response): Promise<void> {
+    try {
+        await unpublishCourseFromNostr(req.params.id);
+        await prisma.course.delete({ where: { id: req.params.id } });
+        await cache.delPattern('courses:');
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'COURSE_DELETED',
+                resource: `course:${req.params.id}`,
+                metadata: '{}',
+            },
+        });
+
+        res.json({ message: 'Course permanently deleted' });
+    } catch (error) {
+        console.error('Delete admin course error:', error);
+        res.status(500).json({ error: 'Failed to delete course' });
     }
 }

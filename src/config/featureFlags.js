@@ -6,3 +6,4 @@ export const COINOS_SIGNUP_WALLET = false; // Auto-provision Coinos custodial wa
 export const COINOS_ENABLED = false;       // Allow connecting Coinos wallet in Settings
 export const COWORK_ENABLED = true; // Cowork check-in page (/cowork)
 export const CUSTOM_BOTTOM_NAV_ENABLED = true; // Customizable mobile bottom navbar
+export const COURSES_ENABLED = true; // Courses/LMS (catalog, authoring, enrollment)

@@ -548,6 +548,231 @@ export function validateCalendarEventData(event: {
 /**
  * Convert hex string to Uint8Array
  */
+// ─── Courses (NIP-51 kind 30004 + NIP-23 kind 30023 + NIP-99 kind 30402) ────
+
+/**
+ * Sign a template with a user's custodial key and publish to the relays the
+ * target selects. Returns the event id, or null for Nostr-native users
+ * (they publish the twin event client-side).
+ */
+async function publishEventAs(
+    userId: string,
+    template: EventTemplate,
+    target: 'bies' | 'public' | 'both'
+): Promise<string | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+        if (!user || !user.encryptedPrivkey) {
+            return null; // Nostr-native — client-side twin publishes instead
+        }
+
+        const privateKeyBytes = hexToBytes(decryptPrivateKey(user.encryptedPrivkey));
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(template, privateKeyBytes);
+
+        const relays: string[] = [];
+        if ((target === 'bies' || target === 'both') && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+        if (target === 'public' || target === 'both') {
+            relays.push(...config.nostrRelays);
+        }
+        if (relays.length === 0 && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+
+        const pool = await getPool();
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] kind ${template.kind} published to ${published}/${relays.length} relays (target: ${target})`);
+        return published > 0 ? signed.id : null;
+    } catch (error) {
+        console.error(`[Nostr] kind ${template.kind} publish error:`, error);
+        return null;
+    }
+}
+
+interface CourseRow {
+    id: string;
+    title: string;
+    summary: string;
+    description: string;
+    category: string;
+    coverImage: string;
+    tags: string; // JSON array string
+    priceSats: number;
+}
+
+interface LessonRow {
+    id: string;
+    title: string;
+    type: string;
+    content: string; // JSON string
+}
+
+function courseTopicTags(course: CourseRow): string[][] {
+    const tags: string[][] = [
+        ['t', 'bies'],
+        ['t', 'education'],
+    ];
+    const seen = new Set(['bies', 'education']);
+    const extra = [course.category, ...(JSON.parse(course.tags || '[]') as string[])];
+    for (const raw of extra) {
+        const t = String(raw || '').toLowerCase().replace(/_/g, '-').trim();
+        if (t && !seen.has(t) && seen.size < 12) {
+            seen.add(t);
+            tags.push(['t', t]);
+        }
+    }
+    return tags;
+}
+
+/**
+ * Publish a FREE lesson as NIP-23 long-form content (kind 30023).
+ * d-tag = lesson DB id; content = full markdown (video lessons embed the URL).
+ */
+export async function publishLessonArticle(
+    userId: string,
+    course: CourseRow,
+    lesson: LessonRow,
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    let markdown = '';
+    try {
+        const content = JSON.parse(lesson.content || '{}');
+        if (lesson.type === 'TEXT') {
+            markdown = content.markdown || '';
+        } else if (lesson.type === 'VIDEO') {
+            markdown = `${content.caption ? content.caption + '\n\n' : ''}${content.videoUrl || ''}`;
+        }
+    } catch {
+        return null;
+    }
+    if (!markdown) return null;
+
+    const tags: string[][] = [
+        ['d', lesson.id],
+        ['title', lesson.title],
+        ['summary', (course.summary || '').slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+
+    return publishEventAs(userId, {
+        kind: 30023,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: markdown,
+    }, target);
+}
+
+/**
+ * Publish a PAID lesson as a NIP-99 classified teaser (kind 30402).
+ * The content is a SERVER-DERIVED teaser (course summary) — full lesson
+ * content must never enter the event; the API is the only gate.
+ */
+export async function publishPaidLessonTeaser(
+    userId: string,
+    course: CourseRow,
+    lesson: LessonRow,
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    const teaser = (course.summary || course.title).slice(0, 300);
+    const tags: string[][] = [
+        ['d', lesson.id],
+        ['title', lesson.title],
+        ['summary', teaser.slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ['price', String(course.priceSats), 'SATS'],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+
+    return publishEventAs(userId, {
+        kind: 30402,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: teaser,
+    }, target);
+}
+
+/**
+ * Publish the course container as a NIP-51 curation set (kind 30004).
+ * Ordered `a` tags reference the lesson events (30023 free / 30402 paid);
+ * QUIZ lessons are never published and are skipped from the list.
+ */
+export async function publishCourse(
+    userId: string,
+    course: CourseRow,
+    orderedLessons: LessonRow[],
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nostrPubkey: true },
+    });
+    if (!user?.nostrPubkey) return null;
+
+    const isPaid = course.priceSats > 0;
+    const tags: string[][] = [
+        ['d', course.id],
+        ['title', course.title],
+        ['summary', (course.summary || '').slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+    if (isPaid) tags.push(['price', String(course.priceSats), 'SATS']);
+
+    for (const lesson of orderedLessons) {
+        if (lesson.type === 'QUIZ') continue; // never mirrored
+        const kind = isPaid ? 30402 : 30023;
+        tags.push(['a', `${kind}:${user.nostrPubkey}:${lesson.id}`]);
+    }
+
+    return publishEventAs(userId, {
+        kind: 30004,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: course.description || course.summary || '',
+    }, target);
+}
+
+/**
+ * NIP-09 delete (kind 5) for a course and its lesson events.
+ */
+export async function deleteCourseFromNostr(
+    userId: string,
+    refs: { courseEventId?: string | null; courseId: string; lessons: Array<{ eventId?: string | null; lessonId: string; kind: number }> },
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nostrPubkey: true, encryptedPrivkey: true },
+    });
+    if (!user?.encryptedPrivkey || !user.nostrPubkey) return false;
+
+    const tags: string[][] = [];
+    if (refs.courseEventId) tags.push(['e', refs.courseEventId]);
+    tags.push(['a', `30004:${user.nostrPubkey}:${refs.courseId}`]);
+    for (const lesson of refs.lessons) {
+        if (lesson.eventId) tags.push(['e', lesson.eventId]);
+        tags.push(['a', `${lesson.kind}:${user.nostrPubkey}:${lesson.lessonId}`]);
+    }
+
+    const eventId = await publishEventAs(userId, {
+        kind: 5,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: 'Course deleted from BIES',
+    }, target);
+    return Boolean(eventId);
+}
+
 function hexToBytes(hex: string): Uint8Array {
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < hex.length; i += 2) {

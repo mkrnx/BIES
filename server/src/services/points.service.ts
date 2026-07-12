@@ -37,7 +37,8 @@ export type PointReason =
     | 'REACTION_GIVEN'
     | 'REACTION_RECEIVED'
     | 'QUALITY_BONUS'
-    | 'ADMIN_ADJUST';
+    | 'ADMIN_ADJUST'
+    | 'COURSE_COMPLETED';
 
 export type Classification =
     | { type: 'POST'; points: number }

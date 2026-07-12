@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
 import { BottomNavProvider, useBottomNav } from './context/BottomNavContext';
-import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED } from './config/featureFlags';
+import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED } from './config/featureFlags';
 import { preferencesApi } from './services/api';
 import i18n from './i18n';
 import Navbar from './components/Navbar';
@@ -62,6 +62,11 @@ import Analytics from './pages/builder/Analytics';
 import NewProject from './pages/builder/NewProject';
 import MyCourses from './pages/educator/MyCourses';
 import NewCourse from './pages/educator/NewCourse';
+import CourseBuilder from './pages/educator/CourseBuilder';
+import LessonEditor from './pages/educator/LessonEditor';
+import CourseCatalog from './pages/courses/CourseCatalog';
+import CourseDetail from './pages/courses/CourseDetail';
+import LessonPlayer from './pages/courses/LessonPlayer';
 
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -76,6 +81,7 @@ import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
 import AdminVouchers from './pages/admin/AdminVouchers';
 import AdminFeedback from './pages/admin/AdminFeedback';
+import AdminCourses from './pages/admin/AdminCourses';
 import Feedback from './pages/Feedback';
 
 // Protected Route Wrapper
@@ -191,6 +197,13 @@ const AppContent = () => {
                     {COWORK_ENABLED && (
                         <Route path="/cowork" element={<ProtectedRoute><Cowork /></ProtectedRoute>} />
                     )}
+                    {COURSES_ENABLED && (
+                        <>
+                            <Route path="/courses" element={<ProtectedRoute><CourseCatalog /></ProtectedRoute>} />
+                            <Route path="/courses/:id" element={<ProtectedRoute><CourseDetail /></ProtectedRoute>} />
+                            <Route path="/courses/:id/lesson/:lessonId" element={<ProtectedRoute><LessonPlayer /></ProtectedRoute>} />
+                        </>
+                    )}
 
                     {/* Protected Routes */}
                     {/* Specific Dashboard Routes */}
@@ -209,7 +222,14 @@ const AppContent = () => {
                         <Route path="settings" element={<Settings />} />
                         {/* Sub-routes */}
                         <Route path="builder/new-project" element={<NewProject />} />
-                        <Route path="builder/new-course" element={<NewCourse />} />
+                        {COURSES_ENABLED && (
+                            <>
+                                <Route path="builder/new-course" element={<NewCourse />} />
+                                <Route path="builder/course/:id" element={<CourseBuilder />} />
+                                <Route path="builder/course/:courseId/lesson/new" element={<LessonEditor />} />
+                                <Route path="builder/course/:courseId/lesson/:lessonId" element={<LessonEditor />} />
+                            </>
+                        )}
                     </Route>
 
                     {/* Admin Routes */}
@@ -229,6 +249,7 @@ const AppContent = () => {
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />
                         <Route path="vouchers" element={<AdminVouchers />} />
                         <Route path="feedback" element={<AdminFeedback />} />
+                        {COURSES_ENABLED && <Route path="courses" element={<AdminCourses />} />}
                     </Route>
 
                     <Route path="/project/:id" element={

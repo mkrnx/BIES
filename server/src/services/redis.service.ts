@@ -228,4 +228,6 @@ export const cacheKey = {
     liveNewsFeed: () => 'newsfeed:live',
     siteSettings: () => 'site_settings:default',
     leaderboard: (scope: string) => `leaderboard:${scope}`,
+    courses: (params: Record<string, string>) =>
+        `courses:${new URLSearchParams(params).toString()}`,
 };

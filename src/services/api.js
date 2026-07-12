@@ -417,11 +417,50 @@ export const adminApi = {
     setDirectoryScore: (id, baseScore) => put(`/admin/directory/${id}/score`, { baseScore }),
     recomputeDirectoryScores: () => post('/admin/directory/recompute', {}),
     deleteDirectoryListing: (id) => del(`/admin/directory/${id}`),
+    listCourses: (params = {}) => get('/admin/courses', params),
+    reviewCourse: (id, action, note) => put(`/admin/courses/${id}/review`, note ? { action, note } : { action }),
+    featureCourse: (id, featured) => put(`/admin/courses/${id}/feature`, { featured }),
+    deleteCourse: (id) => del(`/admin/courses/${id}`),
     createVoucher: (data) => post('/vouchers', data),
     listVouchers: () => get('/vouchers'),
     voucherRedemptions: (id) => get(`/vouchers/${id}/redemptions`),
     revokeVoucher: (id, revokeAccess) => post(`/vouchers/${id}/revoke`, { revokeAccess }),
     revokeRedemption: (id, revokeAccess) => post(`/vouchers/redemptions/${id}/revoke`, { revokeAccess }),
+};
+
+// ─── Courses (LMS) ───────────────────────────────────────────────────────────
+
+export const coursesApi = {
+    list: (params = {}) => get('/courses', params),
+    // params: { category, level, priced: 'free'|'paid', search, sort: 'recent'|'popular', page, limit }
+    get: (id) => get(`/courses/${id}`),
+    listMine: () => get('/courses/my'),
+    listEnrolled: () => get('/courses/enrolled'),
+    create: (data) => post('/courses', data),
+    update: (id, data) => put(`/courses/${id}`, data),
+    delete: (id) => del(`/courses/${id}`),
+    submit: (id) => post(`/courses/${id}/submit`, {}),
+    setNostrRefs: (id, data) => post(`/courses/${id}/nostr-refs`, data),
+
+    // Lessons (authoring)
+    createLesson: (courseId, data) => post(`/courses/${courseId}/lessons`, data),
+    updateLesson: (courseId, lessonId, data) => put(`/courses/${courseId}/lessons/${lessonId}`, data),
+    deleteLesson: (courseId, lessonId) => del(`/courses/${courseId}/lessons/${lessonId}`),
+    reorderLessons: (courseId, order) => put(`/courses/${courseId}/lessons/reorder`, { order }),
+
+    // Learning (getLesson is the entitlement-gated content endpoint — 402 = paywall)
+    getLesson: (courseId, lessonId) => get(`/courses/${courseId}/lessons/${lessonId}`),
+    enroll: (id) => post(`/courses/${id}/enroll`, {}),
+    unenroll: (id) => del(`/courses/${id}/enroll`),
+    progress: (id) => get(`/courses/${id}/progress`),
+    completeLesson: (courseId, lessonId, meta = {}) =>
+        put(`/courses/${courseId}/lessons/${lessonId}/progress`, { completed: true, meta }),
+    submitQuiz: (courseId, lessonId, answers) =>
+        post(`/courses/${courseId}/lessons/${lessonId}/quiz`, { answers }),
+
+    // Paid unlock
+    purchaseStatus: (id) => get(`/courses/${id}/purchase`),
+    claimPurchase: (id, data = {}) => post(`/courses/${id}/purchase/claim`, data),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────

@@ -4,7 +4,7 @@ import { Eye, MessageSquare, Plus, Loader2, Zap, FolderPlus, BarChart2 } from 'l
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useApiQuery } from '../hooks/useApi';
-import { projectsApi, analyticsApi, zapsApi, eventsApi } from '../services/api';
+import { projectsApi, analyticsApi, zapsApi, eventsApi, coursesApi } from '../services/api';
 
 const Overview = () => {
     const { t } = useTranslation();
@@ -21,13 +21,19 @@ const Overview = () => {
     const [courses, setCourses] = useState([]);
     const [coursesLoading, setCoursesLoading] = useState(true);
 
-    // Mock courses fetch for now as MyCourses.jsx does
     useEffect(() => {
-        const timer = setTimeout(() => {
-            setCourses([]); // Replace with real API if/when available
-            setCoursesLoading(false);
-        }, 400);
-        return () => clearTimeout(timer);
+        let cancelled = false;
+        coursesApi.listEnrolled()
+            .then(res => {
+                if (!cancelled) setCourses(Array.isArray(res?.data) ? res.data : []);
+            })
+            .catch(() => {
+                if (!cancelled) setCourses([]);
+            })
+            .finally(() => {
+                if (!cancelled) setCoursesLoading(false);
+            });
+        return () => { cancelled = true; };
     }, []);
 
     const projectList = Array.isArray(projects?.data) ? projects.data : Array.isArray(projects) ? projects : [];
