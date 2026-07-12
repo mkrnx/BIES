@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
 import { BottomNavProvider, useBottomNav } from './context/BottomNavContext';
-import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED } from './config/featureFlags';
+import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED, MARKETPLACE_ENABLED } from './config/featureFlags';
 import { preferencesApi } from './services/api';
 import i18n from './i18n';
 import Navbar from './components/Navbar';
@@ -56,6 +56,10 @@ import NotFound from './pages/NotFound';
 import DirectoryList from './pages/directory/DirectoryList';
 import ListingDetail from './pages/directory/ListingDetail';
 import CreateListing from './pages/directory/CreateListing';
+
+import MarketplaceList from './pages/marketplace/MarketplaceList';
+import MarketListingDetail from './pages/marketplace/MarketListingDetail';
+import CreateMarketListing from './pages/marketplace/CreateMarketListing';
 
 import MyProjects from './pages/builder/MyProjects';
 import Analytics from './pages/builder/Analytics';
@@ -171,6 +175,15 @@ const AppContent = () => {
                     <Route path="/discover/certified/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
                     <Route path="/discover/directory/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
                     <Route path="/discover/directory/:id/edit" element={<ProtectedRoute><CreateListing editMode /></ProtectedRoute>} />
+                    {/* Marketplace (declared before the generic /discover route) */}
+                    {MARKETPLACE_ENABLED && (
+                        <>
+                            <Route path="/discover/market" element={<ProtectedRoute><MarketplaceList /></ProtectedRoute>} />
+                            <Route path="/discover/market/new" element={<ProtectedRoute><CreateMarketListing /></ProtectedRoute>} />
+                            <Route path="/discover/market/:naddr/edit" element={<ProtectedRoute><CreateMarketListing editMode /></ProtectedRoute>} />
+                            <Route path="/discover/market/:naddr" element={<ProtectedRoute><MarketListingDetail /></ProtectedRoute>} />
+                        </>
+                    )}
                     <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
                     <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
                     <Route path="/events/create" element={

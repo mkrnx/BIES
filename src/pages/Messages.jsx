@@ -4,7 +4,7 @@ import { Search, Send, MoreVertical, Lock, MessageCircle, Loader2, AlertTriangle
 import { useNostrDMs } from '../hooks/useNostr';
 import { nostrService } from '../services/nostrService';
 import { nostrSigner } from '../services/nostrSigner';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { searchApi, notificationsApi } from '../services/api';
 import { nip19 } from 'nostr-tools';
 import { notifyIncomingMessage, requestNotificationPermission, getNotificationPermission, subscribeToPush } from '../utils/notificationManager';
@@ -148,6 +148,15 @@ const Messages = () => {
         setActiveChatPubkey(pubkey);
         setMobileView('chat');
     };
+
+    // Deep link: navigate('/messages', { state: { pubkey } }) opens that chat
+    // (used by marketplace "Message seller").
+    const statePubkey = useLocation().state?.pubkey;
+    useEffect(() => {
+        if (typeof statePubkey === 'string' && /^[0-9a-f]{64}$/i.test(statePubkey)) {
+            openChat(statePubkey);
+        }
+    }, [statePubkey]); // eslint-disable-line react-hooks/exhaustive-deps
 
     const closeTab = (e, pubkey) => {
         e.stopPropagation();

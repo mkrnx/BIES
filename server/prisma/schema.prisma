@@ -958,3 +958,18 @@ model VoucherRedemption {
   @@index([status])
   @@map("voucher_redemptions")
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Marketplace (Shopstr / NIP-99 kind:30402 moderation)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model MarketplaceBlock {
+  id        String   @id @default(cuid())
+  type      String   // pubkey | address ("30402:<pubkey>:<dTag>")
+  value     String
+  reason    String   @default("")
+  createdBy String   @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([type, value])
+  @@map("marketplace_blocks")
+}

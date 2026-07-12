@@ -1,6 +1,7 @@
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
 // use dynamic import() so the compiled CJS output doesn't call require().
 import type { EventTemplate } from 'nostr-tools/pure';
+import { randomUUID } from 'crypto';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { decryptPrivateKey } from './crypto.service';
@@ -239,6 +240,215 @@ export async function publishDirectoryListing(
     };
 
     return publishEvent(userId, event);
+}
+
+// ─── NIP-99 Marketplace (Shopstr-compatible, Kind 30402) ─────────────────────
+
+// Shopstr's default relay set (shopstr-eng/shopstr getDefaultRelays).
+// Publishing here makes BIES listings visible in Shopstr's browse feed.
+const SHOPSTR_RELAYS = [
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://purplepag.es',
+    'wss://relay.primal.net',
+    'wss://relay.nostr.band',
+];
+
+// Base t-tags every BIES marketplace listing carries: "shopstr" puts the
+// listing in Shopstr's feed; "bies" + "marketplace" drive our own filtering.
+const MARKETPLACE_TOPIC_TAGS = ['shopstr', 'bies', 'marketplace'];
+
+const MAX_CATEGORY_TAGS = 8;
+
+/**
+ * Marketplace listings always go to BOTH the private relay and the public
+ * relays (external Shopstr visibility is the point) — same selection as the
+ * calendar 'both' target, extended with Shopstr's default relay set.
+ */
+function marketplaceRelays(): string[] {
+    const relays: string[] = [];
+    if (config.nostrPrivateRelay) {
+        relays.push(config.nostrPrivateRelay);
+    }
+    for (const relay of [...config.nostrRelays, ...SHOPSTR_RELAYS]) {
+        if (!relays.includes(relay)) relays.push(relay);
+    }
+    return relays;
+}
+
+export interface MarketplaceListingInput {
+    title: string;
+    summary?: string;
+    description?: string;
+    price?: { amount?: number | string; currency?: string } | null;
+    amount?: number | string;
+    currency?: string;
+    images?: string[];
+    location?: string;
+    status?: string; // active | sold
+    categories?: string[];
+    dTag?: string; // existing d-tag (edits); omit for new listings
+    publishedAt?: number | string; // original published_at (preserved on edits)
+}
+
+/**
+ * Build the Kind 30402 tag array + content for a marketplace listing.
+ * MUST stay byte-identical to buildListingTags in src/utils/nip99.js
+ * (the client-side twin for Nostr-native users).
+ */
+function buildMarketplaceListingTags(
+    form: MarketplaceListingInput,
+    { dTag, publishedAt }: { dTag?: string; publishedAt?: number | string } = {}
+): { tags: string[][]; content: string; dTag: string } {
+    const d = dTag || randomUUID();
+    const description = form.description || '';
+    const summary = (form.summary || description).slice(0, 200);
+    const amount = form.price?.amount ?? form.amount ?? 0;
+    const currency = String(form.price?.currency ?? form.currency ?? 'SATS').toUpperCase();
+
+    const tags: string[][] = [
+        ['d', d],
+        ['title', form.title],
+        ['summary', summary],
+        // Set on first publish, preserved on edits (Shopstr convention)
+        ['published_at', publishedAt != null && publishedAt !== ''
+            ? String(publishedAt)
+            : String(Math.floor(Date.now() / 1000))],
+        ['price', String(amount), currency],
+    ];
+
+    for (const image of form.images || []) {
+        if (image) tags.push(['image', image]);
+    }
+    if (form.location) tags.push(['location', form.location]);
+    tags.push(['status', form.status === 'sold' ? 'sold' : 'active']);
+
+    const seen = new Set(MARKETPLACE_TOPIC_TAGS);
+    for (const topic of MARKETPLACE_TOPIC_TAGS) tags.push(['t', topic]);
+    let categoryCount = 0;
+    for (const category of form.categories || []) {
+        const value = String(category).trim().toLowerCase();
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        tags.push(['t', value]);
+        if (++categoryCount >= MAX_CATEGORY_TAGS) break;
+    }
+
+    return { tags, content: description, dTag: d };
+}
+
+/**
+ * Publish a marketplace listing (NIP-99 Kind 30402, Shopstr-compatible),
+ * signed with the user's custodial key. Publishes to BOTH the private relay
+ * and public relays. Returns null for Nostr-native users (who sign
+ * client-side via the nostrService twin) and on publish failure.
+ */
+export async function publishMarketplaceListing(
+    userId: string,
+    listing: MarketplaceListingInput
+): Promise<{ eventId: string; dTag: string; naddr: string } | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — signed client-side
+            console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side NIP-99 publish`);
+            return null;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const { tags, content, dTag } = buildMarketplaceListingTags(listing, {
+            dTag: listing.dTag,
+            publishedAt: listing.publishedAt,
+        });
+
+        const event: EventTemplate = {
+            kind: 30402,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content,
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signedEvent = finalizeEvent(event, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays = marketplaceRelays();
+        const results = await Promise.allSettled(pool.publish(relays, signedEvent));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-99 marketplace listing published to ${published}/${relays.length} relays`);
+
+        if (published === 0) return null;
+
+        // Relay hints for the shareable naddr — public relays only (the
+        // private relay is NIP-42 gated, useless to external Shopstr clients).
+        const { naddrEncode } = await import('nostr-tools/nip19');
+        const naddr = naddrEncode({
+            kind: 30402,
+            pubkey: signedEvent.pubkey,
+            identifier: dTag,
+            relays: relays.filter((r) => r !== config.nostrPrivateRelay).slice(0, 3),
+        });
+
+        return { eventId: signedEvent.id, dTag, naddr };
+    } catch (error) {
+        console.error('[Nostr] NIP-99 marketplace publish error:', error);
+        return null;
+    }
+}
+
+/**
+ * Publish a NIP-09 deletion event (Kind 5) to remove a marketplace listing
+ * from all marketplace relays. Custodial twin of the client's
+ * deleteMarketplaceListing; returns false for Nostr-native users.
+ */
+export async function deleteMarketplaceListing(
+    userId: string,
+    nostrEventId: string,
+    dTag: string
+): Promise<boolean> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — deletion happens client-side
+            return false;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const deletionEvent: EventTemplate = {
+            kind: 5,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', nostrEventId],
+                ['a', `30402:${user.nostrPubkey}:${dTag}`],
+            ],
+            content: 'Listing deleted from BIES',
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(deletionEvent, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays = marketplaceRelays();
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-99 marketplace deletion published to ${published}/${relays.length} relays`);
+        return published > 0;
+    } catch (error) {
+        console.error('[Nostr] NIP-99 marketplace deletion error:', error);
+        return false;
+    }
 }
 
 /**

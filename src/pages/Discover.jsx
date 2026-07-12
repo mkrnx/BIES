@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X, User, LayoutGrid, List as ListIcon, Columns, Leaf, ShieldCheck, ChevronRight } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, DollarSign, Download, Heart, Loader2, Plus, X, User, LayoutGrid, List as ListIcon, Columns, Leaf, ShieldCheck, Store, ChevronRight } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { projectsApi, watchlistApi, profilesApi } from '../services/api';
+import { MARKETPLACE_ENABLED } from '../config/featureFlags';
 import ZapButton from '../components/ZapButton';
 import FollowIconButton from '../components/FollowIconButton';
 import { useAuth } from '../context/AuthContext';
@@ -713,6 +714,15 @@ const Discover = () => {
             <ChevronRight size={18} className="directory-entry-chevron" />
           </div>
         </Link>
+        {MARKETPLACE_ENABLED && (
+          <Link to="/discover/market" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
+            <div className="directory-entry-card">
+              <div className="directory-entry-icon"><Store size={20} /></div>
+              <span className="directory-entry-label">{t('marketplace.entryLabel')}</span>
+              <ChevronRight size={18} className="directory-entry-chevron" />
+            </div>
+          </Link>
+        )}
       </div>
 
       <div className="content-layout">

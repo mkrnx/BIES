@@ -192,6 +192,23 @@ export const directoryApi = {
     unendorse: (id) => del(`/directory/${id}/endorse`),
 };
 
+// ─── Marketplace (Shopstr / NIP-99) ──────────────────────────────────────────
+
+export const marketplaceApi = {
+    // Custodial-key publish/delete — Nostr-native users sign client-side
+    // via nostrService.publishMarketplaceListing / deleteMarketplaceListing.
+    publish: (data) => post('/marketplace/publish', data),
+
+    remove: (data) => post('/marketplace/delete', data),
+
+    // Moderation blocklist (GET is public; block/unblock are MOD-only)
+    blocklist: () => get('/marketplace/blocklist'),
+
+    block: (data) => post('/marketplace/blocklist', data),
+
+    unblock: (id) => del(`/marketplace/blocklist/${id}`),
+};
+
 // ─── Upload ───────────────────────────────────────────────────────────────────
 
 export const uploadApi = {
