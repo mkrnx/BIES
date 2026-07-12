@@ -49,6 +49,7 @@ import {
     featureCourseSchema,
     deleteAdminCourse,
 } from '../controllers/admin.controller';
+import { updateFeatureFlags, updateFlagsSchema } from '../controllers/featureFlags.controller';
 
 const router = Router();
 
@@ -105,6 +106,11 @@ router.delete('/courses/:id', deleteAdminCourse);
 router.get('/audit-logs', getAuditLogs);
 router.post('/broadcast', broadcastMessage);
 router.post('/cache/clear', clearCache);
+
+// Runtime feature toggles — TRUE admins only (`isAdmin`); MODs pass the
+// router-level MOD gate above but are rejected by this ADMIN gate. Never
+// feature-gated itself, so a disabled feature can always be re-enabled.
+router.put('/flags', requireRole('ADMIN'), validate(updateFlagsSchema), updateFeatureFlags);
 
 // Feedback
 router.use('/feedback', adminFeedbackRouter);

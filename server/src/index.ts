@@ -10,6 +10,7 @@ import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
 import { sanitize } from './middleware/sanitize';
 import { auditLog } from './middleware/audit';
+import { featureGate } from './middleware/featureGate';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
@@ -53,6 +54,7 @@ import coursesRoutes from './routes/courses.routes';
 import voucherRoutes from './routes/voucher.routes';
 import marketplaceRoutes from './routes/marketplace.routes';
 import bountyRoutes from './routes/bounty.routes';
+import flagsRoutes from './routes/flags.routes';
 
 const app = express();
 
@@ -186,30 +188,37 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 app.use(auditLog);
 
 // ─── API Routes ───────────────────────────────────────────────────────────────
+// Runtime feature toggles: `featureGate(slug)` 404s a whole prefix while the
+// flag is off. Core prefixes (auth, profiles, admin, flags, …) are never
+// gated — admins must always be able to re-enable a feature. `/api/news` is
+// gated per-endpoint inside its router because the Media page and the admin
+// panel depend on `/api/news/settings`. Cowork has no server prefix (pure
+// client-side Nostr) — it is gated in the UI only.
+app.use('/api/flags', flagsRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/profiles', profileRoutes);
-app.use('/api/projects', projectRoutes);
+app.use('/api/projects', featureGate('projects'), projectRoutes);
 app.use('/api/upload', uploadRoutes);
-app.use('/api/messages', messageRoutes);
+app.use('/api/messages', featureGate('messages'), messageRoutes);
 app.use('/api/watchlist', watchlistRoutes);
-app.use('/api/investments', investmentRoutes);
+app.use('/api/investments', featureGate('investors'), investmentRoutes);
 app.use('/api/notifications', notificationRoutes);
-app.use('/api/events', eventRoutes);
+app.use('/api/events', featureGate('events'), eventRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/investors', investorRoutes);
+app.use('/api/investors', featureGate('investors'), investorRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/news', newsRoutes);
-app.use('/api/media', mediaRoutes);
+app.use('/api/media', featureGate('media'), mediaRoutes);
 app.use('/api/match', matchRoutes);
-app.use('/api/wallet', walletRoutes);
-app.use('/api/feedback', feedbackRoutes);
-app.use('/api/points', pointsRoutes);
-app.use('/api/directory', directoryRoutes);
+app.use('/api/wallet', featureGate('zaps'), walletRoutes);
+app.use('/api/feedback', featureGate('feedback'), feedbackRoutes);
+app.use('/api/points', featureGate('points'), pointsRoutes);
+app.use('/api/directory', featureGate('directories'), directoryRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/vouchers', voucherRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
