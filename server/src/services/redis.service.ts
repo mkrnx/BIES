@@ -237,14 +237,73 @@ export const cacheKey = {
 // ─── Cross-module invalidation helpers ───────────────────────────────────────
 
 /**
- * Evict both leaderboard scopes. Called wherever ranked totals mutate: live
- * scoring (points.service applyPoints), the monthly rollover's bucket reset
- * (points.indexer lazyMonthSync) and admin adjust/recompute — so new ranks
- * surface immediately instead of after the 60s TTL.
+ * Leaderboard cache generation. Entries live under generation-stamped keys
+ * (`leaderboard:<scope>:g<N>`) and invalidation bumps the generation instead
+ * of deleting: a plain delete races with cache-aside readers (read-miss →
+ * DB query → [eviction lands here] → set re-caches the pre-mutation ranks
+ * for a full TTL), whereas a bump retires the key a concurrent reader
+ * resolved before its DB query, so its write-back is never readable again.
+ * Retired Redis entries age out via their TTL; retired in-memory entries are
+ * swept eagerly on invalidation (the Map only deletes lazily on read, and
+ * retired keys are never read again).
+ *
+ * Redis mode keeps the counter in Redis (atomic INCR, shared across
+ * instances). The in-memory fallback uses a process-local counter — exact in
+ * single-instance mode, and during a Redis flap the local bump still keeps
+ * this instance fresh while cross-instance staleness stays bounded by the
+ * entry TTL (same bound as any cache op during an outage).
+ */
+const LEADERBOARD_GEN_KEY = 'leaderboard:gen';
+let memLeaderboardGen = 0;
+
+async function leaderboardGen(): Promise<number> {
+    try {
+        if (useRedis && redisClient) {
+            const raw = await redisClient.get(LEADERBOARD_GEN_KEY);
+            const parsed = raw === null ? 0 : parseInt(raw, 10);
+            if (Number.isFinite(parsed)) return parsed;
+            return 0;
+        }
+    } catch {
+        /* Redis flap — fall back to the local counter */
+    }
+    return memLeaderboardGen;
+}
+
+/**
+ * Generation-stamped cache key for a leaderboard scope. Callers must resolve
+ * it ONCE before their cache read and reuse the same key for the write-back —
+ * that ordering is what lets an invalidation during the DB query retire the
+ * key out from under the writer.
+ */
+export async function leaderboardCacheKey(
+    scope: 'monthly' | 'lifetime'
+): Promise<string> {
+    return `${cacheKey.leaderboard(scope)}:g${await leaderboardGen()}`;
+}
+
+/**
+ * Invalidate both leaderboard scopes by bumping the generation. Called
+ * wherever ranked totals mutate: live scoring (points.service applyPoints),
+ * the monthly rollover's bucket reset (points.indexer lazyMonthSync) and
+ * admin adjust/recompute — so new ranks surface immediately instead of after
+ * the 60s TTL.
  */
 export async function invalidateLeaderboardCache(): Promise<void> {
-    await Promise.all([
-        cache.del(cacheKey.leaderboard('monthly')),
-        cache.del(cacheKey.leaderboard('lifetime')),
-    ]);
+    // Local bump first: keeps this instance fresh even mid Redis flap. The
+    // sweep right after (no await in between, so no reader can interleave)
+    // reclaims the now-retired in-memory entries — without it, mem mode
+    // would accumulate one dead ~top-100 JSON blob per generation until the
+    // Map's capacity eviction kicked in. Redis-side retired keys are left to
+    // their TTL instead (an eager KEYS scan there would block the server).
+    memLeaderboardGen += 1;
+    memCache.delPattern(cacheKey.leaderboard('monthly'));
+    memCache.delPattern(cacheKey.leaderboard('lifetime'));
+    try {
+        if (useRedis && redisClient) {
+            await redisClient.incr(LEADERBOARD_GEN_KEY);
+        }
+    } catch {
+        /* Redis flap — the local bump above covers this instance */
+    }
 }

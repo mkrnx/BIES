@@ -173,10 +173,14 @@ awards.
 
 Member endpoints (`/api/points`, authenticated):
 `GET /leaderboard?scope=monthly|lifetime`, `GET /me`, `GET /user/:pubkey`,
-`GET /badges`, `GET /months/:month`. Leaderboards are cached for 60 s; the
-cache is evicted on every live scoring apply, on the monthly rollover's
-bucket reset, and on admin adjust/recompute, so fresh ranks never wait out
-the TTL.
+`GET /badges`, `GET /months/:month`. Leaderboards are cached for 60 s under a
+generation-stamped key; every live scoring apply, the monthly rollover's
+bucket reset, and admin adjust/recompute bump the generation, so fresh ranks
+never wait out the TTL. Bumping (rather than deleting) also retires the key
+under any in-flight cache-aside read, so a request that queried the DB just
+before a mutation can't write the pre-mutation ranks back over the
+invalidation. In Redis mode the generation counter is shared across
+instances (atomic `INCR`); without Redis it's process-local.
 
 Admin endpoints (`/api/admin/points`, MOD/admin-gated, Zod-validated,
 audit-logged, leaderboard cache invalidated on mutation):
