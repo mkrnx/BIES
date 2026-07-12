@@ -10,12 +10,14 @@ import {
   Mail,
   Bell,
   Coffee,
+  Store,
   Trophy,
   GraduationCap,
   UserCircle,
   Settings,
   MessageCircle,
 } from 'lucide-react';
+import { MARKETPLACE_ENABLED } from './featureFlags';
 
 export const NAV_PAGES = [
   { id: 'feed', path: '/feed', icon: MessageSquare, labelKey: 'mobileNav.home' },
@@ -28,6 +30,10 @@ export const NAV_PAGES = [
   { id: 'messages', path: '/messages', icon: Mail, labelKey: 'nav.messages', auth: true },
   { id: 'notifications', path: '/notifications', icon: Bell, labelKey: 'customNav.pages.notifications', auth: true },
   { id: 'cowork', path: '/cowork', icon: Coffee, labelKey: 'mobileNav.cowork', auth: true },
+  // Spread conditionally so the entry is absent (not just hidden) when the flag is off
+  ...(MARKETPLACE_ENABLED
+    ? [{ id: 'marketplace', path: '/discover/market', icon: Store, labelKey: 'marketplace.navLabel', auth: true }]
+    : []),
   { id: 'leaderboard', path: '/leaderboard', icon: Trophy, labelKey: 'nav.leaderboard', auth: true },
   { id: 'profile', path: '/profile', icon: UserCircle, labelKey: 'nav.profile', auth: true },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings', auth: true },
