@@ -10,8 +10,10 @@
  *
  * Also owns the monthly rollover job: snapshot the previous month's
  * leaderboard, award monthly badges, announce winners and zero the monthly
- * buckets. Idempotent — the (month, userId) snapshot unique constraint is the
- * concurrency guard.
+ * buckets. Single-winner: the whole snapshot is inserted in ONE atomic
+ * `createMany` and the (month, userId) unique constraint makes that insert
+ * the cross-run claim — only the invocation whose insert succeeds awards
+ * badges and broadcasts the winners; concurrent losers stand down.
  */
 
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
@@ -26,7 +28,9 @@ import {
     recomputeAllScores,
     monthOf,
     isUniqueViolation,
+    leaderboardOrderBy,
 } from './points.service';
+import { invalidateLeaderboardCache } from './redis.service';
 import { notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
 import { publishBadgeAward, publishPendingAwards } from './badges.publisher';
@@ -35,8 +39,16 @@ import { isEnabled } from './featureFlags.service';
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
     if (!_pool) {
-        const { SimplePool } = await import('nostr-tools/pool');
-        _pool = new SimplePool();
+        const poolMod = await import('nostr-tools/pool');
+        // nostr-tools needs a WebSocket implementation. Node 22+ has a global
+        // one, but the node:20-alpine Docker runtime does not — without this,
+        // every connect fails with "WebSocket is not defined". Reuse the `ws`
+        // package already shipped for websocket.service.
+        if ((globalThis as { WebSocket?: unknown }).WebSocket === undefined) {
+            const ws = await import('ws');
+            poolMod.useWebSocketImplementation(ws.WebSocket);
+        }
+        _pool = new poolMod.SimplePool();
     }
     return _pool;
 }
@@ -300,9 +312,13 @@ function monthBefore(month: string): string {
  * monthly badges (top 3 + Corona del Volcán for #1), notify and broadcast the
  * winners, then reset every stale UserScore to the current month.
  *
- * Idempotent and safe to run concurrently: if the previous month has no
- * stale scores or already has a snapshot, only the lazy month sync runs;
- * unique constraints absorb duplicate snapshot/badge writes.
+ * Concurrency: the `staleCount === 0 || existingSnapshot` check is only a
+ * cheap fast path — two overlapping invocations (or horizontally-scaled
+ * instances) can both pass it. The actual gate is the ATOMIC snapshot
+ * `createMany`: the (month, userId) unique constraint lets exactly one
+ * invocation insert the snapshot, and only that claim winner awards badges
+ * and broadcasts `monthly_winners`; losers fall through to the month sync.
+ * Badge rows are additionally deduped by their own unique constraint.
  */
 export async function runMonthlyRollover(): Promise<void> {
     const currentMonth = monthOf(new Date());
@@ -323,9 +339,12 @@ export async function runMonthlyRollover(): Promise<void> {
 
     console.log(`[Points] Monthly rollover: closing ${prevMonth}`);
 
+    // Ordered by the SAME canonical tie-break as the live leaderboard
+    // (points DESC, updatedAt ASC, userId ASC) so frozen ranks match what
+    // users saw during the month.
     const ranked = await prisma.userScore.findMany({
         where: { currentMonth: prevMonth, monthlyPoints: { gt: 0 } },
-        orderBy: [{ monthlyPoints: 'desc' }, { userId: 'asc' }],
+        orderBy: leaderboardOrderBy('monthlyPoints'),
         select: {
             userId: true,
             monthlyPoints: true,
@@ -338,52 +357,61 @@ export async function runMonthlyRollover(): Promise<void> {
         },
     });
 
-    // Snapshot — the (month, userId) unique constraint is the concurrency guard.
-    let snapshots = 0;
-    for (let i = 0; i < ranked.length; i++) {
-        try {
-            await prisma.leaderboardSnapshot.create({
-                data: {
-                    month: prevMonth,
-                    userId: ranked[i].userId,
-                    rank: i + 1,
-                    points: ranked[i].monthlyPoints,
-                },
-            });
-            snapshots += 1;
-        } catch (error) {
-            if (!isUniqueViolation(error)) throw error; // already snapshotted
-        }
-    }
-
-    // Monthly badges: ranks 1–3 → monthly-top3; rank 1 → monthly-first.
-    const top3 = ranked.slice(0, 3);
-    for (let i = 0; i < top3.length; i++) {
-        await awardMonthlyBadge(top3[i].userId, 'monthly-top3', prevMonth);
-        if (i === 0) {
-            await awardMonthlyBadge(top3[i].userId, 'monthly-first', prevMonth);
-        }
-    }
-
-    if (top3.length > 0) {
-        broadcast({
-            type: 'gamification',
-            event: 'monthly_winners',
-            month: prevMonth,
-            winners: top3.map((row, i) => ({
-                pubkey: row.user.nostrPubkey,
-                name: row.user.profile?.name || undefined,
-                points: row.monthlyPoints,
+    // Atomic claim: insert the whole snapshot in ONE statement. A unique
+    // violation on any row aborts the entire insert, so exactly one
+    // concurrent invocation wins the month (all-or-nothing — no partial
+    // snapshots on crash either). Losers skip awards + broadcast entirely.
+    let claimed = false;
+    try {
+        await prisma.leaderboardSnapshot.createMany({
+            data: ranked.map((row, i) => ({
+                month: prevMonth,
+                userId: row.userId,
                 rank: i + 1,
+                points: row.monthlyPoints,
             })),
         });
+        claimed = true;
+    } catch (error) {
+        if (!isUniqueViolation(error)) throw error;
+        console.log(
+            `[Points] Rollover for ${prevMonth} already claimed by a concurrent run — standing down`
+        );
+    }
+
+    if (claimed) {
+        // Monthly badges: ranks 1–3 → monthly-top3; rank 1 → monthly-first.
+        const top3 = ranked.slice(0, 3);
+        for (let i = 0; i < top3.length; i++) {
+            await awardMonthlyBadge(top3[i].userId, 'monthly-top3', prevMonth);
+            if (i === 0) {
+                await awardMonthlyBadge(top3[i].userId, 'monthly-first', prevMonth);
+            }
+        }
+
+        // Only the claim winner announces — this broadcast used to be
+        // unguarded, letting concurrent invocations each announce winners.
+        if (top3.length > 0) {
+            broadcast({
+                type: 'gamification',
+                event: 'monthly_winners',
+                month: prevMonth,
+                winners: top3.map((row, i) => ({
+                    pubkey: row.user.nostrPubkey,
+                    name: row.user.profile?.name || undefined,
+                    points: row.monthlyPoints,
+                    rank: i + 1,
+                })),
+            });
+        }
+
+        console.log(
+            `[Points] Rollover complete for ${prevMonth}: ${ranked.length} snapshot rows, ` +
+                `top ${top3.length} awarded`
+        );
     }
 
     await lazyMonthSync(currentMonth);
-    console.log(
-        `[Points] Rollover complete for ${prevMonth}: ${snapshots} snapshot rows, ` +
-            `top ${top3.length} awarded`
-    );
 }
 
 /**
@@ -397,6 +425,9 @@ async function lazyMonthSync(currentMonth: string): Promise<void> {
         data: { monthlyPoints: 0, currentMonth },
     });
     if (result.count > 0) {
+        // Monthly buckets just got zeroed — don't serve last month's ranks
+        // from cache for another TTL window.
+        await invalidateLeaderboardCache();
         console.log(`[Points] Month sync: reset ${result.count} user scores to ${currentMonth}`);
     }
 }

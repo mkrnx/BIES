@@ -6,7 +6,7 @@
 import { Request, Response } from 'express';
 import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { cache, cacheKey } from '../services/redis.service';
+import { cache, cacheKey, invalidateLeaderboardCache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
 import { removeFromRelayWhitelist, addToRelayWhitelist } from '../services/relayWhitelist.service';
 import { publishDirectoryListing } from '../services/nostr.service';
@@ -1189,13 +1189,8 @@ export const grantBadgeSchema = z.object({
     month: z.string().regex(MONTH_RE, 'month must be YYYY-MM').optional(),
 });
 
-/** Both leaderboard scopes go stale after any ledger/badge mutation. */
-async function invalidateLeaderboardCache(): Promise<void> {
-    await Promise.all([
-        cache.del(cacheKey.leaderboard('monthly')),
-        cache.del(cacheKey.leaderboard('lifetime')),
-    ]);
-}
+// Leaderboard cache invalidation is shared with the live scoring path — see
+// invalidateLeaderboardCache in redis.service.ts (imported above).
 
 /**
  * POST /admin/points/adjust

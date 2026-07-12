@@ -17,6 +17,7 @@ import prisma from '../lib/prisma';
 import { notifyLevelUp, notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
 import { getQualityBonus } from './quality.service';
+import { invalidateLeaderboardCache } from './redis.service';
 import { BADGES, LEVEL_TITLES } from './badges.catalog';
 import { publishBadgeAward } from './badges.publisher';
 
@@ -101,6 +102,24 @@ export function titleKeyFor(level: number): string {
         if (level >= entry.level) key = entry.titleKey;
     }
     return key;
+}
+
+// ─── Ranking order (single source of truth) ──────────────────────────────────
+
+/**
+ * Canonical leaderboard ordering: points DESC, then `updatedAt` ASC (on a
+ * points tie, whoever reached the score first ranks higher), then `userId`
+ * ASC as a deterministic final tie-break. Used by BOTH the live leaderboard
+ * query (points.controller.ts) and the monthly rollover snapshot
+ * (points.indexer.ts) so a frozen rank always matches the live rank users
+ * saw during the month.
+ */
+export function leaderboardOrderBy(
+    field: 'monthlyPoints' | 'lifetimePoints'
+): Prisma.UserScoreOrderByWithRelationInput[] {
+    return field === 'monthlyPoints'
+        ? [{ monthlyPoints: 'desc' }, { updatedAt: 'asc' }, { userId: 'asc' }]
+        : [{ lifetimePoints: 'desc' }, { updatedAt: 'asc' }, { userId: 'asc' }];
 }
 
 // ─── Classification (pure) ───────────────────────────────────────────────────
@@ -487,6 +506,14 @@ export async function applyPoints(
     } catch (error) {
         if (isUniqueViolation(error)) return; // already scored — dedup replay
         throw error;
+    }
+
+    // Ranked totals just changed — evict the cached leaderboards so live
+    // scoring surfaces immediately instead of after the 60s TTL (previously
+    // only admin adjust/recompute invalidated). Skipped on the dedup-replay
+    // early return above: a no-op apply leaves the cache untouched.
+    if (entry.points !== 0) {
+        await invalidateLeaderboardCache();
     }
 
     if (levelAfter > levelBefore && !opts.silent) {

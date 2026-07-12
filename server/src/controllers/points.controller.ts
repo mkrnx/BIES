@@ -9,8 +9,8 @@
 
 import { Request, Response } from 'express';
 import prisma from '../lib/prisma';
-import { cache, cacheKey, TTL } from '../services/redis.service';
-import { monthOf, titleKeyFor, nextLevelAt } from '../services/points.service';
+import { cache, leaderboardCacheKey, TTL } from '../services/redis.service';
+import { monthOf, titleKeyFor, nextLevelAt, leaderboardOrderBy } from '../services/points.service';
 import { BADGES } from '../services/badges.catalog';
 
 const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -99,7 +99,12 @@ async function loadLeaderboard(
     scope: 'monthly' | 'lifetime',
     currentMonth: string
 ): Promise<LeaderboardEntry[]> {
-    const cKey = cacheKey.leaderboard(scope);
+    // Generation-stamped key, resolved ONCE before the cache read and reused
+    // for the write-back below: if scoring invalidates while our DB query is
+    // in flight, the setJson lands on the retired generation and no later
+    // request can read the stale ranks back (closes the cache-aside
+    // read-then-set race that a plain delete-on-invalidate cannot).
+    const cKey = await leaderboardCacheKey(scope);
     const cached = await cache.getJson<LeaderboardEntry[]>(cKey);
     if (cached) return cached;
 
@@ -111,7 +116,8 @@ async function loadLeaderboard(
 
     const rows = await prisma.userScore.findMany({
         where,
-        orderBy: [{ [orderField]: 'desc' }, { updatedAt: 'asc' }],
+        // Shared with the rollover snapshot so frozen ranks match live ranks.
+        orderBy: leaderboardOrderBy(orderField),
         take: LEADERBOARD_MAX,
         include: {
             user: {

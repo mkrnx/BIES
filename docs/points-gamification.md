@@ -103,20 +103,25 @@ awarded exclusively by the rollover job.
 
 A maintenance loop (boot + every 15 min) calls `runMonthlyRollover()`, which
 is a cheap no-op except at a month boundary. When the previous month is open
-(stale `UserScore.currentMonth` and no snapshot yet) it, idempotently:
+(stale `UserScore.currentMonth` and no snapshot yet) it:
 
-1. Snapshots the ranked monthly leaderboard into `LeaderboardSnapshot`
-   (`(month, userId)` unique is the concurrency guard).
-2. Awards `monthly-top3` to ranks 1–3 and `monthly-first` to rank 1.
-3. Notifies the winners and broadcasts
+1. Snapshots the ranked monthly leaderboard into `LeaderboardSnapshot` in one
+   atomic `createMany` — the **claim**: the `(month, userId)` unique
+   constraint lets exactly one invocation insert the snapshot, even across
+   concurrent/horizontally-scaled instances. Ranking uses the same tie-break
+   as the live leaderboard (points DESC, `updatedAt` ASC, `userId` ASC), so
+   frozen ranks match what users saw live.
+2. **Claim winner only:** awards `monthly-top3` to ranks 1–3 and
+   `monthly-first` to rank 1, then broadcasts
    `{type:'gamification', event:'monthly_winners', …}` — **in-app only**, no
-   auto kind-1 winner note in v1.
-4. Zeros the stale monthly buckets. (The scorer and read API also lazily
-   normalize stale months per user.)
+   auto kind-1 winner note in v1. Losing invocations stand down without
+   awarding or broadcasting.
+3. Zeros the stale monthly buckets and evicts the leaderboard cache. (The
+   scorer and read API also lazily normalize stale months per user.)
 
 Lifetime points are never reset. Past months: `GET /api/points/months/:month`
-(YYYY-MM). Rollover idempotency was verified in development: a second run is a
-no-op; unique constraints absorb duplicate snapshot/badge writes.
+(YYYY-MM). Idempotency: a later re-run short-circuits on the existing
+snapshot; badge rows are additionally deduped by their own unique constraint.
 
 ## NIP-58 badge publishing
 
@@ -168,7 +173,14 @@ awards.
 
 Member endpoints (`/api/points`, authenticated):
 `GET /leaderboard?scope=monthly|lifetime`, `GET /me`, `GET /user/:pubkey`,
-`GET /badges`, `GET /months/:month`. Leaderboards are cached for 60 s.
+`GET /badges`, `GET /months/:month`. Leaderboards are cached for 60 s under a
+generation-stamped key; every live scoring apply, the monthly rollover's
+bucket reset, and admin adjust/recompute bump the generation, so fresh ranks
+never wait out the TTL. Bumping (rather than deleting) also retires the key
+under any in-flight cache-aside read, so a request that queried the DB just
+before a mutation can't write the pre-mutation ranks back over the
+invalidation. In Redis mode the generation counter is shared across
+instances (atomic `INCR`); without Redis it's process-local.
 
 Admin endpoints (`/api/admin/points`, MOD/admin-gated, Zod-validated,
 audit-logged, leaderboard cache invalidated on mutation):
