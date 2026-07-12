@@ -11,6 +11,7 @@ import {
   Bell,
   Coffee,
   Store,
+  Target,
   Trophy,
   GraduationCap,
   UserCircle,
@@ -34,6 +35,7 @@ export const NAV_PAGES = [
   ...(MARKETPLACE_ENABLED
     ? [{ id: 'marketplace', path: '/discover/market', icon: Store, labelKey: 'marketplace.navLabel', auth: true }]
     : []),
+  { id: 'bounties', path: '/bounties', icon: Target, labelKey: 'nav.bounties', auth: true },
   { id: 'leaderboard', path: '/leaderboard', icon: Trophy, labelKey: 'nav.leaderboard', auth: true },
   { id: 'profile', path: '/profile', icon: UserCircle, labelKey: 'nav.profile', auth: true },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings', auth: true },

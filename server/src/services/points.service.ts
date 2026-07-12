@@ -12,6 +12,7 @@
  * monthly buckets are deterministic across live scoring and backfill.
  */
 
+import { Prisma } from '@prisma/client';
 import prisma from '../lib/prisma';
 import { notifyLevelUp, notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
@@ -340,11 +341,19 @@ export async function processEvent(
     );
 }
 
-/** Sum of points already awarded on the event's UTC day. */
+/**
+ * Sum of points already awarded on the event's UTC day. Bounty rows live on
+ * the separate spendable rail (mirroring recomputeUserScore): an escrow debit
+ * must not raise the cap headroom, an award credit must not consume it.
+ */
 async function dailyPointsUsed(userId: string, eventDate: Date): Promise<number> {
     const { start, end } = utcDayRange(eventDate);
     const result = await prisma.pointEvent.aggregate({
-        where: { userId, createdAt: { gte: start, lt: end } },
+        where: {
+            userId,
+            reason: { notIn: [...BOUNTY_REASONS] },
+            createdAt: { gte: start, lt: end },
+        },
         _sum: { points: true },
     });
     return result._sum.points || 0;
@@ -505,6 +514,83 @@ export async function applyPoints(
     await checkBadges(userId, opts);
 }
 
+// ─── Bounty transfers (spendable rail) ───────────────────────────────────────
+
+export const BOUNTY_REASONS = ['BOUNTY_ESCROW', 'BOUNTY_AWARD', 'BOUNTY_REFUND'] as const;
+
+export type BountyReason = (typeof BOUNTY_REASONS)[number];
+
+/** Thrown when a debit would push lifetimePoints + bountyPoints below zero. */
+export class InsufficientBountyBalanceError extends Error {
+    constructor() {
+        super('Insufficient spendable points balance');
+        this.name = 'InsufficientBountyBalanceError';
+    }
+}
+
+/**
+ * Move bounty points inside the CALLER'S transaction (unlike applyPoints,
+ * which owns its own). The ledger row is written first so a replay hits the
+ * (nostrEventId, userId, reason) unique and returns {applied: false} without
+ * double-applying the score. Bounty flows never touch monthlyPoints /
+ * lifetimePoints / level / streaks — only UserScore.bountyPoints. A debit
+ * that overdraws the spendable balance (lifetimePoints + bountyPoints)
+ * throws InsufficientBountyBalanceError so the caller's tx rolls back.
+ *
+ * NOTE: the {applied:false} branch is last-resort armor, not the primary
+ * replay guard — on PostgreSQL (the documented prod DB) a failed INSERT
+ * poisons the surrounding interactive tx (25P02), unlike SQLite. Callers
+ * must keep gating the transfer behind a status-preconditioned updateMany
+ * in the same tx (all current callers do); that gate is what actually
+ * makes replays clean no-ops.
+ */
+export async function applyBountyTransfer(
+    tx: Prisma.TransactionClient,
+    {
+        userId,
+        delta,
+        reason,
+        bountyId,
+    }: { userId: string; delta: number; reason: BountyReason; bountyId: string }
+): Promise<{ applied: boolean }> {
+    const month = monthOf(new Date());
+
+    try {
+        await tx.pointEvent.create({
+            data: {
+                userId,
+                nostrEventId: `bounty:${bountyId}`,
+                kind: null,
+                reason,
+                points: delta,
+                month,
+                meta: '{}',
+            },
+        });
+    } catch (error) {
+        if (isUniqueViolation(error)) return { applied: false }; // already applied — replay
+        throw error;
+    }
+
+    await tx.userScore.upsert({
+        where: { userId },
+        create: { userId, bountyPoints: delta, currentMonth: month },
+        update: { bountyPoints: { increment: delta } },
+    });
+
+    if (delta < 0) {
+        const score = await tx.userScore.findUnique({
+            where: { userId },
+            select: { lifetimePoints: true, bountyPoints: true },
+        });
+        if (!score || score.lifetimePoints + score.bountyPoints < 0) {
+            throw new InsufficientBountyBalanceError();
+        }
+    }
+
+    return { applied: true };
+}
+
 // ─── Badges ──────────────────────────────────────────────────────────────────
 
 /**
@@ -552,13 +638,19 @@ export async function checkBadges(userId: string, opts: ScoreOpts = {}): Promise
 export async function recomputeUserScore(userId: string): Promise<void> {
     const currentMonth = monthOf(new Date());
 
-    const [lifetime, monthly, byReason, lastScoredNote, existing] = await Promise.all([
+    // Bounty rows live on a separate spendable rail: excluded from lifetime /
+    // monthly (they never feed levels or leaderboards), summed into bountyPoints.
+    const [lifetime, monthly, bounty, byReason, lastScoredNote, existing] = await Promise.all([
         prisma.pointEvent.aggregate({
-            where: { userId },
+            where: { userId, reason: { notIn: [...BOUNTY_REASONS] } },
             _sum: { points: true },
         }),
         prisma.pointEvent.aggregate({
-            where: { userId, month: currentMonth },
+            where: { userId, month: currentMonth, reason: { notIn: [...BOUNTY_REASONS] } },
+            _sum: { points: true },
+        }),
+        prisma.pointEvent.aggregate({
+            where: { userId, reason: { in: [...BOUNTY_REASONS] } },
             _sum: { points: true },
         }),
         prisma.pointEvent.groupBy({
@@ -584,10 +676,12 @@ export async function recomputeUserScore(userId: string): Promise<void> {
 
     const lifetimePoints = lifetime._sum.points || 0;
     const monthlyPoints = monthly._sum.points || 0;
+    const bountyPoints = bounty._sum.points || 0;
 
     const data = {
         monthlyPoints,
         lifetimePoints,
+        bountyPoints,
         level: levelFor(lifetimePoints),
         currentMonth,
         lastScoredNoteAt: lastScoredNote?.createdAt ?? null,

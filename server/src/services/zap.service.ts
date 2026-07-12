@@ -11,6 +11,7 @@ import { config } from '../config';
 import prisma from '../lib/prisma';
 import { notifyZapReceived } from './notification.service';
 import { recomputeListingScore } from './directoryReputation.service';
+import { matchBountyPayout } from './bounty.service';
 
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
@@ -192,7 +193,7 @@ async function processZapReceipt(event: Event): Promise<void> {
     const courseId = aTag ? await resolveCourseFromCoordinate(aTag) : null;
 
     // Store the zap receipt
-    await prisma.zapReceipt.create({
+    const receipt = await prisma.zapReceipt.create({
         data: {
             eventId,
             senderPubkey,
@@ -205,6 +206,9 @@ async function processZapReceipt(event: Event): Promise<void> {
             courseId,
             bolt11,
             bolt12,
+            // The zap's own timestamp — createdAt is insert time, which lies
+            // for receipts backfilled via the `since` window after downtime.
+            eventCreatedAt: new Date(event.created_at * 1000),
         },
     });
 
@@ -240,6 +244,12 @@ async function processZapReceipt(event: Event): Promise<void> {
         .catch((err) => {
             console.error('[Zap Indexer] Directory score recompute failed:', err);
         });
+
+    // Fire-and-forget: match this receipt against an awarded sats bounty.
+    // Must never break zap indexing.
+    matchBountyPayout(receipt).catch((err) => {
+        console.error('[Zap Indexer] Bounty payout match failed:', err);
+    });
 
     // Notify the recipient if they are a BIES user
     const recipientUser = await prisma.user.findUnique({

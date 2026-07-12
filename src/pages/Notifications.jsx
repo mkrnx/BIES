@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Bell, Check, Trash2, Loader2, Trophy, Award } from 'lucide-react';
+import { Bell, Check, Trash2, Loader2, Trophy, Award, Target, Zap, RotateCcw, XCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { notificationsApi } from '../services/api';
 
@@ -71,8 +72,29 @@ const Notifications = () => {
                 return { icon: <Trophy size={17} />, color: '#D97706', bg: 'rgba(217, 119, 6, 0.12)' };
             case 'BADGE_EARNED':
                 return { icon: <Award size={17} />, color: '#7C3AED', bg: 'rgba(124, 58, 237, 0.12)' };
+            case 'BOUNTY_SUBMISSION':
+                return { icon: <Target size={17} />, color: '#2563EB', bg: 'rgba(37, 99, 235, 0.12)' };
+            case 'BOUNTY_AWARDED':
+                return { icon: <Trophy size={17} />, color: '#D97706', bg: 'rgba(217, 119, 6, 0.12)' };
+            case 'BOUNTY_PAID':
+                return { icon: <Zap size={17} />, color: '#16A34A', bg: 'rgba(22, 163, 74, 0.12)' };
+            case 'BOUNTY_REFUNDED':
+                return { icon: <RotateCcw size={17} />, color: '#0891B2', bg: 'rgba(8, 145, 178, 0.12)' };
+            case 'BOUNTY_CANCELLED':
+                return { icon: <XCircle size={17} />, color: '#DC2626', bg: 'rgba(220, 38, 38, 0.12)' };
             default:
                 return null;
+        }
+    };
+
+    // Deep-link for notification types that reference an entity
+    const typeLink = (notif) => {
+        if (!notif.type?.startsWith('BOUNTY_')) return null;
+        try {
+            const data = typeof notif.data === 'string' ? JSON.parse(notif.data) : notif.data;
+            return data?.bountyId ? `/bounties/${data.bountyId}` : null;
+        } catch {
+            return null;
         }
     };
 
@@ -108,37 +130,54 @@ const Notifications = () => {
                 </div>
             ) : (
                 <div className="notifications-list">
-                    {notifications.map(notif => (
-                        <div key={notif.id} className={`notif-item ${!notif.isRead ? 'unread' : ''}`}>
-                            <div className="notif-content">
-                                {!notif.isRead && <div className="dot-indicator"></div>}
-                                {typeIcon(notif.type) && (
-                                    <div
-                                        className="notif-type-icon"
-                                        style={{ color: typeIcon(notif.type).color, background: typeIcon(notif.type).bg }}
-                                        data-testid={`notif-icon-${notif.type}`}
-                                    >
-                                        {typeIcon(notif.type).icon}
-                                    </div>
-                                )}
-                                <div className="notif-body">
-                                    <p className="notif-title">{notif.title}</p>
-                                    {notif.body && <p className="notif-text">{notif.body}</p>}
-                                    <span className="notif-time">{formatTime(notif.createdAt)}</span>
+                    {notifications.map(notif => {
+                        const link = typeLink(notif);
+                        const body = (
+                            <>
+                                <p className="notif-title">{notif.title}</p>
+                                {notif.body && <p className="notif-text">{notif.body}</p>}
+                                <span className="notif-time">{formatTime(notif.createdAt)}</span>
+                            </>
+                        );
+                        return (
+                            <div key={notif.id} className={`notif-item ${!notif.isRead ? 'unread' : ''}`}>
+                                <div className="notif-content">
+                                    {!notif.isRead && <div className="dot-indicator"></div>}
+                                    {typeIcon(notif.type) && (
+                                        <div
+                                            className="notif-type-icon"
+                                            style={{ color: typeIcon(notif.type).color, background: typeIcon(notif.type).bg }}
+                                            data-testid={`notif-icon-${notif.type}`}
+                                        >
+                                            {typeIcon(notif.type).icon}
+                                        </div>
+                                    )}
+                                    {link ? (
+                                        <Link
+                                            to={link}
+                                            className="notif-body"
+                                            style={{ textDecoration: 'none', color: 'inherit' }}
+                                            onClick={() => { if (!notif.isRead) handleMarkRead(notif.id); }}
+                                        >
+                                            {body}
+                                        </Link>
+                                    ) : (
+                                        <div className="notif-body">{body}</div>
+                                    )}
+                                </div>
+                                <div className="notif-actions">
+                                    {!notif.isRead && (
+                                        <button className="action-btn" title="Mark as read" onClick={() => handleMarkRead(notif.id)}>
+                                            <Check size={16} />
+                                        </button>
+                                    )}
+                                    <button className="action-btn delete" title="Delete" onClick={() => handleDelete(notif.id)}>
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
-                            <div className="notif-actions">
-                                {!notif.isRead && (
-                                    <button className="action-btn" title="Mark as read" onClick={() => handleMarkRead(notif.id)}>
-                                        <Check size={16} />
-                                    </button>
-                                )}
-                                <button className="action-btn delete" title="Delete" onClick={() => handleDelete(notif.id)}>
-                                    <Trash2 size={16} />
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             )}
 

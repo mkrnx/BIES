@@ -62,6 +62,8 @@ model User {
   coursePurchases       CoursePurchase[]
   vouchersCreated       Voucher[]
   voucherRedemptions    VoucherRedemption[]
+  bountiesPosted        Bounty[]               @relation("BountiesPosted")
+  bountySubmissions     BountySubmission[]
 
   @@map("users")
 }
@@ -597,6 +599,7 @@ model ZapReceipt {
   courseId        String?  @map("course_id")
   bolt11          String   @default("")
   bolt12          String   @default("")
+  eventCreatedAt  DateTime? @map("event_created_at") // Nostr event created_at (createdAt is row-insert time)
   createdAt       DateTime @default(now()) @map("created_at")
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
@@ -675,6 +678,7 @@ model UserScore {
   userId            String    @id @map("user_id")
   monthlyPoints     Int       @default(0) @map("monthly_points")
   lifetimePoints    Int       @default(0) @map("lifetime_points")
+  bountyPoints      Int       @default(0) @map("bounty_points") // spendable bounty balance; never feeds levels/leaderboards
   level             Int       @default(0)
   currentMonth      String    @map("current_month") // 'YYYY-MM' the monthlyPoints belong to
   lastScoredNoteAt  DateTime? @map("last_scored_note_at")
@@ -972,4 +976,53 @@ model MarketplaceBlock {
   createdAt DateTime @default(now()) @map("created_at")
   @@unique([type, value])
   @@map("marketplace_blocks")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Bounties (Stacker News model: sats pay-on-award, points escrow-at-post)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Bounty {
+  id                 String    @id @default(cuid())
+  posterId           String    @map("poster_id")
+  title              String
+  description        String    @default("") // markdown
+  rewardType         String    @map("reward_type") // SATS | POINTS
+  amount             Int       // immutable after create (escrow integrity)
+  status             String    @default("OPEN") // OPEN | AWARDED | PAID | EXPIRED | CANCELLED
+  winnerSubmissionId String?   @unique @map("winner_submission_id")
+  nostrEventId       String?   @map("nostr_event_id") // kind-1 feed mirror note
+  deadline           DateTime?
+  featured           Boolean   @default(false)
+  awardedAt          DateTime? @map("awarded_at")
+  paidAt             DateTime? @map("paid_at")
+  paidVia            String?   @map("paid_via") // POINTS | WALLET | ZAP_RECEIPT | MANUAL
+  zapReceiptId       String?   @map("zap_receipt_id")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  poster           User               @relation("BountiesPosted", fields: [posterId], references: [id], onDelete: Cascade)
+  submissions      BountySubmission[] @relation("BountySubmissions")
+  winnerSubmission BountySubmission?  @relation("BountyWinner", fields: [winnerSubmissionId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([posterId])
+  @@map("bounties")
+}
+
+model BountySubmission {
+  id        String   @id @default(cuid())
+  bountyId  String   @map("bounty_id")
+  userId    String   @map("user_id")
+  content   String   // markdown; editable while bounty is OPEN
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  bounty    Bounty  @relation("BountySubmissions", fields: [bountyId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wonBounty Bounty? @relation("BountyWinner")
+
+  @@unique([bountyId, userId])
+  @@index([userId])
+  @@map("bounty_submissions")
 }

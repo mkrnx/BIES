@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { User, Search, ChevronDown, LogOut, Trophy } from 'lucide-react';
 import NostrIcon from './NostrIcon';
 import NostrNotifications from './NostrNotifications';
-import { COWORK_ENABLED } from '../config/featureFlags';
+import { BOUNTIES_ENABLED, COWORK_ENABLED } from '../config/featureFlags';
 import logoHorizontalWhite from '../assets/logo-horizontal-white.svg';
 import logoIconDark from '../assets/logo-icon-dark.svg';
 
@@ -33,6 +33,7 @@ const Navbar = () => {
   const navLinks = [
     { label: t('nav.discover'), path: '/discover' },
     { label: t('nav.events'), path: '/events' },
+    ...(BOUNTIES_ENABLED ? [{ label: t('nav.bounties'), path: '/bounties' }] : []),
     { label: t('nav.leaderboard'), path: '/leaderboard', icon: Trophy },
     { label: t('nav.media'), path: '/media' },
     { label: t('nav.news'), path: '/news' },
@@ -49,6 +50,7 @@ const Navbar = () => {
     if (path.startsWith('/discover/certified')) return t('pageTitles.certifiedDirectory');
     if (path.startsWith('/discover')) return t('pageTitles.discover', 'Discover');
     if (path.startsWith('/events')) return t('pageTitles.ecosystemEvents');
+    if (path.startsWith('/bounties')) return t('pageTitles.bounties');
     if (path.startsWith('/leaderboard')) return t('pageTitles.leaderboard');
     if (path.startsWith('/news')) return t('pageTitles.news');
     if (path.startsWith('/members') || path.startsWith('/investors') || path.startsWith('/builders')) return t('pageTitles.members');
@@ -240,6 +242,7 @@ const Navbar = () => {
                 { to: '/profile', label: t('nav.profile') },
                 { to: '/messages', label: t('nav.messages') },
                 ...(COWORK_ENABLED ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
+                ...(BOUNTIES_ENABLED ? [{ to: '/bounties', label: t('nav.bounties') }] : []),
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 { to: '/leaderboard', label: t('nav.leaderboard') },
                 { to: '/news', label: t('nav.news') },
