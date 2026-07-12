@@ -6,6 +6,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
 import { BottomNavProvider, useBottomNav } from './context/BottomNavContext';
+import { FeatureFlagsProvider, useFeature } from './context/FeatureFlagsContext';
 import { BOUNTIES_ENABLED, COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED, MARKETPLACE_ENABLED } from './config/featureFlags';
 import { preferencesApi } from './services/api';
 import i18n from './i18n';
@@ -90,6 +91,7 @@ import AdminVouchers from './pages/admin/AdminVouchers';
 import AdminFeedback from './pages/admin/AdminFeedback';
 import AdminCourses from './pages/admin/AdminCourses';
 import AdminBounties from './pages/admin/AdminBounties';
+import AdminFeatures from './pages/admin/AdminFeatures';
 import Feedback from './pages/Feedback';
 
 // Protected Route Wrapper
@@ -126,12 +128,25 @@ const AdminRoute = ({ children }) => {
     return children;
 };
 
+// Runtime feature gate — renders the 404 page while an admin has the
+// feature toggled off (matching the catch-all's ProtectedRoute + NotFound,
+// so the URL is indistinguishable from a route that never existed).
+// Admin routes are never wrapped: staff must always reach the toggles.
+const FeatureRoute = ({ flag, children }) => {
+    const enabled = useFeature(flag);
+    if (!enabled) {
+        return <ProtectedRoute><NotFound /></ProtectedRoute>;
+    }
+    return children;
+};
+
 const AppContent = () => {
     const { user } = useAuth();
     const location = useLocation();
     const { setTheme } = useTheme();
     const { setDefaultView } = useViewPreference();
     const { applyServerTabs } = useBottomNav();
+    const pointsEnabled = useFeature('points');
     const prefsLoaded = useRef(false);
 
     // Restore user preferences from backend on login
@@ -173,12 +188,12 @@ const AppContent = () => {
                     <Route path="/join/:code" element={<Join />} />
 
                     {/* Directories (declared before the generic /discover route) */}
-                    <Route path="/discover/farms" element={<ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute>} />
-                    <Route path="/discover/farms/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
-                    <Route path="/discover/certified" element={<ProtectedRoute><DirectoryList type="PROVIDER" /></ProtectedRoute>} />
-                    <Route path="/discover/certified/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
-                    <Route path="/discover/directory/new" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
-                    <Route path="/discover/directory/:id/edit" element={<ProtectedRoute><CreateListing editMode /></ProtectedRoute>} />
+                    <Route path="/discover/farms" element={<FeatureRoute flag="directories"><ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/discover/farms/:id" element={<FeatureRoute flag="directories"><ProtectedRoute><ListingDetail /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/discover/certified" element={<FeatureRoute flag="directories"><ProtectedRoute><DirectoryList type="PROVIDER" /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/discover/certified/:id" element={<FeatureRoute flag="directories"><ProtectedRoute><ListingDetail /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/discover/directory/new" element={<FeatureRoute flag="directories"><ProtectedRoute><CreateListing /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/discover/directory/:id/edit" element={<FeatureRoute flag="directories"><ProtectedRoute><CreateListing editMode /></ProtectedRoute></FeatureRoute>} />
                     {/* Marketplace (declared before the generic /discover route) */}
                     {MARKETPLACE_ENABLED && (
                         <>
@@ -189,30 +204,30 @@ const AppContent = () => {
                         </>
                     )}
                     <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
-                    <Route path="/events" element={<ProtectedRoute><Events /></ProtectedRoute>} />
+                    <Route path="/events" element={<FeatureRoute flag="events"><ProtectedRoute><Events /></ProtectedRoute></FeatureRoute>} />
                     <Route path="/events/create" element={
-                        <ProtectedRoute><CreateEvent /></ProtectedRoute>
+                        <FeatureRoute flag="events"><ProtectedRoute><CreateEvent /></ProtectedRoute></FeatureRoute>
                     } />
                     <Route path="/events/my" element={
-                        <ProtectedRoute><MyEvents /></ProtectedRoute>
+                        <FeatureRoute flag="events"><ProtectedRoute><MyEvents /></ProtectedRoute></FeatureRoute>
                     } />
                     <Route path="/events/edit/:id" element={
-                        <ProtectedRoute><EditEvent /></ProtectedRoute>
+                        <FeatureRoute flag="events"><ProtectedRoute><EditEvent /></ProtectedRoute></FeatureRoute>
                     } />
-                    <Route path="/events/:id" element={<ProtectedRoute><EventDetail /></ProtectedRoute>} />
+                    <Route path="/events/:id" element={<FeatureRoute flag="events"><ProtectedRoute><EventDetail /></ProtectedRoute></FeatureRoute>} />
                     <Route path="/members" element={<Navigate to="/discover" replace />} />
                     <Route path="/builders" element={<Navigate to="/discover" replace />} />
                     <Route path="/builder/:id" element={<ProtectedRoute><PublicProfile type="builder" /></ProtectedRoute>} />
                     <Route path="/investors" element={<Navigate to="/discover" replace />} />
                     <Route path="/investor/:id" element={<ProtectedRoute><PublicProfile type="investor" /></ProtectedRoute>} />
-                    <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-                    <Route path="/media" element={<ProtectedRoute><Media /></ProtectedRoute>} />
-                    <Route path="/news" element={<ProtectedRoute><News /></ProtectedRoute>} />
-                    <Route path="/news/:slug" element={<ProtectedRoute><ArticleDetail /></ProtectedRoute>} />
+                    <Route path="/leaderboard" element={<FeatureRoute flag="points"><ProtectedRoute><Leaderboard /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/media" element={<FeatureRoute flag="media"><ProtectedRoute><Media /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/news" element={<FeatureRoute flag="news"><ProtectedRoute><News /></ProtectedRoute></FeatureRoute>} />
+                    <Route path="/news/:slug" element={<FeatureRoute flag="news"><ProtectedRoute><ArticleDetail /></ProtectedRoute></FeatureRoute>} />
                     <Route path="/about" element={<ProtectedRoute><Team /></ProtectedRoute>} />
-                    <Route path="/feedback" element={<ProtectedRoute><Feedback /></ProtectedRoute>} />
+                    <Route path="/feedback" element={<FeatureRoute flag="feedback"><ProtectedRoute><Feedback /></ProtectedRoute></FeatureRoute>} />
                     {COWORK_ENABLED && (
-                        <Route path="/cowork" element={<ProtectedRoute><Cowork /></ProtectedRoute>} />
+                        <Route path="/cowork" element={<FeatureRoute flag="cowork"><ProtectedRoute><Cowork /></ProtectedRoute></FeatureRoute>} />
                     )}
                     {COURSES_ENABLED && (
                         <>
@@ -238,15 +253,15 @@ const AppContent = () => {
                         </ProtectedRoute>
                     }>
                         <Route index element={<Overview />} />
-                        <Route path="projects" element={<MyProjects />} />
-                        <Route path="events" element={<MyEvents />} />
+                        <Route path="projects" element={<FeatureRoute flag="projects"><MyProjects /></FeatureRoute>} />
+                        <Route path="events" element={<FeatureRoute flag="events"><MyEvents /></FeatureRoute>} />
                         <Route path="courses" element={<MyCourses />} />
                         <Route path="following" element={<Following />} />
-                        <Route path="messages" element={<Messages />} />
+                        <Route path="messages" element={<FeatureRoute flag="messages"><Messages /></FeatureRoute>} />
                         <Route path="analytics" element={<Analytics />} />
                         <Route path="settings" element={<Settings />} />
                         {/* Sub-routes */}
-                        <Route path="builder/new-project" element={<NewProject />} />
+                        <Route path="builder/new-project" element={<FeatureRoute flag="projects"><NewProject /></FeatureRoute>} />
                         {COURSES_ENABLED && (
                             <>
                                 <Route path="builder/new-course" element={<NewCourse />} />
@@ -274,14 +289,17 @@ const AppContent = () => {
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />
                         <Route path="vouchers" element={<AdminVouchers />} />
                         <Route path="feedback" element={<AdminFeedback />} />
+                        <Route path="features" element={<AdminFeatures />} />
                         {COURSES_ENABLED && <Route path="courses" element={<AdminCourses />} />}
                         <Route path="bounties" element={<AdminBounties />} />
                     </Route>
 
                     <Route path="/project/:id" element={
-                        <ProtectedRoute>
-                            <ProjectDetails />
-                        </ProtectedRoute>
+                        <FeatureRoute flag="projects">
+                            <ProtectedRoute>
+                                <ProjectDetails />
+                            </ProtectedRoute>
+                        </FeatureRoute>
                     } />
 
                     <Route path="/profile-setup" element={
@@ -300,9 +318,11 @@ const AppContent = () => {
                         </ProtectedRoute>
                     } />
                     <Route path="/messages" element={
-                        <ProtectedRoute>
-                            <Messages />
-                        </ProtectedRoute>
+                        <FeatureRoute flag="messages">
+                            <ProtectedRoute>
+                                <Messages />
+                            </ProtectedRoute>
+                        </FeatureRoute>
                     } />
                     <Route path="/settings" element={
                         <ProtectedRoute>
@@ -329,7 +349,8 @@ const AppContent = () => {
                 </Routes>
             </div>
             {user && location.pathname !== '/settings/navbar' && <MobileBottomNav />}
-            {user && <GamificationToast />}
+            {/* Gamification toasts are part of the `points` feature */}
+            {user && pointsEnabled && <GamificationToast />}
             {/* Unconditional: NIP-46 auth-url toasts must show during login, pre-auth */}
             <SignerToast />
             <VersionIndicator />
@@ -345,9 +366,11 @@ function App() {
                     <BottomNavProvider>
                         <UserModeProvider>
                             <LightboxProvider>
-                                <Router basename="/" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-                                    <AppContent />
-                                </Router>
+                                <FeatureFlagsProvider>
+                                    <Router basename="/" future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                                        <AppContent />
+                                    </Router>
+                                </FeatureFlagsProvider>
                             </LightboxProvider>
                         </UserModeProvider>
                     </BottomNavProvider>

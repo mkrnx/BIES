@@ -8,6 +8,7 @@ import { profilesApi, pointsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLightbox } from '../context/LightboxContext';
+import { useFeature } from '../context/FeatureFlagsContext';
 import { nostrService } from '../services/nostrService';
 import NostrFeed from '../components/NostrFeed';
 import NostrIcon from '../components/NostrIcon';
@@ -48,6 +49,8 @@ const PublicProfile = ({ type }) => {
     const [bolt12Copied, setBolt12Copied] = useState(false);
     const [points, setPoints] = useState(null);
     const lightbox = useLightbox();
+    const pointsEnabled = useFeature('points');
+    const messagesEnabled = useFeature('messages');
 
     useEffect(() => {
         const fetchProfile = async () => {
@@ -137,9 +140,10 @@ const PublicProfile = ({ type }) => {
         }).catch(() => { });
     }, [profile?.user?.id, profile?.userId]);
 
-    // Fetch gamification points/badges — silent-fail, unscored profiles render nothing
+    // Fetch gamification points/badges — silent-fail, unscored profiles render
+    // nothing. Skipped while the `points` feature is toggled off.
     useEffect(() => {
-        if (!profile) return;
+        if (!profile || !pointsEnabled) return;
         let pubkey = profile.user?.nostrPubkey;
         if (!pubkey && profile.nostrNpub) {
             try {
@@ -151,7 +155,7 @@ const PublicProfile = ({ type }) => {
         }
         if (!pubkey) return;
         pointsApi.user(pubkey).then(setPoints).catch(() => { });
-    }, [profile]);
+    }, [profile, pointsEnabled]);
 
     if (loading) {
         return (
@@ -171,8 +175,9 @@ const PublicProfile = ({ type }) => {
         ? nip19.npubEncode(profile.user.nostrPubkey)
         : profile.nostrNpub;
 
-    // Points UI renders only for scored users; badge strip is deduped by badgeId
-    const hasPoints = Boolean(points && (points.lifetimePoints > 0 || (points.badges || []).length > 0));
+    // Points UI renders only for scored users (and only while the `points`
+    // feature is enabled); badge strip is deduped by badgeId
+    const hasPoints = pointsEnabled && Boolean(points && (points.lifetimePoints > 0 || (points.badges || []).length > 0));
     const profileBadges = hasPoints ? [...new Map(points.badges.map(b => [b.badgeId, b])).values()] : [];
     const MAX_BADGE_CHIPS = 8;
 
@@ -253,8 +258,9 @@ const PublicProfile = ({ type }) => {
                                         {!isMobile && (followLoading ? t('publicProfile.loading', 'Loading...') : isFollowing ? t('publicProfile.following', 'Following') : t('publicProfile.follow', 'Follow'))}
                                     </button>
 
-                                    {/* Connect button — desktop only; on mobile it moves to ... menu */}
-                                    {!isMobile && (
+                                    {/* Connect button — desktop only; on mobile it moves to ... menu.
+                                        Hidden while the `messages` feature is toggled off. */}
+                                    {!isMobile && messagesEnabled && (
                                         <Link to="/messages" className="primary-action-btn" style={{
                                             borderRadius: 'var(--radius-md)', background: 'var(--color-primary)', color: 'white',
                                             height: '42px', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -291,7 +297,7 @@ const PublicProfile = ({ type }) => {
                                         border: '1px solid var(--color-gray-200)', padding: '0.25rem 0', zIndex: 50,
                                     }}>
                                         {/* Connect option in ... menu on mobile */}
-                                        {isMobile && currentUser && targetUserId && currentUser.id !== targetUserId && (
+                                        {isMobile && messagesEnabled && currentUser && targetUserId && currentUser.id !== targetUserId && (
                                             <Link to="/messages" onClick={() => setShowMenu(false)} style={{
                                                 width: '100%', textAlign: 'left', padding: '0.625rem 1rem',
                                                 display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.875rem',

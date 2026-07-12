@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Zap, Loader2 } from 'lucide-react';
 import { profilesApi, projectsApi } from '../services/api';
 import ZapModal from './ZapModal';
+import { useFeature } from '../context/FeatureFlagsContext';
 
 /**
  * A tag chip that can be zapped. Clicking it fetches all users who share
@@ -19,6 +20,9 @@ const ZappableTag = ({ tag, mode = 'tag', projectId, recipients: preResolved, cl
     const [recipients, setRecipients] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    // With the `zaps` feature toggled off the tag stays visible as a plain
+    // inert chip — no zap icon, no click handler, no modal.
+    const zapsEnabled = useFeature('zaps');
 
     const handleClick = async (e) => {
         e.preventDefault();
@@ -117,21 +121,22 @@ const ZappableTag = ({ tag, mode = 'tag', projectId, recipients: preResolved, cl
         <>
             <button
                 className={`zappable-tag ${className}`}
-                onClick={handleClick}
+                onClick={zapsEnabled ? handleClick : undefined}
                 disabled={loading}
                 data-testid={`zappable-tag-${tag}`}
-                title={`Zap everyone tagged "${tag}"`}
+                title={zapsEnabled ? `Zap everyone tagged "${tag}"` : undefined}
+                style={zapsEnabled ? undefined : { cursor: 'default' }}
             >
                 {loading ? (
                     <Loader2 size={12} className="zappable-tag-spin" />
-                ) : (
+                ) : zapsEnabled ? (
                     <Zap size={12} className="zappable-tag-icon" />
-                )}
+                ) : null}
                 <span>{tag}</span>
                 {error && <span className="zappable-tag-error">{error}</span>}
             </button>
 
-            {showModal && recipients.length > 0 && (
+            {zapsEnabled && showModal && recipients.length > 0 && (
                 <ZapModal
                     recipients={recipients}
                     onClose={() => setShowModal(false)}

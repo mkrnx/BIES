@@ -20,26 +20,31 @@ import {
 } from 'lucide-react';
 import { MARKETPLACE_ENABLED } from './featureFlags';
 
+// `flag:` marks a page as belonging to a runtime feature toggle (see
+// FeatureFlagsContext). Consumers (MobileBottomNav, CustomizeNavbar) must
+// exclude pages whose flag is disabled — even from user-customized tab sets.
+// The stored preference keeps the id, so re-enabling the feature restores
+// the user's tab untouched.
 export const NAV_PAGES = [
   { id: 'feed', path: '/feed', icon: MessageSquare, labelKey: 'mobileNav.home' },
   { id: 'discover', path: '/discover', icon: Compass, labelKey: 'mobileNav.discover' },
-  { id: 'events', path: '/events', icon: Calendar, labelKey: 'mobileNav.events' },
-  { id: 'media', path: '/media', icon: Play, labelKey: 'nav.media' },
+  { id: 'events', path: '/events', icon: Calendar, labelKey: 'mobileNav.events', flag: 'events' },
+  { id: 'media', path: '/media', icon: Play, labelKey: 'nav.media', flag: 'media' },
   { id: 'courses', path: '/courses', icon: GraduationCap, labelKey: 'courses.catalogTitle', auth: true },
   { id: 'dashboard', path: '/dashboard', icon: User, labelKey: 'mobileNav.dashboard', auth: true },
-  { id: 'news', path: '/news', icon: Newspaper, labelKey: 'mobileNav.news' },
-  { id: 'messages', path: '/messages', icon: Mail, labelKey: 'nav.messages', auth: true },
+  { id: 'news', path: '/news', icon: Newspaper, labelKey: 'mobileNav.news', flag: 'news' },
+  { id: 'messages', path: '/messages', icon: Mail, labelKey: 'nav.messages', auth: true, flag: 'messages' },
   { id: 'notifications', path: '/notifications', icon: Bell, labelKey: 'customNav.pages.notifications', auth: true },
-  { id: 'cowork', path: '/cowork', icon: Coffee, labelKey: 'mobileNav.cowork', auth: true },
+  { id: 'cowork', path: '/cowork', icon: Coffee, labelKey: 'mobileNav.cowork', auth: true, flag: 'cowork' },
   // Spread conditionally so the entry is absent (not just hidden) when the flag is off
   ...(MARKETPLACE_ENABLED
     ? [{ id: 'marketplace', path: '/discover/market', icon: Store, labelKey: 'marketplace.navLabel', auth: true }]
     : []),
   { id: 'bounties', path: '/bounties', icon: Target, labelKey: 'nav.bounties', auth: true },
-  { id: 'leaderboard', path: '/leaderboard', icon: Trophy, labelKey: 'nav.leaderboard', auth: true },
+  { id: 'leaderboard', path: '/leaderboard', icon: Trophy, labelKey: 'nav.leaderboard', auth: true, flag: 'points' },
   { id: 'profile', path: '/profile', icon: UserCircle, labelKey: 'nav.profile', auth: true },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings', auth: true },
-  { id: 'feedback', path: '/feedback', icon: MessageCircle, labelKey: 'customNav.pages.feedback' },
+  { id: 'feedback', path: '/feedback', icon: MessageCircle, labelKey: 'customNav.pages.feedback', flag: 'feedback' },
 ];
 
 export const NAV_PAGES_BY_ID = Object.fromEntries(NAV_PAGES.map((p) => [p.id, p]));

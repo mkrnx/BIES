@@ -5,6 +5,7 @@ import { LayoutDashboard, Folder, CalendarDays, BookOpen, Heart, MessageSquare, 
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useFeatureFlags } from '../context/FeatureFlagsContext';
 
 const Dashboard = () => {
     const { t } = useTranslation();
@@ -21,14 +22,17 @@ const Dashboard = () => {
         return () => setPortalTarget(null);
     }, []);
 
+    // `flag:` ties a tab to a runtime feature toggle — disabled features
+    // disappear from the dashboard nav (their routes 404 via FeatureRoute).
+    const { flags } = useFeatureFlags();
     const mainTabs = [
         { to: '/dashboard', label: t('dashboard.overview'), icon: LayoutDashboard, end: true },
-        { to: '/dashboard/projects', label: t('dashboard.projects') || 'Projects', icon: Folder },
-        { to: '/dashboard/events', label: t('dashboard.eventsTab') || 'Events', icon: CalendarDays },
+        { to: '/dashboard/projects', label: t('dashboard.projects') || 'Projects', icon: Folder, flag: 'projects' },
+        { to: '/dashboard/events', label: t('dashboard.eventsTab') || 'Events', icon: CalendarDays, flag: 'events' },
         { to: '/dashboard/courses', label: t('dashboard.courses') || 'Courses', icon: BookOpen },
         { to: '/dashboard/following', label: t('dashboard.following') || 'Following', icon: Heart },
-        { to: '/dashboard/messages', label: t('dashboard.messages') || 'Messages', icon: MessageSquare },
-    ];
+        { to: '/dashboard/messages', label: t('dashboard.messages') || 'Messages', icon: MessageSquare, flag: 'messages' },
+    ].filter((tab) => !tab.flag || flags[tab.flag] !== false);
 
     const isTabActive = (path, end) => end ? location.pathname === path : location.pathname.startsWith(path);
 
