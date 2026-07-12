@@ -6,7 +6,7 @@ import { ThemeProvider, useTheme } from './context/ThemeContext';
 import { ViewProvider, useViewPreference } from './context/ViewContext';
 import { LightboxProvider } from './context/LightboxContext';
 import { BottomNavProvider, useBottomNav } from './context/BottomNavContext';
-import { COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED, MARKETPLACE_ENABLED } from './config/featureFlags';
+import { BOUNTIES_ENABLED, COWORK_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED, COURSES_ENABLED, MARKETPLACE_ENABLED } from './config/featureFlags';
 import { preferencesApi } from './services/api';
 import i18n from './i18n';
 import Navbar from './components/Navbar';
@@ -38,6 +38,9 @@ import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import CustomizeNavbar from './pages/CustomizeNavbar';
 import Cowork from './pages/Cowork';
+import Bounties from './pages/Bounties';
+import BountyDetail from './pages/BountyDetail';
+import CreateBounty from './pages/CreateBounty';
 import ProjectDetails from './pages/ProjectDetails';
 import Notifications from './pages/Notifications';
 import ArticleDetail from './pages/ArticleDetail';
@@ -86,6 +89,7 @@ import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
 import AdminVouchers from './pages/admin/AdminVouchers';
 import AdminFeedback from './pages/admin/AdminFeedback';
 import AdminCourses from './pages/admin/AdminCourses';
+import AdminBounties from './pages/admin/AdminBounties';
 import Feedback from './pages/Feedback';
 
 // Protected Route Wrapper
@@ -217,6 +221,14 @@ const AppContent = () => {
                             <Route path="/courses/:id/lesson/:lessonId" element={<ProtectedRoute><LessonPlayer /></ProtectedRoute>} />
                         </>
                     )}
+                    {BOUNTIES_ENABLED && (
+                        <>
+                            <Route path="/bounties" element={<ProtectedRoute><Bounties /></ProtectedRoute>} />
+                            {/* /new must be declared before /:id */}
+                            <Route path="/bounties/new" element={<ProtectedRoute><CreateBounty /></ProtectedRoute>} />
+                            <Route path="/bounties/:id" element={<ProtectedRoute><BountyDetail /></ProtectedRoute>} />
+                        </>
+                    )}
 
                     {/* Protected Routes */}
                     {/* Specific Dashboard Routes */}
@@ -263,6 +275,7 @@ const AppContent = () => {
                         <Route path="vouchers" element={<AdminVouchers />} />
                         <Route path="feedback" element={<AdminFeedback />} />
                         {COURSES_ENABLED && <Route path="courses" element={<AdminCourses />} />}
+                        <Route path="bounties" element={<AdminBounties />} />
                     </Route>
 
                     <Route path="/project/:id" element={

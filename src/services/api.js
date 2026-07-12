@@ -298,6 +298,33 @@ export const pointsApi = {
     month: (m) => get(`/points/months/${m}`),
 };
 
+// ─── Bounties ─────────────────────────────────────────────────────────────────
+
+export const bountiesApi = {
+    list: (params = {}) => get('/bounties', params),
+    // params: { status, rewardType, featured, mine, posterId, page, limit }
+
+    get: (id) => get(`/bounties/${id}`),
+
+    create: (data) => post('/bounties', data),
+    // data: { title, description, rewardType, amount, deadline? }
+
+    submit: (id, content) => post(`/bounties/${id}/submissions`, { content }),
+
+    updateSubmission: (id, content) => put(`/bounties/${id}/submissions`, { content }),
+
+    award: (id, submissionId) => post(`/bounties/${id}/award`, { submissionId }),
+
+    unaward: (id) => post(`/bounties/${id}/unaward`, {}),
+
+    markPaid: (id, via) => post(`/bounties/${id}/mark-paid`, { via }),
+    // via: 'WALLET' | 'MANUAL'
+
+    cancel: (id) => post(`/bounties/${id}/cancel`, {}),
+
+    mirror: (id, eventId) => post(`/bounties/${id}/mirror`, eventId !== undefined ? { eventId } : {}),
+};
+
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 export const notificationsApi = {
@@ -428,6 +455,9 @@ export const adminApi = {
     recomputePoints: () => post('/admin/points/recompute', {}),
     grantBadge: (data) => post('/admin/points/badges/grant', data),
     revokeBadge: (userId, badgeId) => del(`/admin/points/badges/${userId}/${badgeId}`),
+    listBounties: (params = {}) => get('/admin/bounties', params),
+    deleteBounty: (id) => del(`/admin/bounties/${id}`),
+    featureBounty: (id, featured) => post(`/admin/bounties/${id}/feature`, { featured }),
     listDirectory: (params = {}) => get('/admin/directory', params),
     reviewDirectoryListing: (id, action) => put(`/admin/directory/${id}/review`, { action }),
     featureDirectoryListing: (id, featured) => put(`/admin/directory/${id}/feature`, { featured }),
