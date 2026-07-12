@@ -34,7 +34,7 @@ import {
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { NOSTR_RELAYS } from './nostrService.js';
-import { orderGateways } from './gatewayOrder.js';
+import { orderGateways, discoverThroughGateways } from './gatewayOrder.js';
 
 // Override gateways: the serving domain first (WebAuthn requires the primary,
 // registration rpId to equal the origin's domain — hardcoding one deployment's
@@ -392,42 +392,39 @@ export const keytrService = {
         // The serving domain (primary gateway) is tried first so credentials
         // registered on this deployment succeed with a single prompt; the
         // public backup gateways follow. Invalid rpIds (e.g. a backup that
-        // doesn't whitelist this origin) fail fast and fall through.
-        let lastError;
-        for (const rpId of BIES_GATEWAYS) {
+        // doesn't whitelist this origin) fail fast with no UI and fall
+        // through. Cancellations fall through too: a valid rpId with no
+        // matching credentials (e.g. this domain visited fresh while the
+        // passkey lives on keytr.org) still shows a browser prompt, and
+        // dismissing it is indistinguishable from cancelling a populated
+        // picker — aborting there would hard-block users whose credentials
+        // exist only under a backup gateway. Only after every gateway has
+        // been tried does a cancellation classify the whole login as
+        // cancelled (silent in the UI). See discoverThroughGateways().
+        return discoverThroughGateways(BIES_GATEWAYS, async (rpId) => {
+            const { nsecBytes, pubkey } = await discover(NOSTR_RELAYS, { rpId });
             try {
-                const { nsecBytes, pubkey } = await discover(NOSTR_RELAYS, { rpId });
-                try {
-                    const nsec = encodeNsec(nsecBytes);
-                    if (pubkey && !this.hasCredential(pubkey)) {
-                        const stored = getStored();
-                        stored.push({ pubkey, createdAt: new Date().toISOString() });
-                        setStored(stored);
-                    }
-                    // discover() doesn't expose which event decrypted — re-fetch
-                    // for KiH detection. Best-effort: never blocks the login.
-                    if (pubkey) {
-                        try {
-                            const events = await fetchKeytrEvents(pubkey, NOSTR_RELAYS);
-                            setLastLoginInfo(pubkey, events);
-                        } catch {
-                            _lastLoginInfo = null;
-                        }
-                    }
-                    return nsec;
-                } finally {
-                    nsecBytes.fill(0);
+                const nsec = encodeNsec(nsecBytes);
+                if (pubkey && !this.hasCredential(pubkey)) {
+                    const stored = getStored();
+                    stored.push({ pubkey, createdAt: new Date().toISOString() });
+                    setStored(stored);
                 }
-            } catch (err) {
-                if (isUserCancellation(err)) {
-                    const cancelled = new Error('User cancelled passkey selection');
-                    cancelled.cancelled = true;
-                    throw cancelled;
+                // discover() doesn't expose which event decrypted — re-fetch
+                // for KiH detection. Best-effort: never blocks the login.
+                if (pubkey) {
+                    try {
+                        const events = await fetchKeytrEvents(pubkey, NOSTR_RELAYS);
+                        setLastLoginInfo(pubkey, events);
+                    } catch {
+                        _lastLoginInfo = null;
+                    }
                 }
-                lastError = err;
+                return nsec;
+            } finally {
+                nsecBytes.fill(0);
             }
-        }
-        throw lastError || new Error('No discoverable passkey found');
+        }, isUserCancellation);
     },
 
     /**
