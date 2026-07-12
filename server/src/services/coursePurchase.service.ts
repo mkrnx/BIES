@@ -26,6 +26,7 @@ import prisma from '../lib/prisma';
 import { config } from '../config';
 import { cache } from './redis.service';
 import { createNotification } from './notification.service';
+import { safeGetJson } from '../utils/safeFetch';
 
 const LNURL_CACHE_TTL = 3600; // 1h
 const RELAY_QUERY_TIMEOUT_MS = 8000;
@@ -85,15 +86,13 @@ export async function getLnurlPayMetadata(
     if (cached) return cached;
 
     try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), RELAY_QUERY_TIMEOUT_MS);
-        const res = await fetch(
+        // SSRF-hardened: `domain` comes from a user-controlled lightningAddress,
+        // so this fetch validates every resolved IP against private/reserved
+        // ranges and pins it to the socket (see safeGetJson). https-only.
+        const data: any = await safeGetJson(
             `https://${domain}/.well-known/lnurlp/${encodeURIComponent(name)}`,
-            { signal: controller.signal }
+            RELAY_QUERY_TIMEOUT_MS
         );
-        clearTimeout(timer);
-        if (!res.ok) return null;
-        const data: any = await res.json();
         if (!data?.callback) return null;
 
         const meta: LnurlPayMetadata = {
