@@ -23,6 +23,7 @@ import { config } from '../config';
 import { BADGES } from './badges.catalog';
 import { publishEvent } from './nostr.service';
 import { getIssuerKeys, publishAsIssuer, ensureIssuerWhitelisted } from './issuer.service';
+import { isEnabled } from './featureFlags.service';
 
 function nowSeconds(): number {
     return Math.floor(Date.now() / 1000);
@@ -44,6 +45,15 @@ function badgeDefRef(issuerPubkey: string, badgeId: string): string {
  * when the issuer is disabled.
  */
 export async function publishBadgeDefinitions(): Promise<void> {
+    // Gamification badge definitions belong to the `points` feature. Safe to
+    // skip at boot: the maintenance loop's pending-award sweep resumes NIP-58
+    // publishing once an admin re-enables the flag, and definitions are
+    // republished on the next boot.
+    if (!(await isEnabled('points'))) {
+        console.log('[Badges] "points" feature disabled — definition publish skipped');
+        return;
+    }
+
     const issuer = await getIssuerKeys();
     if (!issuer) return; // disabled — warn already logged once
 

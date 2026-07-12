@@ -30,6 +30,7 @@ import {
 import { notifyBadgeEarned } from './notification.service';
 import { broadcast } from './websocket.service';
 import { publishBadgeAward, publishPendingAwards } from './badges.publisher';
+import { isEnabled } from './featureFlags.service';
 
 let _pool: InstanceType<Awaited<typeof import('nostr-tools/pool')>['SimplePool']> | null = null;
 async function getPool() {
@@ -56,16 +57,42 @@ let activeSub: { close: (reason?: string) => void } | null = null;
 let subGeneration = 0; // invalidates stale onclose callbacks
 let connecting = false;
 let retryAttempt = 0;
+let scorerDeferred = false; // boot skipped because the `points` flag was off
+let scoringPausedLogged = false;
+
+/**
+ * Runtime `points` feature check (cached read — cheap enough for the live
+ * event handler). Logs once per off→on cycle so a disabled flag doesn't spam
+ * the log on every relay event.
+ */
+async function pointsFeatureEnabled(): Promise<boolean> {
+    const enabled = await isEnabled('points');
+    if (!enabled && !scoringPausedLogged) {
+        console.log('[Points] "points" feature disabled — scoring paused');
+        scoringPausedLogged = true;
+    } else if (enabled && scoringPausedLogged) {
+        console.log('[Points] "points" feature re-enabled — scoring resumed');
+        scoringPausedLogged = false;
+    }
+    return enabled;
+}
 
 /**
  * Start the points scorer. Called once on server startup. Never throws —
  * an unreachable relay is logged and retried with capped exponential backoff.
+ * When the `points` feature flag is off at boot the start is deferred; the
+ * maintenance loop starts the scorer once an admin re-enables the flag.
  */
 export async function startPointsScorer(): Promise<void> {
     if (!config.nostrPrivateRelay) {
         console.warn('[Points] NOSTR_PRIVATE_RELAY not set — points scorer disabled');
         return;
     }
+    if (!(await pointsFeatureEnabled())) {
+        scorerDeferred = true;
+        return;
+    }
+    scorerDeferred = false;
     await connectAndStart();
 }
 
@@ -193,9 +220,12 @@ async function subscribeLive(
     const filter: Filter = { kinds: SCORED_KINDS, since };
     activeSub = pool.subscribeMany([config.nostrPrivateRelay], filter, {
         onevent: (event: Event) => {
-            processEvent(event).catch((err) =>
-                console.error('[Points] Process error:', err)
-            );
+            // Cheap cached flag read: turning `points` off stops scoring
+            // within the cache TTL without a restart (events during the
+            // pause are absorbed later by the resume-overlap replay).
+            pointsFeatureEnabled()
+                .then((enabled) => (enabled ? processEvent(event) : undefined))
+                .catch((err) => console.error('[Points] Process error:', err));
         },
         oneose: () => {
             console.log('[Points] Caught up with relay history');
@@ -223,7 +253,25 @@ export function startPointsMaintenanceLoop(): void {
     if (maintenanceStarted) return;
     maintenanceStarted = true;
 
-    const tick = () => {
+    const tick = async () => {
+        // Runtime feature gate: skip all points maintenance while the flag
+        // is off (logged once by pointsFeatureEnabled). If the scorer's boot
+        // start was deferred because the flag was off, start it now that an
+        // admin has re-enabled the feature — no restart required.
+        let enabled = true;
+        try {
+            enabled = await pointsFeatureEnabled();
+        } catch (error) {
+            console.error('[Points] Feature check failed — proceeding (fail-open):', error);
+        }
+        if (!enabled) return;
+
+        if (scorerDeferred) {
+            startPointsScorer().catch((error) =>
+                console.error('[Points] Deferred scorer start failed:', error)
+            );
+        }
+
         runMonthlyRollover().catch((error) =>
             console.error('[Points] Monthly rollover failed:', error)
         );

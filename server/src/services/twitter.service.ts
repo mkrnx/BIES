@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'fs/promises';
 import path from 'path';
 import { config } from '../config';
 import prisma from '../lib/prisma';
+import { isEnabled } from './featureFlags.service';
 
 const execFileAsync = promisify(execFile);
 
@@ -27,6 +28,7 @@ interface Tweet {
 }
 
 let refreshing = false;
+let refreshPausedLogged = false;
 
 async function readCache(): Promise<Tweet[]> {
     try {
@@ -134,6 +136,18 @@ async function getHandles(): Promise<string[]> {
 
 async function refreshFeed(): Promise<void> {
     if (refreshing || !config.twitterCookiesPath) return;
+
+    // Runtime feature gate: the loop keeps ticking while `news` is off (so
+    // re-enabling needs no restart) but each tick is a cheap cached no-op.
+    if (!(await isEnabled('news'))) {
+        if (!refreshPausedLogged) {
+            console.log('[Twitter] "news" feature disabled — feed refresh paused');
+            refreshPausedLogged = true;
+        }
+        return;
+    }
+    refreshPausedLogged = false;
+
     refreshing = true;
     try {
         const handles = await getHandles();
