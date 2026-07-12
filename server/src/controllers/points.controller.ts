@@ -61,6 +61,7 @@ function presentScore(
     score: {
         monthlyPoints: number;
         lifetimePoints: number;
+        bountyPoints: number;
         level: number;
         currentMonth: string;
         streakDays: number;
@@ -74,9 +75,13 @@ function presentScore(
     const monthlyPoints =
         score && score.currentMonth === currentMonth ? score.monthlyPoints : 0;
     const level = score?.level ?? 0;
+    const lifetimePoints = score?.lifetimePoints ?? 0;
+    const bountyPoints = score?.bountyPoints ?? 0;
     return {
         monthlyPoints,
-        lifetimePoints: score?.lifetimePoints ?? 0,
+        lifetimePoints,
+        bountyPoints,
+        spendablePoints: lifetimePoints + bountyPoints,
         level,
         titleKey: titleKeyFor(level),
         nextLevelAt: nextLevelAt(level),

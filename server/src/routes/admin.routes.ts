@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import { adminFeedbackRouter } from './feedback.routes';
+import { adminBountyRouter } from './bounty.routes';
 import {
     listUsers,
     banUser,
@@ -107,5 +108,8 @@ router.post('/cache/clear', clearCache);
 
 // Feedback
 router.use('/feedback', adminFeedbackRouter);
+
+// Bounties
+router.use('/bounties', adminBountyRouter);
 
 export default router;

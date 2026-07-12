@@ -14,6 +14,7 @@ import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
 import { startPointsScorer, startPointsMaintenanceLoop } from './services/points.indexer';
+import { startBountyMaintenanceLoop } from './services/bounty.service';
 import { publishBadgeDefinitions } from './services/badges.publisher';
 
 // ─── Version ─────────────────────────────────────────────────────────────────
@@ -51,6 +52,7 @@ import directoryRoutes from './routes/directory.routes';
 import coursesRoutes from './routes/courses.routes';
 import voucherRoutes from './routes/voucher.routes';
 import marketplaceRoutes from './routes/marketplace.routes';
+import bountyRoutes from './routes/bounty.routes';
 
 const app = express();
 
@@ -211,6 +213,7 @@ app.use('/api/directory', directoryRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/vouchers', voucherRoutes);
 app.use('/api/marketplace', marketplaceRoutes);
+app.use('/api/bounties', bountyRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
@@ -262,6 +265,14 @@ server.listen(config.port, () => {
         startPointsMaintenanceLoop();
     } catch (err) {
         console.error('[Points] Maintenance loop failed to start:', err);
+    }
+
+    // Bounty maintenance loop (deadline expiry + escrow refunds) — a failure
+    // must never take down the API.
+    try {
+        startBountyMaintenanceLoop();
+    } catch (err) {
+        console.error('[Bounties] Maintenance loop failed to start:', err);
     }
 
     // NIP-58 badge definitions (kind 30009, replaceable — republish is

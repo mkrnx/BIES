@@ -1,6 +1,6 @@
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
 // use dynamic import() so the compiled CJS output doesn't call require().
-import type { EventTemplate } from 'nostr-tools/pure';
+import type { Event as NostrEvent, EventTemplate } from 'nostr-tools/pure';
 import { randomUUID } from 'crypto';
 import { config } from '../config';
 import prisma from '../lib/prisma';
@@ -58,6 +58,31 @@ export async function publishEvent(
         return published > 0 ? signedEvent.id : null;
     } catch (error) {
         console.error('[Nostr] Publish error:', error);
+        return null;
+    }
+}
+
+/**
+ * Fetch a single event by id from the configured relays (private relay
+ * first, then public). Signature is verified by the pool. Returns null on
+ * miss or timeout — callers treat that as "event does not exist".
+ */
+export async function fetchEventById(eventId: string, timeoutMs = 5000): Promise<NostrEvent | null> {
+    try {
+        const pool = await getPool();
+        const relays: string[] = [];
+        if (config.nostrPrivateRelay) relays.push(config.nostrPrivateRelay);
+        relays.push(...config.nostrRelays);
+        if (relays.length === 0) return null;
+
+        const event = await Promise.race([
+            pool.get(relays, { ids: [eventId] }),
+            new Promise<null>((resolve) => setTimeout(resolve, timeoutMs, null)),
+        ]);
+        if (!event || event.id !== eventId) return null;
+        return event;
+    } catch (error) {
+        console.error('[Nostr] Event fetch error:', error);
         return null;
     }
 }
