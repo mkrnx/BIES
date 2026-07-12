@@ -48,6 +48,7 @@ import walletRoutes from './routes/wallet.routes';
 import feedbackRoutes, { adminFeedbackRouter } from './routes/feedback.routes';
 import pointsRoutes from './routes/points.routes';
 import directoryRoutes from './routes/directory.routes';
+import voucherRoutes from './routes/voucher.routes';
 
 const app = express();
 
@@ -205,6 +206,7 @@ app.use('/api/wallet', walletRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/points', pointsRoutes);
 app.use('/api/directory', directoryRoutes);
+app.use('/api/vouchers', voucherRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

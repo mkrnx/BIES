@@ -12,7 +12,7 @@
 // use dynamic import() so the compiled CJS output doesn't call require().
 import type { EventTemplate } from 'nostr-tools/pure';
 import { config } from '../config';
-import { addToRelayWhitelist } from '../controllers/auth.controller';
+import { addToRelayWhitelist } from './relayWhitelist.service';
 
 export interface IssuerKeys {
     privkey: Uint8Array;
