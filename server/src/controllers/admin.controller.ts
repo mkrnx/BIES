@@ -20,6 +20,7 @@ import {
 } from '../services/points.service';
 import { BADGES } from '../services/badges.catalog';
 import { publishCourseBadgeDefinition } from '../services/badges.publisher';
+import { mirrorCourseToNostr, unpublishCourseFromNostr } from '../services/courses.service';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1756,8 +1757,10 @@ export async function reviewCourse(req: Request, res: Response): Promise<void> {
         if (action === 'approve') {
             publishCourseBadgeDefinition(course)
                 .catch((err) => console.error('[Nostr] Course badge definition publish failed:', err));
-            // PR4 seam: publish lesson events (30023/30402 teaser) + the
-            // kind-30004 course list here, storing nostrEventId per row.
+            // Mirror to Nostr: lesson events (30023/30402 teaser) + the
+            // kind-30004 course list, storing nostrEventId per row.
+            mirrorCourseToNostr(course.id)
+                .catch((err) => console.error('[Nostr] Course mirror failed:', err));
         }
 
         await prisma.notification.create({
@@ -1814,7 +1817,7 @@ export async function featureCourse(req: Request, res: Response): Promise<void> 
  */
 export async function deleteAdminCourse(req: Request, res: Response): Promise<void> {
     try {
-        // PR4 seam: NIP-09 delete of the course + lesson events goes here.
+        await unpublishCourseFromNostr(req.params.id);
         await prisma.course.delete({ where: { id: req.params.id } });
         await cache.delPattern('courses:');
 

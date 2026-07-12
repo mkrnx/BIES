@@ -23,6 +23,7 @@ import {
     QuizAnswerKey,
 } from '../services/courses.service';
 import { claimZapPurchase } from '../services/coursePurchase.service';
+import { mirrorCourseToNostr, unpublishCourseFromNostr } from '../services/courses.service';
 
 // ─── Constants / helpers ─────────────────────────────────────────────────────
 
@@ -632,7 +633,12 @@ export async function updateCourse(req: Request, res: Response): Promise<void> {
         const course = await prisma.course.update({ where: { id: existing.id }, data });
         await invalidateCourseCache();
 
-        // PR4 seam: if course stayed active, re-publish the kind-30004 mirror here.
+        // Staff edits keep the course active — refresh the Nostr mirror
+        // (replaceable events, same d-tags). Author edits went back to
+        // pending-review and re-mirror on re-approval instead.
+        if (course.status === 'active') {
+            mirrorCourseToNostr(course.id).catch(() => {});
+        }
         res.json(serializeCourse(course));
     } catch (error) {
         console.error('Update course error:', error);
@@ -649,7 +655,7 @@ export async function deleteCourse(req: Request, res: Response): Promise<void> {
         const existing = await loadOwnedCourse(req, res, { nostrEventId: true, nostrPublish: true });
         if (!existing) return;
 
-        // PR4 seam: NIP-09 delete of the course + lesson events goes here.
+        await unpublishCourseFromNostr(existing.id);
         await prisma.course.delete({ where: { id: existing.id } });
         await invalidateCourseCache();
         res.json({ message: 'Course deleted' });
@@ -819,7 +825,11 @@ export async function updateLesson(req: Request, res: Response): Promise<void> {
         });
         await invalidateCourseCache();
 
-        // PR4 seam: re-publish the lesson's Nostr event if the course is active.
+        // Staff edit on an active course → refresh the mirror (author edits
+        // reset to pending-review and re-mirror on re-approval).
+        if (existing.status === 'active' && isStaff(req)) {
+            mirrorCourseToNostr(existing.id).catch(() => {});
+        }
         res.json(sanitizeLessonForLearner(updated));
     } catch (error) {
         console.error('Update lesson error:', error);

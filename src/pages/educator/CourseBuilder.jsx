@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -7,6 +7,8 @@ import {
 } from 'lucide-react';
 import { coursesApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { nostrService } from '../../services/nostrService';
+import { nostrSigner } from '../../services/nostrSigner';
 
 const STATUS_CFG = {
   'draft': { tKey: 'courses.status.draft', color: 'var(--badge-draft-text)', bg: 'var(--badge-draft-bg)' },
@@ -76,6 +78,43 @@ const CourseBuilder = () => {
       navigate('/dashboard/courses', { replace: true });
     }
   }, [loading, course, user, isStaff, navigate]);
+
+  // Nostr-native authors mirror client-side once the course is approved
+  // (custodial authors are mirrored by the server on approval). Best-effort:
+  // publish each non-quiz lesson (30023 free / 30402 paid teaser) then the
+  // kind-30004 curation set, and report ids back so zap matching works.
+  const mirroredRef = useRef(false);
+  useEffect(() => {
+    if (loading || !course || mirroredRef.current) return;
+    const isAuthor = user?.id && course.author?.id && user.id === course.author.id;
+    if (!isAuthor || course.status !== 'active' || course.nostrEventId) return;
+    if (!nostrSigner._mode || course.nostrPublish === 'none') return;
+    mirroredRef.current = true;
+
+    (async () => {
+      try {
+        const target = course.nostrPublish || 'bies';
+        const ordered = [...(course.lessons || [])].sort((a, b) => (a.position ?? 0) - (b.position ?? 0));
+        const lessonRefs = [];
+        for (const meta of ordered) {
+          if (meta.type === 'QUIZ') continue;
+          // Author fetch returns full content (needed for free 30023 bodies)
+          const full = await coursesApi.getLesson(course.id, meta.id);
+          const eventId = await nostrService.publishCourseLesson(course, full, target);
+          if (eventId) lessonRefs.push({ lessonId: meta.id, eventId });
+        }
+        const courseEventId = await nostrService.publishCourse(course, ordered, target);
+        if (courseEventId || lessonRefs.length > 0) {
+          await coursesApi.setNostrRefs(course.id, {
+            ...(courseEventId ? { courseEventId } : {}),
+            ...(lessonRefs.length > 0 ? { lessons: lessonRefs } : {}),
+          });
+        }
+      } catch (err) {
+        console.warn('[Courses] Client Nostr mirror failed:', err?.message || err);
+      }
+    })();
+  }, [loading, course, user]);
 
   const handleSubmitForReview = async () => {
     setSubmitting(true);

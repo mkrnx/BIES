@@ -12,6 +12,12 @@ import prisma from '../lib/prisma';
 import { applyPoints, isUniqueViolation, monthOf } from './points.service';
 import { publishBadgeAward } from './badges.publisher';
 import { createNotification } from './notification.service';
+import {
+    publishCourse,
+    publishLessonArticle,
+    publishPaidLessonTeaser,
+    deleteCourseFromNostr,
+} from './nostr.service';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -268,4 +274,85 @@ async function awardCompletion(
         body: `You completed "${course.title}". Your certificate is available on your profile.`,
         data: { courseId: course.id },
     }).catch(() => {});
+}
+
+// ─── Nostr mirror orchestration ──────────────────────────────────────────────
+
+/**
+ * Best-effort mirror of an ACTIVE course to Nostr for custodial authors:
+ * each non-quiz lesson as 30023 (free) / 30402 teaser (paid), then the
+ * kind-30004 curation set referencing them, storing event ids back on the
+ * rows. Nostr-native authors publish the twins client-side and report ids
+ * via POST /courses/:id/nostr-refs. Never throws.
+ */
+export async function mirrorCourseToNostr(courseId: string): Promise<void> {
+    try {
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            include: { lessons: { orderBy: { position: 'asc' } } },
+        });
+        if (!course || course.status !== 'active' || course.nostrPublish === 'none') return;
+
+        const target = course.nostrPublish as 'bies' | 'public' | 'both';
+        const isPaid = course.priceSats > 0;
+
+        for (const lesson of course.lessons) {
+            if (lesson.type === 'QUIZ') continue; // quiz content is never mirrored
+            const eventId = isPaid
+                ? await publishPaidLessonTeaser(course.authorId, course, lesson, target)
+                : await publishLessonArticle(course.authorId, course, lesson, target);
+            if (eventId) {
+                await prisma.lesson.update({
+                    where: { id: lesson.id },
+                    data: { nostrEventId: eventId },
+                });
+            }
+        }
+
+        const courseEventId = await publishCourse(course.authorId, course, course.lessons, target);
+        if (courseEventId) {
+            await prisma.course.update({
+                where: { id: course.id },
+                data: { nostrEventId: courseEventId },
+            });
+        }
+    } catch (error) {
+        console.error('[Courses] Nostr mirror failed:', error);
+    }
+}
+
+/**
+ * Best-effort NIP-09 removal of a course's Nostr events. Call BEFORE the DB
+ * delete (needs the rows for ids). Never throws.
+ */
+export async function unpublishCourseFromNostr(courseId: string): Promise<void> {
+    try {
+        const course = await prisma.course.findUnique({
+            where: { id: courseId },
+            select: {
+                id: true,
+                authorId: true,
+                priceSats: true,
+                nostrEventId: true,
+                nostrPublish: true,
+                lessons: { select: { id: true, nostrEventId: true, type: true } },
+            },
+        });
+        if (!course || course.nostrPublish === 'none') return;
+
+        const kind = course.priceSats > 0 ? 30402 : 30023;
+        await deleteCourseFromNostr(
+            course.authorId,
+            {
+                courseEventId: course.nostrEventId,
+                courseId: course.id,
+                lessons: course.lessons
+                    .filter((l) => l.type !== 'QUIZ')
+                    .map((l) => ({ eventId: l.nostrEventId, lessonId: l.id, kind })),
+            },
+            course.nostrPublish as 'bies' | 'public' | 'both'
+        );
+    } catch (error) {
+        console.error('[Courses] Nostr unpublish failed:', error);
+    }
 }

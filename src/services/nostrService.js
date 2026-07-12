@@ -923,6 +923,126 @@ class NostrService {
     }
 
     /**
+     * Relay set for a course-mirror target ('bies' | 'public' | 'both').
+     */
+    _courseRelays(target) {
+        if (target === 'bies') return [this.biesRelay];
+        if (target === 'public') return [...this.publicRelays];
+        return [this.biesRelay, ...this.publicRelays];
+    }
+
+    /**
+     * Deduped topic tags for a course event (mirrors the server's
+     * courseTopicTags in nostr.service.ts).
+     */
+    _courseTopicTags(course) {
+        const tags = [['t', 'bies'], ['t', 'education']];
+        const seen = new Set(['bies', 'education']);
+        let extraTags = course.tags;
+        if (typeof extraTags === 'string') {
+            try { extraTags = JSON.parse(extraTags || '[]'); } catch { extraTags = []; }
+        }
+        for (const raw of [course.category, ...(extraTags || [])]) {
+            const t = String(raw || '').toLowerCase().replace(/_/g, '-').trim();
+            if (t && !seen.has(t) && seen.size < 12) {
+                seen.add(t);
+                tags.push(['t', t]);
+            }
+        }
+        return tags;
+    }
+
+    /**
+     * Publish one course lesson for a Nostr-native author. Twin of the
+     * server's publishLessonArticle / publishPaidLessonTeaser:
+     * free lesson → kind 30023 full markdown; paid lesson → kind 30402
+     * with a summary-derived teaser ONLY (full content never enters the
+     * event — the API is the real gate). Quiz lessons must not be passed.
+     * Returns the signed event id.
+     * @param {Object} course - { id, title, summary, coverImage, tags, category, priceSats }
+     * @param {Object} lesson - { id, title, type, content: {markdown|videoUrl,caption} }
+     */
+    async publishCourseLesson(course, lesson, target = 'bies') {
+        if (lesson.type === 'QUIZ') return null; // never mirrored
+        const isPaid = (course.priceSats || 0) > 0;
+        const now = Math.floor(Date.now() / 1000);
+
+        const tags = [
+            ['d', lesson.id],
+            ['title', lesson.title],
+            ['summary', (course.summary || '').slice(0, 200)],
+            ['published_at', String(now)],
+            ...this._courseTopicTags(course),
+        ];
+        if (course.coverImage) tags.push(['image', course.coverImage]);
+
+        let kind;
+        let content;
+        if (isPaid) {
+            kind = 30402;
+            tags.push(['price', String(course.priceSats), 'SATS']);
+            content = (course.summary || course.title).slice(0, 300);
+        } else {
+            kind = 30023;
+            const body = lesson.content || {};
+            content = lesson.type === 'VIDEO'
+                ? `${body.caption ? body.caption + '\n\n' : ''}${body.videoUrl || ''}`
+                : (body.markdown || '');
+            if (!content) return null;
+        }
+
+        const pubkey = await nostrSigner.getPublicKey();
+        const signedEvent = await nostrSigner.signEvent({
+            kind,
+            pubkey,
+            created_at: now,
+            tags,
+            content,
+        });
+        await Promise.any(this.pool.publish(this._courseRelays(target), signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
+    }
+
+    /**
+     * Publish the course container as a NIP-51 curation set (kind 30004)
+     * for a Nostr-native author. Ordered `a` tags reference the lesson
+     * events (30023 free / 30402 paid); quiz lessons are skipped. Twin of
+     * the server's publishCourse. Returns the signed event id.
+     * @param {Object} course - { id, title, summary, description, coverImage, tags, category, priceSats }
+     * @param {Array<{id, type}>} orderedLessons - lessons in position order
+     */
+    async publishCourse(course, orderedLessons, target = 'bies') {
+        const pubkey = await nostrSigner.getPublicKey();
+        const isPaid = (course.priceSats || 0) > 0;
+        const now = Math.floor(Date.now() / 1000);
+
+        const tags = [
+            ['d', course.id],
+            ['title', course.title],
+            ['summary', (course.summary || '').slice(0, 200)],
+            ['published_at', String(now)],
+            ...this._courseTopicTags(course),
+        ];
+        if (course.coverImage) tags.push(['image', course.coverImage]);
+        if (isPaid) tags.push(['price', String(course.priceSats), 'SATS']);
+
+        for (const lesson of orderedLessons || []) {
+            if (lesson.type === 'QUIZ') continue;
+            tags.push(['a', `${isPaid ? 30402 : 30023}:${pubkey}:${lesson.id}`]);
+        }
+
+        const signedEvent = await nostrSigner.signEvent({
+            kind: 30004,
+            pubkey,
+            created_at: now,
+            tags,
+            content: course.description || course.summary || '',
+        });
+        await Promise.any(this.pool.publish(this._courseRelays(target), signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
+    }
+
+    /**
      * Publish a NIP-65 relay list metadata event (kind:10002).
      * For Nostr-native users — signs via browser extension.
      * Tags BIES relay as write, public relays as read.
