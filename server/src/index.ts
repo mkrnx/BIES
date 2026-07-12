@@ -50,6 +50,7 @@ import pointsRoutes from './routes/points.routes';
 import directoryRoutes from './routes/directory.routes';
 import coursesRoutes from './routes/courses.routes';
 import voucherRoutes from './routes/voucher.routes';
+import marketplaceRoutes from './routes/marketplace.routes';
 
 const app = express();
 
@@ -209,6 +210,7 @@ app.use('/api/points', pointsRoutes);
 app.use('/api/directory', directoryRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/vouchers', voucherRoutes);
+app.use('/api/marketplace', marketplaceRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {
