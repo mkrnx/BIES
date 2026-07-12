@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "test:unit": "node --test 'tests/unit/**/*.test.js'",
+    "test:unit": "node --test 'tests/unit/**/*.test.js' 'src/**/*.test.js'",
     "preview": "vite preview",
     "version:show": "bash scripts/version.sh",
     "version:patch": "bash scripts/version.sh patch",

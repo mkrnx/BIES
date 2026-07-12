@@ -34,14 +34,18 @@ import {
     KEYTR_GATEWAYS,
 } from '@sovit.xyz/keytr';
 import { NOSTR_RELAYS } from './nostrService.js';
+import { orderGateways } from './gatewayOrder.js';
 
-// Override gateways: our domain first, then keytr.org and nostkey.org as backups.
-// On localhost (dev/E2E) use 'localhost' as the sole rpId — WebAuthn rejects
-// cross-origin rpIds from a localhost origin, so passkeys would otherwise be
-// untestable locally. Production behavior is unchanged.
-const BIES_GATEWAYS = (typeof window !== 'undefined' && window.location.hostname === 'localhost')
-    ? ['localhost']
-    : ['app.buildinelsalvador.com', ...KEYTR_GATEWAYS.filter(g => g !== 'app.buildinelsalvador.com')];
+// Override gateways: the serving domain first (WebAuthn requires the primary,
+// registration rpId to equal the origin's domain — hardcoding one deployment's
+// domain broke passkeys on every other deployment), then keytr.org and
+// nostkey.org as backups. On localhost (dev/E2E) 'localhost' is the sole rpId —
+// WebAuthn rejects cross-origin rpIds from a localhost origin, so passkeys
+// would otherwise be untestable locally. See orderGateways() for the contract.
+const BIES_GATEWAYS = orderGateways(
+    typeof window !== 'undefined' ? window.location.hostname : undefined,
+    KEYTR_GATEWAYS,
+);
 
 const STORAGE_KEY = 'bies_keytr_credentials';
 const MIGRATED_KEY = 'bies_kih_migrated';
@@ -252,8 +256,9 @@ export const keytrService = {
     },
 
     /**
-     * Register on the primary gateway (keytr.org) only — one biometric prompt.
-     * Use addBackupGateway() afterwards to add nostkey.org as a fallback.
+     * Register on the primary gateway (the serving domain) only — one
+     * biometric prompt. Use addBackupGateway() afterwards to add the public
+     * keytr gateways (keytr.org, nostkey.org) as fallbacks.
      *
      * @param {string} nsec - bech32-encoded nsec
      * @param {string} pubkey - hex-encoded public key
@@ -384,8 +389,10 @@ export const keytrService = {
         }
 
         // Tier 3 — discoverable: try each gateway rpId
-        // Primary gateway (app.buildinelsalvador.com) is tried first so
-        // credentials registered on BIES succeed with a single prompt.
+        // The serving domain (primary gateway) is tried first so credentials
+        // registered on this deployment succeed with a single prompt; the
+        // public backup gateways follow. Invalid rpIds (e.g. a backup that
+        // doesn't whitelist this origin) fail fast and fall through.
         let lastError;
         for (const rpId of BIES_GATEWAYS) {
             try {
