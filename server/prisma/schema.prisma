@@ -57,6 +57,8 @@ model User {
   directoryListings     DirectoryListing[]     @relation("DirectoryListingsOwned")
   directoryMemberships  DirectoryListing[]     @relation("DirectoryListingsAsMember")
   directoryEndorsements DirectoryEndorsement[]
+  vouchersCreated       Voucher[]
+  voucherRedemptions    VoucherRedemption[]
 
   @@map("users")
 }
@@ -772,4 +774,54 @@ model DirectoryEndorsement {
   user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([listingId, userId])
   @@map("directory_endorsements")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Relay Access Vouchers (admin-issued links that whitelist external pubkeys)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model Voucher {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  type        String    @default("RELAY_ACCESS") // RELAY_ACCESS | ONBOARDING
+  status      String    @default("ACTIVE") // ACTIVE | REVOKED
+  label       String    @default("")
+  priceSats   Int       @default(0) @map("price_sats")
+  maxUses     Int       @default(1) @map("max_uses") // 0 = unlimited
+  useCount    Int       @default(0) @map("use_count") // COMPLETED redemptions
+  expiresAt   DateTime? @map("expires_at")
+  notes       String    @default("")
+  createdById String    @map("created_by_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  createdBy   User                @relation(fields: [createdById], references: [id], onDelete: Cascade)
+  redemptions VoucherRedemption[]
+
+  @@index([type])
+  @@index([status])
+  @@map("vouchers")
+}
+
+model VoucherRedemption {
+  id          String    @id @default(cuid())
+  voucherId   String    @map("voucher_id")
+  pubkey      String?   // hex pubkey (RELAY_ACCESS); null for ONBOARDING signups
+  userId      String?   @map("user_id") // signed-up user (ONBOARDING attribution)
+  status      String    @default("COMPLETED") // PENDING_PAYMENT | COMPLETED | EXPIRED | REVOKED
+  invoiceHash String?   @map("invoice_hash")
+  bolt11      String    @default("")
+  amountSats  Int       @default(0) @map("amount_sats")
+  ipAddress   String?   @map("ip_address")
+  redeemedAt  DateTime? @map("redeemed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  voucher Voucher @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([voucherId, pubkey])
+  @@index([voucherId])
+  @@index([pubkey])
+  @@index([status])
+  @@map("voucher_redemptions")
 }

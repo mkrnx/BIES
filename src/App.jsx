@@ -44,6 +44,8 @@ import ArticleDetail from './pages/ArticleDetail';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import AmberCallback from './pages/AmberCallback';
+import VoucherRedeem from './pages/VoucherRedeem';
+import Join from './pages/Join';
 import ProfileSetup from './pages/ProfileSetup';
 import Dashboard from './pages/Dashboard';
 import Leaderboard from './pages/Leaderboard';
@@ -72,6 +74,7 @@ import AdminPoints from './pages/admin/AdminPoints';
 import AdminAuditLog from './pages/admin/AdminAuditLog';
 import AdminNewsSettings from './pages/admin/AdminNewsSettings';
 import AdminInvestorVetting from './pages/admin/AdminInvestorVetting';
+import AdminVouchers from './pages/admin/AdminVouchers';
 import AdminFeedback from './pages/admin/AdminFeedback';
 import Feedback from './pages/Feedback';
 
@@ -151,6 +154,9 @@ const AppContent = () => {
                     <Route path="/signup" element={<Signup />} />
                     {/* NIP-55 Amber intent callback (public — used mid-login) */}
                     <Route path="/amber-callback" element={<AmberCallback />} />
+                    {/* Relay-access voucher redemption + onboarding invite landing (public) */}
+                    <Route path="/access/:code" element={<VoucherRedeem />} />
+                    <Route path="/join/:code" element={<Join />} />
 
                     {/* Directories (declared before the generic /discover route) */}
                     <Route path="/discover/farms" element={<ProtectedRoute><DirectoryList type="FARM" /></ProtectedRoute>} />
@@ -221,6 +227,7 @@ const AppContent = () => {
                         <Route path="audit-log" element={<AdminAuditLog />} />
                         <Route path="news-settings" element={<AdminNewsSettings />} />
                         <Route path="investor-vetting" element={<AdminInvestorVetting />} />
+                        <Route path="vouchers" element={<AdminVouchers />} />
                         <Route path="feedback" element={<AdminFeedback />} />
                     </Route>
 

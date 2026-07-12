@@ -28,6 +28,7 @@ export type NotificationType =
     | 'COMMENT_REPLY'
     | 'LEVEL_UP'
     | 'BADGE_EARNED'
+    | 'VOUCHER_REDEEMED'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -409,6 +410,8 @@ function getNotificationUrl(type: string, data: Record<string, unknown>): string
         case 'LEVEL_UP':
         case 'BADGE_EARNED':
             return '/leaderboard';
+        case 'VOUCHER_REDEEMED':
+            return '/admin/vouchers';
         default:
             return '/notifications';
     }

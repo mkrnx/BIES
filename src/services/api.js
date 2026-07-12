@@ -84,9 +84,24 @@ async function uploadFile(path, formData) {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+// Onboarding voucher attribution (single choke point): if the visitor arrived
+// via a /join/:code invite link, the code is stashed in localStorage and
+// attached to the initial register / nostr-login request, then cleared once
+// the server accepts the request.
+const withVoucherCode = (body) => {
+    const voucherCode = localStorage.getItem('bies_onboarding_code') || undefined;
+    return voucherCode ? { ...body, voucherCode } : body;
+};
+
+const clearVoucherCode = (data) => {
+    localStorage.removeItem('bies_onboarding_code');
+    return data;
+};
+
 export const authApi = {
     register: (email, password, role, name, fingerprint) =>
-        post('/auth/register', { email, password, role, name, fingerprint }),
+        post('/auth/register', withVoucherCode({ email, password, role, name, fingerprint }))
+            .then(clearVoucherCode),
 
     login: (email, password, fingerprint) =>
         post('/auth/login', { email, password, fingerprint }),
@@ -95,7 +110,8 @@ export const authApi = {
         get('/auth/nostr-challenge', { pubkey }),
 
     nostrLogin: (pubkey, signedEvent, fingerprint) =>
-        post('/auth/nostr-login', { pubkey, signedEvent, fingerprint }),
+        post('/auth/nostr-login', withVoucherCode({ pubkey, signedEvent, fingerprint }))
+            .then(clearVoucherCode),
 
     demoLogin: () => post('/auth/demo-login'), // TODO: Remove before production
 
@@ -339,6 +355,19 @@ export const investorApi = {
     requestRole: (data) => post('/investor/request', data),
 };
 
+// ─── Vouchers (relay access / onboarding) ────────────────────────────────────
+// Public endpoints — work logged-out (the shared request wrapper only attaches
+// the Authorization header when a token exists).
+
+export const voucherApi = {
+    info: (code) => get(`/vouchers/code/${encodeURIComponent(code)}`),
+
+    redeem: (code, pubkey) =>
+        post(`/vouchers/code/${encodeURIComponent(code)}/redeem`, { pubkey }),
+
+    redemptionStatus: (id) => get(`/vouchers/redemptions/${encodeURIComponent(id)}/status`),
+};
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export const searchApi = {
@@ -388,6 +417,11 @@ export const adminApi = {
     setDirectoryScore: (id, baseScore) => put(`/admin/directory/${id}/score`, { baseScore }),
     recomputeDirectoryScores: () => post('/admin/directory/recompute', {}),
     deleteDirectoryListing: (id) => del(`/admin/directory/${id}`),
+    createVoucher: (data) => post('/vouchers', data),
+    listVouchers: () => get('/vouchers'),
+    voucherRedemptions: (id) => get(`/vouchers/${id}/redemptions`),
+    revokeVoucher: (id, revokeAccess) => post(`/vouchers/${id}/revoke`, { revokeAccess }),
+    revokeRedemption: (id, revokeAccess) => post(`/vouchers/redemptions/${id}/revoke`, { revokeAccess }),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────
