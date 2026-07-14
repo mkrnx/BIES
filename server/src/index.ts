@@ -221,8 +221,8 @@ app.use('/api/points', featureGate('points'), pointsRoutes);
 app.use('/api/directory', featureGate('directories'), directoryRoutes);
 app.use('/api/courses', coursesRoutes);
 app.use('/api/vouchers', voucherRoutes);
-app.use('/api/marketplace', marketplaceRoutes);
-app.use('/api/bounties', bountyRoutes);
+app.use('/api/marketplace', featureGate('marketplace'), marketplaceRoutes);
+app.use('/api/bounties', featureGate('bounties'), bountyRoutes);
 
 // ─── 404 handler ──────────────────────────────────────────────────────────────
 app.use((_req, res) => {

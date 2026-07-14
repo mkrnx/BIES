@@ -20,9 +20,20 @@ them pauses.
 | `investors` | Investor features + vetting | `/api/investors`, `/api/investments` |
 | `projects` | Project listings/pages | `/api/projects` |
 | `cowork` | Cowork check-in page | none — pure client-side Nostr (kind 31980 on the private relay); UI gate only |
+| `marketplace` | Shopstr-compatible NIP-99 marketplace + moderation blocklist | `/api/marketplace` |
+| `bounties` | Bounty board, submissions, escrow/payout + maintenance loop | `/api/bounties` |
 
 Feed, Discover, profiles, auth, courses and admin are core and **not**
 toggleable.
+
+`marketplace` and `bounties` are **additionally** guarded by the build-time
+constants `MARKETPLACE_ENABLED` / `BOUNTIES_ENABLED` in
+`src/config/featureFlags.js` — a feature is visible only when its build
+constant is `true` **and** its runtime flag is on. The build constants are a
+frontend-only hard kill-switch (a rebuild); the runtime flag is the live admin
+toggle. The bounties maintenance loop pauses while the flag is off, but the
+zap-settlement matcher (`matchBountyPayout`) stays live so an already-awarded
+bounty's incoming zap still settles.
 
 ## Semantics
 

@@ -31,6 +31,7 @@ import {
     notifyBountyCancelled,
 } from './notification.service';
 import { publishEvent, fetchEventById } from './nostr.service';
+import { isEnabled } from './featureFlags.service';
 
 // ─── Types & constants ───────────────────────────────────────────────────────
 
@@ -548,15 +549,48 @@ export async function expireBounties(): Promise<number> {
 
 let maintenanceStarted = false;
 
+// Tracks the last-logged runtime state so a skip/resume is logged only on the
+// off→on / on→off transition, not on every 15-min tick.
+let bountiesLoggedDisabled = false;
+
+/**
+ * Runtime `bounties` feature check (cached read). Fail-open: any error yields
+ * enabled, so a flaky flags store can never freeze bounty maintenance. Logs
+ * once per transition.
+ */
+async function bountiesFeatureEnabled(): Promise<boolean> {
+    let enabled = true;
+    try {
+        enabled = await isEnabled('bounties');
+    } catch (error) {
+        console.error('[Bounties] Feature check failed — proceeding (fail-open):', error);
+        return true;
+    }
+    if (!enabled && !bountiesLoggedDisabled) {
+        console.log('[Bounties] "bounties" feature disabled — maintenance paused');
+        bountiesLoggedDisabled = true;
+    } else if (enabled && bountiesLoggedDisabled) {
+        console.log('[Bounties] "bounties" feature re-enabled — maintenance resumed');
+        bountiesLoggedDisabled = false;
+    }
+    return enabled;
+}
+
 /**
  * Start the maintenance loop: one run shortly after boot, then every 15
  * minutes (points.indexer.ts pattern). Each tick sweeps expired deadlines.
+ * The sweep is skipped while the `bounties` runtime flag is off (deadline
+ * expiry + escrow refunds pause, and resume within the flag cache TTL on
+ * re-enable — no restart). Note: `matchBountyPayout` (zap settlement) is
+ * intentionally NOT gated, so an already-awarded bounty's incoming zap still
+ * settles even if an admin toggles bounties off mid-flight.
  */
 export function startBountyMaintenanceLoop(): void {
     if (maintenanceStarted) return;
     maintenanceStarted = true;
 
-    const tick = () => {
+    const tick = async () => {
+        if (!(await bountiesFeatureEnabled())) return;
         expireBounties().catch((error) =>
             console.error('[Bounties] Expiry sweep failed:', error)
         );
