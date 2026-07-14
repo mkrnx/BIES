@@ -14,6 +14,8 @@ export const FEATURE_SLUGS = [
     'investors',   // investor features + vetting
     'projects',    // project listings
     'cowork',      // Cowork check-in page
+    'marketplace', // Shopstr-compatible NIP-99 marketplace
+    'bounties',    // bounty board (sats/points escrow)
 ];
 
 // Fail-open default: every feature enabled. Used while the flags fetch is in

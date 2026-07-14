@@ -35,6 +35,8 @@ export const FEATURE_SLUGS = [
     'investors',   // investor features + vetting (investors/investments APIs)
     'projects',    // project listings
     'cowork',      // Cowork check-in page (client-side Nostr — UI gate only)
+    'marketplace', // Shopstr-compatible NIP-99 marketplace (also build-time MARKETPLACE_ENABLED)
+    'bounties',    // bounty board + escrow/maintenance loop (also build-time BOUNTIES_ENABLED)
 ] as const;
 
 export type FeatureSlug = (typeof FEATURE_SLUGS)[number];

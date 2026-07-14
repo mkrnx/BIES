@@ -18,7 +18,7 @@ import {
   Settings,
   MessageCircle,
 } from 'lucide-react';
-import { MARKETPLACE_ENABLED } from './featureFlags';
+import { MARKETPLACE_ENABLED, BOUNTIES_ENABLED } from './featureFlags';
 
 // `flag:` marks a page as belonging to a runtime feature toggle (see
 // FeatureFlagsContext). Consumers (MobileBottomNav, CustomizeNavbar) must
@@ -36,11 +36,14 @@ export const NAV_PAGES = [
   { id: 'messages', path: '/messages', icon: Mail, labelKey: 'nav.messages', auth: true, flag: 'messages' },
   { id: 'notifications', path: '/notifications', icon: Bell, labelKey: 'customNav.pages.notifications', auth: true },
   { id: 'cowork', path: '/cowork', icon: Coffee, labelKey: 'mobileNav.cowork', auth: true, flag: 'cowork' },
-  // Spread conditionally so the entry is absent (not just hidden) when the flag is off
+  // Spread conditionally so the entry is absent (not just hidden) when the
+  // build-time constant is off; the `flag:` key layers the runtime toggle on top.
   ...(MARKETPLACE_ENABLED
-    ? [{ id: 'marketplace', path: '/discover/market', icon: Store, labelKey: 'marketplace.navLabel', auth: true }]
+    ? [{ id: 'marketplace', path: '/discover/market', icon: Store, labelKey: 'marketplace.navLabel', auth: true, flag: 'marketplace' }]
     : []),
-  { id: 'bounties', path: '/bounties', icon: Target, labelKey: 'nav.bounties', auth: true },
+  ...(BOUNTIES_ENABLED
+    ? [{ id: 'bounties', path: '/bounties', icon: Target, labelKey: 'nav.bounties', auth: true, flag: 'bounties' }]
+    : []),
   { id: 'leaderboard', path: '/leaderboard', icon: Trophy, labelKey: 'nav.leaderboard', auth: true, flag: 'points' },
   { id: 'profile', path: '/profile', icon: UserCircle, labelKey: 'nav.profile', auth: true },
   { id: 'settings', path: '/settings', icon: Settings, labelKey: 'nav.settings', auth: true },

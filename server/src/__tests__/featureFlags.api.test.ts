@@ -66,6 +66,13 @@ beforeAll(async () => {
     app.use('/api/directory', featureGate('directories'), (_req, res) => {
         res.json({ ok: true });
     });
+    // The two newest gated prefixes (mirrors index.ts mounts).
+    app.use('/api/marketplace', featureGate('marketplace'), (_req, res) => {
+        res.json({ ok: true });
+    });
+    app.use('/api/bounties', featureGate('bounties'), (_req, res) => {
+        res.json({ ok: true });
+    });
 
     await new Promise<void>((resolve) => {
         server = app.listen(0, resolve);
@@ -213,5 +220,36 @@ describe('featureGate', () => {
 
         mockedSettingsFind.mockResolvedValue({ featureFlags: '{"directories":true}' });
         expect((await fetch(`${base}/api/directory`)).status).toBe(200);
+    });
+});
+
+describe('featureGate — marketplace & bounties (runtime toggle)', () => {
+    // beforeEach clears the flags cache, so each test reads its own mocked state.
+    it('marketplace passes through when enabled (default)', async () => {
+        expect((await fetch(`${base}/api/marketplace`)).status).toBe(200);
+    });
+
+    it('marketplace 404s while disabled', async () => {
+        mockedSettingsFind.mockResolvedValue({ featureFlags: '{"marketplace":false}' });
+        const res = await fetch(`${base}/api/marketplace`);
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: 'Feature disabled' });
+    });
+
+    it('bounties passes through when enabled (default)', async () => {
+        expect((await fetch(`${base}/api/bounties`)).status).toBe(200);
+    });
+
+    it('bounties 404s while disabled', async () => {
+        mockedSettingsFind.mockResolvedValue({ featureFlags: '{"bounties":false}' });
+        const res = await fetch(`${base}/api/bounties`);
+        expect(res.status).toBe(404);
+        expect(await res.json()).toEqual({ error: 'Feature disabled' });
+    });
+
+    it('the two toggles are independent — one off leaves the other on', async () => {
+        mockedSettingsFind.mockResolvedValue({ featureFlags: '{"bounties":false}' });
+        expect((await fetch(`${base}/api/bounties`)).status).toBe(404);
+        expect((await fetch(`${base}/api/marketplace`)).status).toBe(200);
     });
 });

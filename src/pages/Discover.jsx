@@ -400,6 +400,7 @@ const Discover = () => {
   const { mode } = useUserMode();
   const { defaultView } = useViewPreference();
   const directoriesEnabled = useFeature('directories');
+  const marketplaceEnabled = useFeature('marketplace');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedIndustries, setSelectedIndustries] = useState([]);
   const [selectedStages, setSelectedStages] = useState([]);
@@ -717,7 +718,7 @@ const Discover = () => {
               <ChevronRight size={18} className="directory-entry-chevron" />
             </div>
           </Link>
-          {MARKETPLACE_ENABLED && (
+          {MARKETPLACE_ENABLED && marketplaceEnabled && (
             <Link to="/discover/market" style={{ textDecoration: 'none', color: 'inherit', flex: 1, minWidth: 0, display: 'block' }}>
               <div className="directory-entry-card">
                 <div className="directory-entry-icon"><Store size={20} /></div>

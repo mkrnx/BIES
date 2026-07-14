@@ -197,10 +197,10 @@ const AppContent = () => {
                     {/* Marketplace (declared before the generic /discover route) */}
                     {MARKETPLACE_ENABLED && (
                         <>
-                            <Route path="/discover/market" element={<ProtectedRoute><MarketplaceList /></ProtectedRoute>} />
-                            <Route path="/discover/market/new" element={<ProtectedRoute><CreateMarketListing /></ProtectedRoute>} />
-                            <Route path="/discover/market/:naddr/edit" element={<ProtectedRoute><CreateMarketListing editMode /></ProtectedRoute>} />
-                            <Route path="/discover/market/:naddr" element={<ProtectedRoute><MarketListingDetail /></ProtectedRoute>} />
+                            <Route path="/discover/market" element={<FeatureRoute flag="marketplace"><ProtectedRoute><MarketplaceList /></ProtectedRoute></FeatureRoute>} />
+                            <Route path="/discover/market/new" element={<FeatureRoute flag="marketplace"><ProtectedRoute><CreateMarketListing /></ProtectedRoute></FeatureRoute>} />
+                            <Route path="/discover/market/:naddr/edit" element={<FeatureRoute flag="marketplace"><ProtectedRoute><CreateMarketListing editMode /></ProtectedRoute></FeatureRoute>} />
+                            <Route path="/discover/market/:naddr" element={<FeatureRoute flag="marketplace"><ProtectedRoute><MarketListingDetail /></ProtectedRoute></FeatureRoute>} />
                         </>
                     )}
                     <Route path="/discover" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
@@ -238,10 +238,10 @@ const AppContent = () => {
                     )}
                     {BOUNTIES_ENABLED && (
                         <>
-                            <Route path="/bounties" element={<ProtectedRoute><Bounties /></ProtectedRoute>} />
+                            <Route path="/bounties" element={<FeatureRoute flag="bounties"><ProtectedRoute><Bounties /></ProtectedRoute></FeatureRoute>} />
                             {/* /new must be declared before /:id */}
-                            <Route path="/bounties/new" element={<ProtectedRoute><CreateBounty /></ProtectedRoute>} />
-                            <Route path="/bounties/:id" element={<ProtectedRoute><BountyDetail /></ProtectedRoute>} />
+                            <Route path="/bounties/new" element={<FeatureRoute flag="bounties"><ProtectedRoute><CreateBounty /></ProtectedRoute></FeatureRoute>} />
+                            <Route path="/bounties/:id" element={<FeatureRoute flag="bounties"><ProtectedRoute><BountyDetail /></ProtectedRoute></FeatureRoute>} />
                         </>
                     )}
 

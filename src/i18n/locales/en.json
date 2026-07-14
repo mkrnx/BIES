@@ -2009,6 +2009,14 @@
       "cowork": {
         "name": "Cowork",
         "description": "Cowork check-in page and map"
+      },
+      "marketplace": {
+        "name": "Marketplace",
+        "description": "Shopstr-compatible NIP-99 marketplace listings"
+      },
+      "bounties": {
+        "name": "Bounties",
+        "description": "Bounty board with sats and points escrow"
       }
     }
   }

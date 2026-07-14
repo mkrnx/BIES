@@ -2010,6 +2010,14 @@
       "cowork": {
         "name": "Cowork",
         "description": "Pagina de check-in y mapa de Cowork"
+      },
+      "marketplace": {
+        "name": "Mercado",
+        "description": "Listados del mercado NIP-99 compatible con Shopstr"
+      },
+      "bounties": {
+        "name": "Recompensas",
+        "description": "Tablon de recompensas con deposito en sats y puntos"
       }
     }
   }

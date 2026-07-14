@@ -38,7 +38,7 @@ const Navbar = () => {
   const navLinks = [
     { label: t('nav.discover'), path: '/discover' },
     { label: t('nav.events'), path: '/events', flag: 'events' },
-    ...(BOUNTIES_ENABLED ? [{ label: t('nav.bounties'), path: '/bounties' }] : []),
+    ...(BOUNTIES_ENABLED ? [{ label: t('nav.bounties'), path: '/bounties', flag: 'bounties' }] : []),
     { label: t('nav.leaderboard'), path: '/leaderboard', icon: Trophy, flag: 'points' },
     { label: t('nav.media'), path: '/media', flag: 'media' },
     { label: t('nav.news'), path: '/news', flag: 'news' },
@@ -251,7 +251,7 @@ const Navbar = () => {
                 { to: '/profile', label: t('nav.profile') },
                 ...(featureOn('messages') ? [{ to: '/messages', label: t('nav.messages') }] : []),
                 ...(COWORK_ENABLED && featureOn('cowork') ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
-                ...(BOUNTIES_ENABLED ? [{ to: '/bounties', label: t('nav.bounties') }] : []),
+                ...(BOUNTIES_ENABLED && featureOn('bounties') ? [{ to: '/bounties', label: t('nav.bounties') }] : []),
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 ...(featureOn('points') ? [{ to: '/leaderboard', label: t('nav.leaderboard') }] : []),
                 ...(featureOn('news') ? [{ to: '/news', label: t('nav.news') }] : []),
