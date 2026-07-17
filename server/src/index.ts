@@ -13,6 +13,7 @@ import { auditLog } from './middleware/audit';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
+import { initApns } from './services/apns.service';
 
 // ─── Version ─────────────────────────────────────────────────────────────────
 const versionFile = path.resolve(__dirname, '..', '..', 'version.json');
@@ -242,6 +243,9 @@ server.listen(config.port, () => {
     // Initialize Web Push notifications
     initWebPush();
     cleanupStaleSubscriptions().catch(() => {});
+
+    // Initialize native push (APNs) — no-ops when unconfigured
+    initApns();
 });
 
 export default app;

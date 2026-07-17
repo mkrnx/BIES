@@ -9,7 +9,7 @@ BIES ships to iOS as a [Capacitor](https://capacitorjs.com/) app: the existing R
 - Passkey UI is hidden on native (WebAuthn does not exist in WKWebView), the service worker is skipped on native, external links route through the Browser plugin, and the backend CORS allowlist accepts the native WebView origins by default.
 - The required `Info.plist` permission strings and `LSApplicationQueriesSchemes` are already in `ios/App/App/Info.plist`.
 
-**What is NOT done yet** (each item has a plan in [Known not-yet-native items](#known-not-yet-native-items)): push notifications, native geolocation, Keychain storage for secrets, NIP-46 pairing persistence, universal links, the full icon/launch-screen asset set, and removal of the demo login bypass.
+**What is NOT done yet** (each item has a plan in [Known not-yet-native items](#known-not-yet-native-items)): native geolocation, Keychain storage for secrets, NIP-46 pairing persistence, universal links, the full icon/launch-screen asset set, and removal of the demo login bypass. Native **push notifications** are now implemented in code but require server config + Apple setup — see [Phase 5](#phase-5--push-notifications-apns).
 
 ---
 
@@ -166,18 +166,76 @@ Testers install the **TestFlight** app from the App Store and redeem the invite/
 
 ---
 
+## Phase 5 — Push notifications (APNs)
+
+Native push is **implemented in code** (client + server) but ships inert: with no APNs config the server logs `[APNs] Not configured — native push disabled` at boot and every existing notification path (web push included) works unchanged. To turn it on:
+
+### 5.1 Create an APNs Auth Key (.p8)
+
+1. [developer.apple.com → Certificates, Identifiers & Profiles → Keys](https://developer.apple.com/account/resources/authkeys/list) → **+**.
+2. Give it a name, check **Apple Push Notifications service (APNs)**, **Continue** → **Register**.
+3. **Download** the `.p8` (you can only download it once). Note the **Key ID** shown on the key page.
+4. Your **Team ID** is at the top-right of the developer portal (and under Membership).
+
+One APNs key works for both sandbox and production and for all your apps on the team.
+
+### 5.2 Enable the capability on the App ID / in Xcode
+
+In Xcode (`npx cap open ios`), target **App** → **Signing & Capabilities**:
+
+1. **+ Capability** → **Push Notifications** (this adds the `aps-environment` entitlement; without it `register()` fires `registrationError` and no token is ever produced).
+2. **+ Capability** → **Background Modes** → check **Remote notifications** (needed for background delivery).
+
+With automatic signing, adding the capability registers the `com.bies.app` App ID for push for you; otherwise enable Push Notifications on the App ID at developer.apple.com → Identifiers.
+
+### 5.3 Install the plugin pod
+
+`@capacitor/push-notifications` is already in `package.json`, but adding it there is inert until the pod is installed:
+
+```bash
+npm install
+npx cap sync ios     # installs the CocoaPod + registers the plugin
+```
+
+Without `cap sync`, `PushNotifications.register()` throws at runtime.
+
+### 5.4 Configure the server
+
+Set these in the backend's `.env` (see `server/.env.example`). Leaving `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_AUTH_KEY` blank keeps native push disabled.
+
+| Env var | Value |
+| --- | --- |
+| `APNS_KEY_ID` | The Key ID from 5.1 |
+| `APNS_TEAM_ID` | Your Apple Developer Team ID |
+| `APNS_BUNDLE_ID` | `com.bies.app` (must match `capacitor.config.ts` appId + Xcode bundle id, and the APNs `apns-topic`) |
+| `APNS_AUTH_KEY` | The full `.p8` PEM contents. If your secret store is single-line, escape newlines as literal `\n` — the server un-escapes them. |
+| `APNS_PRODUCTION` | `true` for TestFlight/App Store, `false` for Xcode debug builds |
+
+Apply the `device_tokens` migration in each environment (`npm run db:migrate` in dev / `prisma migrate deploy` in prod) and restart — the boot log should read `[APNs] Initialized (…host, topic com.bies.app)`.
+
+### 5.5 The sandbox-vs-production caveat (most common failure)
+
+APNs has two hosts and the device token is bound to the environment the app was signed for:
+
+- **Xcode debug builds** sign `aps-environment=development` → tokens are **sandbox** → `APNS_PRODUCTION=false` (`api.sandbox.push.apple.com`).
+- **TestFlight / App Store builds** sign `aps-environment=production` → tokens are **production** → `APNS_PRODUCTION=true` (`api.push.apple.com`).
+
+A mismatch returns `400 BadDeviceToken` for every push (the server prunes those tokens automatically). If you test both a debug build and a TestFlight build against one backend, they need different `APNS_PRODUCTION` values — run separate backends or reconfigure between tests. Also ensure the `.p8` key belongs to the same team as the app and that `APNS_BUNDLE_ID` matches, or Apple returns `403 InvalidProviderToken` / `BadTopic`.
+
+---
+
 ## Known not-yet-native items
 
 Planned work, in rough priority order. None block a first TestFlight build, but testers should know what won't work.
 
-### 1. Push notifications (currently silently dead on iOS)
+### 1. Push notifications — IMPLEMENTED (needs config, see [Phase 5](#phase-5--push-notifications-apns))
 
-The entire push stack is web-push: `index.html` registers `public/sw.js`, `AuthContext.jsx` gates on `'Notification' in window && 'PushManager' in window`, and the server (`server/src/services/webpush.service.ts`) sends VAPID web-push only. WKWebView has neither Service Workers nor `PushManager`, so on native every guard returns early — no error, and no push. **Plan (do not expect this in the first build):**
+Native APNs push now ships in code, parallel to the untouched web-push stack:
 
-- Client: add `@capacitor/push-notifications`; on `isNativePlatform()` request permission natively, obtain the APNs device token, and register it with the backend (skip the whole web-push/`PushPermissionPrompt` path on native).
-- Server: new endpoint (e.g. `POST /api/notifications/device-token`) + a Prisma `DeviceToken` table alongside the existing `PushSubscription`.
-- Fan-out: extend `server/src/services/notification.service.ts` to send via APNs (e.g. `node-apn` or FCM) *in addition to* web-push, and prune dead tokens on APNs feedback.
-- Apple side: enable the Push Notifications capability on the App ID, create an APNs auth key (`.p8`) in the developer portal, configure it on the server.
+- Client: `@capacitor/push-notifications` (runtime-only, never statically imported). `src/services/pushService.js` obtains the APNs device token and registers it via `POST /api/notifications/device-token`; `AuthContext.jsx` takes the native branch on `isNativePlatform()` and skips the web-push/`PushPermissionPrompt` path entirely.
+- Server: a Prisma `DeviceToken` table alongside `PushSubscription`, register/unregister endpoints, and `server/src/services/apns.service.ts` (Node `http2` + `jsonwebtoken` ES256 provider token). `notification.service.ts` fans out to APNs *in addition to* web-push and prunes dead tokens on `410` / `BadDeviceToken` / `Unregistered`.
+
+It is **gated behind config**: unset `APNS_*` env vars → the server logs one line at boot and every send is a no-op, so this is safe to ship before you finish the Apple setup. To enable it, follow **[Phase 5](#phase-5--push-notifications-apns)** (create the `.p8`, add the Xcode capabilities, `npx cap sync ios`, set the server env vars).
 
 ### 2. Geolocation plugin
 

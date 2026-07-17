@@ -97,8 +97,6 @@ export const authApi = {
     nostrLogin: (pubkey, signedEvent, fingerprint) =>
         post('/auth/nostr-login', { pubkey, signedEvent, fingerprint }),
 
-    demoLogin: () => post('/auth/demo-login'), // TODO: Remove before production
-
     me: () => get('/auth/me'),
 
     updateRole: (role) => put('/auth/role', { role }),
@@ -255,6 +253,10 @@ export const notificationsApi = {
     getVapidKey: () => get('/notifications/push/vapid-key'),
     pushSubscribe: (subscription) => post('/notifications/push/subscribe', subscription.toJSON()),
     pushUnsubscribe: (endpoint) => request('DELETE', '/notifications/push/subscribe', { endpoint }),
+
+    // Native push (APNs) device token management
+    deviceTokenRegister: (token, platform) => post('/notifications/device-token', { token, platform }),
+    deviceTokenUnregister: (token) => request('DELETE', '/notifications/device-token', { token }),
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import prisma from '../lib/prisma';
 import { sendToUser } from './websocket.service';
 import { cache, cacheKey, TTL } from './redis.service';
 import { sendPushToUser, isWebPushEnabled } from './webpush.service';
+import { sendApnsToUser, isApnsEnabled } from './apns.service';
 
 export type NotificationType =
     | 'NEW_MESSAGE'
@@ -84,6 +85,19 @@ export async function createNotification(params: CreateNotificationParams): Prom
                 data: { notificationId: notification.id, type },
             }).catch((err) => {
                 console.error('[Notification] Web push failed:', err);
+            });
+        }
+
+        // Parallel native push (APNs) for iOS devices. Additive and independent
+        // of web push — no-ops when APNs is not configured.
+        if (isApnsEnabled()) {
+            sendApnsToUser(userId, {
+                title,
+                body,
+                url: getNotificationUrl(type, data),
+                data: { notificationId: notification.id, type },
+            }).catch((err) => {
+                console.error('[Notification] APNs push failed:', err);
             });
         }
     } catch (error) {

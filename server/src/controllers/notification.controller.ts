@@ -3,10 +3,25 @@
  */
 
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import prisma from '../lib/prisma';
 import { cache, cacheKey } from '../services/redis.service';
 import { notifyFeedInteraction } from '../services/notification.service';
 import { config } from '../config';
+
+/**
+ * Native push device token registration. APNs (and FCM) device tokens are
+ * bounded hex strings; reject anything else so junk/oversized values can't be
+ * persisted permanently in the unique-indexed `token` column.
+ */
+export const registerDeviceTokenSchema = z.object({
+    token: z
+        .string()
+        .regex(/^[0-9a-fA-F]+$/, 'token must be a hex string')
+        .min(32)
+        .max(200),
+    platform: z.enum(['ios', 'android']).optional().default('ios'),
+});
 
 /**
  * GET /notifications
@@ -269,5 +284,61 @@ export async function unsubscribePush(req: Request, res: Response): Promise<void
     } catch (error) {
         console.error('Push unsubscribe error:', error);
         res.status(500).json({ error: 'Failed to remove push subscription' });
+    }
+}
+
+// ─── Native device token endpoints (APNs) ────────────────────────────────────
+
+/**
+ * POST /notifications/device-token
+ * Register (or re-assign) a native push device token for the authenticated
+ * user. Upserts on the globally-unique token so a device that re-logs-in as a
+ * different user reassigns cleanly instead of duplicating.
+ */
+export async function registerDeviceToken(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const { token, platform } = req.body;
+
+        if (!token || typeof token !== 'string') {
+            res.status(400).json({ error: 'token is required' });
+            return;
+        }
+
+        await prisma.deviceToken.upsert({
+            where: { token },
+            update: { userId, platform: platform || 'ios' },
+            create: { userId, token, platform: platform || 'ios' },
+        });
+
+        res.json({ message: 'Device token registered' });
+    } catch (error) {
+        console.error('Device token register error:', error);
+        res.status(500).json({ error: 'Failed to register device token' });
+    }
+}
+
+/**
+ * DELETE /notifications/device-token
+ * Remove a native push device token (user logged out or disabled push).
+ */
+export async function unregisterDeviceToken(req: Request, res: Response): Promise<void> {
+    try {
+        const userId = req.user!.id;
+        const { token } = req.body;
+
+        if (!token || typeof token !== 'string') {
+            res.status(400).json({ error: 'token is required' });
+            return;
+        }
+
+        await prisma.deviceToken.deleteMany({
+            where: { userId, token },
+        });
+
+        res.json({ message: 'Device token removed' });
+    } catch (error) {
+        console.error('Device token unregister error:', error);
+        res.status(500).json({ error: 'Failed to remove device token' });
     }
 }

@@ -10,7 +10,6 @@ import {
     getNostrChallenge,
     getMe,
     logout,
-    demoLogin,
 } from '../controllers/auth.controller';
 
 const router = Router();
@@ -20,7 +19,6 @@ router.post('/register', validate(registerSchema), register);
 router.post('/login', validate(loginSchema), login);
 router.get('/nostr-challenge', getNostrChallenge);
 router.post('/nostr-login', nostrLogin);
-router.post('/demo-login', demoLogin); // TODO: Remove before production
 
 // Protected routes
 router.get('/me', authenticate, getMe);

@@ -38,6 +38,7 @@ model User {
   investments      Investment[]
   notifications    Notification[]
   pushSubscriptions PushSubscription[]
+  deviceTokens     DeviceToken[]
   following        Follow[]          @relation("Following")
   followers        Follow[]          @relation("Followers")
   hostedEvents     Event[]
@@ -315,6 +316,24 @@ model PushSubscription {
   @@unique([userId, endpoint])
   @@index([userId])
   @@map("push_subscriptions")
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Device Tokens (Native Push — APNs on iOS)
+// ─────────────────────────────────────────────────────────────────────────────
+
+model DeviceToken {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  token     String   @unique
+  platform  String   @default("ios")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

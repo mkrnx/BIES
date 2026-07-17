@@ -57,11 +57,6 @@ export const authService = {
         const token = authService.getToken();
         if (!token) return null;
 
-        // TODO: Remove before production — demo bypass
-        if (token === 'demo-token') {
-            return authService.getCachedUser();
-        }
-
         try {
             const user = await authApi.me();
             authService.setCachedUser(user);
@@ -219,15 +214,6 @@ export const authService = {
         authService.setToken(token);
         authService.setCachedUser(user);
         nostrSigner.setBunkerMode(pubkey);
-        return user;
-    },
-
-    // ─── Demo login (temporary — TODO: remove before production) ───────────
-
-    loginWithDemo: async () => {
-        const { user, token } = await authApi.demoLogin();
-        authService.setToken(token);
-        authService.setCachedUser(user);
         return user;
     },
 

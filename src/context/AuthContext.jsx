@@ -3,6 +3,8 @@ import { authService } from '../services/authService';
 import { BiesWebSocket, notificationsApi, profilesApi } from '../services/api';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
 import { notifyIncomingMessage, subscribeToPush } from '../utils/notificationManager';
+import { isNativePlatform } from '../utils/platform';
+import { initNativePush, unregisterNativePush } from '../services/pushService';
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService } from '../services/keytrService';
 import { PASSKEY_ENABLED } from '../config/featureFlags';
@@ -92,6 +94,11 @@ export const AuthProvider = ({ children }) => {
     // The banner is sessionStorage-gated so it only shows once per session.
 
     const initPushSubscription = useCallback(async () => {
+        // Native shells have no Service Worker / PushManager — use the APNs
+        // (Capacitor PushNotifications) path instead and skip the entire
+        // web-push / PushPermissionPrompt flow below.
+        if (isNativePlatform()) { initNativePush(); return; }
+
         if (!('Notification' in window) || !('PushManager' in window)) return;
 
         if (Notification.permission === 'granted') {
@@ -257,17 +264,6 @@ export const AuthProvider = ({ children }) => {
         return { ...result, needsProfileSetup: isNew };
     };
 
-    const loginWithDemo = async () => {
-        try {
-            const user = await authService.loginWithDemo();
-            setUser(user);
-            initWebSocket(user);
-            return { success: true, user };
-        } catch (error) {
-            return { success: false, error: error.message };
-        }
-    };
-
     const loginWithEmail = async (email, password) => {
         try {
             const user = await authService.loginWithEmail(email, password);
@@ -351,6 +347,9 @@ export const AuthProvider = ({ children }) => {
     };
 
     const logout = () => {
+        // Best-effort native token removal BEFORE the JWT is cleared, so the
+        // authenticated DELETE still carries its Authorization header.
+        unregisterNativePush();
         wsClient?.disconnect();
         setWsClient(null);
         authService.logout();
@@ -404,7 +403,6 @@ export const AuthProvider = ({ children }) => {
             loginWithPasskey,
             loginWithPasskeyAndCheckNew,
             loginWithEmail,
-            loginWithDemo,
             signup,
             logout,
             updateRole,
