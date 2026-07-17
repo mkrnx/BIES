@@ -1,123 +1,203 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { coworkService, parseCoworkEvent, isActive } from '../services/coworkService';
-import { nostrService } from '../services/nostrService';
+import { coworkApi } from '../services/api';
 
 /**
- * Live cowork check-in sessions from the BIES relay.
+ * Server-backed active cowork sessions.
  *
- * Dedupes events per pubkey (highest created_at wins — mirrors the relay's
- * replaceable-event semantics), ticks every 60s so expired pins drop live,
- * and resolves author profiles via the shared nostrService profile cache.
+ * Fetches `GET /cowork/sessions?filter=active` on mount and polls every 25s
+ * (skipping polls while the tab is hidden). The user's OWN actions apply
+ * optimistically for instant feedback, then reconcile from the API response and
+ * roll back on error; other users' joins/leaves/new sessions self-heal on the
+ * next poll.
  *
- * @param {boolean} [enabled=true]
- * @returns {{ sessions: Array, profiles: Object, loading: boolean, error: boolean, retry: Function, addOptimistic: Function }}
+ * Session shape (per session in `sessions`):
+ *   { id, title, host, venue, locationName, lat, lng, note, amenities,
+ *     startTime, endTime, status, attendeeCount, isAttending, isHost }
+ *
+ * @param {boolean} [enabled=true] - when false, skips fetching/polling.
+ * @returns {{
+ *   sessions: Array, mySession: Object|null, loading: boolean, error: Error|null,
+ *   retry: Function,
+ *   checkIn: (data) => Promise, createSession: (data) => Promise,
+ *   checkOut: (id) => Promise, endSession: (id) => Promise,
+ *   joinSession: (id) => Promise, leaveSession: (id) => Promise,
+ *   addSession: (session) => void, addOptimistic: (session) => void,
+ *   fetchPast: () => Promise
+ * }}
  */
 export function useCoworkSessions(enabled = true) {
-    const [eventsByPubkey, setEventsByPubkey] = useState(() => new Map());
-    const [nowSec, setNowSec] = useState(() => Math.floor(Date.now() / 1000));
-    const [profiles, setProfiles] = useState({});
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(false);
-    const [retryNonce, setRetryNonce] = useState(0);
+    const [sessions, setSessions] = useState([]);
+    const [loading, setLoading] = useState(enabled);
+    const [error, setError] = useState(null);
 
-    // Keep the newest event per pubkey. Subscription events only replace on a
-    // strictly newer created_at; optimistic inserts (replaceTies) also win ties
-    // so a check-out published in the same second as the check-in shows up.
-    const upsert = useCallback((evt, replaceTies) => {
-        if (!evt || !evt.pubkey) return;
-        setEventsByPubkey(prev => {
-            const existing = prev.get(evt.pubkey);
-            if (existing && (replaceTies
-                ? existing.created_at > evt.created_at
-                : existing.created_at >= evt.created_at)) {
-                return prev;
+    const mountedRef = useRef(false);
+
+    // ── Fetch active sessions (initial load + each poll) ────────────────────
+    const load = useCallback(async () => {
+        try {
+            const res = await coworkApi.listSessions('active');
+            if (!mountedRef.current) return;
+            setSessions(Array.isArray(res?.data) ? res.data : []);
+            setError(null);
+        } catch (err) {
+            if (mountedRef.current) setError(err);
+        } finally {
+            if (mountedRef.current) setLoading(false);
+        }
+    }, []);
+
+    // Force an immediate refetch (e.g. after an error, or when a tab changes).
+    const retry = useCallback(() => {
+        setLoading(true);
+        setError(null);
+        load();
+    }, [load]);
+
+    useEffect(() => {
+        mountedRef.current = true;
+        if (!enabled) {
+            setLoading(false);
+            return () => { mountedRef.current = false; };
+        }
+        setLoading(true);
+        load();
+        const interval = setInterval(() => {
+            // Skip work while the tab is hidden; the next visible poll reconciles.
+            if (typeof document !== 'undefined' && document.hidden) return;
+            load();
+        }, 25000);
+        return () => {
+            mountedRef.current = false;
+            clearInterval(interval);
+        };
+    }, [enabled, load]);
+
+    // ── Local list mutation helpers ─────────────────────────────────────────
+    // Insert an already-created session at the top (dedupe by id). Used by
+    // callers that created the session themselves (e.g. CheckInModal).
+    const addSession = useCallback((session) => {
+        if (!session?.id) return;
+        setSessions((prev) => {
+            if (prev.some((s) => s.id === session.id)) {
+                return prev.map((s) => (s.id === session.id ? session : s));
             }
-            const next = new Map(prev);
-            next.set(evt.pubkey, evt);
-            return next;
+            return [session, ...prev];
         });
     }, []);
 
-    const addOptimistic = useCallback((evt) => upsert(evt, true), [upsert]);
+    // ── Actions (optimistic where it helps, always reconciling) ─────────────
 
-    // Re-run the subscription effect after a relay failure.
-    const retry = useCallback(() => setRetryNonce(n => n + 1), []);
+    // Create a session and drop it into the list immediately. The server returns
+    // the full Session (attendeeCount:1, isHost:true, isAttending:true).
+    const checkIn = useCallback(async (data) => {
+        const session = await coworkApi.createSession(data);
+        if (mountedRef.current) addSession(session);
+        return session;
+    }, [addSession]);
 
-    // Subscribe on mount. StrictMode double-invokes the effect, but the
-    // cleanup closes the subscription and clears the timers, so no duplicate
-    // subscription survives.
-    useEffect(() => {
-        if (!enabled) {
-            setLoading(false);
-            return undefined;
-        }
-        setLoading(true);
-        setError(false);
-        let closed = false;
-        const sub = coworkService.subscribe((evt) => upsert(evt, false), {
-            // EOSE = the relay finished replaying stored events.
-            oneose: () => setLoading(false),
-            // Relay unreachable, AUTH rejected, or the sub was dropped.
-            onclose: () => {
-                if (closed) return;
-                setLoading(false);
-                setError(true);
-            },
+    // End (host/admin) — optimistically drop from the active list, restore on error.
+    const checkOut = useCallback(async (id) => {
+        let snapshot;
+        setSessions((prev) => {
+            snapshot = prev.find((s) => s.id === id);
+            return prev.filter((s) => s.id !== id);
         });
-        // Fallback only — EOSE normally clears loading well before this fires.
-        const settleTimer = setTimeout(() => setLoading(false), 8000);
-        const ticker = setInterval(() => setNowSec(Math.floor(Date.now() / 1000)), 60000);
-        return () => {
-            closed = true;
-            sub.close();
-            clearTimeout(settleTimer);
-            clearInterval(ticker);
-        };
-    }, [enabled, upsert, retryNonce]);
+        try {
+            return await coworkApi.endSession(id);
+        } catch (err) {
+            if (mountedRef.current && snapshot) {
+                setSessions((prev) =>
+                    prev.some((s) => s.id === id) ? prev : [snapshot, ...prev],
+                );
+            }
+            throw err;
+        }
+    }, []);
 
-    const allSessions = useMemo(() => {
-        return [...eventsByPubkey.values()]
-            .map(parseCoworkEvent)
-            .filter(Boolean)
-            .sort((a, b) => b.createdAt - a.createdAt);
-    }, [eventsByPubkey]);
+    // Join — bump count + set isAttending optimistically, reconcile from response.
+    const joinSession = useCallback(async (id) => {
+        let snapshot;
+        setSessions((prev) =>
+            prev.map((s) => {
+                if (s.id !== id) return s;
+                snapshot = s;
+                return { ...s, attendeeCount: (s.attendeeCount || 0) + 1, isAttending: true };
+            }),
+        );
+        try {
+            const res = await coworkApi.joinSession(id);
+            if (mountedRef.current) {
+                setSessions((prev) =>
+                    prev.map((s) =>
+                        s.id === id
+                            ? { ...s, attendeeCount: res.attendeeCount, isAttending: res.isAttending }
+                            : s,
+                    ),
+                );
+            }
+            return res;
+        } catch (err) {
+            if (mountedRef.current && snapshot) {
+                setSessions((prev) => prev.map((s) => (s.id === id ? snapshot : s)));
+            }
+            throw err;
+        }
+    }, []);
 
-    // Apply the expiry filter in a second pass that keeps the array identity
-    // stable across the 60s tick — consumers (e.g. the fullscreen map) must
-    // not see a "new" sessions array every minute when nothing changed.
-    const prevSessionsRef = useRef([]);
-    const sessions = useMemo(() => {
-        const active = allSessions.filter(s => isActive(s, nowSec));
-        const prev = prevSessionsRef.current;
-        const unchanged = active.length === prev.length
-            && active.every((s, i) => s.pubkey === prev[i].pubkey && s.createdAt === prev[i].createdAt);
-        if (unchanged) return prev;
-        prevSessionsRef.current = active;
-        return active;
-    }, [allSessions, nowSec]);
+    // Leave — decrement count + clear isAttending optimistically, reconcile.
+    const leaveSession = useCallback(async (id) => {
+        let snapshot;
+        setSessions((prev) =>
+            prev.map((s) => {
+                if (s.id !== id) return s;
+                snapshot = s;
+                return { ...s, attendeeCount: Math.max(0, (s.attendeeCount || 0) - 1), isAttending: false };
+            }),
+        );
+        try {
+            const res = await coworkApi.leaveSession(id);
+            if (mountedRef.current) {
+                setSessions((prev) =>
+                    prev.map((s) =>
+                        s.id === id
+                            ? { ...s, attendeeCount: res.attendeeCount, isAttending: res.isAttending }
+                            : s,
+                    ),
+                );
+            }
+            return res;
+        } catch (err) {
+            if (mountedRef.current && snapshot) {
+                setSessions((prev) => prev.map((s) => (s.id === id ? snapshot : s)));
+            }
+            throw err;
+        }
+    }, []);
 
-    // Resolve profiles whenever the set of visible pubkeys changes.
-    const pubkeysKey = useMemo(
-        () => sessions.map(s => s.pubkey).sort().join(','),
-        [sessions],
-    );
+    // Convenience: on-demand fetch of ended sessions for the Past tab (not polled).
+    const fetchPast = useCallback(() => coworkApi.listSessions('past'), []);
 
-    useEffect(() => {
-        if (!pubkeysKey) return undefined;
-        let cancelled = false;
-        const pubkeys = pubkeysKey.split(',');
-        nostrService.getProfiles(pubkeys)
-            .then(profileMap => {
-                if (cancelled || !profileMap || profileMap.size === 0) return;
-                setProfiles(prev => {
-                    const next = { ...prev };
-                    for (const [pk, profile] of profileMap) next[pk] = profile;
-                    return next;
-                });
-            })
-            .catch(() => { /* profiles are best-effort */ });
-        return () => { cancelled = true; };
-    }, [pubkeysKey]);
+    // The active session the current user hosts (server flags isHost).
+    const mySession = useMemo(() => sessions.find((s) => s.isHost) || null, [sessions]);
 
-    return { sessions, profiles, loading, error, retry, addOptimistic };
+    return {
+        sessions,
+        mySession,
+        loading,
+        error,
+        retry,
+        // create
+        checkIn,
+        createSession: checkIn,
+        addSession,
+        addOptimistic: addSession,
+        // end
+        checkOut,
+        endSession: checkOut,
+        // attend
+        joinSession,
+        leaveSession,
+        // past
+        fetchPast,
+    };
 }

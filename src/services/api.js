@@ -306,6 +306,34 @@ export const eventsApi = {
     checkinTicket: (id, ticketId) => post(`/events/${id}/tickets/${ticketId}/checkin`, {}),
 };
 
+// ─── Cowork ───────────────────────────────────────────────────────────────────
+
+export const coworkApi = {
+    listVenues: () => get('/cowork/venues'),
+    // → { data: Venue[], groups: [{ area, venues: Venue[] }] }
+
+    addVenue: (data) => post('/cowork/venues', data),
+    // data: { name, address?, area?, lat?, lng? } → Venue (200 existing | 201 created)
+
+    listSessions: (filter = 'active') => get('/cowork/sessions', { filter }),
+    // filter: 'active' | 'past' → { data: Session[] }
+
+    getSession: (id) => get(`/cowork/sessions/${id}`),
+    // → Session + attendees: [{ id, name, avatar, nostrPubkey, isHost }]
+
+    createSession: (data) => post('/cowork/sessions', data),
+    // data: { title, venueId? | (locationName + lat + lng), note?, amenities?, durationMinutes, startTime? } → Session
+
+    joinSession: (id) => post(`/cowork/sessions/${id}/join`, {}),
+    // → { attendeeCount, isAttending: true }
+
+    leaveSession: (id) => del(`/cowork/sessions/${id}/join`),
+    // → { attendeeCount, isAttending: false }
+
+    endSession: (id) => post(`/cowork/sessions/${id}/end`, {}),
+    // Host/admin only → Session (status: 'ENDED')
+};
+
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export const analyticsApi = {
