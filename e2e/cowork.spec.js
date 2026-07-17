@@ -134,3 +134,58 @@ test.describe('Cowork v2 - server-backed sessions', () => {
         await expect(card).toContainText('Past Session Title');
     });
 });
+
+// ── "Open with" maps chooser ─────────────────────────────────────────
+// Availability is platform-inferred (web can't probe installed apps):
+// Apple Maps on Apple devices, Google Maps everywhere, Waze on mobile.
+
+async function openSessionMapChooser(page, request, name) {
+    const { token, user } = await register(request, name);
+    const s = await createSession(request, token, `${name} Session`);
+    await injectAuth(page, token, user);
+    await page.goto('/cowork');
+    await page.getByTestId(`cowork-card-${s.id}`).click();
+    await expect(page.getByTestId('cowork-session-modal')).toBeVisible();
+    await page.getByTestId('cowork-map-open').click();
+    await expect(page.getByTestId('maps-open-with-sheet')).toBeVisible();
+}
+
+test.describe('Cowork map "Open with" — iPhone', () => {
+    test.use({
+        userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1',
+    });
+
+    test('shows Apple Maps, Google Maps and Waze', async ({ page, request }) => {
+        await openSessionMapChooser(page, request, 'Iphone Chooser');
+        await expect(page.getByTestId('maps-option-apple')).toBeVisible();
+        await expect(page.getByTestId('maps-option-google')).toBeVisible();
+        await expect(page.getByTestId('maps-option-waze')).toBeVisible();
+    });
+
+    test('picking Google Maps opens the maps URL and closes the sheet', async ({ page, request }) => {
+        await page.addInitScript(() => {
+            window.__openedUrls = [];
+            window.open = (u) => { window.__openedUrls.push(String(u)); return null; };
+        });
+        await openSessionMapChooser(page, request, 'Iphone Picker');
+        await page.getByTestId('maps-option-google').click();
+        await expect(page.getByTestId('maps-open-with-sheet')).toHaveCount(0);
+        const opened = await page.evaluate(() => window.__openedUrls);
+        expect(opened.length).toBe(1);
+        expect(opened[0]).toContain('google.com/maps');
+        expect(opened[0]).toContain('13.49');
+    });
+});
+
+test.describe('Cowork map "Open with" — Android', () => {
+    test.use({
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Mobile Safari/537.36',
+    });
+
+    test('shows Google Maps and Waze but not Apple Maps', async ({ page, request }) => {
+        await openSessionMapChooser(page, request, 'Android Chooser');
+        await expect(page.getByTestId('maps-option-google')).toBeVisible();
+        await expect(page.getByTestId('maps-option-waze')).toBeVisible();
+        await expect(page.getByTestId('maps-option-apple')).toHaveCount(0);
+    });
+});

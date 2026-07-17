@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { X, MapPin, Users, Clock, Loader2, LogIn, LogOut, Square, AlertCircle } from 'lucide-react';
+import { X, MapPin, Users, Clock, Loader2, LogIn, LogOut, Square, AlertCircle, Navigation } from 'lucide-react';
 import { coworkApi } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { getAssetUrl } from '../../utils/assets';
 import CoworkMap from './CoworkMap';
+import OpenWithMapsSheet from './OpenWithMapsSheet';
 import { formatAmenity, formatClock, formatDayTime } from './CoworkerCard';
 
 /**
@@ -24,6 +25,7 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
     const [error, setError] = useState('');
     const [acting, setActing] = useState(false);
     const [actionError, setActionError] = useState('');
+    const [mapsOpen, setMapsOpen] = useState(false);
 
     const normalize = (res) => {
         const s = res && res.data && res.data.id ? res.data : res;
@@ -62,6 +64,7 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
         setError('');
         setActionError('');
         setActing(false); // persisted instance must reopen unlocked
+        setMapsOpen(false);
         setLoading(true);
         coworkApi.getSession(sessionId)
             .then((res) => {
@@ -99,15 +102,16 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
         };
     }, [open]);
 
-    // ESC closes — never mid-action.
+    // ESC closes — never mid-action, and not while the maps chooser is open
+    // (the sheet has its own ESC handler; one keypress must not close both).
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape' && !acting) onClose();
+            if (e.key === 'Escape' && !acting && !mapsOpen) onClose();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [open, acting, onClose]);
+    }, [open, acting, mapsOpen, onClose]);
 
     if (!open) return null;
 
@@ -284,6 +288,17 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
                                             profiles={{ [detail.id]: { name: hostName } }}
                                             height="180px"
                                         />
+                                        <button
+                                            className="csm-map-open"
+                                            data-testid="cowork-map-open"
+                                            aria-label={t('cowork.maps.openInMaps', 'Open in maps')}
+                                            onClick={() => setMapsOpen(true)}
+                                        >
+                                            <span className="csm-map-open-pill">
+                                                <Navigation size={13} />
+                                                {t('cowork.maps.openInMaps', 'Open in maps')}
+                                            </span>
+                                        </button>
                                     </div>
                                 )}
                                 <div className="csm-time">
@@ -384,6 +399,14 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
                     )}
                 </div>
             </div>
+
+            <OpenWithMapsSheet
+                open={mapsOpen}
+                onClose={() => setMapsOpen(false)}
+                lat={detail?.lat}
+                lng={detail?.lng}
+                label={venueLabel}
+            />
 
             <style jsx>{`
                 .csm-overlay {
@@ -543,9 +566,40 @@ const CoworkSessionModal = ({ sessionId, open, onClose, onChanged }) => {
                 }
 
                 .csm-map {
+                    position: relative;
                     border-radius: var(--radius-md);
                     overflow: hidden;
                     border: 1px solid var(--color-gray-200);
+                }
+
+                /* Full-cover click target over the (non-interactive) locator
+                   map — opens the "Open with" maps chooser. Sits above every
+                   Leaflet pane (tiles 200 … controls 800). */
+                .csm-map-open {
+                    position: absolute;
+                    inset: 0;
+                    z-index: 1000;
+                    display: flex;
+                    align-items: flex-end;
+                    justify-content: flex-end;
+                    padding: 0.5rem;
+                    min-height: 0;
+                    border: none;
+                    background: transparent;
+                    cursor: pointer;
+                }
+
+                .csm-map-open-pill {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    padding: 0.3rem 0.65rem;
+                    border-radius: 999px;
+                    background: rgba(10, 25, 47, 0.85);
+                    color: #fff;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    pointer-events: none;
                 }
 
                 .csm-time {
