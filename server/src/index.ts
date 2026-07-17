@@ -95,7 +95,13 @@ app.get('/api/version', (_req, res) => {
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
+// Web origins from CORS_ORIGIN plus the Capacitor native WebView origins
+// (capacitor://localhost on iOS, https://localhost on Android)
+const allowedOrigins = [config.corsOrigin, config.corsNativeOrigin]
+    .join(',')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no Origin (same-origin browser requests and server-to-server)

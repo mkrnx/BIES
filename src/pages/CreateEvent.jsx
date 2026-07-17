@@ -6,7 +6,7 @@ import {
     Plus, Trash2, Camera, Save, X, Link as LinkIcon,
     Image as ImageIcon, Layout as LayoutIcon, LineChart as LineChartIcon,
     AlignLeft as AlignLeftIcon, GripVertical, Upload, FileText,
-    Radio, Send,
+    Radio, Send, Check, Zap,
 } from 'lucide-react';
 import { eventsApi, uploadApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -27,6 +27,12 @@ const VISIBILITY_OPTIONS = [
 ];
 
 const CATEGORIES = ['NETWORKING', 'CONFERENCE', 'WORKSHOP', 'HACKATHON', 'MEETUP', 'DEMO_DAY', 'OTHER'];
+
+const TICKET_MODE_OPTIONS = [
+    { value: 'FREE', label: 'Free', icon: <Users size={15} />, desc: 'Attendees RSVP at no cost' },
+    { value: 'PAID', label: 'Paid in sats', icon: <Zap size={15} />, desc: 'Sell tickets in-app — sats go straight to your Lightning address' },
+    { value: 'EXTERNAL', label: 'External link', icon: <LinkIcon size={15} />, desc: 'Send attendees to an external ticketing page' },
+];
 
 const CreateEvent = () => {
     const { user } = useAuth();
@@ -51,7 +57,11 @@ const CreateEvent = () => {
         endTime: '',
         maxAttendees: '',
         thumbnail: null,
+        ticketMode: 'FREE', // 'FREE' | 'PAID' | 'EXTERNAL'
         ticketUrl: '',
+        priceSats: '',
+        ticketCapacity: '',
+        payoutLightningAddress: '',
         visibility: 'PUBLIC',
         isOfficial: false,
         endorsementRequested: false,
@@ -73,6 +83,13 @@ const CreateEvent = () => {
             nostrService.checkRelayHealth().then(setRelayHealth).catch(() => {});
         }
     }, [form.visibility, form.nostrPublish]);
+
+    // Prefill the payout address from the logged-in user's profile Lightning address
+    useEffect(() => {
+        const lnAddr = user?.profile?.lightningAddress;
+        if (!lnAddr) return;
+        setForm(prev => (prev.payoutLightningAddress ? prev : { ...prev, payoutLightningAddress: lnAddr }));
+    }, [user?.profile?.lightningAddress]);
 
     const isBusy = loading || uploadLoading;
 
@@ -100,7 +117,7 @@ const CreateEvent = () => {
                 ...(data.locationAddress && { locationAddress: data.locationAddress }),
                 ...(data.isOnline !== undefined && { isOnline: data.isOnline }),
                 ...(data.onlineUrl && { onlineUrl: data.onlineUrl }),
-                ...(data.ticketUrl && { ticketUrl: data.ticketUrl }),
+                ...(data.ticketUrl && { ticketUrl: data.ticketUrl, ticketMode: 'EXTERNAL' }),
                 ...(data.maxAttendees && { maxAttendees: String(data.maxAttendees) }),
                 ...(data.thumbnail && { thumbnail: data.thumbnail }),
             }));
@@ -293,6 +310,10 @@ const CreateEvent = () => {
 
     const buildPayload = () => {
         if (!form.startDate) throw new Error('Start date is required');
+        if (form.ticketMode === 'PAID') {
+            const price = parseInt(form.priceSats, 10);
+            if (!price || price <= 0) throw new Error('Ticket price (sats) is required for paid events');
+        }
         const startDate = new Date(`${form.startDate}T${form.startTime || '00:00'}:00`).toISOString();
         const endDate = form.endDate ? new Date(`${form.endDate}T${form.endTime || '23:59'}:00`).toISOString() : undefined;
         return {
@@ -308,7 +329,10 @@ const CreateEvent = () => {
             startDate, endDate,
             maxAttendees: form.maxAttendees ? parseInt(form.maxAttendees) : undefined,
             thumbnail: form.thumbnail || undefined,
-            ticketUrl: form.ticketUrl || undefined,
+            ticketUrl: form.ticketMode === 'EXTERNAL' ? (form.ticketUrl || '') : '',
+            priceSats: form.ticketMode === 'PAID' ? parseInt(form.priceSats, 10) : 0,
+            ticketCapacity: form.ticketMode === 'PAID' && form.ticketCapacity ? parseInt(form.ticketCapacity, 10) : null,
+            payoutLightningAddress: form.ticketMode === 'PAID' ? (form.payoutLightningAddress || '').trim() : '',
             tags,
             visibility: form.visibility,
             isOfficial: form.isOfficial,
@@ -327,6 +351,10 @@ const CreateEvent = () => {
             const payload = buildPayload();
             const created = await eventsApi.create(payload);
             const eventData = created.data || created;
+
+            // Track the publish outcome locally — the nostrStatus state read
+            // below would be the stale value captured at render time
+            let publishOutcome = null;
 
             // Only publish client-side if server didn't already (nostrPublished flag)
             // Server publishes for custodial users; client publishes for Nostr-native users
@@ -348,19 +376,23 @@ const CreateEvent = () => {
                         thumbnail: payload.thumbnail,
                         ticketUrl: payload.ticketUrl,
                     }, payload.nostrPublish);
+                    publishOutcome = 'success';
                     setNostrStatus('success');
                 } catch (nostrErr) {
                     console.warn('[NIP-52] Client-side publish failed:', nostrErr);
+                    publishOutcome = 'failed';
                     setNostrStatus('failed');
                 }
             } else if (eventData.nostrPublished) {
+                publishOutcome = 'success';
                 setNostrStatus('success');
             } else if (payload.nostrPublish === 'none') {
+                publishOutcome = 'skipped';
                 setNostrStatus('skipped');
             }
 
             // Brief delay so user sees nostr status before navigating
-            setTimeout(() => navigate('/events/my'), nostrStatus === 'failed' ? 2000 : 500);
+            setTimeout(() => navigate('/events/my'), publishOutcome === 'failed' ? 2000 : 500);
         } catch (err) {
             if (err.data?.details) {
                 setSubmitError(`${err.message}: ${err.data.details.map(d => `${d.field}: ${d.message}`).join(', ')}`);
@@ -594,15 +626,58 @@ const CreateEvent = () => {
                                     </div>
                                 )}
 
-                                <div className="sidebar-form-group">
-                                    <label className="sidebar-label"><Ticket size={13} style={{ display: 'inline', marginRight: 4 }} />Ticket / Registration Link <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
-                                    <input type="url" name="ticketUrl" value={form.ticketUrl} onChange={handleChange} className="input-field sm" placeholder="https://lu.ma/your-event" />
-                                </div>
-
                                 <div className="sidebar-form-group" style={{ marginBottom: 0 }}>
                                     <label className="sidebar-label"><Users size={13} style={{ display: 'inline', marginRight: 4 }} />Max Attendees <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
                                     <input type="number" name="maxAttendees" value={form.maxAttendees} onChange={handleChange} className="input-field sm" placeholder="Unlimited" min="1" />
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Ticketing */}
+                        <div className="profile-card">
+                            <div className="section-inner" style={{ padding: '1.5rem' }}>
+                                <h3 className="h3-title section-heading" style={{ fontSize: '1rem' }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                        <Ticket size={16} style={{ color: '#f7931a' }} /> Ticketing
+                                    </span>
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                    {TICKET_MODE_OPTIONS.map(opt => (
+                                        <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', border: `1px solid ${form.ticketMode === opt.value ? 'var(--color-secondary)' : 'var(--color-gray-200)'}`, borderRadius: '8px', cursor: 'pointer', background: form.ticketMode === opt.value ? 'var(--color-orange-tint)' : 'var(--color-gray-50)', transition: 'all 0.15s' }}>
+                                            <input type="radio" name="ticketMode" value={opt.value} checked={form.ticketMode === opt.value} onChange={handleChange} style={{ display: 'none' }} />
+                                            <span style={{ color: form.ticketMode === opt.value ? 'var(--color-secondary)' : 'var(--color-gray-500)', flexShrink: 0 }}>{opt.icon}</span>
+                                            <span>
+                                                <span style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: 'var(--color-gray-900)' }}>{opt.label}</span>
+                                                <span style={{ display: 'block', fontSize: '0.73rem', color: 'var(--color-gray-500)' }}>{opt.desc}</span>
+                                            </span>
+                                        </label>
+                                    ))}
+                                </div>
+
+                                {form.ticketMode === 'PAID' && (
+                                    <div style={{ marginTop: '1rem' }}>
+                                        <div className="sidebar-form-group">
+                                            <label className="sidebar-label"><Zap size={13} style={{ display: 'inline', marginRight: 4, color: '#f7931a' }} />Ticket Price (sats)</label>
+                                            <input type="number" name="priceSats" value={form.priceSats} onChange={handleChange} className="input-field sm" placeholder="e.g. 21000" min="1" />
+                                        </div>
+                                        <div className="sidebar-form-group">
+                                            <label className="sidebar-label"><Users size={13} style={{ display: 'inline', marginRight: 4 }} />Ticket Capacity <span style={{ fontWeight: 400, color: 'var(--color-gray-400)' }}>(optional)</span></label>
+                                            <input type="number" name="ticketCapacity" value={form.ticketCapacity} onChange={handleChange} className="input-field sm" placeholder="Unlimited" min="1" />
+                                        </div>
+                                        <div className="sidebar-form-group" style={{ marginBottom: 0 }}>
+                                            <label className="sidebar-label"><Zap size={13} style={{ display: 'inline', marginRight: 4 }} />Payout Lightning Address</label>
+                                            <input type="text" name="payoutLightningAddress" value={form.payoutLightningAddress} onChange={handleChange} className="input-field sm" placeholder="you@coinos.io" />
+                                            <p style={{ fontSize: '0.73rem', color: 'var(--color-gray-500)', margin: '0.4rem 0 0' }}>Ticket payments go straight to this address — no middleman. Prefilled from your profile.</p>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {form.ticketMode === 'EXTERNAL' && (
+                                    <div className="sidebar-form-group" style={{ marginTop: '1rem', marginBottom: 0 }}>
+                                        <label className="sidebar-label"><LinkIcon size={13} style={{ display: 'inline', marginRight: 4 }} />Ticket / Registration Link</label>
+                                        <input type="url" name="ticketUrl" value={form.ticketUrl} onChange={handleChange} className="input-field sm" placeholder="https://lu.ma/your-event" />
+                                    </div>
+                                )}
                             </div>
                         </div>
 

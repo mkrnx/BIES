@@ -468,9 +468,12 @@ class NostrService {
 
     /**
      * Subscribe to the private BIES relay only (handles the NIP-42 AUTH challenge).
+     * Optional callbacks (both may be omitted — existing callers are unaffected):
+     * - oneose: fires once the relay finished replaying stored events
+     * - onclose: fires when the subscription closes (e.g. relay unreachable)
      */
-    subscribeToBiesRelay(filter, onevent) {
-        return this.pool.subscribeMany([this.biesRelay], filter, { onevent, onauth: handleRelayAuth });
+    subscribeToBiesRelay(filter, onevent, { oneose, onclose } = {}) {
+        return this.pool.subscribeMany([this.biesRelay], filter, { onevent, oneose, onclose, onauth: handleRelayAuth });
     }
 
     /**

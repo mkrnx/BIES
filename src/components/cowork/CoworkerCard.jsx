@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Wifi, Coffee, Utensils, Armchair, LogOut } from 'lucide-react';
+import { MapPin, Wifi, Coffee, Utensils, Armchair, LogOut, Loader2 } from 'lucide-react';
 import { getDisplayName, formatTime } from '../../utils/noteUtils';
 
 const MENU_VALUES = ['good', 'ok', 'basic'];
@@ -10,7 +10,7 @@ const WIFI_VALUES = ['fast', 'ok', 'slow'];
  * One coworker in the list: avatar, name, venue (tap to locate on the map),
  * note, amenity chips, and — for the current user — a checkout button.
  */
-const CoworkerCard = ({ session, profile, isMe = false, onLocate, onCheckOut }) => {
+const CoworkerCard = ({ session, profile, isMe = false, onLocate, onCheckOut, checkingOut = false }) => {
     const { t } = useTranslation();
     const [imgError, setImgError] = useState(false);
 
@@ -81,9 +81,12 @@ const CoworkerCard = ({ session, profile, isMe = false, onLocate, onCheckOut }) 
                     <button
                         className="cw-checkout"
                         data-testid="cowork-checkout-btn"
+                        disabled={checkingOut}
                         onClick={() => onCheckOut && onCheckOut()}
                     >
-                        <LogOut size={14} />
+                        {checkingOut
+                            ? <Loader2 size={14} className="cw-spin" />
+                            : <LogOut size={14} />}
                         {t('cowork.checkOut')}
                     </button>
                 )}
@@ -179,6 +182,7 @@ const CoworkerCard = ({ session, profile, isMe = false, onLocate, onCheckOut }) 
                     cursor: pointer;
                     text-align: left;
                     min-width: 0;
+                    min-height: 0; /* opt out of the global mobile button min-height */
                 }
 
                 .cw-venue:hover .cw-venue-text { text-decoration: underline; }
@@ -243,9 +247,22 @@ const CoworkerCard = ({ session, profile, isMe = false, onLocate, onCheckOut }) 
                     transition: all 0.15s;
                 }
 
-                .cw-checkout:hover {
+                .cw-checkout:hover:not(:disabled) {
                     background: var(--color-secondary);
                     color: white;
+                }
+
+                .cw-checkout:disabled {
+                    opacity: 0.6;
+                    cursor: wait;
+                }
+
+                .cw-spin {
+                    animation: cw-spin 1s linear infinite;
+                }
+
+                @keyframes cw-spin {
+                    to { transform: rotate(360deg); }
                 }
             `}</style>
         </div>

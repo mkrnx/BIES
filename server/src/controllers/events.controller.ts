@@ -49,6 +49,9 @@ export const createEventSchema = z.object({
     thumbnail: z.string().optional().or(z.literal('')),
     ticketUrl: z.string().optional().or(z.literal('')),
     maxAttendees: z.number().int().optional().nullable(),
+    priceSats: z.number().int().min(0).optional().nullable(), // null/0 = free (RSVP-only)
+    ticketCapacity: z.number().int().positive().optional().nullable(),
+    payoutLightningAddress: z.string().max(320).optional(),
     tags: z.array(z.string()).optional(),
     isOfficial: z.boolean().optional(),
     endorsementRequested: z.boolean().optional(),
@@ -87,14 +90,19 @@ function visibilityToPublished(visibility: string): boolean {
  */
 export async function listEvents(req: Request, res: Response): Promise<void> {
     try {
-        const { category, upcoming, search, isOfficial, isEndorsed, page = '1', limit = '20' } = req.query;
+        const { category, upcoming, search, isOfficial, isEndorsed, hostId, page = '1', limit = '20' } = req.query;
         const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
         const take = Math.min(parseInt(limit as string, 10), 50);
 
+        // Cache key must include every filter that shapes the result set,
+        // otherwise a filtered request poisons the cache for unfiltered ones
         const cKey = cacheKey.events({
             category: category as string || '',
             upcoming: upcoming as string || '',
             isOfficial: isOfficial as string || '',
+            isEndorsed: isEndorsed as string || '',
+            search: search as string || '',
+            hostId: hostId as string || '',
             page: page as string,
             limit: limit as string
         });
@@ -120,6 +128,9 @@ export async function listEvents(req: Request, res: Response): Promise<void> {
         }
         if (isEndorsed === 'true') {
             where.isEndorsed = true;
+        }
+        if (hostId && typeof hostId === 'string') {
+            where.hostId = hostId;
         }
         if (search && typeof search === 'string') {
             where.OR = [
@@ -192,12 +203,26 @@ export async function listMyEvents(req: Request, res: Response): Promise<void> {
             prisma.event.count({ where: { hostId: req.user!.id } }),
         ]);
 
+        // Ticket sales per hosted event (PAID only)
+        const eventIds = events.map((e) => e.id);
+        const ticketStats = eventIds.length > 0
+            ? await prisma.ticket.groupBy({
+                by: ['eventId'],
+                where: { eventId: { in: eventIds }, status: 'PAID' },
+                _count: { _all: true },
+                _sum: { amountSats: true },
+            })
+            : [];
+        const statsByEvent = new Map(ticketStats.map((s) => [s.eventId, s]));
+
         const parsed = events.map((e) => ({
             ...e,
             tags: JSON.parse(e.tags || '[]'),
             guestList: JSON.parse(e.guestList || '[]'),
             customSections: JSON.parse((e as any).customSections || '[]'),
             attendeeCount: e._count.attendees,
+            ticketsSold: statsByEvent.get(e.id)?._count._all || 0,
+            revenueSats: statsByEvent.get(e.id)?._sum.amountSats || 0,
         }));
 
         res.json({
@@ -320,12 +345,25 @@ export async function getEvent(req: Request, res: Response): Promise<void> {
             }
         }
 
+        // Current user's RSVP status + PAID ticket count
+        const [myRsvp, ticketsSold] = await Promise.all([
+            currentUserId
+                ? prisma.eventAttendee.findUnique({
+                    where: { eventId_userId: { eventId: event.id, userId: currentUserId } },
+                    select: { status: true },
+                })
+                : Promise.resolve(null),
+            prisma.ticket.count({ where: { eventId: event.id, status: 'PAID' } }),
+        ]);
+
         res.json({
             ...event,
             tags: JSON.parse(event.tags || '[]'),
             guestList: JSON.parse(event.guestList || '[]'),
             customSections: JSON.parse((event as any).customSections || '[]'),
             attendeeCount: event._count.attendees,
+            ticketsSold,
+            rsvpStatus: myRsvp?.status || null,
         });
     } catch (error) {
         console.error('Get event error:', error);
@@ -450,6 +488,7 @@ export async function createEvent(req: Request, res: Response): Promise<void> {
             'location', 'locationName', 'locationAddress', 'locationMapUrl',
             'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
+            'priceSats', 'ticketCapacity', 'payoutLightningAddress',
             'endorsementRequested', 'guestList', 'customSections', 'nostrPublish',
         ];
         const data: any = {};
@@ -578,6 +617,7 @@ export async function updateEvent(req: Request, res: Response): Promise<void> {
             'location', 'locationName', 'locationAddress', 'locationMapUrl',
             'isOnline', 'onlineUrl', 'startDate', 'endDate',
             'thumbnail', 'ticketUrl', 'maxAttendees', 'tags', 'isOfficial',
+            'priceSats', 'ticketCapacity', 'payoutLightningAddress',
             'endorsementRequested', 'guestList', 'customSections', 'nostrPublish',
         ];
         const data: any = {};
@@ -759,7 +799,6 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
                 title: true, hostId: true, maxAttendees: true, isPublished: true,
                 visibility: true, nostrPublish: true,
                 host: { select: { nostrPubkey: true } },
-                _count: { select: { attendees: true } },
             },
         });
 
@@ -767,12 +806,18 @@ export async function rsvpEvent(req: Request, res: Response): Promise<void> {
             res.status(404).json({ error: 'Event not found' }); return;
         }
 
-        if (status === 'GOING' && event.maxAttendees && event._count.attendees >= event.maxAttendees) {
-            const existing = await prisma.eventAttendee.findUnique({
-                where: { eventId_userId: { eventId: req.params.id, userId } },
+        if (status === 'GOING' && event.maxAttendees) {
+            // Only GOING attendees consume capacity (not INTERESTED/INVITED/NOT_GOING)
+            const goingCount = await prisma.eventAttendee.count({
+                where: { eventId: req.params.id, status: 'GOING' },
             });
-            if (!existing) {
-                res.status(409).json({ error: 'Event is at full capacity' }); return;
+            if (goingCount >= event.maxAttendees) {
+                const existing = await prisma.eventAttendee.findUnique({
+                    where: { eventId_userId: { eventId: req.params.id, userId } },
+                });
+                if (!existing) {
+                    res.status(409).json({ error: 'Event is at full capacity' }); return;
+                }
             }
         }
 

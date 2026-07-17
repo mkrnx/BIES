@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Clock, CheckCircle, Loader2 } from 'lucide-react';
 import { projectsApi } from '../services/api';
+import { openExternal } from '../utils/openExternal';
 
 const STATES = {
     IDLE: 'idle',
@@ -85,7 +86,7 @@ const DeckRequestButton = ({ projectId, className = '' }) => {
 
     const handleDownload = () => {
         if (deckUrl && (deckUrl.startsWith('https://') || deckUrl.startsWith('http://') || deckUrl.startsWith('/'))) {
-            window.open(deckUrl, '_blank', 'noopener,noreferrer');
+            openExternal(deckUrl);
         }
     };
 

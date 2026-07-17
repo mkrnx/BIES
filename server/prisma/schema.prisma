@@ -47,6 +47,7 @@ model User {
   deckRequests     DeckRequest[]
   investorRequests InvestorRequest[]
   eventRSVPs      EventAttendee[]
+  eventTickets     Ticket[]
   settings         UserSettings?
   fingerprints     BrowserFingerprint[]
   feedback         Feedback[]
@@ -336,6 +337,9 @@ model Event {
   thumbnail   String   @default("")
   ticketUrl   String   @default("") @map("ticket_url")
   maxAttendees Int?    @map("max_attendees")
+  priceSats   Int?     @map("price_sats") // null/0 = free (RSVP-only)
+  ticketCapacity Int?  @map("ticket_capacity")
+  payoutLightningAddress String @default("") @map("payout_lightning_address") // per-event override; falls back to host Profile.lightningAddress
   isPublished Boolean  @default(true) @map("is_published")
   isFeatured  Boolean  @default(false) @map("is_featured")
   isOfficial  Boolean  @default(false) @map("is_official")
@@ -354,8 +358,32 @@ model Event {
 
   host      User              @relation(fields: [hostId], references: [id], onDelete: Cascade)
   attendees EventAttendee[]
+  tickets   Ticket[]
 
   @@map("events")
+}
+
+model Ticket {
+  id          String   @id @default(cuid())
+  eventId     String   @map("event_id")
+  buyerId     String   @map("buyer_id")
+  amountSats  Int      @map("amount_sats")
+  bolt11      String
+  paymentHash String   @unique @map("payment_hash")
+  preimage    String   @default("")
+  verifyUrl   String   @default("") @map("verify_url") // LUD-21 verify URL from the LNURL callback
+  status      String   @default("PENDING") // PENDING | PAID | EXPIRED | CANCELLED
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  paidAt      DateTime? @map("paid_at")
+  checkedInAt DateTime? @map("checked_in_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  buyer User  @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([eventId])
+  @@index([buyerId])
+  @@map("tickets")
 }
 
 model EventAttendee {

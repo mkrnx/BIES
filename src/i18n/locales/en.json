@@ -1,5 +1,6 @@
 {
   "common": {
+    "tryAgain": "Try Again",
     "loading": "Loading...",
     "search": "Search",
     "filters": "Filters",

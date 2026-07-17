@@ -261,7 +261,7 @@ export const notificationsApi = {
 
 export const eventsApi = {
     list: (params = {}) => get('/events', params),
-    // params: { category, upcoming, search, isOfficial, isEndorsed, page, limit }
+    // params: { category, upcoming, search, isOfficial, isEndorsed, hostId, page, limit }
 
     listMine: (params = {}) => get('/events/my', params),
     listAttending: (params = {}) => get('/events/attending', params),
@@ -283,6 +283,25 @@ export const eventsApi = {
     invite: (id, userId) => post(`/events/${id}/invite`, { userId }),
 
     importUrl: (url) => post('/events/import-url', { url }),
+
+    // Ticketing (non-custodial Lightning payments to the event host)
+    buyTicket: (id) => post(`/events/${id}/tickets`),
+    // → { ticket: { id, bolt11, amountSats, status, verifySupported, expiresAt, ... } }
+
+    getTicket: (id, ticketId) => get(`/events/${id}/tickets/${ticketId}`),
+    // Polling this also triggers server-side LUD-21 settlement verification
+
+    claimTicket: (id, ticketId, preimage) =>
+        post(`/events/${id}/tickets/${ticketId}/claim`, { preimage }),
+
+    myEventTickets: (id) => get(`/events/${id}/tickets/mine`),
+
+    myTickets: () => get('/events/tickets/mine'),
+
+    eventTickets: (id) => get(`/events/${id}/tickets`),
+    // Host/admin only → { data: [...tickets with buyer], summary: { sold, revenueSats, pending, checkedIn } }
+
+    checkinTicket: (id, ticketId) => post(`/events/${id}/tickets/${ticketId}/checkin`, {}),
 };
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
@@ -379,7 +398,14 @@ export const mediaApi = {
     substack: () => get('/media/substack'),
     youtube: () => get('/media/youtube'),
     getReadState: () => get('/settings/media-read'),
+    // Legacy full-array replace — prefer toggleReadState / bulkReadState below
     saveReadState: (data) => put('/settings/media-read', data),
+    // Atomically add/remove a single item: itemType is 'watched' | 'read'
+    toggleReadState: (itemId, itemType, value) =>
+        post('/settings/media-read/toggle', { itemId, itemType, value }),
+    // Server-side merge of add/remove deltas: { watched: [], read: [] } each
+    bulkReadState: (add = {}, remove = {}) =>
+        post('/settings/media-read/bulk', { add, remove }),
 };
 
 // ─── User Preferences (persistent across login/logout) ──────────────────────

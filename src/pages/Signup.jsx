@@ -9,6 +9,7 @@ import { keytrService } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
 import { walletApi, profilesApi } from '../services/api';
+import { isNativePlatform } from '../utils/platform';
 
 const Signup = () => {
     const { loginWithNsec } = useAuth();
@@ -30,6 +31,9 @@ const Signup = () => {
 
     useEffect(() => {
         if (!PASSKEY_ENABLED) return;
+        // WebAuthn does not exist in WKWebView (Capacitor native shell) — hide
+        // the passkey save UI there instead of letting it hard-fail.
+        if (typeof PublicKeyCredential === 'undefined' || isNativePlatform()) return;
         keytrService.checkSupport().then(setPasskeySupported);
     }, []);
     // NIP-05 availability check (debounced)

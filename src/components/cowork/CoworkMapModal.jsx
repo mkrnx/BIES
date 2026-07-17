@@ -5,10 +5,12 @@ import { useTranslation } from 'react-i18next';
 import CoworkMap from './CoworkMap';
 
 /**
- * Fullscreen map modal. z-index 10001 — deliberately above MobileBottomNav's
- * 10000 so the map truly covers the bottom bar. Doubles as the drop-a-pin
- * picker via `pickMode` (nested under CheckInModal, hence the idempotent
- * body scroll lock: only the modal that locked the body restores it).
+ * Fullscreen map modal. z-index 10002 — deliberately above MobileBottomNav's
+ * 10000 AND CheckInModal's 10001, so the map covers the bottom bar and the
+ * drop-a-pin picker stacks above the check-in sheet it is nested under.
+ * Doubles as the drop-a-pin picker via `pickMode` (nested under CheckInModal,
+ * hence the idempotent body scroll lock: only the modal that locked the body
+ * restores it).
  */
 const CoworkMapModal = ({
     open,
@@ -110,7 +112,7 @@ const CoworkMapModal = ({
                 .cmm-overlay {
                     position: fixed;
                     inset: 0;
-                    z-index: 10001;
+                    z-index: 10002;
                     display: flex;
                     flex-direction: column;
                     background: var(--color-surface);

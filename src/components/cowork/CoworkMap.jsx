@@ -79,6 +79,11 @@ const CoworkMap = ({
     const onPickRef = useRef(onPick);
     // Snapshot of create-time options — the map is created exactly once.
     const initOptionsRef = useRef({ center, zoom, interactive });
+    // Interactive maps fit/focus the view only once per map instance — a later
+    // sessions/profiles refresh (60s expiry tick, async profile loads) must
+    // never yank the user's pan/zoom back to the fitted bounds. The static
+    // thumbnail can't be panned, so it keeps refitting as check-ins stream in.
+    const didFitRef = useRef(false);
 
     useEffect(() => {
         onPickRef.current = onPick;
@@ -103,6 +108,7 @@ const CoworkMap = ({
         L.tileLayer(TILE_URL, { maxZoom: 19, attribution: TILE_ATTRIBUTION }).addTo(map);
         markersLayerRef.current = L.layerGroup().addTo(map);
         mapRef.current = map;
+        didFitRef.current = false; // fresh instance gets one fit/focus pass
         // Portal modals mount before layout settles — recompute the size.
         const rafId = requestAnimationFrame(() => map.invalidateSize());
         return () => {
@@ -113,6 +119,11 @@ const CoworkMap = ({
             pickMarkerRef.current = null;
         };
     }, []);
+
+    // A new focus target re-enables exactly one fit/focus pass.
+    useEffect(() => {
+        didFitRef.current = false;
+    }, [focusPubkey]);
 
     // Rebuild avatar markers whenever sessions or profiles change.
     useEffect(() => {
@@ -129,13 +140,16 @@ const CoworkMap = ({
                 .addTo(layer);
             coords.push([session.lat, session.lng]);
         }
+        if (didFitRef.current && interactive) return;
         const focused = focusPubkey ? sessions.find(s => s.pubkey === focusPubkey) : null;
         if (focused) {
             map.setView([focused.lat, focused.lng], 15);
+            didFitRef.current = true;
         } else if (fit && sessions.length > 0) {
             map.fitBounds(L.latLngBounds(coords).pad(0.25), { maxZoom: 15 });
+            didFitRef.current = true;
         }
-    }, [sessions, profiles, fit, focusPubkey]);
+    }, [sessions, profiles, fit, focusPubkey, interactive]);
 
     // Pick mode: forward map clicks as [lat, lng].
     useEffect(() => {

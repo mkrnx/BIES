@@ -185,9 +185,12 @@ export async function checkOut() {
 
 /**
  * Subscribe to cowork check-ins on the BIES relay (last 12h window).
+ * Optional callbacks: `oneose` fires once the relay finished replaying stored
+ * events, `onclose` fires when the subscription closes (relay unreachable,
+ * auth rejected, or closed by the caller).
  * Returns the subscription handle ({ close() }).
  */
-export function subscribe(onEvent) {
+export function subscribe(onEvent, { oneose, onclose } = {}) {
     const nowSec = nowSeconds();
     return nostrService.subscribeToBiesRelay(
         {
@@ -197,6 +200,7 @@ export function subscribe(onEvent) {
             limit: 200,
         },
         onEvent,
+        { oneose, onclose },
     );
 }
 

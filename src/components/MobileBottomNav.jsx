@@ -37,7 +37,11 @@ const MobileBottomNav = () => {
   const { t } = useTranslation();
 
   const { tabs: tabIds } = useBottomNav();
-  const tabs = tabIds.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean);
+  const allTabs = tabIds.map((id) => NAV_PAGES_BY_ID[id]).filter(Boolean);
+  // When logged out, auth-gated tabs collapse into a single Login entry —
+  // rendering one Login link per gated tab would duplicate it.
+  const firstAuthIdx = allTabs.findIndex((tab) => tab.auth);
+  const tabs = isAuthenticated ? allTabs : allTabs.filter((tab, i) => !tab.auth || i === firstAuthIdx);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 

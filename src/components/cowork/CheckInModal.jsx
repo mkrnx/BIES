@@ -39,11 +39,16 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
-    // Reset transient state whenever the modal reopens.
+    // Reset transient state whenever the modal reopens. Venue/amenity choices
+    // are deliberately remembered; a stale pin, GPS fix or note must not be.
     useEffect(() => {
         if (open) {
             setError('');
             setSubmitting(false);
+            setNote('');
+            setPinLatLng(null);
+            setGpsLatLng(null);
+            setGpsStatus('idle');
         }
     }, [open]);
 
@@ -66,6 +71,17 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
             window.scrollTo(0, scrollY);
         };
     }, [open]);
+
+    // ESC closes — never mid-publish, and not while the nested pin picker is
+    // open (it has its own ESC handler and must close first).
+    useEffect(() => {
+        if (!open) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape' && !submitting && !pinPickerOpen) onClose();
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [open, submitting, pinPickerOpen, onClose]);
 
     const venuesByCity = useMemo(() => {
         const groups = new Map();
@@ -161,7 +177,12 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
             <div className="ci-card" role="dialog" aria-modal="true">
                 <div className="ci-header">
                     <h3 className="ci-title">{t('cowork.form.title')}</h3>
-                    <button className="ci-close" aria-label={t('common.close')} onClick={onClose}>
+                    <button
+                        className="ci-close"
+                        aria-label={t('common.close')}
+                        disabled={submitting}
+                        onClick={onClose}
+                    >
                         <X size={20} />
                     </button>
                 </div>
@@ -377,7 +398,10 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
                 .ci-overlay {
                     position: fixed;
                     inset: 0;
-                    z-index: 9999;
+                    /* Above MobileBottomNav's 10000 so the fixed bottom nav
+                       never occludes the sheet (or steals taps); the nested
+                       pin picker stacks above at 10002. */
+                    z-index: 10001;
                     display: flex;
                     align-items: center;
                     justify-content: center;
@@ -390,7 +414,8 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
                     border-radius: var(--radius-lg);
                     width: 92vw;
                     max-width: 440px;
-                    max-height: 90vh;
+                    max-height: 90vh; /* fallback for pre-dvh browsers */
+                    max-height: calc(100dvh - 2rem);
                     display: flex;
                     flex-direction: column;
                     box-shadow: var(--shadow-lg);
@@ -421,7 +446,8 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
                     cursor: pointer;
                 }
 
-                .ci-close:hover { color: var(--color-gray-900); }
+                .ci-close:hover:not(:disabled) { color: var(--color-gray-900); }
+                .ci-close:disabled { opacity: 0.5; cursor: default; }
 
                 .ci-body {
                     padding: 1.25rem;
@@ -540,8 +566,10 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    width: 34px;
-                    height: 34px;
+                    width: 36px;
+                    height: 36px;
+                    min-height: 0; /* keep the circle round despite the global
+                                      mobile button { min-height: 36px } rule */
                     border: 1.5px solid var(--color-gray-200);
                     border-radius: var(--radius-full);
                     background: var(--color-surface);
@@ -664,7 +692,8 @@ const CheckInModal = ({ open, onClose, onSuccess }) => {
                     .ci-card {
                         width: 100%;
                         max-width: none;
-                        max-height: 92vh;
+                        max-height: 92vh; /* fallback for pre-dvh browsers */
+                        max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 0.5rem);
                         border-radius: var(--radius-lg) var(--radius-lg) 0 0;
                     }
 

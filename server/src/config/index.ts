@@ -23,6 +23,9 @@ export const config = {
     port: parseInt(process.env.PORT || '3001', 10),
     nodeEnv,
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    // Native app WebView origins (Capacitor: capacitor://localhost on iOS,
+    // https://localhost on Android) — comma-separated, env-overridable
+    corsNativeOrigin: process.env.CORS_NATIVE_ORIGIN || 'capacitor://localhost,https://localhost',
 
     // ─── Auth ───────────────────────────────────────────────────────────────
     jwtSecret: process.env.JWT_SECRET || devJwtSecret,

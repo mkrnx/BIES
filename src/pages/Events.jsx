@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2, Ticket } from 'lucide-react';
+import { Search, Filter, SlidersHorizontal, MapPin, Calendar as CalendarIcon, Clock, Users, Globe, Plus, ShieldCheck, Award, ChevronLeft, ChevronRight, X, Loader2, Ticket, Zap } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { getAssetUrl } from '../utils/assets';
 import { stripHtml } from '../utils/text';
@@ -15,6 +15,18 @@ const EVENT_CATEGORY_COLORS = {
     MEETUP: 'var(--color-green-tint)',
     NETWORKING: 'var(--color-red-tint)',
     DEMO_DAY: 'var(--color-orange-tint)',
+};
+
+/**
+ * Local-timezone YYYY-MM-DD. Calendar cells, event dots and the date filter
+ * must all agree on the viewer's LOCAL day — comparing the UTC prefix of an
+ * ISO string shifts events near midnight into the wrong day for UTC± viewers.
+ */
+const toLocalDateStr = (value) => {
+    if (!value) return '';
+    const date = value instanceof Date ? value : new Date(value);
+    if (isNaN(date.getTime())) return '';
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
 const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
@@ -92,8 +104,13 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                             </div>
                         </div>
 
-                        {tags.length > 0 && (
+                        {(tags.length > 0 || event.priceSats > 0) && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '6px' }}>
+                                {event.priceSats > 0 && (
+                                    <span className="event-list-tag" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, padding: '2px 8px', fontSize: '0.7rem', background: 'var(--color-orange-tint)', borderRadius: '99px', color: '#b45309', fontWeight: 700 }}>
+                                        <Zap size={10} /> {Number(event.priceSats).toLocaleString()} sats
+                                    </span>
+                                )}
                                 {tags.map((tag, i) => (
                                     <span key={i} className="event-list-tag" style={{ padding: '2px 8px', fontSize: '0.7rem', background: 'var(--color-surface-raised)', borderRadius: '99px', color: 'var(--color-gray-600)', fontWeight: 500 }}>{tag}</span>
                                 ))}
@@ -102,7 +119,22 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                     </div>
                     <div className="event-list-actions" style={{ flexShrink: 0 }}>
                         {/* Desktop: text pill button */}
-                        {(event.ticketUrl || event.externalUrl) ? (
+                        {event.priceSats > 0 ? (
+                            <>
+                                <button
+                                    className="btn btn-primary btn-xs ticket-btn-text"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/events/${event.id}`); }}
+                                >
+                                    {t('common.buyTicket', 'Buy Ticket')}
+                                </button>
+                                <button
+                                    className="ticket-btn-icon"
+                                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/events/${event.id}`); }}
+                                >
+                                    <Zap size={18} />
+                                </button>
+                            </>
+                        ) : (event.ticketUrl || event.externalUrl) ? (
                             <>
                                 <a
                                     href={event.ticketUrl || event.externalUrl}
@@ -129,7 +161,7 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                                     className="btn btn-primary btn-xs ticket-btn-text"
                                     onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/events/${event.id}`); }}
                                 >
-                                    {t('common.getTickets')}
+                                    {t('common.rsvp', 'RSVP')}
                                 </button>
                                 <button
                                     className="ticket-btn-icon"
@@ -208,6 +240,9 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                 >
                     <span className="cat-badge">{categoryLabel}</span>
                     <span className="date-badge"><CalendarIcon size={11} /> {dateStrFull}</span>
+                    {event.priceSats > 0 && (
+                        <span className="price-badge"><Zap size={11} /> {Number(event.priceSats).toLocaleString()} sats</span>
+                    )}
                     {isOfficial && (
                         <span className="official-badge"><ShieldCheck size={11} /> {t('common.official')}</span>
                     )}
@@ -229,10 +264,12 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                     <div className="meta-item"><MapPin size={13} /><span>{event.location}</span></div>
                 </div>
                 <div className="actions">
-                    {(event.ticketUrl || event.externalUrl) ? (
+                    {event.priceSats > 0 ? (
+                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn"><Zap size={13} style={{ marginRight: 4 }} /> {t('common.buyTicket', 'Buy Ticket')}</Link>
+                    ) : (event.ticketUrl || event.externalUrl) ? (
                         <a href={event.ticketUrl || event.externalUrl} target="_blank" rel="noopener noreferrer" className="btn btn-primary btn-xs reserve-btn">{t('common.getTickets')}</a>
                     ) : (
-                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn">{t('common.getTickets')}</Link>
+                        <Link to={`/events/${event.id}`} className="btn btn-primary btn-xs reserve-btn">{t('common.rsvp', 'RSVP')}</Link>
                     )}
                 </div>
             </div>
@@ -292,6 +329,20 @@ const EventCard = ({ event, isOfficial, viewType = 'standard' }) => {
                     border-radius: 4px;
                     font-size: 0.7rem;
                     font-weight: 600;
+                    display: flex;
+                    align-items: center;
+                    gap: 3px;
+                }
+                .price-badge {
+                    position: absolute;
+                    top: 3.2rem;
+                    left: 1rem;
+                    background: rgba(0,0,0,0.75);
+                    color: #fbbf24;
+                    padding: 3px 8px;
+                    border-radius: 99px;
+                    font-size: 0.7rem;
+                    font-weight: 700;
                     display: flex;
                     align-items: center;
                     gap: 3px;
@@ -417,25 +468,28 @@ const Events = () => {
         return () => clearTimeout(debounce);
     }, [search, category]);
 
-    // Derive displayed lists — apply selectedDate filter client-side
+    // Derive displayed lists — apply selectedDate filter client-side.
+    // Compare LOCAL date strings on both sides: toISOString() of local midnight
+    // is the previous day for UTC+ viewers and shifts events near midnight.
     const officialEvents = useMemo(() => {
         if (!selectedDate) return rawOfficialEvents;
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        return rawOfficialEvents.filter(e => (e.startDate || e.date || '').startsWith(dateStr));
+        const dateStr = toLocalDateStr(selectedDate);
+        return rawOfficialEvents.filter(e => toLocalDateStr(e.startDate || e.date) === dateStr);
     }, [rawOfficialEvents, selectedDate]);
 
     const communityEvents = useMemo(() => {
         if (!selectedDate) return rawCommunityEvents;
-        const dateStr = selectedDate.toISOString().split('T')[0];
-        return rawCommunityEvents.filter(e => (e.startDate || e.date || '').startsWith(dateStr));
+        const dateStr = toLocalDateStr(selectedDate);
+        return rawCommunityEvents.filter(e => toLocalDateStr(e.startDate || e.date) === dateStr);
     }, [rawCommunityEvents, selectedDate]);
 
-    // Build a Set of date strings that have events, for calendar dot indicators
+    // Build a Set of local date strings that have events, for calendar dot
+    // indicators — the calendar cells are built from local date parts too
     const eventDates = useMemo(() => {
         const dates = new Set();
         [...rawOfficialEvents, ...rawCommunityEvents].forEach(e => {
-            const d = e.startDate || e.date;
-            if (d) dates.add(d.substring(0, 10));
+            const d = toLocalDateStr(e.startDate || e.date);
+            if (d) dates.add(d);
         });
         return dates;
     }, [rawOfficialEvents, rawCommunityEvents]);

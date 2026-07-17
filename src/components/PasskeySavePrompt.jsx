@@ -1,8 +1,14 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Fingerprint, X, Loader2, Check, Shield, AlertTriangle } from 'lucide-react';
 import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
+import { isNativePlatform } from '../utils/platform';
+
+// WebAuthn does not exist in WKWebView (Capacitor native shell) — never
+// prompt for a passkey where the save would hard-fail.
+const passkeyAvailable = () =>
+    typeof PublicKeyCredential !== 'undefined' && !isNativePlatform();
 
 /**
  * Post-login modal prompting users who logged in with nsec/seed/email
@@ -15,6 +21,12 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
     const { t } = useTranslation();
     const [phase, setPhase] = useState('prompt'); // prompt | saving | success | error
     const [errorMsg, setErrorMsg] = useState('');
+    const supported = passkeyAvailable();
+
+    // Auto-dismiss when passkeys aren't available (e.g. native app shell)
+    useEffect(() => {
+        if (!supported) onClose?.();
+    }, [supported, onClose]);
 
     const handleSave = async () => {
         setPhase('saving');
@@ -38,6 +50,8 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
             setErrorMsg(err.message || 'Failed to save passkey.');
         }
     };
+
+    if (!supported) return null;
 
     return (
         <div className="psp-overlay" onClick={(e) => { if (e.target === e.currentTarget && phase !== 'saving') onClose(); }}>

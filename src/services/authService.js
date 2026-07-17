@@ -15,6 +15,7 @@ import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { privateKeyFromSeedWords, validateWords } from 'nostr-tools/nip06';
 import { nostrSigner } from './nostrSigner.js';
 import { fingerprintService } from './fingerprintService.js';
+import { nwcClient } from './nwcService.js';
 
 const TOKEN_KEY = 'bies_token';
 const USER_KEY = 'bies_user';
@@ -260,6 +261,12 @@ export const authService = {
     logout: () => {
         authService.clearToken();
         nostrSigner.clear();
+        // Clear the NWC wallet connection — the spend-capable secret in
+        // localStorage must never survive logout (or leak to the next user
+        // on a shared browser).
+        try {
+            nwcClient.disconnect();
+        } catch { /* best-effort */ }
     },
 
     // ─── Role management ────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { AlertCircle, Loader2, Key, Globe, FileText, Fingerprint, Smartphone } from 'lucide-react';
 import { PASSKEY_ENABLED, NIP46_ENABLED } from '../config/featureFlags';
 import { isLikelyExtensionInterference, keytrService } from '../services/keytrService';
+import { isNativePlatform } from '../utils/platform';
 import logoIcon from '../assets/logo-icon.svg';
 import NostrIcon from '../components/NostrIcon';
 
@@ -22,8 +23,13 @@ const Login = () => {
         typeof window !== 'undefined' && !!window.nostr
     );
 
-    // Passkey — always available when feature flag is on.
+    // Passkey — shown when the feature flag is on AND WebAuthn actually exists.
+    // WKWebView (Capacitor native shell) has no PublicKeyCredential, so the
+    // passkey UI is hidden there to avoid an opaque hard failure.
     // discoverAndLogin handles both stored-credential and discoverable flows.
+    const passkeyAvailable = PASSKEY_ENABLED &&
+        typeof PublicKeyCredential !== 'undefined' &&
+        !isNativePlatform();
 
     useEffect(() => {
         if (hasNostrExtension) return;
@@ -203,10 +209,10 @@ const Login = () => {
                     </div>
                 )}
 
-                {/* Quick login methods — passkey always shown */}
-                {(hasNostrExtension || PASSKEY_ENABLED) && (
+                {/* Quick login methods — passkey shown when WebAuthn is available */}
+                {(hasNostrExtension || passkeyAvailable) && (
                     <div className="quick-login-buttons">
-                        {PASSKEY_ENABLED && (
+                        {passkeyAvailable && (
                             <button
                                 onClick={handlePasskeyLogin}
                                 disabled={loading}
@@ -238,7 +244,7 @@ const Login = () => {
                 )}
 
                 {/* Divider between quick methods and manual methods */}
-                {(hasNostrExtension || PASSKEY_ENABLED) && (
+                {(hasNostrExtension || passkeyAvailable) && (
                     <div className="divider"><span>{t('common.or')}</span></div>
                 )}
 

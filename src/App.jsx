@@ -105,12 +105,17 @@ const AppContent = () => {
     const { setTheme } = useTheme();
     const { setDefaultView } = useViewPreference();
     const { applyServerTabs } = useBottomNav();
-    const prefsLoaded = useRef(false);
+    const prefsLoaded = useRef(null); // id of the user whose server prefs were applied this session
 
-    // Restore user preferences from backend on login
+    // Restore user preferences from backend on login. Keyed to the user id so
+    // switching accounts without a full reload restores the right user's prefs.
     useEffect(() => {
-        if (!user || prefsLoaded.current) return;
-        prefsLoaded.current = true;
+        if (!user) {
+            prefsLoaded.current = null;
+            return;
+        }
+        if (prefsLoaded.current === user.id) return;
+        prefsLoaded.current = user.id;
         preferencesApi.get().then(prefs => {
             if (prefs.theme) setTheme(prefs.theme);
             if (prefs.language) i18n.changeLanguage(prefs.language);
@@ -120,7 +125,7 @@ const AppContent = () => {
             if (prefs.mediaView) localStorage.setItem('bies_media_view', prefs.mediaView);
             if (Array.isArray(prefs.bottomNavTabs)) applyServerTabs(prefs.bottomNavTabs);
         }).catch(() => {});
-    }, [user]);
+    }, [user?.id]);
 
     // Scroll to top on route change (bottom nav, links, etc.)
     useEffect(() => {

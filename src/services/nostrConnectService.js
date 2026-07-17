@@ -10,6 +10,7 @@
 
 import { generateSecretKey } from 'nostr-tools';
 import { parseBunkerInput, BunkerSigner } from 'nostr-tools/nip46';
+import { openExternal } from '../utils/openExternal';
 
 const CLIENT_SK_KEY = 'bies_nip46_client_sk';
 const BUNKER_POINTER_KEY = 'bies_nip46_bunker';
@@ -43,8 +44,9 @@ export const nostrConnectService = {
 
         const signer = BunkerSigner.fromBunker(clientSk, bp, {
             onauth: (url) => {
-                // nsecBunker may require web-based approval
-                window.open(url, '_blank', 'noopener');
+                // nsecBunker may require web-based approval — must open outside
+                // the app WebView on native so the SPA isn't navigated away
+                openExternal(url);
             },
         });
 
@@ -77,7 +79,7 @@ export const nostrConnectService = {
 
             const signer = BunkerSigner.fromBunker(clientSk, bp, {
                 onauth: (url) => {
-                    window.open(url, '_blank', 'noopener');
+                    openExternal(url);
                 },
             });
 

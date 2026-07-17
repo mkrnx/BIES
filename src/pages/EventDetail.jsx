@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Send, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, MoreHorizontal, Copy, UserPlus, X, Search, Flag, CalendarPlus, Navigation, Edit3, Radio } from 'lucide-react';
+import { ArrowLeft, Calendar, MapPin, Clock, Users, Globe, Link as LinkIcon, ShieldCheck, Award, Zap, AlertCircle, Send, Facebook, Twitter, Mail, Check, MessageSquare, Loader2, Tag, ExternalLink, CheckCircle, ChevronLeft, ChevronRight, MoreHorizontal, Copy, UserPlus, X, Search, Flag, CalendarPlus, Navigation, Edit3, Radio, Ticket } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import { getAssetUrl } from '../utils/assets';
+import { openExternal } from '../utils/openExternal';
 import { eventsApi, profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ZapButton from '../components/ZapButton';
+import TicketPurchaseModal from '../components/TicketPurchaseModal';
 import DOMPurify from 'dompurify';
 import TranslatableText from '../components/TranslatableText';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Label } from 'recharts';
@@ -36,6 +39,8 @@ const EventDetail = () => {
     const [showCoverRsvp, setShowCoverRsvp] = useState(false);
     const [relayPosting, setRelayPosting] = useState(false); // null | 'posting' | 'done' | 'error'
     const [relayPostStatus, setRelayPostStatus] = useState(null);
+    const [myTicket, setMyTicket] = useState(null); // the user's PAID ticket, if any
+    const [showTicketModal, setShowTicketModal] = useState(false);
 
     const parseEvent = (data) => {
         if (!data) return data;
@@ -56,7 +61,7 @@ const EventDetail = () => {
             const result = await eventsApi.get(id);
             const parsed = parseEvent(result);
             setEvent(parsed);
-            if (parsed?.rsvpStatus) setRsvpStatus(parsed.rsvpStatus);
+            setRsvpStatus(parsed?.rsvpStatus || null);
         } catch (err) {
             console.error('Error fetching event:', err);
             setError(err.message || 'Failed to load event');
@@ -68,6 +73,32 @@ const EventDetail = () => {
     useEffect(() => {
         fetchEvent();
     }, [id]);
+
+    // For paid events, check whether the user already holds a PAID ticket
+    useEffect(() => {
+        if (!isAuthenticated || !event?.id || !(event.priceSats > 0)) return undefined;
+        let cancelled = false;
+        eventsApi.myEventTickets(event.id)
+            .then(res => {
+                if (cancelled) return;
+                const paid = (res?.data || []).find(t => t.status === 'PAID');
+                if (paid) setMyTicket(paid);
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [isAuthenticated, event?.id, event?.priceSats]);
+
+    // Called by TicketPurchaseModal once the ticket is PAID — the server has
+    // already upserted the RSVP to GOING, so refresh silently (no spinner)
+    const handleTicketPurchased = (ticket) => {
+        setMyTicket(ticket);
+        setRsvpStatus('GOING');
+        eventsApi.get(id).then(result => {
+            const parsed = parseEvent(result);
+            setEvent(parsed);
+            setRsvpStatus(parsed?.rsvpStatus || 'GOING');
+        }).catch(() => {});
+    };
 
     const handleRsvp = async (status) => {
         if (!isAuthenticated) return;
@@ -189,9 +220,9 @@ const EventDetail = () => {
         const loc = event?.locationMapUrl || event?.locationAddress || event?.location;
         if (!loc) return;
         if (event.locationMapUrl) {
-            window.open(event.locationMapUrl, '_blank');
+            openExternal(event.locationMapUrl);
         } else {
-            window.open(`https://maps.google.com/?q=${encodeURIComponent(loc)}`, '_blank');
+            openExternal(`https://maps.google.com/?q=${encodeURIComponent(loc)}`);
         }
         setShowActionMenu(false);
     };
@@ -563,7 +594,48 @@ const EventDetail = () => {
                                 </div>
                             )}
 
-                            {(event.externalUrl || event.ticketUrl) && (
+                            {event.priceSats > 0 ? (
+                                myTicket ? (
+                                    <div className="my-ticket-card">
+                                        <div className="my-ticket-title">
+                                            <Ticket size={16} style={{ color: '#f7931a' }} /> My Ticket
+                                        </div>
+                                        <div className="my-ticket-qr">
+                                            <QRCodeSVG
+                                                value={myTicket.id}
+                                                size={140}
+                                                level="M"
+                                                marginSize={2}
+                                                bgColor="#ffffff"
+                                                fgColor="#000000"
+                                            />
+                                        </div>
+                                        <div>
+                                            <span className={`my-ticket-status ${myTicket.checkedInAt ? 'checked' : ''}`}>
+                                                {myTicket.checkedInAt ? <><CheckCircle size={12} /> Checked in</> : 'Not checked in yet'}
+                                            </span>
+                                        </div>
+                                        <p className="my-ticket-hint">
+                                            {myTicket.checkedInAt
+                                                ? `Checked in on ${new Date(myTicket.checkedInAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}`
+                                                : 'Show this QR code at the door for check-in.'}
+                                        </p>
+                                    </div>
+                                ) : isAuthenticated ? (
+                                    <button
+                                        type="button"
+                                        className="ticket-btn"
+                                        onClick={() => setShowTicketModal(true)}
+                                    >
+                                        <Zap size={14} /> Buy Ticket · {event.priceSats.toLocaleString()} sats
+                                    </button>
+                                ) : (
+                                    <div className="ticket-price-row">
+                                        <Ticket size={16} style={{ color: '#f7931a' }} />
+                                        Tickets: {event.priceSats.toLocaleString()} sats — log in to buy
+                                    </div>
+                                )
+                            ) : (event.externalUrl || event.ticketUrl) ? (
                                 <a
                                     href={event.externalUrl || event.ticketUrl}
                                     target="_blank"
@@ -572,7 +644,7 @@ const EventDetail = () => {
                                 >
                                     Get Tickets <ExternalLink size={14} />
                                 </a>
-                            )}
+                            ) : null}
                         </div>
 
                         {/* Attendees Card — below Event Details */}
@@ -690,6 +762,16 @@ const EventDetail = () => {
                         </div>
                     </div>
                 </>
+            )}
+
+            {/* In-app Lightning ticket purchase */}
+            {event.priceSats > 0 && (
+                <TicketPurchaseModal
+                    open={showTicketModal}
+                    onClose={() => setShowTicketModal(false)}
+                    event={{ id: event.id, title: event.title, priceSats: event.priceSats }}
+                    onPurchased={handleTicketPurchased}
+                />
             )}
 
             <style jsx>{`
@@ -877,6 +959,72 @@ const EventDetail = () => {
                 .ticket-btn:hover {
                     transform: translateY(-1px);
                     box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+                }
+                button.ticket-btn {
+                    border: none;
+                    cursor: pointer;
+                    font-family: inherit;
+                }
+
+                .ticket-price-row {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.5rem;
+                    padding: 0.75rem;
+                    margin-top: 0.5rem;
+                    border: 1px dashed var(--color-gray-300, var(--color-gray-200));
+                    border-radius: 10px;
+                    font-size: 0.85rem;
+                    font-weight: 600;
+                    color: var(--color-gray-600);
+                }
+
+                .my-ticket-card {
+                    margin-top: 0.5rem;
+                    padding: 1rem;
+                    border: 1px solid var(--color-gray-200);
+                    border-radius: 12px;
+                    background: var(--color-gray-50);
+                    text-align: center;
+                }
+                .my-ticket-title {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 0.4rem;
+                    font-weight: 700;
+                    font-size: 0.9rem;
+                    color: var(--color-gray-900);
+                    margin-bottom: 0.75rem;
+                }
+                .my-ticket-qr {
+                    display: inline-flex;
+                    padding: 0.6rem;
+                    background: white;
+                    border-radius: 10px;
+                    border: 1px solid var(--color-gray-200);
+                }
+                .my-ticket-status {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-top: 0.6rem;
+                    padding: 2px 10px;
+                    border-radius: 99px;
+                    font-size: 0.72rem;
+                    font-weight: 700;
+                    background: var(--color-blue-tint);
+                    color: #1d4ed8;
+                }
+                .my-ticket-status.checked {
+                    background: var(--color-green-tint);
+                    color: #15803d;
+                }
+                .my-ticket-hint {
+                    font-size: 0.75rem;
+                    color: var(--color-gray-500);
+                    margin: 0.5rem 0 0;
                 }
 
                 .dropdown-item:hover {
@@ -1126,6 +1274,9 @@ export default EventDetail;
 const PIE_COLORS = ['#F97316', '#0052cc', '#22c55e', '#8b5cf6', '#ef4444', '#06b6d4', '#eab308', '#ec4899'];
 
 const EventSection = ({ section, isSidebar }) => {
+    // Must be resolved here — EventSection is module-level, so the lightbox
+    // from the EventDetail component scope is not visible in this function
+    const lightbox = useLightbox();
     const stype = section.type || 'TEXT';
     return (
         <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-gray-200)', borderRadius: '12px', padding: isSidebar ? '1.25rem' : '1.75rem', marginTop: '1.5rem' }}>

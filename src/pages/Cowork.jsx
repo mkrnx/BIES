@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Coffee, Maximize2, LogOut, Loader2 } from 'lucide-react';
+import { Coffee, Maximize2, LogOut, Loader2, WifiOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCoworkSessions } from '../hooks/useCoworkSessions';
 import { coworkService } from '../services/coworkService';
@@ -17,12 +17,13 @@ import CoworkerCard from '../components/cowork/CoworkerCard';
 const Cowork = () => {
     const { t } = useTranslation();
     const { user } = useAuth();
-    const { sessions, profiles, loading, addOptimistic } = useCoworkSessions();
+    const { sessions, profiles, loading, error, retry, addOptimistic } = useCoworkSessions();
 
     const [showCheckIn, setShowCheckIn] = useState(false);
     const [showMap, setShowMap] = useState(false);
     const [mapFocusPubkey, setMapFocusPubkey] = useState(null);
     const [checkoutError, setCheckoutError] = useState('');
+    const [checkingOut, setCheckingOut] = useState(false);
 
     const mySession = sessions.find(s => s.pubkey === user?.nostrPubkey);
 
@@ -32,8 +33,10 @@ const Cowork = () => {
     };
 
     const handleCheckOut = async () => {
+        if (checkingOut) return; // guard against double-tap while publishing
         if (!window.confirm(t('cowork.confirmCheckout'))) return;
         setCheckoutError('');
+        setCheckingOut(true);
         try {
             const event = await coworkService.checkOut();
             addOptimistic(event);
@@ -41,6 +44,8 @@ const Cowork = () => {
             // Keep the session visible — never optimistically remove on failure.
             console.error('[Cowork] Check-out publish failed:', err);
             setCheckoutError(t('cowork.form.errorPublish'));
+        } finally {
+            setCheckingOut(false);
         }
     };
 
@@ -77,8 +82,14 @@ const Cowork = () => {
                     <span className="cw-my-text">
                         {t('cowork.yourCheckIn', { venue: mySession.venueName })}
                     </span>
-                    <button className="cw-banner-checkout" onClick={handleCheckOut}>
-                        <LogOut size={15} />
+                    <button
+                        className="cw-banner-checkout"
+                        disabled={checkingOut}
+                        onClick={handleCheckOut}
+                    >
+                        {checkingOut
+                            ? <Loader2 size={15} className="cw-spin" />
+                            : <LogOut size={15} />}
                         {t('cowork.checkOut')}
                     </button>
                 </div>
@@ -104,6 +115,7 @@ const Cowork = () => {
                         isMe={session.pubkey === user?.nostrPubkey}
                         onLocate={(pk) => openMap(pk)}
                         onCheckOut={handleCheckOut}
+                        checkingOut={checkingOut}
                     />
                 ))}
             </div>
@@ -114,7 +126,20 @@ const Cowork = () => {
                 </div>
             )}
 
-            {!loading && sessions.length === 0 && (
+            {/* Relay unreachable — show a retry banner, never the misleading
+                "no one is coworking" empty state. */}
+            {!loading && error && sessions.length === 0 && (
+                <div className="cw-empty" data-testid="cowork-relay-error">
+                    <WifiOff size={48} className="cw-empty-icon" />
+                    <h3>{t('cowork.relayErrorTitle', "Can't reach the cowork relay")}</h3>
+                    <p>{t('cowork.relayErrorBody', 'Check-ins could not be loaded. Check your connection and try again.')}</p>
+                    <button className="cw-empty-cta" onClick={retry}>
+                        {t('common.tryAgain', 'Try Again')}
+                    </button>
+                </div>
+            )}
+
+            {!loading && !error && sessions.length === 0 && (
                 <div className="cw-empty" data-testid="cowork-empty">
                     <Coffee size={48} className="cw-empty-icon" />
                     <h3>{t('cowork.emptyTitle')}</h3>
@@ -280,8 +305,13 @@ const Cowork = () => {
                     transition: background 0.15s;
                 }
 
-                .cw-banner-checkout:hover {
+                .cw-banner-checkout:hover:not(:disabled) {
                     background: var(--color-secondary-dark, #CC4A00);
+                }
+
+                .cw-banner-checkout:disabled {
+                    opacity: 0.6;
+                    cursor: wait;
                 }
 
                 .cw-error {
