@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authenticate, optionalAuth } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { moneyLimiter } from '../middleware/rateLimit';
 import {
     listEvents,
     getEvent,
@@ -56,7 +57,9 @@ router.delete('/:id/rsvp', authenticate, cancelRsvp);
 router.post('/:id/invite', authenticate, inviteToEvent);
 
 // Ticketing (non-custodial Lightning payments straight to the event host)
-router.post('/:id/tickets', authenticate, createTicket);
+// Invoice creation hits the host's LNURL server — strict-limit it to block
+// invoice-spam (moneyLimiter, per-IP, alongside the general limiter).
+router.post('/:id/tickets', moneyLimiter, authenticate, createTicket);
 router.get('/:id/tickets/mine', authenticate, listMyEventTickets); // before /:ticketId
 router.get('/:id/tickets', authenticate, listEventTickets);
 router.get('/:id/tickets/:ticketId', authenticate, getTicket);
@@ -64,7 +67,7 @@ router.post('/:id/tickets/:ticketId/claim', authenticate, validate(claimTicketSc
 // Server-side wallet payment (Coinos/Blink). Safe to re-call: providers are
 // idempotent per invoice (Galoy returns PENDING while settling, ALREADY_PAID
 // once settled) and the server never pays an already-PAID ticket.
-router.post('/:id/tickets/:ticketId/pay', authenticate, validate(payTicketSchema), payTicketWithWallet);
+router.post('/:id/tickets/:ticketId/pay', moneyLimiter, authenticate, validate(payTicketSchema), payTicketWithWallet);
 router.post('/:id/tickets/:ticketId/checkin', authenticate, checkinTicket);
 
 export default router;

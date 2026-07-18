@@ -169,6 +169,38 @@ async function markTicketPaid(ticket: TicketRow, preimage: string): Promise<Tick
 }
 
 /**
+ * markTicketPaid with a short bounded retry. Used ONLY after a provider has
+ * already settled the payment, so the money is gone and a transient DB failure
+ * (SQLITE_BUSY under concurrent writes is a real, non-exotic SQLite failure)
+ * must not strand the buyer. The write is atomic ($transaction) and idempotent
+ * — a failed attempt commits nothing and never fires the host notification, so
+ * retrying is safe. This matters most for Coinos on a non-verify host with no
+ * preimage: that path has no LUD-21 poll and no claimable preimage, so a
+ * dropped mark would leave the buyer debited with a permanently PENDING ticket
+ * and no self-heal route. A few retries clear transient contention; the caller
+ * still falls back to SETTLED_UNRECORDED if every attempt fails.
+ */
+async function markTicketPaidWithRetry(
+    ticket: TicketRow,
+    preimage: string,
+    attempts = 5,
+): Promise<TicketRow> {
+    let lastErr: unknown;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await markTicketPaid(ticket, preimage);
+        } catch (err) {
+            lastErr = err;
+            // Back off briefly to let a concurrent SQLite writer commit
+            if (i < attempts - 1) {
+                await new Promise((resolve) => setTimeout(resolve, 100 * (i + 1)));
+            }
+        }
+    }
+    throw lastErr;
+}
+
+/**
  * Probe whether a ticket invoice actually settled after an INDETERMINATE
  * Coinos transport failure (timeout / connection reset / unreadable body):
  * the payment may have executed even though we never saw the verdict.
@@ -612,7 +644,7 @@ export async function payTicketWithWallet(req: Request, res: Response): Promise<
         // so the client must never auto-retry them; SETTLED_UNRECORDED below
         // is deliberately distinct from the Blink in-flight PENDING).
         try {
-            const paid = await markTicketPaid(ticket, evidencePreimage);
+            const paid = await markTicketPaidWithRetry(ticket, evidencePreimage);
             res.json({ ticket: serializeTicket(paid), paymentStatus: 'PAID' });
         } catch (err) {
             console.error('[Tickets] provider settled but markTicketPaid failed', ticket.id, err);

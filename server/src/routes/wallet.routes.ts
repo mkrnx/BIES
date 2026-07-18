@@ -4,6 +4,7 @@
 
 import { Router, Request, Response } from 'express';
 import { authenticate } from '../middleware/auth';
+import { moneyLimiter } from '../middleware/rateLimit';
 import * as coinosService from '../services/coinos.service';
 import * as blinkService from '../services/blink.service';
 
@@ -31,7 +32,7 @@ function sendWalletError(res: Response, err: any, fallback: string) {
  * Auto-provision a new Coinos wallet for the authenticated user.
  * Body: { username: string }
  */
-router.post('/coinos/create', async (req: Request, res: Response) => {
+router.post('/coinos/create', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const username = req.body.username?.trim();
         if (!username || username.length < 2 || username.length > 24 || !/^[a-zA-Z0-9]+$/.test(username)) {
@@ -53,7 +54,7 @@ router.post('/coinos/create', async (req: Request, res: Response) => {
  * Connect an existing Coinos account.
  * Body: { username: string, password: string }
  */
-router.post('/coinos/connect', async (req: Request, res: Response) => {
+router.post('/coinos/connect', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const { username, password } = req.body;
         if (!username || !password) {
@@ -101,7 +102,7 @@ router.get('/coinos/balance', async (req: Request, res: Response) => {
  * Pay a BOLT-11 invoice from the Coinos wallet.
  * Body: { bolt11: string }
  */
-router.post('/coinos/pay', async (req: Request, res: Response) => {
+router.post('/coinos/pay', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const { bolt11 } = req.body;
         if (!bolt11) {
@@ -122,7 +123,7 @@ router.post('/coinos/pay', async (req: Request, res: Response) => {
  * Body: { amountSats: number, memo?: string }
  * Returns: { pr: string, hash: string }
  */
-router.post('/coinos/invoice', async (req: Request, res: Response) => {
+router.post('/coinos/invoice', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const amountSats = req.body.amountSats;
         if (!Number.isInteger(amountSats) || amountSats < 1 || amountSats > 100_000_000) {
@@ -164,7 +165,7 @@ router.get('/coinos/transactions', async (req: Request, res: Response) => {
  * (created at dashboard.blink.sv, Read + Write scopes).
  * Body: { apiKey: string }
  */
-router.post('/blink/connect', async (req: Request, res: Response) => {
+router.post('/blink/connect', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const apiKey = typeof req.body.apiKey === 'string' ? req.body.apiKey.trim() : '';
         if (apiKey.length < 10 || apiKey.length > 200) {
@@ -214,7 +215,7 @@ router.get('/blink/balance', async (req: Request, res: Response) => {
  * Body: { bolt11: string }
  * Returns: { status: 'SUCCESS' | 'ALREADY_PAID' | 'PENDING' }
  */
-router.post('/blink/pay', async (req: Request, res: Response) => {
+router.post('/blink/pay', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const { bolt11 } = req.body;
         if (!bolt11) {
@@ -235,7 +236,7 @@ router.post('/blink/pay', async (req: Request, res: Response) => {
  * Body: { amountSats: number, memo?: string }
  * Returns: { pr: string, hash: string }
  */
-router.post('/blink/invoice', async (req: Request, res: Response) => {
+router.post('/blink/invoice', moneyLimiter, async (req: Request, res: Response) => {
     try {
         const amountSats = req.body.amountSats;
         if (!Number.isInteger(amountSats) || amountSats < 1 || amountSats > 100_000_000) {

@@ -132,6 +132,11 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                 if (t?.status === 'PAID') markPaid(t);
                 else if (t?.status === 'EXPIRED') {
                     if (confirmingRef.current) wasConfirmingRef.current = true;
+                    // Clear `confirming` (the confirm loop, gated on phase
+                    // ==='pending', is already tearing down) so the expired
+                    // screen's dismiss paths — X, ESC, backdrop, all gated on
+                    // !confirming — are not left permanently disabled.
+                    setConfirming(false);
                     setTicket(t);
                     setPhase('expired');
                 }
