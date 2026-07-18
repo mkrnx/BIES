@@ -47,7 +47,9 @@ async function coinosFetch(path: string, opts: RequestInit = {}): Promise<any> {
     });
     if (!res.ok) {
         const body = await res.text();
-        throw new Error(`Coinos API ${res.status}: ${body}`);
+        const err: any = new Error(`Coinos API ${res.status}: ${body}`);
+        err.status = res.status; // lets routes map upstream 401 (expired JWT) to a stable client code
+        throw err;
     }
     return res.json();
 }
@@ -125,13 +127,28 @@ export async function connectWallet(userId: string, username: string, password: 
 
 /**
  * Disconnect the Coinos wallet from the user's profile.
+ *
+ * Also clears the profile lightningAddress when it is the one this wallet
+ * set (`<coinosUsername>@coinos.io`) — leaving it would keep advertising a
+ * receive address for an orphaned custodial account whose token is being
+ * destroyed. User-typed addresses are left alone.
  */
 export async function disconnectWallet(userId: string): Promise<void> {
+    const profile = await prisma.profile.findUnique({
+        where: { userId },
+        select: { coinosUsername: true, lightningAddress: true },
+    });
+
+    const clearAddress = !!profile?.coinosUsername
+        && profile.lightningAddress === `${profile.coinosUsername}@coinos.io`;
+
     await prisma.profile.update({
         where: { userId },
         data: {
             coinosUsername: null,
             coinosToken: null,
+            // Schema default is '' (non-nullable) — the client treats '' as "no address"
+            ...(clearAddress ? { lightningAddress: '' } : {}),
         },
     });
 }
@@ -159,7 +176,7 @@ export async function getBalance(userId: string): Promise<number> {
         headers: authHeaders(token),
     });
 
-    return Math.floor((data.balance ?? 0) / 1000); // msats → sats
+    return Math.floor(data.balance ?? 0); // Coinos /me reports `balance` in sats already
 }
 
 /**
@@ -197,6 +214,12 @@ export async function createInvoice(userId: string, amountSats: number, memo?: s
         }),
     });
 
+    // Coinos response shapes vary by version — never let an undefined bolt11
+    // through to the client (it would crash the Receive modal's QR render).
+    if (typeof data?.text !== 'string' || !data.text) {
+        throw new Error('Coinos did not return an invoice');
+    }
+
     return { pr: data.text, hash: data.hash };
 }
 
@@ -209,6 +232,46 @@ export async function createInvoice(userId: string, amountSats: number, memo?: s
  */
 export async function getInvoice(hash: string, token?: string): Promise<any> {
     return coinosFetch(`/invoice/${encodeURIComponent(hash)}`, token ? { headers: authHeaders(token) } : {});
+}
+
+/**
+ * List recent payments (incoming + outgoing) from the user's Coinos wallet.
+ * Normalizes the Coinos response to a stable transaction shape, sorted newest-first.
+ * Defensive: Coinos returns either a bare array or `{ payments: [...] }` depending
+ * on version; amounts are signed sats (negative = sent); `created` may be ms or seconds.
+ */
+export async function listPayments(userId: string, limit = 20): Promise<Array<{
+    type: 'incoming' | 'outgoing';
+    amountSats: number;
+    createdAt: string;
+    memo: string | null;
+    hash: string | null;
+}>> {
+    const token = await getToken(userId);
+    if (!token) throw new Error('No Coinos wallet connected');
+
+    const data = await coinosFetch(`/payments?limit=${encodeURIComponent(String(limit))}`, {
+        headers: authHeaders(token),
+    });
+
+    const raw = Array.isArray(data) ? data : Array.isArray(data?.payments) ? data.payments : [];
+
+    return raw
+        .filter((p: any) => p && typeof p === 'object')
+        .map((p: any) => {
+            const amount = Number(p.amount) || 0;
+            const createdRaw = Number(p.created ?? p.createdAt ?? 0);
+            const createdMs = createdRaw > 1e12 ? createdRaw : createdRaw > 0 ? createdRaw * 1000 : Date.now();
+            return {
+                type: (amount < 0 ? 'outgoing' : 'incoming') as 'incoming' | 'outgoing',
+                amountSats: Math.abs(Math.trunc(amount)),
+                createdAt: new Date(createdMs).toISOString(),
+                memo: typeof p.memo === 'string' && p.memo ? p.memo : null,
+                hash: typeof p.hash === 'string' ? p.hash : null,
+            };
+        })
+        .sort((a: { createdAt: string }, b: { createdAt: string }) => (a.createdAt < b.createdAt ? 1 : -1))
+        .slice(0, limit);
 }
 
 /**

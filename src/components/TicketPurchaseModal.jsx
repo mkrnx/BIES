@@ -20,10 +20,10 @@ const PREIMAGE_RE = /^[0-9a-fA-F]{64}$/;
  *      the ticket (server runs LUD-21 verify against the host's provider)
  *
  * When the host's provider lacks LUD-21 verify (ticket.verifySupported is
- * false) path 3 can never be confirmed, so it is hidden along with the Coinos
- * button (Coinos pays server-side and returns no preimage) — only
- * preimage-producing payers (NWC / WebLN) are offered, and a failed claim is
- * surfaced with a retry instead of relying on the poll.
+ * false) path 3 can never be confirmed, so it is hidden along with the
+ * server-side wallet button (Coinos/Blink pay server-side and return no
+ * preimage) — only preimage-producing payers (NWC / WebLN) are offered, and a
+ * failed claim is surfaced with a retry instead of relying on the poll.
  *
  * @param {boolean}  props.open
  * @param {function} props.onClose
@@ -143,6 +143,12 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
     // Without it, claiming with a preimage is the ONLY way this ticket can
     // become PAID — payment paths that produce no preimage must be hidden.
     const verifySupported = !ticket || ticket.verifySupported !== false;
+
+    // Only NWC hands the preimage back to the client. Server-side wallets
+    // (Coinos, Blink — and any future one) settle without exposing it, so
+    // without LUD-21 verify they can never get the ticket confirmed and must
+    // not be offered.
+    const producesPreimage = walletType === 'nwc';
 
     const claimWithPreimage = async (preimage) => {
         try {
@@ -277,7 +283,7 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                                 </span>
                             </div>
 
-                            {walletConnected && (verifySupported || walletType !== 'coinos') && (
+                            {walletConnected && (verifySupported || producesPreimage) && (
                                 <button className="tp-wallet-btn" onClick={handleWalletPay} disabled={walletPaying}>
                                     {walletPaying ? <Loader2 size={16} className="tp-spin-inline" /> : <Wallet size={16} />}
                                     {walletPaying
@@ -339,7 +345,7 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                                    would invite a double payment — hide those paths. */
                                 <p className="tp-verify-note">
                                     <AlertCircle size={14} />
-                                    {(walletConnected && walletType !== 'coinos') || hasWebln
+                                    {(walletConnected && producesPreimage) || hasWebln
                                         ? "This host's Lightning provider can't confirm payments made from outside wallet apps — use the wallet button above so your ticket is confirmed instantly."
                                         : "This host's Lightning provider can't confirm payments made from outside wallet apps. Connect a wallet via NWC (Wallet settings) or use a WebLN browser extension to buy this ticket in-app."}
                                 </p>

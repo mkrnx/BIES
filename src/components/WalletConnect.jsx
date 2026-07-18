@@ -1,10 +1,13 @@
 /**
  * WalletConnect — Settings component for wallet management.
  *
- * Supports two wallet types:
+ * Supports three wallet types:
  *  1. NWC (NIP-47 Nostr Wallet Connect) — paste URI from Alby Hub, Coinos,
  *     Primal, Zeus, Blink, or any NWC-compatible wallet.
  *  2. Coinos — connect existing account or view auto-provisioned wallet.
+ *  3. Blink — paste a dashboard.blink.sv API key (Read + Write scopes); the
+ *     server talks to the Galoy API on the user's behalf. Distinct from the
+ *     "Blink (via NWC)" path above, which stays fully client-side.
  */
 
 import { useState } from 'react';
@@ -43,8 +46,8 @@ const WALLET_GUIDES = [
     },
     {
         id: 'blink',
-        name: 'Blink',
-        hint: 'Log in at dashboard.blink.sv, open Nostr Wallet Connect, and copy the connection string.',
+        name: 'Blink (via NWC)',
+        hint: 'Log in at dashboard.blink.sv, open Nostr Wallet Connect, and copy the connection string. Tip: the Blink tab above connects with an API key instead.',
         url: 'https://dashboard.blink.sv',
     },
 ];
@@ -52,14 +55,15 @@ const WALLET_GUIDES = [
 const WalletConnect = () => {
     const {
         connected, walletType, balance, loading, error,
-        connect, connectCoinos, disconnect, refreshBalance,
+        connect, connectCoinos, connectBlink, disconnect, refreshBalance,
     } = useWallet();
     const [uri, setUri] = useState('');
     const [localError, setLocalError] = useState(null);
-    const [mode, setMode] = useState('nwc'); // 'nwc' | 'coinos'
+    const [mode, setMode] = useState('nwc'); // 'nwc' | 'coinos' | 'blink'
     const [selectedGuide, setSelectedGuide] = useState(null);
     const [coinosUser, setCoinosUser] = useState('');
     const [coinosPass, setCoinosPass] = useState('');
+    const [blinkKey, setBlinkKey] = useState('');
 
     const handleConnectNwc = async () => {
         setLocalError(null);
@@ -107,6 +111,21 @@ const WalletConnect = () => {
         }
     };
 
+    const handleConnectBlink = async () => {
+        setLocalError(null);
+        const key = blinkKey.trim();
+        if (!key) {
+            setLocalError('Please paste your Blink API key');
+            return;
+        }
+        try {
+            await connectBlink(key);
+            setBlinkKey('');
+        } catch (err) {
+            setLocalError(err.message);
+        }
+    };
+
     const handleDisconnect = async () => {
         await disconnect();
         setLocalError(null);
@@ -131,7 +150,11 @@ const WalletConnect = () => {
                         </div>
                         <div className="wallet-status-info">
                             <p className="wallet-status-label">
-                                {walletType === 'coinos' ? 'Coinos Wallet' : 'Wallet Connected'}
+                                {walletType === 'coinos'
+                                    ? 'Coinos Wallet'
+                                    : walletType === 'blink'
+                                        ? 'Blink Wallet'
+                                        : 'Wallet Connected'}
                             </p>
                             {balance != null && (
                                 <p className="wallet-balance">
@@ -158,22 +181,28 @@ const WalletConnect = () => {
                 </div>
             ) : (
                 <div className="wallet-setup">
-                    {COINOS_ENABLED && (
-                        <div className="wallet-mode-tabs">
-                            <button
-                                className={`wallet-tab ${mode === 'nwc' ? 'active' : ''}`}
-                                onClick={() => { setMode('nwc'); setLocalError(null); }}
-                            >
-                                <Wallet size={14} /> NWC
-                            </button>
+                    <div className="wallet-mode-tabs">
+                        <button
+                            className={`wallet-tab ${mode === 'nwc' ? 'active' : ''}`}
+                            onClick={() => { setMode('nwc'); setLocalError(null); }}
+                        >
+                            <Wallet size={14} /> NWC
+                        </button>
+                        {COINOS_ENABLED && (
                             <button
                                 className={`wallet-tab ${mode === 'coinos' ? 'active' : ''}`}
                                 onClick={() => { setMode('coinos'); setLocalError(null); }}
                             >
                                 <Zap size={14} /> Coinos
                             </button>
-                        </div>
-                    )}
+                        )}
+                        <button
+                            className={`wallet-tab ${mode === 'blink' ? 'active' : ''}`}
+                            onClick={() => { setMode('blink'); setLocalError(null); }}
+                        >
+                            <Zap size={14} /> Blink
+                        </button>
+                    </div>
 
                     {mode === 'nwc' ? (
                         <>
@@ -250,7 +279,7 @@ const WalletConnect = () => {
                                 app can only spend the amount you allow.
                             </p>
                         </>
-                    ) : (
+                    ) : mode === 'coinos' ? (
                         <>
                             <p className="wallet-instructions">
                                 Connect your existing Coinos account to send and receive Lightning payments.
@@ -279,6 +308,47 @@ const WalletConnect = () => {
                                     disabled={loading}
                                 >
                                     {loading ? 'Connecting...' : 'Connect Coinos'}
+                                </button>
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <p className="wallet-instructions">
+                                Connect your Blink wallet with an API key — BIES keeps it encrypted
+                                and uses it server-side to send and receive for you.
+                            </p>
+
+                            <div className="wallet-guide">
+                                <span className="wallet-guide-text">
+                                    Log in at dashboard.blink.sv, open API keys and create a key
+                                    with the Read and Write scopes, then paste it below.
+                                </span>
+                                <a
+                                    className="wallet-guide-link"
+                                    href="https://dashboard.blink.sv/api-keys"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    Open Blink Dashboard <ExternalLink size={12} />
+                                </a>
+                            </div>
+
+                            <div className="wallet-coinos-form">
+                                <input
+                                    type="password"
+                                    className="wallet-input"
+                                    placeholder="Blink API key"
+                                    value={blinkKey}
+                                    onChange={(e) => setBlinkKey(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleConnectBlink()}
+                                    disabled={loading}
+                                />
+                                <button
+                                    className="btn btn-primary btn-sm wallet-coinos-btn"
+                                    onClick={handleConnectBlink}
+                                    disabled={loading}
+                                >
+                                    {loading ? 'Connecting...' : 'Connect Blink'}
                                 </button>
                             </div>
                         </>

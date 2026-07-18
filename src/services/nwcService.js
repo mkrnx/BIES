@@ -88,6 +88,21 @@ class NwcClient {
     }
 
     /**
+     * Whether the connected wallet supports a NIP-47 method, per the
+     * capabilities cached from the get_info handshake.
+     *
+     * Tri-state: true / false / null (unknown — wallet never answered get_info).
+     *
+     * @param {string} method - NIP-47 method name (e.g. 'make_invoice')
+     * @returns {boolean|null}
+     */
+    supports(method) {
+        if (!this.connection) return false;
+        if (this.capabilities == null) return null;
+        return this.capabilities.includes(method);
+    }
+
+    /**
      * Connect to a wallet using an NWC URI — verified with a real roundtrip.
      *
      * Sends get_info (falling back to get_balance for wallets that don't
@@ -216,6 +231,46 @@ class NwcClient {
     }
 
     /**
+     * Create a Lightning invoice via the connected wallet (NIP-47 make_invoice).
+     *
+     * MSATS-native per the NIP-47 spec — sats conversion is the caller's job.
+     *
+     * @param {number} amountMsats - Amount in millisats
+     * @param {string} [description] - Optional invoice description/memo
+     * @returns {Promise<{ type: string, invoice: string, payment_hash: string, amount: number, created_at: number, expires_at?: number }>}
+     */
+    async makeInvoice(amountMsats, description) {
+        return this._request('make_invoice', { amount: amountMsats, ...(description ? { description } : {}) });
+    }
+
+    /**
+     * List recent transactions (NIP-47 list_transactions).
+     *
+     * Raw result: { transactions: [{ type, invoice?, description?, preimage?,
+     * payment_hash, amount (msats), fees_paid?, created_at (unix s), settled_at?,
+     * expires_at? }] } — normalization is the caller's job.
+     *
+     * @param {object} [params] - NIP-47 params (limit, offset, from, until, type, unpaid)
+     * @returns {Promise<{ transactions: object[] }>}
+     */
+    async listTransactions(params = {}) {
+        return this._request('list_transactions', { limit: 20, ...params });
+    }
+
+    /**
+     * Look up an invoice by payment hash or bolt11 (NIP-47 lookup_invoice).
+     *
+     * @param {{ paymentHash?: string, invoice?: string }} [query]
+     * @returns {Promise<object>} NIP-47 transaction object (settled_at set when paid)
+     */
+    async lookupInvoice({ paymentHash, invoice } = {}) {
+        return this._request('lookup_invoice', {
+            ...(paymentHash ? { payment_hash: paymentHash } : {}),
+            ...(invoice ? { invoice } : {}),
+        });
+    }
+
+    /**
      * Send a NIP-47 request and wait for the wallet's response.
      *
      * Flow:
@@ -286,7 +341,12 @@ class NwcClient {
             };
 
             const timeout = setTimeout(() => {
-                settle(reject, new Error('Wallet did not respond in time. Check your NWC connection.'));
+                // A timeout is NOT a definitive failure — the wallet may still
+                // complete the payment (the response event was late/lost).
+                // Callers use the code to render a "status unknown" state.
+                const err = new Error('Wallet did not respond in time. Check your NWC connection.');
+                err.code = 'TIMEOUT';
+                settle(reject, err);
             }, timeoutMs);
 
             const sub = this.pool.subscribeMany(
@@ -358,7 +418,7 @@ async function raceWithTimeout(promise, ms) {
 }
 
 /** NIP-47 "this wallet can't do that" errors (as opposed to unreachable/invalid). */
-function isUnsupportedMethodError(err) {
+export function isUnsupportedMethodError(err) {
     if (!err) return false;
     if (err.code === 'NOT_IMPLEMENTED' || err.code === 'METHOD_NOT_FOUND' || err.code === 'RESTRICTED') {
         return true;

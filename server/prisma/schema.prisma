@@ -129,6 +129,10 @@ model Profile {
   // Coinos custodial wallet
   coinosUsername   String?  @unique @map("coinos_username")
   coinosToken      String?  @map("coinos_token") // Encrypted JWT for Coinos API
+  // Blink (Galoy) wallet — connected with a user-supplied API key
+  blinkUsername    String?  @map("blink_username")
+  blinkWalletId    String?  @map("blink_wallet_id")
+  blinkApiKey      String?  @map("blink_api_key") // Encrypted API key for the Blink GraphQL API
   // Misc
   isPublic     Boolean  @default(true) @map("is_public")
   viewCount    Int      @default(0) @map("view_count")

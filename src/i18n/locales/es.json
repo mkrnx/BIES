@@ -78,7 +78,8 @@
     "educatorView": "Vista Educador",
     "memberView": "Vista Miembro",
     "adminView": "Vista Admin",
-    "bounties": "Recompensas"
+    "bounties": "Recompensas",
+    "wallet": "Billetera"
   },
   "pageTitles": {
     "biesFeed": "BIES Feed",
@@ -97,7 +98,8 @@
     "leaderboard": "Clasificacion",
     "farmDirectory": "Directorio de Fincas Regenerativas",
     "certifiedDirectory": "Directorio Certificado",
-    "bounties": "Tablero de recompensas"
+    "bounties": "Tablero de recompensas",
+    "wallet": "Billetera"
   },
   "settings": {
     "title": "Configuracion",

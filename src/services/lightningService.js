@@ -146,6 +146,43 @@ export async function createZapRequest({ recipientPubkey, amountMsats, relays, e
 }
 
 /**
+ * Check if a string looks like a bolt11 Lightning invoice (HRP check only).
+ * Format: ln<network><amount?><multiplier?>1<bech32 data>.
+ * @param {string} value
+ * @returns {boolean}
+ */
+export function isBolt11(value) {
+    return typeof value === 'string'
+        && /^ln(?:bc|tb|tbs|bcrt)\d*[munp]?1[ac-hj-np-z02-9]{6,}$/i.test(value.trim());
+}
+
+/**
+ * Decode the amount from a bolt11 invoice's HRP (no full invoice decode).
+ * Multipliers: m = milli-BTC, u = micro-BTC, n = nano-BTC, p = pico-BTC.
+ * @param {string} bolt11
+ * @returns {number|null} Amount in sats (may be fractional), or null for
+ *   amountless/invalid invoices.
+ */
+export function decodeBolt11Amount(bolt11) {
+    if (typeof bolt11 !== 'string') return null;
+    const match = bolt11.trim().toLowerCase().match(/^ln(?:bc|tb|tbs|bcrt)(\d+)([munp]?)1/);
+    if (!match) return null;
+    const num = Number(match[1]);
+    if (!Number.isSafeInteger(num) || num <= 0) return null;
+    const MSATS_PER_BTC = 100_000_000_000;
+    let msats;
+    switch (match[2]) {
+        case 'm': msats = num * (MSATS_PER_BTC / 1e3); break;
+        case 'u': msats = num * (MSATS_PER_BTC / 1e6); break;
+        case 'n': msats = num * (MSATS_PER_BTC / 1e9); break;
+        case 'p': msats = num / 10; break; // 10 pico-BTC = 1 msat
+        default: msats = num * MSATS_PER_BTC;
+    }
+    if (!Number.isInteger(msats) || msats <= 0) return null;
+    return msats / 1000;
+}
+
+/**
  * Check if a string is a valid Bolt12 offer (starts with lno1).
  * @param {string} offer
  * @returns {boolean}

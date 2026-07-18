@@ -78,7 +78,8 @@
     "educatorView": "Educator View",
     "memberView": "Member View",
     "adminView": "Admin View",
-    "bounties": "Bounties"
+    "bounties": "Bounties",
+    "wallet": "Wallet"
   },
   "pageTitles": {
     "biesFeed": "BIES Feed",
@@ -97,7 +98,8 @@
     "leaderboard": "Leaderboard",
     "farmDirectory": "Regenerative Farm Directory",
     "certifiedDirectory": "Certified Directory",
-    "bounties": "Bounty Board"
+    "bounties": "Bounty Board",
+    "wallet": "Wallet"
   },
   "settings": {
     "title": "Settings",

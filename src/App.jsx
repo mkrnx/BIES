@@ -39,6 +39,7 @@ import Messages from './pages/Messages';
 import Settings from './pages/Settings';
 import CustomizeNavbar from './pages/CustomizeNavbar';
 import Cowork from './pages/Cowork';
+import Wallet from './pages/Wallet';
 import Bounties from './pages/Bounties';
 import BountyDetail from './pages/BountyDetail';
 import CreateBounty from './pages/CreateBounty';
@@ -234,6 +235,10 @@ const AppContent = () => {
                     {COWORK_ENABLED && (
                         <Route path="/cowork" element={<FeatureRoute flag="cowork"><ProtectedRoute><Cowork /></ProtectedRoute></FeatureRoute>} />
                     )}
+                    {/* No build-time gate: the wallet page must stay reachable for
+                        NWC-only users even if Coinos were re-disabled. Runtime-gated
+                        by the 'zaps' slug only. */}
+                    <Route path="/wallet" element={<FeatureRoute flag="zaps"><ProtectedRoute><Wallet /></ProtectedRoute></FeatureRoute>} />
                     {COURSES_ENABLED && (
                         <>
                             <Route path="/courses" element={<ProtectedRoute><CourseCatalog /></ProtectedRoute>} />
