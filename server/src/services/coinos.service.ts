@@ -11,6 +11,7 @@ import prisma from '../lib/prisma';
 
 const API = config.coinosApiUrl;
 const ALGO = 'aes-256-gcm';
+const TIMEOUT_MS = 15_000;
 
 // ─── Token encryption helpers ────────────────────────────────────────────────
 
@@ -38,20 +39,47 @@ export function decryptToken(blob: string): string {
 // ─── Coinos API helpers ──────────────────────────────────────────────────────
 
 async function coinosFetch(path: string, opts: RequestInit = {}): Promise<any> {
-    const res = await fetch(`${API}${path}`, {
-        ...opts,
-        headers: {
-            'Content-Type': 'application/json',
-            ...opts.headers,
-        },
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+    let res: Response;
+    try {
+        res = await fetch(`${API}${path}`, {
+            ...opts,
+            headers: {
+                'Content-Type': 'application/json',
+                ...opts.headers,
+            },
+            signal: controller.signal,
+        });
+    } catch (e: any) {
+        // Transport failure (timeout / connection reset): the request may or
+        // may not have reached Coinos, so callers MUST treat this as
+        // outcome-unknown — status 502 is the indeterminate marker (same
+        // convention as blink.service), never a definitive rejection.
+        const err: any = new Error(e?.name === 'AbortError' ? 'Coinos API timed out' : 'Coinos API unreachable');
+        err.status = 502;
+        throw err;
+    } finally {
+        clearTimeout(timer);
+    }
+
     if (!res.ok) {
-        const body = await res.text();
+        const body = await res.text().catch(() => '');
         const err: any = new Error(`Coinos API ${res.status}: ${body}`);
         err.status = res.status; // lets routes map upstream 401 (expired JWT) to a stable client code
         throw err;
     }
-    return res.json();
+
+    try {
+        return await res.json();
+    } catch {
+        // 2xx received but the body was unreadable (truncated mid-stream) —
+        // Coinos DID process the request, so this is also outcome-unknown.
+        const err: any = new Error('Coinos API returned an unreadable response');
+        err.status = 502;
+        throw err;
+    }
 }
 
 function authHeaders(token: string) {
@@ -181,8 +209,11 @@ export async function getBalance(userId: string): Promise<number> {
 
 /**
  * Pay a BOLT-11 Lightning invoice from the user's Coinos wallet.
+ * `preimage` is surfaced when the Coinos response carries a plausible one
+ * (64-hex) — response shapes vary by version, so read it defensively and
+ * never let settlement depend on it (a 2xx here already means paid).
  */
-export async function payInvoice(userId: string, bolt11: string): Promise<{ hash: string }> {
+export async function payInvoice(userId: string, bolt11: string): Promise<{ hash: string; preimage?: string }> {
     const token = await getToken(userId);
     if (!token) throw new Error('No Coinos wallet connected');
 
@@ -192,7 +223,11 @@ export async function payInvoice(userId: string, bolt11: string): Promise<{ hash
         body: JSON.stringify({ payreq: bolt11 }),
     });
 
-    return { hash: data.hash };
+    const preimage = typeof data?.preimage === 'string' && /^[0-9a-fA-F]{64}$/.test(data.preimage)
+        ? data.preimage.toLowerCase()
+        : undefined;
+
+    return { hash: data.hash, ...(preimage ? { preimage } : {}) };
 }
 
 /**

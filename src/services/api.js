@@ -398,6 +398,13 @@ export const eventsApi = {
     // Host/admin only → { data: [...tickets with buyer], summary: { sold, revenueSats, pending, checkedIn } }
 
     checkinTicket: (id, ticketId) => post(`/events/${id}/tickets/${ticketId}/checkin`, {}),
+
+    payTicketWithWallet: (id, ticketId, walletType) =>
+        post(`/events/${id}/tickets/${ticketId}/pay`, { walletType }),
+    // Pays the ticket invoice server-side from the buyer's connected wallet
+    // (walletType: 'coinos' | 'blink') → { ticket, paymentStatus: 'PAID' | 'PENDING', preimage? }.
+    // Errors carry err.status + err.data.code: 'wallet_not_connected' |
+    // 'wallet_token_expired' | 'ticket_not_payable' | 'payment_failed'.
 };
 
 // ─── Cowork ───────────────────────────────────────────────────────────────────

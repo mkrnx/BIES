@@ -7,6 +7,7 @@ import { getAssetUrl } from '../utils/assets';
 import { openExternal } from '../utils/openExternal';
 import { eventsApi, profilesApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useWallet } from '../hooks/useWallet';
 import ZapButton from '../components/ZapButton';
 import TicketPurchaseModal from '../components/TicketPurchaseModal';
 import DOMPurify from 'dompurify';
@@ -20,6 +21,7 @@ const EventDetail = () => {
     const { id } = useParams();
     const { t } = useTranslation();
     const { isAuthenticated, user } = useAuth();
+    const { connected: walletConnected, balance: walletBalance } = useWallet();
     const lightbox = useLightbox();
     const [event, setEvent] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -627,7 +629,18 @@ const EventDetail = () => {
                                         className="ticket-btn"
                                         onClick={() => setShowTicketModal(true)}
                                     >
-                                        <Zap size={14} /> Buy Ticket · {event.priceSats.toLocaleString()} sats
+                                        <span className="ticket-btn-col">
+                                            <span className="ticket-btn-main">
+                                                <Zap size={14} /> Buy Ticket · {event.priceSats.toLocaleString()} sats
+                                            </span>
+                                            {walletConnected && (
+                                                <span className="ticket-btn-sub">
+                                                    {walletBalance != null
+                                                        ? t('eventDetail.paysFromWallet', { defaultValue: '⚡ Pays from your wallet · {{balance}} sats', balance: Math.floor(walletBalance / 1000).toLocaleString() })
+                                                        : t('eventDetail.paysFromWalletNoBalance', '⚡ Pays from your wallet')}
+                                                </span>
+                                            )}
+                                        </span>
                                     </button>
                                 ) : (
                                     <div className="ticket-price-row">
@@ -964,6 +977,24 @@ const EventDetail = () => {
                     border: none;
                     cursor: pointer;
                     font-family: inherit;
+                }
+
+                .ticket-btn-col {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.15rem;
+                    min-width: 0;
+                }
+                .ticket-btn-main {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .ticket-btn-sub {
+                    font-size: 0.72rem;
+                    font-weight: 500;
+                    opacity: 0.85;
                 }
 
                 .ticket-price-row {

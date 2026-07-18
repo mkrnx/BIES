@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet, Ticket } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { eventsApi } from '../services/api';
@@ -14,16 +16,20 @@ const PREIMAGE_RE = /^[0-9a-fA-F]{64}$/;
  * The server creates a PENDING ticket backed by a bolt11 invoice from the
  * host's Lightning address (non-custodial — sats go straight to the host).
  * Payment paths:
- *   1. Connected wallet (NWC/Coinos via useWallet) — preimage claims instantly
- *   2. WebLN (browser extension) — preimage claims instantly
- *   3. QR / copy / lightning: deep link — settlement confirmed by polling
+ *   1. Connected server wallet (Coinos/Blink) — the BIES server pays the
+ *      invoice from the buyer's wallet via POST .../pay and observes
+ *      provider-confirmed settlement (evidence class (c), as strong as
+ *      LUD-21 verify), so this path needs no verify support from the host
+ *   2. Connected NWC wallet — preimage claims instantly
+ *   3. WebLN (browser extension) — preimage claims instantly
+ *   4. QR / copy / lightning: deep link — settlement confirmed by polling
  *      the ticket (server runs LUD-21 verify against the host's provider)
  *
  * When the host's provider lacks LUD-21 verify (ticket.verifySupported is
- * false) path 3 can never be confirmed, so it is hidden along with the
- * server-side wallet button (Coinos/Blink pay server-side and return no
- * preimage) — only preimage-producing payers (NWC / WebLN) are offered, and a
- * failed claim is surfaced with a retry instead of relying on the poll.
+ * false) path 4 can never be confirmed, so it is hidden — only payers the
+ * server can confirm itself (Coinos/Blink server-side settlement) or that
+ * produce a preimage (NWC / WebLN) are offered, and a failed claim is
+ * surfaced with a retry instead of relying on the poll.
  *
  * @param {boolean}  props.open
  * @param {function} props.onClose
@@ -31,26 +37,46 @@ const PREIMAGE_RE = /^[0-9a-fA-F]{64}$/;
  * @param {function} [props.onPurchased] — called once with the PAID ticket
  */
 const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
-    const { connected: walletConnected, walletType, payInvoice: walletPayInvoice } = useWallet();
+    const { t } = useTranslation();
+    const { connected: walletConnected, walletType, payInvoice: walletPayInvoice, balance, refreshBalance } = useWallet();
     const [phase, setPhase] = useState('creating'); // creating | pending | paid | expired | error
     const [ticket, setTicket] = useState(null);
     const [errorMsg, setErrorMsg] = useState('');
     const [walletError, setWalletError] = useState('');
     const [walletPaying, setWalletPaying] = useState(false);
+    const [confirming, setConfirming] = useState(false); // blink server-pay accepted, settling at Galoy
     const [copied, setCopied] = useState(false);
     const [claimRetryPreimage, setClaimRetryPreimage] = useState(null); // preimage whose claim POST failed (retryable)
     const purchasedNotifiedRef = useRef(false);
     const pollBusyRef = useRef(false);
+    const confirmAttemptsRef = useRef(0);
+    const confirmBusyRef = useRef(false);
+    // Mirror of `confirming` readable from effects that don't depend on it
+    // (the getTicket poll), so an expiry observed mid-confirm is not lost.
+    const confirmingRef = useRef(false);
+    // A server-wallet payment may still be in flight when the ticket expires —
+    // the expired screen must warn before offering "Generate new invoice".
+    const wasConfirmingRef = useRef(false);
+    // Set when a server-wallet payment is initiated so markPaid can refresh
+    // the balance no matter which route confirmed it (direct response,
+    // confirm loop, getTicket poll, or preimage claim).
+    const serverPayStartedRef = useRef(false);
     const hasWebln = typeof window !== 'undefined' && !!window.webln;
+
+    useEffect(() => { confirmingRef.current = confirming; }, [confirming]);
 
     const markPaid = useCallback((paidTicket) => {
         setTicket(paidTicket);
         setPhase('paid');
+        if (serverPayStartedRef.current) {
+            serverPayStartedRef.current = false;
+            refreshBalance();
+        }
         if (!purchasedNotifiedRef.current) {
             purchasedNotifiedRef.current = true;
             if (onPurchased) onPurchased(paidTicket);
         }
-    }, [onPurchased]);
+    }, [onPurchased, refreshBalance]);
 
     const createTicket = useCallback(async () => {
         if (!event?.id) return;
@@ -59,6 +85,10 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
         setWalletError('');
         setCopied(false);
         setClaimRetryPreimage(null);
+        setConfirming(false);
+        confirmAttemptsRef.current = 0;
+        wasConfirmingRef.current = false;
+        serverPayStartedRef.current = false;
         setTicket(null);
         try {
             const res = await eventsApi.buyTicket(event.id);
@@ -100,12 +130,80 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                 const res = await eventsApi.getTicket(event.id, ticket.id);
                 const t = res?.ticket || res;
                 if (t?.status === 'PAID') markPaid(t);
-                else if (t?.status === 'EXPIRED') { setTicket(t); setPhase('expired'); }
+                else if (t?.status === 'EXPIRED') {
+                    if (confirmingRef.current) wasConfirmingRef.current = true;
+                    setTicket(t);
+                    setPhase('expired');
+                }
             } catch { /* transient — keep polling */ }
             finally { pollBusyRef.current = false; }
         }, 3000);
         return () => clearInterval(interval);
     }, [open, phase, ticket?.id, event?.id, markPaid]);
+
+    // Blink server-pay confirm loop: while Galoy reports the payment in-flight
+    // (PENDING), re-call the /pay endpoint every ~3s. Safe by contract — Galoy's
+    // lnInvoicePaymentSend is idempotent per invoice (PENDING while settling,
+    // ALREADY_PAID once settled, never a double charge) and the server marks
+    // the ticket PAID on ALREADY_PAID. This loop is entered for Blink ONLY —
+    // a /pay re-call for Coinos would re-execute the payment. On verify-
+    // supported tickets it stops after ~2 min (the getTicket LUD-21 poll,
+    // running in parallel, still confirms settlement); on non-verify tickets
+    // this re-call is the ONLY settlement detector, so it keeps running until
+    // the ticket resolves or the invoice expires (~15 min cap).
+    useEffect(() => {
+        if (!open || !confirming || phase !== 'pending' || !ticket?.id) return undefined;
+        const interval = setInterval(async () => {
+            if (confirmBusyRef.current) return;
+            confirmBusyRef.current = true;
+            // Count EVERY tick (including error responses) toward the cap so
+            // persistent failures cannot loop unbounded.
+            confirmAttemptsRef.current += 1;
+            const verifiable = ticket.verifySupported !== false;
+            try {
+                const res = await eventsApi.payTicketWithWallet(event.id, ticket.id, walletType);
+                if (res?.paymentStatus === 'PAID' && res.ticket) {
+                    setConfirming(false);
+                    markPaid(res.ticket);
+                } else if (verifiable && confirmAttemptsRef.current >= 40) {
+                    setConfirming(false);
+                    setWalletError(t('ticketModal.stillConfirming', 'Payment is still confirming — your ticket will update automatically when it settles.'));
+                }
+            } catch (err) {
+                const code = err?.data?.code;
+                if (code === 'payment_failed') {
+                    // The in-flight payment ultimately failed at the provider —
+                    // the ticket stays PENDING and every other path still works.
+                    setConfirming(false);
+                    setWalletError(err?.message || t('ticketModal.walletPayFailed', 'Wallet payment failed — you can still pay via the QR code below.'));
+                } else if (code === 'ticket_not_payable') {
+                    setConfirming(false);
+                    const tk = err?.data?.ticket;
+                    if (tk?.status === 'EXPIRED') {
+                        // The payment may STILL settle after expiry — the
+                        // expired screen must warn before a re-purchase.
+                        wasConfirmingRef.current = true;
+                        setTicket(tk);
+                        setPhase('expired');
+                    }
+                } else if (code === 'wallet_not_connected' || code === 'wallet_token_expired') {
+                    // Non-transient: retrying can never succeed (key revoked /
+                    // wallet disconnected mid-flight).
+                    setConfirming(false);
+                    setWalletError(t('ticketModal.walletReconnect', 'Your wallet connection expired — reconnect it on the Wallet page, or pay with the QR code below.'));
+                } else if (verifiable && confirmAttemptsRef.current >= 40) {
+                    // Persistent unexpected errors — stop; the getTicket poll
+                    // can still confirm settlement on verify-supported hosts.
+                    setConfirming(false);
+                    setWalletError(t('ticketModal.stillConfirming', 'Payment is still confirming — your ticket will update automatically when it settles.'));
+                }
+                // Transient errors (incl. payment_in_flight) — keep looping
+            } finally {
+                confirmBusyRef.current = false;
+            }
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [open, confirming, phase, ticket?.id, event?.id, walletType, markPaid, t]);
 
     // Idempotent body scroll lock — skip if another modal already locked it.
     useEffect(() => {
@@ -127,15 +225,18 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
         };
     }, [open]);
 
-    // ESC closes (not mid wallet payment)
+    // ESC closes (not mid wallet payment, and not while a server-wallet
+    // payment is still confirming — on non-verify hosts the confirm loop is
+    // the only actor that can ever flip the ticket PAID, so closing would
+    // abandon a settling payment).
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape' && !walletPaying) onClose();
+            if (e.key === 'Escape' && !walletPaying && !confirming) onClose();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [open, walletPaying, onClose]);
+    }, [open, walletPaying, confirming, onClose]);
 
     if (!open) return null;
 
@@ -149,6 +250,15 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
     // without LUD-21 verify they can never get the ticket confirmed and must
     // not be offered.
     const producesPreimage = walletType === 'nwc';
+
+    const amountSats = ticket?.amountSats ?? event?.priceSats ?? 0;
+
+    // Server-mediated wallets (Coinos/Blink) pay via POST .../pay: the BIES
+    // server executes the payment and observes provider-confirmed settlement
+    // itself, so they need neither a preimage nor LUD-21 verify support.
+    const serverWallet = walletType === 'coinos' || walletType === 'blink';
+    const balanceSats = balance != null ? Math.floor(balance / 1000) : null; // store is msats
+    const insufficient = serverWallet && balance != null && amountSats * 1000 > balance;
 
     const claimWithPreimage = async (preimage) => {
         try {
@@ -211,6 +321,66 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
         }
     };
 
+    // Server-side wallet payment (Coinos/Blink): the BIES server pays the
+    // ticket invoice from the buyer's connected wallet and marks the ticket
+    // PAID only on provider-confirmed settlement. Blink may return PENDING
+    // while Galoy settles — the confirm loop above re-calls the endpoint
+    // (idempotent per invoice) until it flips to PAID.
+    const handleServerWalletPay = async () => {
+        if (!ticket?.bolt11 || walletPaying || confirming) return;
+        setWalletPaying(true);
+        setWalletError('');
+        serverPayStartedRef.current = true;
+        try {
+            const res = await eventsApi.payTicketWithWallet(event.id, ticket.id, walletType);
+            if (res?.paymentStatus === 'PAID' && res.ticket) {
+                markPaid(res.ticket);
+            } else if (res?.paymentStatus === 'PENDING' || res?.paymentStatus === 'SETTLED_UNRECORDED') {
+                if (typeof res.preimage === 'string' && PREIMAGE_RE.test(res.preimage)) {
+                    // Degraded case: the provider settled but the server could
+                    // not mark the ticket — feed the returned preimage into
+                    // the existing claim machinery.
+                    await claimWithPreimage(res.preimage);
+                } else if (walletType === 'blink') {
+                    // In-flight at Galoy (PENDING / outcome unknown) or
+                    // settled-but-unrecorded — a /pay re-call is a safe
+                    // confirm for Blink ONLY (idempotent per invoice,
+                    // ALREADY_PAID retries the mark).
+                    confirmAttemptsRef.current = 0;
+                    setConfirming(true);
+                } else if (res.paymentStatus === 'SETTLED_UNRECORDED') {
+                    // Coinos settled but the server could not record it and
+                    // returned no preimage. NEVER re-call /pay (it would
+                    // re-execute the payment) — the getTicket poll confirms.
+                    setWalletError(t('ticketModal.settledConfirming', 'Payment sent — confirming your ticket. Do NOT pay again.'));
+                } else {
+                    // Coinos outcome unknown (provider timeout, settlement
+                    // probe inconclusive): the payment may still complete.
+                    // Never suggest paying again via the QR code here.
+                    setWalletError(t('ticketModal.paymentOutcomeUnknown', 'Payment status is unknown — it may still complete. Do NOT pay again; your ticket updates automatically if it settles.'));
+                }
+            }
+        } catch (err) {
+            const code = err?.data?.code;
+            if (code === 'wallet_not_connected' || code === 'wallet_token_expired') {
+                setWalletError(t('ticketModal.walletReconnect', 'Your wallet connection expired — reconnect it on the Wallet page, or pay with the QR code below.'));
+            } else if (code === 'payment_in_flight') {
+                // Benign race (double tap / second device): another request is
+                // already executing this payment — its outcome resolves the
+                // ticket, and the getTicket poll picks up settlement.
+                setWalletError(t('ticketModal.paymentInFlight', 'A payment for this ticket is already in progress — hold on, do not pay again.'));
+            } else if (code === 'ticket_not_payable') {
+                const tk = err?.data?.ticket;
+                if (tk?.status === 'EXPIRED') { setTicket(tk); setPhase('expired'); }
+                else setWalletError(err.message);
+            } else {
+                setWalletError(err?.message || t('ticketModal.walletPayFailed', 'Wallet payment failed — you can still pay via the QR code below.'));
+            }
+        } finally {
+            setWalletPaying(false);
+        }
+    };
+
     const handleWebLNPay = async () => {
         if (!ticket?.bolt11 || walletPaying) return;
         setWalletPaying(true);
@@ -245,13 +415,11 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
         setTimeout(() => setCopied(false), 2000);
     };
 
-    const amountSats = ticket?.amountSats ?? event?.priceSats ?? 0;
-
     return createPortal(
         <div
             className="tp-overlay"
             onClick={(e) => {
-                if (e.target === e.currentTarget && !walletPaying) onClose();
+                if (e.target === e.currentTarget && !walletPaying && !confirming) onClose();
             }}
         >
             <div className="tp-card" role="dialog" aria-modal="true">
@@ -260,7 +428,7 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                         <Ticket size={18} style={{ color: '#f7931a' }} />
                         Buy Ticket
                     </h3>
-                    <button className="tp-close" aria-label="Close" disabled={walletPaying} onClick={onClose}>
+                    <button className="tp-close" aria-label="Close" disabled={walletPaying || confirming} onClick={onClose}>
                         <X size={20} />
                     </button>
                 </div>
@@ -283,13 +451,51 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                                 </span>
                             </div>
 
-                            {walletConnected && (verifySupported || producesPreimage) && (
-                                <button className="tp-wallet-btn" onClick={handleWalletPay} disabled={walletPaying}>
-                                    {walletPaying ? <Loader2 size={16} className="tp-spin-inline" /> : <Wallet size={16} />}
-                                    {walletPaying
-                                        ? 'Paying…'
-                                        : `Pay with ${walletType === 'coinos' ? 'Coinos wallet' : 'connected wallet'}`}
+                            {walletConnected && (serverWallet || verifySupported || producesPreimage) && (
+                                <button
+                                    className="tp-wallet-btn"
+                                    data-testid="tp-pay-wallet-btn"
+                                    onClick={serverWallet ? handleServerWalletPay : handleWalletPay}
+                                    disabled={serverWallet ? (walletPaying || confirming || insufficient) : walletPaying}
+                                >
+                                    {(walletPaying || (serverWallet && confirming))
+                                        ? <Loader2 size={16} className="tp-spin-inline" />
+                                        : <Wallet size={16} />}
+                                    {serverWallet ? (
+                                        <span className="tp-wallet-btn-col">
+                                            <span>
+                                                {confirming
+                                                    ? t('ticketModal.confirmingPayment', 'Confirming payment…')
+                                                    : walletPaying
+                                                        ? t('ticketModal.paying', 'Paying…')
+                                                        : insufficient
+                                                            ? t('ticketModal.insufficientBalance', 'Insufficient balance — top up')
+                                                            : t('ticketModal.payFromWallet', { defaultValue: 'Pay {{sats}} sats from your wallet', sats: Number(amountSats).toLocaleString() })}
+                                            </span>
+                                            {!confirming && !walletPaying && !insufficient && balanceSats != null && (
+                                                <span className="tp-wallet-balance">
+                                                    {t('ticketModal.walletBalance', { defaultValue: 'Balance: {{balance}} sats', balance: balanceSats.toLocaleString() })}
+                                                </span>
+                                            )}
+                                        </span>
+                                    ) : (
+                                        walletPaying
+                                            ? 'Paying…'
+                                            : `Pay with ${walletType === 'coinos' ? 'Coinos wallet' : 'connected wallet'}`
+                                    )}
                                 </button>
+                            )}
+
+                            {serverWallet && insufficient && (
+                                <Link to="/wallet" onClick={onClose} className="tp-topup-link" data-testid="tp-topup-link">
+                                    {t('ticketModal.topUpLink', 'Top up in Wallet')}
+                                </Link>
+                            )}
+
+                            {serverWallet && confirming && (
+                                <p className="tp-waiting" data-testid="tp-confirming">
+                                    <Loader2 size={13} className="tp-spin-inline" /> {t('ticketModal.confirmingPayment', 'Confirming payment…')}
+                                </p>
                             )}
 
                             {hasWebln && (
@@ -299,7 +505,7 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                             )}
 
                             {walletError && (
-                                <p className="tp-error-inline"><AlertCircle size={14} /> {walletError}</p>
+                                <p className="tp-error-inline" data-testid="tp-wallet-error"><AlertCircle size={14} /> {walletError}</p>
                             )}
 
                             {claimRetryPreimage && (
@@ -345,7 +551,7 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                                    would invite a double payment — hide those paths. */
                                 <p className="tp-verify-note">
                                     <AlertCircle size={14} />
-                                    {(walletConnected && producesPreimage) || hasWebln
+                                    {(walletConnected && (producesPreimage || serverWallet)) || hasWebln
                                         ? "This host's Lightning provider can't confirm payments made from outside wallet apps — use the wallet button above so your ticket is confirmed instantly."
                                         : "This host's Lightning provider can't confirm payments made from outside wallet apps. Connect a wallet via NWC (Wallet settings) or use a WebLN browser extension to buy this ticket in-app."}
                                 </p>
@@ -382,6 +588,12 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
                         <div className="tp-center">
                             <AlertCircle size={28} style={{ color: '#f59e0b' }} />
                             <p className="tp-status-text">The invoice expired before it was paid.</p>
+                            {wasConfirmingRef.current && (
+                                <p className="tp-verify-note">
+                                    <AlertCircle size={14} />
+                                    {t('ticketModal.expiredWhileConfirming', 'A wallet payment may still be in flight — wait a minute before paying again to avoid a double charge, and check your wallet history first.')}
+                                </p>
+                            )}
                             <button className="tp-wallet-btn" onClick={createTicket}>
                                 <Zap size={16} /> Generate new invoice
                             </button>
@@ -528,6 +740,32 @@ const TicketPurchaseModal = ({ open, onClose, event, onPurchased }) => {
 
                 .tp-wallet-btn:hover:not(:disabled) { opacity: 0.92; }
                 .tp-wallet-btn:disabled { opacity: 0.6; cursor: wait; }
+
+                .tp-wallet-btn-col {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.1rem;
+                    min-width: 0;
+                }
+
+                .tp-wallet-balance {
+                    font-size: 0.72rem;
+                    font-weight: 500;
+                    opacity: 0.85;
+                }
+
+                /* react-router Link renders an <a> without the styled-jsx
+                   scope hash, so target it via the scoped .tp-body parent. */
+                .tp-body :global(.tp-topup-link) {
+                    align-self: center;
+                    font-size: 0.82rem;
+                    font-weight: 600;
+                    color: var(--color-primary);
+                    text-decoration: none;
+                }
+
+                .tp-body :global(.tp-topup-link:hover) { text-decoration: underline; }
 
                 .tp-webln-btn {
                     display: flex;
