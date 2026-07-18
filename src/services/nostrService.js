@@ -1,6 +1,7 @@
 import { SimplePool, nip19, finalizeEvent, generateSecretKey, getPublicKey } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 import { nostrSigner } from './nostrSigner.js';
+import { buildListingTags, parseListingEvent, dedupeListings, listingNaddr } from '../utils/nip99.js';
 
 // ─── Persistent profile cache (localStorage) ────────────────────────────────
 
@@ -70,12 +71,31 @@ export const DM_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 // All relays (BIES relay first for priority)
 export const NOSTR_RELAYS = [BIES_RELAY, ...PUBLIC_RELAYS];
 
+// Marketplace relays — BIES relay + Shopstr's default relay set
+// (shopstr-eng/shopstr getDefaultRelays). Publishing here makes BIES
+// listings visible in Shopstr's browse feed.
+export const MARKETPLACE_RELAYS = [...new Set([
+    BIES_RELAY,
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://purplepag.es',
+    'wss://relay.primal.net',
+    'wss://relay.nostr.band',
+])];
+
 /**
  * NIP-42 auth handler — signs the AUTH challenge event so the BIES
  * private relay allows read/write access.  Uses the unified signer
  * (in-memory key or browser extension, depending on login method).
  */
 async function handleRelayAuth(evt) {
+    // Relay AUTH fires from websocket callbacks — no user gesture. Signers
+    // that need one (Amber/NIP-55 navigates to another app) must never be
+    // invoked here; private-relay access degrades gracefully instead.
+    if (!nostrSigner.canSignSilently) {
+        console.warn('[Nostr] Skipping relay AUTH — signer requires user interaction');
+        return undefined;
+    }
     try {
         return await nostrSigner.signEvent(evt);
     } catch (err) {
@@ -101,6 +121,11 @@ class NostrService {
             const biesNorm = this.biesRelay.replace(/\/+$/, '');
             if (normalized === biesNorm) {
                 return async (evt) => {
+                    // No user gesture in relay callbacks — see handleRelayAuth.
+                    if (!nostrSigner.canSignSilently) {
+                        console.warn('[Nostr] Skipping relay AUTH — signer requires user interaction');
+                        return undefined;
+                    }
                     console.log('[Nostr] AUTH challenge received for BIES relay, signing...');
                     try {
                         const signed = await nostrSigner.signEvent(evt);
@@ -855,6 +880,329 @@ class NostrService {
         };
 
         return this.publishEvent(event);
+    }
+
+    /**
+     * Publish a directory listing as a NIP-99 classified listing (kind:30402).
+     * For Nostr-native users — signs via browser extension. Twin of the
+     * server's publishDirectoryListing (nostr.service.ts): same kind, tags,
+     * and content. Returns the signed event id so callers can persist it
+     * as nostrListingEventId.
+     * @param {Object} listing - { id, type, name, about, photo, location, products, skills }
+     */
+    async publishDirectoryListing(listing) {
+        const pubkey = await nostrSigner.getPublicKey();
+        const about = listing.about || '';
+        const tags = [
+            ['d', listing.id],
+            ['title', listing.name],
+            ['summary', about.slice(0, 200)],
+            ['t', 'bies'],
+            ['t', 'directory'],
+            ['t', listing.type === 'FARM' ? 'farm' : 'services'],
+        ];
+
+        // One topic tag per product label (FARM) or skill (PROVIDER),
+        // deduped and capped at 10 to avoid tag spam.
+        const rawItems = listing.type === 'FARM' ? listing.products : listing.skills;
+        let items = [];
+        if (typeof rawItems === 'string') {
+            try { items = JSON.parse(rawItems || '[]'); } catch { items = []; }
+        } else if (Array.isArray(rawItems)) {
+            items = rawItems;
+        }
+        const seen = new Set(['bies', 'directory', 'farm', 'services']);
+        for (const item of items) {
+            const label = typeof item === 'string' ? item : item?.label;
+            if (typeof label !== 'string') continue;
+            const value = label.trim().toLowerCase();
+            if (!value || seen.has(value)) continue;
+            seen.add(value);
+            tags.push(['t', value]);
+            if (seen.size >= 14) break; // 4 base topic tags + max 10 item tags
+        }
+
+        if (listing.photo) tags.push(['image', listing.photo]);
+        if (listing.location) tags.push(['location', listing.location]);
+
+        const event = {
+            kind: 30402,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content: about,
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        await Promise.any(this.pool.publish(this.relays, signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
+    }
+
+    // ─── NIP-99 Marketplace (Shopstr-compatible, kind:30402) ─────────────────
+
+    /**
+     * Publish a marketplace listing (NIP-99 kind:30402, Shopstr-compatible).
+     * For Nostr-native users — signs via browser extension. Twin of the
+     * server's publishMarketplaceListing (nostr.service.ts): same tags and
+     * content (built by buildListingTags in utils/nip99.js).
+     * @param {Object} listing - form fields (see buildListingTags) plus
+     *        optional dTag/publishedAt when editing an existing listing
+     * @returns {Promise<{id: string, dTag: string, pubkey: string, naddr: string}>}
+     */
+    async publishMarketplaceListing(listing) {
+        const pubkey = await nostrSigner.getPublicKey();
+        const { tags, content, dTag } = buildListingTags(listing, {
+            dTag: listing.dTag,
+            publishedAt: listing.publishedAt,
+        });
+
+        const event = {
+            kind: 30402,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content,
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(MARKETPLACE_RELAYS, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        if (succeeded === 0) {
+            throw new Error('Failed to publish marketplace listing to any relay');
+        }
+        console.log(`[NIP-99] Marketplace listing published to ${succeeded}/${MARKETPLACE_RELAYS.length} relays`);
+
+        // Relay hints for the shareable naddr — public relays only (the BIES
+        // relay is private/NIP-42 gated, useless to external Shopstr clients).
+        const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+        return {
+            id: signedEvent.id,
+            dTag,
+            pubkey,
+            naddr: listingNaddr({ pubkey, dTag }, hintRelays),
+        };
+    }
+
+    /**
+     * Fetch marketplace listings (kind:30402), filtered to real products
+     * (title + price, no directory/investment tags) and deduped by
+     * (pubkey, d-tag). Attaches sellerName/sellerAvatar from kind:0 profiles.
+     * @param {Object} [options]
+     * @param {'bies'|'global'} [options.scope] - 'bies' queries the private
+     *        relay only; anything else queries all marketplace relays
+     * @param {string[]} [options.authors] - filter by seller pubkeys
+     * @param {number} [options.limit]
+     */
+    async fetchMarketplaceListings({ scope = 'bies', authors, limit = 100 } = {}) {
+        const relays = scope === 'bies' ? [this.biesRelay] : MARKETPLACE_RELAYS;
+        try {
+            const events = await this.pool.querySync(relays, {
+                kinds: [30402],
+                limit,
+                ...(authors ? { authors } : {}),
+            });
+
+            const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+            const listings = dedupeListings(
+                events.map(e => parseListingEvent(e, hintRelays)).filter(Boolean)
+            );
+
+            // Batch-load seller profiles (cached) and attach display info
+            const profiles = await this.getProfiles(listings.map(l => l.pubkey));
+            for (const listing of listings) {
+                const profile = profiles.get(listing.pubkey);
+                listing.sellerName = profile?.display_name || profile?.name || '';
+                listing.sellerAvatar = profile?.picture || '';
+            }
+
+            return listings;
+        } catch (error) {
+            console.error('[NIP-99] Marketplace listings fetch failed:', error);
+            return [];
+        }
+    }
+
+    /**
+     * Fetch a single marketplace listing by naddr. Queries the naddr's
+     * embedded relay hints plus all marketplace relays; returns the latest
+     * revision, or null if not found / not a marketplace listing.
+     */
+    async fetchMarketplaceListing(naddr) {
+        try {
+            const decoded = nip19.decode(naddr);
+            if (decoded.type !== 'naddr' || decoded.data.kind !== 30402) {
+                throw new Error('Not a kind:30402 naddr');
+            }
+            const { pubkey, identifier, relays: decodedRelays } = decoded.data;
+            const relays = [...new Set([...(decodedRelays || []), ...MARKETPLACE_RELAYS])];
+
+            const events = await this.pool.querySync(relays, {
+                kinds: [30402],
+                authors: [pubkey],
+                '#d': [identifier],
+                limit: 5,
+            });
+
+            const hintRelays = MARKETPLACE_RELAYS.filter(r => r !== this.biesRelay);
+            const listings = dedupeListings(
+                events.map(e => parseListingEvent(e, hintRelays)).filter(Boolean)
+            );
+            return listings[0] || null;
+        } catch (error) {
+            console.error('[NIP-99] Marketplace listing fetch failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * Publish a NIP-09 deletion event (kind:5) to remove a marketplace
+     * listing from all marketplace relays.
+     * @param {string} eventId - the Nostr event ID of the listing
+     * @param {string} dTag - the listing's d-tag
+     */
+    async deleteMarketplaceListing(eventId, dTag) {
+        const pubkey = await nostrSigner.getPublicKey();
+
+        const event = {
+            kind: 5,
+            pubkey,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', eventId],
+                ['a', `30402:${pubkey}:${dTag}`],
+            ],
+            content: 'Listing deleted from BIES',
+        };
+
+        const signedEvent = await nostrSigner.signEvent(event);
+        const results = await Promise.allSettled(
+            this.pool.publish(MARKETPLACE_RELAYS, signedEvent, { onauth: handleRelayAuth })
+        );
+        const succeeded = results.filter(r => r.status === 'fulfilled').length;
+        console.log(`[NIP-09] Marketplace deletion published to ${succeeded}/${MARKETPLACE_RELAYS.length} relays`);
+        return succeeded > 0;
+    }
+
+    /**
+     * Relay set for a course-mirror target ('bies' | 'public' | 'both').
+     */
+    _courseRelays(target) {
+        if (target === 'bies') return [this.biesRelay];
+        if (target === 'public') return [...this.publicRelays];
+        return [this.biesRelay, ...this.publicRelays];
+    }
+
+    /**
+     * Deduped topic tags for a course event (mirrors the server's
+     * courseTopicTags in nostr.service.ts).
+     */
+    _courseTopicTags(course) {
+        const tags = [['t', 'bies'], ['t', 'education']];
+        const seen = new Set(['bies', 'education']);
+        let extraTags = course.tags;
+        if (typeof extraTags === 'string') {
+            try { extraTags = JSON.parse(extraTags || '[]'); } catch { extraTags = []; }
+        }
+        for (const raw of [course.category, ...(extraTags || [])]) {
+            const t = String(raw || '').toLowerCase().replace(/_/g, '-').trim();
+            if (t && !seen.has(t) && seen.size < 12) {
+                seen.add(t);
+                tags.push(['t', t]);
+            }
+        }
+        return tags;
+    }
+
+    /**
+     * Publish one course lesson for a Nostr-native author. Twin of the
+     * server's publishLessonArticle / publishPaidLessonTeaser:
+     * free lesson → kind 30023 full markdown; paid lesson → kind 30402
+     * with a summary-derived teaser ONLY (full content never enters the
+     * event — the API is the real gate). Quiz lessons must not be passed.
+     * Returns the signed event id.
+     * @param {Object} course - { id, title, summary, coverImage, tags, category, priceSats }
+     * @param {Object} lesson - { id, title, type, content: {markdown|videoUrl,caption} }
+     */
+    async publishCourseLesson(course, lesson, target = 'bies') {
+        if (lesson.type === 'QUIZ') return null; // never mirrored
+        const isPaid = (course.priceSats || 0) > 0;
+        const now = Math.floor(Date.now() / 1000);
+
+        const tags = [
+            ['d', lesson.id],
+            ['title', lesson.title],
+            ['summary', (course.summary || '').slice(0, 200)],
+            ['published_at', String(now)],
+            ...this._courseTopicTags(course),
+        ];
+        if (course.coverImage) tags.push(['image', course.coverImage]);
+
+        let kind;
+        let content;
+        if (isPaid) {
+            kind = 30402;
+            tags.push(['price', String(course.priceSats), 'SATS']);
+            content = (course.summary || course.title).slice(0, 300);
+        } else {
+            kind = 30023;
+            const body = lesson.content || {};
+            content = lesson.type === 'VIDEO'
+                ? `${body.caption ? body.caption + '\n\n' : ''}${body.videoUrl || ''}`
+                : (body.markdown || '');
+            if (!content) return null;
+        }
+
+        const pubkey = await nostrSigner.getPublicKey();
+        const signedEvent = await nostrSigner.signEvent({
+            kind,
+            pubkey,
+            created_at: now,
+            tags,
+            content,
+        });
+        await Promise.any(this.pool.publish(this._courseRelays(target), signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
+    }
+
+    /**
+     * Publish the course container as a NIP-51 curation set (kind 30004)
+     * for a Nostr-native author. Ordered `a` tags reference the lesson
+     * events (30023 free / 30402 paid); quiz lessons are skipped. Twin of
+     * the server's publishCourse. Returns the signed event id.
+     * @param {Object} course - { id, title, summary, description, coverImage, tags, category, priceSats }
+     * @param {Array<{id, type}>} orderedLessons - lessons in position order
+     */
+    async publishCourse(course, orderedLessons, target = 'bies') {
+        const pubkey = await nostrSigner.getPublicKey();
+        const isPaid = (course.priceSats || 0) > 0;
+        const now = Math.floor(Date.now() / 1000);
+
+        const tags = [
+            ['d', course.id],
+            ['title', course.title],
+            ['summary', (course.summary || '').slice(0, 200)],
+            ['published_at', String(now)],
+            ...this._courseTopicTags(course),
+        ];
+        if (course.coverImage) tags.push(['image', course.coverImage]);
+        if (isPaid) tags.push(['price', String(course.priceSats), 'SATS']);
+
+        for (const lesson of orderedLessons || []) {
+            if (lesson.type === 'QUIZ') continue;
+            tags.push(['a', `${isPaid ? 30402 : 30023}:${pubkey}:${lesson.id}`]);
+        }
+
+        const signedEvent = await nostrSigner.signEvent({
+            kind: 30004,
+            pubkey,
+            created_at: now,
+            tags,
+            content: course.description || course.summary || '',
+        });
+        await Promise.any(this.pool.publish(this._courseRelays(target), signedEvent, { onauth: handleRelayAuth }));
+        return signedEvent.id;
     }
 
     /**

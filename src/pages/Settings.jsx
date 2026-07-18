@@ -10,7 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { investorApi, preferencesApi, notificationsApi } from '../services/api';
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, getPushSubscriptionState } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
-import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
+import { keytrService, isLikelyExtensionInterference, isPrfUnsupportedError } from '../services/keytrService';
 import { PASSKEY_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED } from '../config/featureFlags';
 import { isNativePlatform } from '../utils/platform';
 
@@ -106,6 +106,7 @@ const Settings = () => {
 
     // Passkey management state
     const [passkeySupported, setPasskeySupported] = useState(false);
+    const [prfSupport, setPrfSupport] = useState({ supported: true });
     const [hasPasskey, setHasPasskey] = useState(() => keytrService.hasCredential(user?.nostrPubkey));
     const [savingPasskey, setSavingPasskey] = useState(false);
     const [savingBackup, setSavingBackup] = useState(false);
@@ -117,10 +118,13 @@ const Settings = () => {
         // WebAuthn does not exist in WKWebView (Capacitor native shell)
         if (typeof PublicKeyCredential === 'undefined' || isNativePlatform()) return;
         keytrService.checkSupport().then(setPasskeySupported);
+        // PRF gates registration only (keytr 0.8.0 is PRF-only for new passkeys);
+        // login/remove of existing credentials stays available regardless.
+        keytrService.checkPrfSupport().then(setPrfSupport);
     }, []);
 
     const npub = user?.nostrPubkey ? nip19.npubEncode(user.nostrPubkey) : null;
-    const loginMethod = nostrSigner.storedMethod; // 'extension' | 'nsec' | 'bunker' | null
+    const loginMethod = nostrSigner.storedMethod; // 'extension' | 'nsec' | 'bunker' | 'amber' | null
 
     const copyToClipboard = useCallback((text, label) => {
         navigator.clipboard.writeText(text);
@@ -180,7 +184,9 @@ const Settings = () => {
             setHasPasskey(true);
             setPasskeySuccess('Passkey saved! Your key is encrypted and stored on Nostr relays.');
         } catch (err) {
-            if (!err.cancelled) {
+            if (isPrfUnsupportedError(err)) {
+                setPasskeyError("This device can't create passkeys (missing PRF support). Try a device with a fingerprint or face sensor.");
+            } else if (!err.cancelled) {
                 setPasskeyError(err.message || 'Failed to save passkey.');
             }
         } finally {
@@ -198,7 +204,9 @@ const Settings = () => {
             await keytrService.addBackupGateway(nsec, user.nostrPubkey);
             setPasskeySuccess('Backup gateway added (nostkey.org). You now have redundant passkey recovery.');
         } catch (err) {
-            if (!err.cancelled) {
+            if (isPrfUnsupportedError(err)) {
+                setPasskeyError("This device can't create passkeys (missing PRF support). Try a device with a fingerprint or face sensor.");
+            } else if (!err.cancelled) {
                 setPasskeyError(err.message || 'Failed to add backup gateway.');
             }
         } finally {
@@ -501,6 +509,8 @@ const Settings = () => {
                                     ? 'Your key is managed by your browser extension'
                                     : loginMethod === 'bunker'
                                     ? 'Your key is managed by your remote signer'
+                                    : loginMethod === 'amber'
+                                    ? 'Your key is managed by the Amber app on this device'
                                     : 'Reveal your private key for backup'}
                             </p>
                         </div>
@@ -515,6 +525,11 @@ const Settings = () => {
                         <div className="key-info-banner">
                             <AlertTriangle size={16} />
                             <span>Your secret key is held by your remote signer (NIP-46). Check your signer app to manage it.</span>
+                        </div>
+                    ) : loginMethod === 'amber' ? (
+                        <div className="key-info-banner">
+                            <AlertTriangle size={16} />
+                            <span>Your secret key is held by the Amber app (NIP-55). Open Amber to manage or export it.</span>
                         </div>
                     ) : nsecRevealed && nsecValue ? (
                         <>
@@ -546,8 +561,10 @@ const Settings = () => {
                     )}
                 </div>
 
-                {/* Passkey Quick Login (keytr) — hidden on native (no WebAuthn in WKWebView) */}
-                {PASSKEY_ENABLED && !isNativePlatform() && loginMethod !== 'extension' && loginMethod !== 'bunker' && (
+                {/* Passkey Quick Login (keytr) — hidden on native (no WebAuthn
+                    in WKWebView) and for external-signer sessions (extension/
+                    bunker/amber) which have no in-browser nsec. */}
+                {PASSKEY_ENABLED && !isNativePlatform() && loginMethod !== 'extension' && loginMethod !== 'bunker' && loginMethod !== 'amber' && (
                 <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <div className="setting-info" style={{ width: '100%' }}>
                         <div className="icon-box" style={{ background: 'var(--color-primary-light, #eff6ff)', color: 'var(--color-primary)' }}><Fingerprint size={20} /></div>
@@ -565,6 +582,11 @@ const Settings = () => {
                         <div className="key-info-banner">
                             <AlertTriangle size={16} />
                             <span>Your browser or device does not support passkeys. Try a modern browser like Chrome, Edge, or Safari.</span>
+                        </div>
+                    ) : !prfSupport.supported && !hasPasskey ? (
+                        <div className="key-info-banner">
+                            <AlertTriangle size={16} />
+                            <span>This device can't create new passkeys (missing PRF support). Try a device with a fingerprint or face sensor.</span>
                         </div>
                     ) : hasPasskey ? (
                         <>
@@ -584,8 +606,14 @@ const Settings = () => {
                                     )}
                                 </>
                             )}
+                            {!prfSupport.supported && (
+                                <div className="key-info-banner">
+                                    <AlertTriangle size={16} />
+                                    <span>This device can't create new passkeys (missing PRF support). Your existing passkey still works for login.</span>
+                                </div>
+                            )}
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                                <button onClick={handleAddBackupGateway} disabled={savingBackup} className="btn btn-outline btn-sm">
+                                <button onClick={handleAddBackupGateway} disabled={savingBackup || !prfSupport.supported} className="btn btn-outline btn-sm">
                                     {savingBackup ? (
                                         <><Fingerprint size={14} style={{ marginRight: '0.4rem' }} /> Saving...</>
                                     ) : (

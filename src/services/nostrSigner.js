@@ -16,14 +16,14 @@
 import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import * as nip44 from 'nostr-tools/nip44';
 
-const LOGIN_METHOD_KEY = 'bies_login_method'; // 'extension' | 'nsec' | 'bunker'
+const LOGIN_METHOD_KEY = 'bies_login_method'; // 'extension' | 'nsec' | 'bunker' | 'amber'
 const SESSION_SK_KEY = 'bies_sk_session'; // sessionStorage — survives refresh, cleared on tab close
 
 class NostrSigner {
     constructor() {
         this._sk = null;      // Uint8Array secret key (in-memory only)
         this._pubkey = null;   // hex public key
-        this._mode = null;     // 'extension' | 'nsec' | 'bunker' | null
+        this._mode = null;     // 'extension' | 'nsec' | 'bunker' | 'amber' | null
         this._reacquirePromise = null; // dedup concurrent _tryReacquire calls
 
         // Restore key from sessionStorage so page refreshes don't lose it.
@@ -34,7 +34,18 @@ class NostrSigner {
     _restoreFromSession() {
         try {
             const hex = sessionStorage.getItem(SESSION_SK_KEY);
-            if (!hex) return;
+            if (!hex) {
+                // Amber (NIP-55) sessions keep only the pubkey — every signing
+                // op round-trips through the Amber app. Restore synchronously.
+                if (this.storedMethod === 'amber') {
+                    const amberPubkey = localStorage.getItem('bies_amber_pubkey');
+                    if (amberPubkey) {
+                        this._pubkey = amberPubkey;
+                        this._mode = 'amber';
+                    }
+                }
+                return;
+            }
             const sk = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)));
             this._sk = sk;
             this._pubkey = getPublicKey(sk);
@@ -88,6 +99,15 @@ class NostrSigner {
         localStorage.setItem(LOGIN_METHOD_KEY, 'bunker');
     }
 
+    /** Configure signer to use Amber via NIP-55 Android intents */
+    setAmberMode(pubkey) {
+        this._sk = null;
+        this._pubkey = pubkey;
+        this._mode = 'amber';
+        localStorage.setItem(LOGIN_METHOD_KEY, 'amber');
+        localStorage.setItem('bies_amber_pubkey', pubkey);
+    }
+
     /** Clear stored key (logout). Zeros secret key bytes as defense-in-depth. */
     clear() {
         if (this._sk instanceof Uint8Array) {
@@ -102,9 +122,13 @@ class NostrSigner {
         import('./nostrConnectService.js').then(({ nostrConnectService }) => {
             nostrConnectService.disconnect();
         }).catch(() => {});
+        // Clear Amber (NIP-55) session state
+        import('./amberSignerService.js').then(({ amberSignerService }) => {
+            amberSignerService.clearAll();
+        }).catch(() => {});
     }
 
-    /** Current mode: 'extension' | 'nsec' | null */
+    /** Current mode: 'extension' | 'nsec' | 'bunker' | 'amber' | null */
     get mode() { return this._mode; }
 
     /** Whether we have the nsec in memory */
@@ -128,11 +152,15 @@ class NostrSigner {
     }
 
     /**
-     * Whether we can sign right now without triggering a passkey/WebAuthn prompt.
-     * Used by background operations (relay AUTH) to avoid surprise prompts.
+     * Whether we can sign right now without triggering a passkey/WebAuthn
+     * prompt or an app switch. Used by background operations (relay AUTH)
+     * to avoid surprise prompts and navigation.
      */
     get canSignSilently() {
         if (this._sk) return true;
+        // Amber (NIP-55): every signature is a full app-switch navigation —
+        // never allowed from a background context.
+        if (this._mode === 'amber' || this.storedMethod === 'amber') return false;
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') return true;
         if (this._mode === 'extension' && window.nostr) return true;
         if (window.nostr) return true;
@@ -144,6 +172,13 @@ class NostrSigner {
     async getPublicKey() {
         // Prefer in-memory key
         if (this._sk) return this._pubkey;
+
+        // Amber mode — pubkey is stored locally, no round trip needed
+        if (this._mode === 'amber' || this.storedMethod === 'amber') {
+            const stored = this._pubkey || localStorage.getItem('bies_amber_pubkey');
+            if (stored) return stored;
+            throw new Error('Amber session not established. Please log in again.');
+        }
 
         // Bunker mode — delegate to remote signer
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
@@ -168,6 +203,15 @@ class NostrSigner {
     async signEvent(event) {
         // Prefer in-memory key
         if (this._sk) return finalizeEvent(event, this._sk);
+
+        // Amber mode — NIP-55 app-switch round trip. Callers must be inside
+        // a user gesture (background flows are gated by canSignSilently).
+        if (this._mode === 'amber' || this.storedMethod === 'amber') {
+            const { amberSignerService } = await import('./amberSignerService.js');
+            return amberSignerService.signEvent(event, {
+                resume: { kind: 'generic', returnPath: window.location.pathname },
+            });
+        }
 
         // Bunker mode — delegate to remote signer
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
@@ -200,6 +244,8 @@ class NostrSigner {
     /** Whether NIP-44 operations are available */
     get hasNip44() {
         if (this._sk) return true;
+        // Amber: available but expensive (one app switch per operation)
+        if (this._mode === 'amber' || this.storedMethod === 'amber') return true;
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') return true;
         if (this._mode === 'extension' && window.nostr?.nip44) return true;
         if (this.storedMethod === 'nsec') return true; // can re-acquire
@@ -212,6 +258,13 @@ class NostrSigner {
         if (this._sk) {
             const ck = nip44.v2.utils.getConversationKey(this._sk, pubkey);
             return nip44.v2.encrypt(plaintext, ck);
+        }
+
+        if (this._mode === 'amber' || this.storedMethod === 'amber') {
+            const { amberSignerService } = await import('./amberSignerService.js');
+            return amberSignerService.nip44Encrypt(pubkey, plaintext, {
+                resume: { kind: 'generic', returnPath: window.location.pathname },
+            });
         }
 
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
@@ -237,6 +290,13 @@ class NostrSigner {
         if (this._sk) {
             const ck = nip44.v2.utils.getConversationKey(this._sk, pubkey);
             return nip44.v2.decrypt(ciphertext, ck);
+        }
+
+        if (this._mode === 'amber' || this.storedMethod === 'amber') {
+            const { amberSignerService } = await import('./amberSignerService.js');
+            return amberSignerService.nip44Decrypt(pubkey, ciphertext, {
+                resume: { kind: 'generic', returnPath: window.location.pathname },
+            });
         }
 
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
@@ -275,6 +335,17 @@ class NostrSigner {
                 this._mode = 'bunker';
                 return signer;
             }
+            if (nostrConnectService.hasStoredConnection()) {
+                // Transient failure (timeout/network) — session kept for retry.
+                // Don't tell the user to re-login; the signer may come back.
+                throw new Error('Remote signer is unreachable. Check that your signer app is online, then try again.');
+            }
+            // Terminal — reconnect() already cleared the session and
+            // dispatched 'bies:signer-disconnected'; fall through.
+        } else {
+            // No stored session at all (e.g. cleared elsewhere) — make sure
+            // the user hears about it once.
+            window.dispatchEvent(new CustomEvent('bies:signer-disconnected'));
         }
 
         throw new Error('Remote signer disconnected. Please log in again.');
@@ -290,6 +361,9 @@ class NostrSigner {
     async tryRestore() {
         if (this._sk) return true;
         if (this._mode === 'extension' && window.nostr) return true;
+        if (this._mode === 'amber' || this.storedMethod === 'amber') {
+            return !!localStorage.getItem('bies_amber_pubkey');
+        }
         if (this._mode === 'bunker' || this.storedMethod === 'bunker') {
             try {
                 await this._getBunkerSigner();

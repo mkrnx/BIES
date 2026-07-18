@@ -4,11 +4,23 @@
  */
 
 import { Request, Response } from 'express';
+import { z } from 'zod';
 import prisma from '../lib/prisma';
-import { cache } from '../services/redis.service';
+import { cache, cacheKey, invalidateLeaderboardCache } from '../services/redis.service';
 import { broadcast } from '../services/websocket.service';
-import { removeFromRelayWhitelist, addToRelayWhitelist } from './auth.controller';
+import { removeFromRelayWhitelist, addToRelayWhitelist } from '../services/relayWhitelist.service';
+import { publishDirectoryListing } from '../services/nostr.service';
 import { isAdminPubkey } from '../middleware/auth';
+import { recomputeListingScore, recomputeAllScores as recomputeAllDirectoryScores } from '../services/directoryReputation.service';
+import {
+    applyPoints,
+    recomputeAllScores,
+    monthOf,
+    isUniqueViolation,
+} from '../services/points.service';
+import { BADGES } from '../services/badges.catalog';
+import { publishCourseBadgeDefinition } from '../services/badges.publisher';
+import { mirrorCourseToNostr, unpublishCourseFromNostr } from '../services/courses.service';
 
 // ─── Users ────────────────────────────────────────────────────────────────────
 
@@ -1144,5 +1156,678 @@ export async function featureEvent(req: Request, res: Response): Promise<void> {
     } catch (error) {
         console.error('Feature event error:', error);
         res.status(500).json({ error: 'Failed to feature event' });
+    }
+}
+
+// ─── Points & badges (gamification) ──────────────────────────────────────────
+
+const POINT_REASONS = [
+    'POST',
+    'REPLY',
+    'REACTION_GIVEN',
+    'REACTION_RECEIVED',
+    'QUALITY_BONUS',
+    'ADMIN_ADJUST',
+] as const;
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+export const adjustPointsSchema = z.object({
+    userId: z.string().min(1),
+    points: z
+        .number()
+        .int()
+        .min(-1000)
+        .max(1000)
+        .refine((v) => v !== 0, { message: 'points must be nonzero' }),
+    reason: z.string().min(1).max(200),
+});
+
+export const grantBadgeSchema = z.object({
+    userId: z.string().min(1),
+    badgeId: z.string().min(1),
+    month: z.string().regex(MONTH_RE, 'month must be YYYY-MM').optional(),
+});
+
+// Leaderboard cache invalidation is shared with the live scoring path — see
+// invalidateLeaderboardCache in redis.service.ts (imported above).
+
+/**
+ * POST /admin/points/adjust
+ * Signed ADMIN_ADJUST ledger row — the ledger stays authoritative, counters
+ * are never mutated directly (applyPoints rolls the entry into UserScore).
+ */
+export async function adjustPoints(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, points, reason } = req.body as z.infer<typeof adjustPointsSchema>;
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        const now = new Date();
+        await applyPoints(userId, {
+            nostrEventId: null,
+            kind: null,
+            reason: 'ADMIN_ADJUST',
+            points,
+            month: monthOf(now),
+            targetEventId: null,
+            meta: { adminId: req.user!.id, note: reason },
+            eventCreatedAt: now,
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'POINTS_ADJUSTED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ points, note: reason }),
+            },
+        });
+
+        await invalidateLeaderboardCache();
+
+        const score = await prisma.userScore.findUnique({ where: { userId } });
+        res.json(score);
+    } catch (error) {
+        console.error('Adjust points error:', error);
+        res.status(500).json({ error: 'Failed to adjust points' });
+    }
+}
+
+/**
+ * GET /admin/points/events
+ * Browse the PointEvent ledger with optional userId/reason filters.
+ */
+export async function listPointEvents(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, reason, page = '1', limit = '50' } = req.query;
+        const pageNum = Math.max(parseInt(page as string, 10) || 1, 1);
+        const take = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 100);
+        const skip = (pageNum - 1) * take;
+
+        const where: any = {};
+        if (userId && typeof userId === 'string') where.userId = userId;
+        if (reason && typeof reason === 'string') {
+            if (!POINT_REASONS.includes(reason as any)) {
+                res.status(400).json({ error: 'Invalid reason filter' }); return;
+            }
+            where.reason = reason;
+        }
+
+        const [events, total] = await Promise.all([
+            prisma.pointEvent.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    user: {
+                        select: {
+                            nostrPubkey: true,
+                            profile: { select: { name: true, avatar: true } },
+                        },
+                    },
+                },
+            }),
+            prisma.pointEvent.count({ where }),
+        ]);
+
+        const parsed = events.map((e) => {
+            let meta: unknown = {};
+            try { meta = JSON.parse(e.meta || '{}'); } catch { /* keep {} */ }
+            return { ...e, meta };
+        });
+
+        res.json({
+            data: parsed,
+            pagination: { page: pageNum, limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('List point events error:', error);
+        res.status(500).json({ error: 'Failed to list point events' });
+    }
+}
+
+/**
+ * POST /admin/points/recompute
+ * Rebuild every UserScore from the PointEvent ledger.
+ */
+export async function recomputePoints(req: Request, res: Response): Promise<void> {
+    try {
+        await recomputeAllScores();
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'POINTS_RECOMPUTED',
+                resource: 'points:all',
+                metadata: '{}',
+            },
+        });
+
+        await invalidateLeaderboardCache();
+
+        res.json({ message: 'All scores recomputed from ledger' });
+    } catch (error) {
+        console.error('Recompute points error:', error);
+        res.status(500).json({ error: 'Failed to recompute scores' });
+    }
+}
+
+/**
+ * POST /admin/points/badges/grant
+ * Manually award a catalog badge (month omitted = permanent badge).
+ */
+export async function grantBadge(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, badgeId, month } = req.body as z.infer<typeof grantBadgeSchema>;
+
+        const def = BADGES.find((b) => b.id === badgeId);
+        if (!def) {
+            res.status(400).json({ error: `Unknown badge "${badgeId}"` }); return;
+        }
+
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { id: true },
+        });
+        if (!user) {
+            res.status(404).json({ error: 'User not found' }); return;
+        }
+
+        let badge;
+        try {
+            badge = await prisma.userBadge.create({
+                data: { userId, badgeId, month: month ?? '' },
+            });
+        } catch (error) {
+            if (isUniqueViolation(error)) {
+                res.status(409).json({ error: 'User already has this badge' }); return;
+            }
+            throw error;
+        }
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'BADGE_GRANTED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ badgeId, month: month ?? '' }),
+            },
+        });
+
+        res.status(201).json({ ...badge, rarity: def.rarity, icon: def.icon });
+    } catch (error) {
+        console.error('Grant badge error:', error);
+        res.status(500).json({ error: 'Failed to grant badge' });
+    }
+}
+
+/**
+ * DELETE /admin/points/badges/:userId/:badgeId
+ * Revoke a permanent badge (month ''). Monthly badges are rollover-owned.
+ */
+export async function revokeBadge(req: Request, res: Response): Promise<void> {
+    try {
+        const { userId, badgeId } = req.params;
+
+        const result = await prisma.userBadge.deleteMany({
+            where: { userId, badgeId, month: '' },
+        });
+        if (result.count === 0) {
+            res.status(404).json({ error: 'Badge not found for this user' }); return;
+        }
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'BADGE_REVOKED',
+                resource: `user:${userId}`,
+                metadata: JSON.stringify({ badgeId }),
+            },
+        });
+
+        res.json({ message: 'Badge revoked' });
+    } catch (error) {
+        console.error('Revoke badge error:', error);
+        res.status(500).json({ error: 'Failed to revoke badge' });
+    }
+}
+
+
+// ─── Directory Listings ──────────────────────────────────────────────────────
+
+export const reviewDirectoryListingSchema = z.object({
+    action: z.enum(['approve', 'reject']),
+});
+
+export const featureDirectoryListingSchema = z.object({
+    featured: z.boolean(),
+});
+
+export const setDirectoryScoreSchema = z.object({
+    baseScore: z.number().int().min(0).max(60),
+});
+
+function parseDirectoryListing(listing: any): any {
+    return {
+        ...listing,
+        photos: JSON.parse(listing.photos || '[]'),
+        languages: JSON.parse(listing.languages || '[]'),
+        products: JSON.parse(listing.products || '[]'),
+        practices: JSON.parse(listing.practices || '[]'),
+        skills: JSON.parse(listing.skills || '[]'),
+    };
+}
+
+/**
+ * GET /admin/directory
+ * List all directory listings (all statuses) with optional type/status
+ * filters, search, and pagination.
+ */
+export async function listAdminDirectory(req: Request, res: Response): Promise<void> {
+    try {
+        const { type, status, search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (type && typeof type === 'string') where.type = type.toUpperCase();
+        if (status && typeof status === 'string') where.status = status;
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { name: { contains: search } },
+                { about: { contains: search } },
+                { location: { contains: search } },
+            ];
+        }
+
+        const [listings, total] = await Promise.all([
+            prisma.directoryListing.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    owner: {
+                        select: {
+                            id: true, email: true,
+                            profile: { select: { name: true, avatar: true } },
+                        },
+                    },
+                    memberUser: {
+                        select: {
+                            id: true,
+                            profile: { select: { name: true } },
+                        },
+                    },
+                    _count: { select: { endorsements: true } },
+                },
+            }),
+            prisma.directoryListing.count({ where }),
+        ]);
+
+        res.json({
+            data: listings.map(parseDirectoryListing),
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list directory error:', error);
+        res.status(500).json({ error: 'Failed to list directory listings' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/review
+ * Approve or reject a directory listing submission.
+ * Body: { action: 'approve' | 'reject' }
+ */
+export async function reviewDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        const { action } = req.body;
+
+        const data: any = action === 'approve'
+            ? { status: 'active', isPublished: true }
+            : { status: 'rejected' };
+
+        const listing = await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data,
+            select: {
+                id: true, name: true, status: true, ownerId: true,
+                memberUserId: true, type: true, about: true, photo: true,
+                location: true, products: true, skills: true,
+            },
+        });
+
+        if (action === 'approve') {
+            // Mirror to Nostr as a NIP-99 classified listing (kind:30402),
+            // signed by the linked member's key when set, else the owner's.
+            publishDirectoryListing(listing.memberUserId ?? listing.ownerId, listing)
+                .then(async (eventId) => {
+                    if (eventId) {
+                        await prisma.directoryListing.update({
+                            where: { id: listing.id },
+                            data: { nostrListingEventId: eventId },
+                        });
+                    }
+                })
+                .catch((err) => console.error('[Nostr] Directory listing sync failed:', err));
+
+            recomputeListingScore(listing.id).catch((err) =>
+                console.error('[Admin] Directory score recompute failed:', err)
+            );
+        }
+
+        // Notify listing owner
+        await prisma.notification.create({
+            data: {
+                userId: listing.ownerId,
+                type: 'SYSTEM',
+                title: action === 'approve' ? 'Directory Listing Approved' : 'Directory Listing Not Approved',
+                body: action === 'approve'
+                    ? `Your directory listing "${listing.name}" has been approved and is now live.`
+                    : `Your directory listing "${listing.name}" was not approved. Please review and resubmit.`,
+                data: JSON.stringify({ listingId: listing.id }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: action === 'approve' ? 'DIRECTORY_LISTING_APPROVED' : 'DIRECTORY_LISTING_REJECTED',
+                resource: `directory:${req.params.id}`,
+                metadata: JSON.stringify({ listingName: listing.name }),
+            },
+        });
+
+        res.json({ id: listing.id, name: listing.name, status: listing.status, ownerId: listing.ownerId });
+    } catch (error) {
+        console.error('Review directory listing error:', error);
+        res.status(500).json({ error: 'Failed to review directory listing' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/feature
+ * Feature or unfeature a directory listing.
+ * Body: { featured: boolean }
+ */
+export async function featureDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        const { featured } = req.body;
+
+        const listing = await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data: { isFeatured: featured },
+        });
+
+        res.json({ id: listing.id, isFeatured: listing.isFeatured });
+    } catch (error) {
+        console.error('Feature directory listing error:', error);
+        res.status(500).json({ error: 'Failed to feature directory listing' });
+    }
+}
+
+/**
+ * PUT /admin/directory/:id/score
+ * Set the admin base score (0–60) and recompute the reputation score.
+ * Body: { baseScore: number }
+ */
+export async function setDirectoryScore(req: Request, res: Response): Promise<void> {
+    try {
+        const { baseScore } = req.body;
+
+        await prisma.directoryListing.update({
+            where: { id: req.params.id },
+            data: { baseScore },
+        });
+
+        await recomputeListingScore(req.params.id);
+
+        const listing = await prisma.directoryListing.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, baseScore: true, reputationScore: true, isCertified: true, certifiedAt: true },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'DIRECTORY_SCORE_SET',
+                resource: `directory:${req.params.id}`,
+                metadata: JSON.stringify({ baseScore }),
+            },
+        });
+
+        res.json(listing);
+    } catch (error) {
+        console.error('Set directory score error:', error);
+        res.status(500).json({ error: 'Failed to set directory score' });
+    }
+}
+
+/**
+ * POST /admin/directory/recompute
+ * Recompute reputation scores for all directory listings.
+ */
+export async function recomputeDirectoryScores(req: Request, res: Response): Promise<void> {
+    try {
+        await recomputeAllDirectoryScores();
+        res.json({ message: 'Directory scores recomputed' });
+    } catch (error) {
+        console.error('Recompute directory scores error:', error);
+        res.status(500).json({ error: 'Failed to recompute directory scores' });
+    }
+}
+
+/**
+ * DELETE /admin/directory/:id
+ * Hard delete a directory listing.
+ */
+export async function deleteDirectoryListing(req: Request, res: Response): Promise<void> {
+    try {
+        await prisma.directoryListing.delete({ where: { id: req.params.id } });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'DIRECTORY_LISTING_DELETED',
+                resource: `directory:${req.params.id}`,
+                metadata: '{}',
+            },
+        });
+
+        res.json({ message: 'Listing permanently deleted' });
+    } catch (error) {
+        console.error('Delete directory listing error:', error);
+        res.status(500).json({ error: 'Failed to delete directory listing' });
+    }
+}
+
+// ─── Courses ─────────────────────────────────────────────────────────────────
+
+export const reviewCourseSchema = z.object({
+    action: z.enum(['approve', 'reject']),
+    note: z.string().max(1000).optional(),
+});
+
+export const featureCourseSchema = z.object({
+    featured: z.boolean(),
+});
+
+/**
+ * GET /admin/courses
+ * List all courses (all statuses) with status/search filters + pagination.
+ */
+export async function listAdminCourses(req: Request, res: Response): Promise<void> {
+    try {
+        const { status, search, page = '1', limit = '20' } = req.query;
+        const skip = (parseInt(page as string, 10) - 1) * parseInt(limit as string, 10);
+        const take = Math.min(parseInt(limit as string, 10), 100);
+
+        const where: any = {};
+        if (status && typeof status === 'string') where.status = status;
+        if (search && typeof search === 'string') {
+            where.OR = [
+                { title: { contains: search } },
+                { summary: { contains: search } },
+            ];
+        }
+
+        const [courses, total] = await Promise.all([
+            prisma.course.findMany({
+                where,
+                skip,
+                take,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                    author: {
+                        select: {
+                            id: true, email: true, nostrPubkey: true,
+                            profile: { select: { name: true, avatar: true, lightningAddress: true } },
+                        },
+                    },
+                    _count: { select: { lessons: true, enrollments: true, purchases: true } },
+                },
+            }),
+            prisma.course.count({ where }),
+        ]);
+
+        res.json({
+            data: courses.map((c) => ({
+                ...c,
+                tags: JSON.parse(c.tags || '[]'),
+                lessonCount: c._count.lessons,
+                studentCount: c._count.enrollments,
+                purchaseCount: c._count.purchases,
+            })),
+            pagination: { page: parseInt(page as string, 10), limit: take, total, totalPages: Math.ceil(total / take) },
+        });
+    } catch (error) {
+        console.error('Admin list courses error:', error);
+        res.status(500).json({ error: 'Failed to list courses' });
+    }
+}
+
+/**
+ * PUT /admin/courses/:id/review
+ * Approve or reject a course submission. Reviewers can never approve their
+ * own course. Approval publishes the NIP-58 completion-badge definition;
+ * the Nostr course/lesson mirror is wired at the marked seam.
+ * Body: { action: 'approve' | 'reject', note? }
+ */
+export async function reviewCourse(req: Request, res: Response): Promise<void> {
+    try {
+        const { action, note } = req.body;
+
+        const existing = await prisma.course.findUnique({
+            where: { id: req.params.id },
+            select: { id: true, authorId: true, title: true, coverImage: true, status: true },
+        });
+        if (!existing) {
+            res.status(404).json({ error: 'Course not found' }); return;
+        }
+        // Moderation integrity: no self-approval, even for full admins.
+        if (existing.authorId === req.user!.id) {
+            res.status(403).json({ error: 'You cannot review your own course' }); return;
+        }
+
+        const data: any = action === 'approve'
+            ? { status: 'active', isPublished: true, reviewNote: '' }
+            : { status: 'rejected', reviewNote: note ?? '' };
+
+        const course = await prisma.course.update({
+            where: { id: existing.id },
+            data,
+            select: { id: true, title: true, status: true, authorId: true, coverImage: true },
+        });
+        await cache.delPattern('courses:');
+
+        if (action === 'approve') {
+            publishCourseBadgeDefinition(course)
+                .catch((err) => console.error('[Nostr] Course badge definition publish failed:', err));
+            // Mirror to Nostr: lesson events (30023/30402 teaser) + the
+            // kind-30004 course list, storing nostrEventId per row.
+            mirrorCourseToNostr(course.id)
+                .catch((err) => console.error('[Nostr] Course mirror failed:', err));
+        }
+
+        await prisma.notification.create({
+            data: {
+                userId: course.authorId,
+                type: 'SYSTEM',
+                title: action === 'approve' ? 'Course Approved' : 'Course Not Approved',
+                body: action === 'approve'
+                    ? `Your course "${course.title}" has been approved and is now live.`
+                    : `Your course "${course.title}" was not approved.${note ? ` Reviewer note: ${note}` : ' Please review and resubmit.'}`,
+                data: JSON.stringify({ courseId: course.id }),
+            },
+        });
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: action === 'approve' ? 'COURSE_APPROVED' : 'COURSE_REJECTED',
+                resource: `course:${req.params.id}`,
+                metadata: JSON.stringify({ courseTitle: course.title, note: note ?? '' }),
+            },
+        });
+
+        res.json({ id: course.id, title: course.title, status: course.status, authorId: course.authorId });
+    } catch (error) {
+        console.error('Review course error:', error);
+        res.status(500).json({ error: 'Failed to review course' });
+    }
+}
+
+/**
+ * PUT /admin/courses/:id/feature
+ * Toggle the featured flag.
+ */
+export async function featureCourse(req: Request, res: Response): Promise<void> {
+    try {
+        const { featured } = req.body;
+        const course = await prisma.course.update({
+            where: { id: req.params.id },
+            data: { isFeatured: Boolean(featured) },
+            select: { id: true, title: true, isFeatured: true },
+        });
+        await cache.delPattern('courses:');
+        res.json(course);
+    } catch (error) {
+        console.error('Feature course error:', error);
+        res.status(500).json({ error: 'Failed to feature course' });
+    }
+}
+
+/**
+ * DELETE /admin/courses/:id
+ * Hard delete a course.
+ */
+export async function deleteAdminCourse(req: Request, res: Response): Promise<void> {
+    try {
+        await unpublishCourseFromNostr(req.params.id);
+        await prisma.course.delete({ where: { id: req.params.id } });
+        await cache.delPattern('courses:');
+
+        await prisma.auditLog.create({
+            data: {
+                userId: req.user!.id,
+                action: 'COURSE_DELETED',
+                resource: `course:${req.params.id}`,
+                metadata: '{}',
+            },
+        });
+
+        res.json({ message: 'Course permanently deleted' });
+    } catch (error) {
+        console.error('Delete admin course error:', error);
+        res.status(500).json({ error: 'Failed to delete course' });
     }
 }

@@ -181,7 +181,7 @@ export async function payInvoice(userId: string, bolt11: string): Promise<{ hash
 /**
  * Create a Lightning invoice on the user's Coinos wallet.
  */
-export async function createInvoice(userId: string, amountSats: number, memo?: string): Promise<{ pr: string }> {
+export async function createInvoice(userId: string, amountSats: number, memo?: string): Promise<{ pr: string; hash: string }> {
     const token = await getToken(userId);
     if (!token) throw new Error('No Coinos wallet connected');
 
@@ -197,7 +197,18 @@ export async function createInvoice(userId: string, amountSats: number, memo?: s
         }),
     });
 
-    return { pr: data.text || data.hash };
+    return { pr: data.text, hash: data.hash };
+}
+
+/**
+ * Fetch an invoice by its payment hash (to poll payment status).
+ * Returns the raw Coinos invoice JSON. The paid check is
+ * `received >= amount || paid === true` (Coinos reports `received` in sats).
+ * Coinos serves GET /invoice/:hash without auth for API-created invoices;
+ * if the endpoint ever requires auth, pass the creator's token.
+ */
+export async function getInvoice(hash: string, token?: string): Promise<any> {
+    return coinosFetch(`/invoice/${encodeURIComponent(hash)}`, token ? { headers: authHeaders(token) } : {});
 }
 
 /**

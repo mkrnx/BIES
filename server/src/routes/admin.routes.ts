@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import { adminFeedbackRouter } from './feedback.routes';
+import { adminBountyRouter } from './bounty.routes';
 import {
     listUsers,
     banUser,
@@ -24,7 +26,30 @@ import {
     listInvestorRequests,
     reviewInvestorRequest,
     setUserAdmin,
+    adjustPoints,
+    adjustPointsSchema,
+    listPointEvents,
+    recomputePoints,
+    grantBadge,
+    grantBadgeSchema,
+    revokeBadge,
+    listAdminDirectory,
+    reviewDirectoryListing,
+    reviewDirectoryListingSchema,
+    featureDirectoryListing,
+    featureDirectoryListingSchema,
+    setDirectoryScore,
+    setDirectoryScoreSchema,
+    recomputeDirectoryScores,
+    deleteDirectoryListing,
+    listAdminCourses,
+    reviewCourse,
+    reviewCourseSchema,
+    featureCourse,
+    featureCourseSchema,
+    deleteAdminCourse,
 } from '../controllers/admin.controller';
+import { updateFeatureFlags, updateFlagsSchema } from '../controllers/featureFlags.controller';
 
 const router = Router();
 
@@ -57,12 +82,40 @@ router.delete('/projects/:id', hardDeleteProject);
 router.get('/events', listAdminEvents);
 router.put('/events/:id/feature', featureEvent);
 
+// Points & badges (gamification)
+router.post('/points/adjust', validate(adjustPointsSchema), adjustPoints);
+router.get('/points/events', listPointEvents);
+router.post('/points/recompute', recomputePoints);
+router.post('/points/badges/grant', validate(grantBadgeSchema), grantBadge);
+router.delete('/points/badges/:userId/:badgeId', revokeBadge);
+// Directory
+router.get('/directory', listAdminDirectory);
+router.put('/directory/:id/review', validate(reviewDirectoryListingSchema), reviewDirectoryListing);
+router.put('/directory/:id/feature', validate(featureDirectoryListingSchema), featureDirectoryListing);
+router.put('/directory/:id/score', validate(setDirectoryScoreSchema), setDirectoryScore);
+router.post('/directory/recompute', recomputeDirectoryScores);
+router.delete('/directory/:id', deleteDirectoryListing);
+
+// Courses
+router.get('/courses', listAdminCourses);
+router.put('/courses/:id/review', validate(reviewCourseSchema), reviewCourse);
+router.put('/courses/:id/feature', validate(featureCourseSchema), featureCourse);
+router.delete('/courses/:id', deleteAdminCourse);
+
 // Audit & System
 router.get('/audit-logs', getAuditLogs);
 router.post('/broadcast', broadcastMessage);
 router.post('/cache/clear', clearCache);
 
+// Runtime feature toggles — TRUE admins only (`isAdmin`); MODs pass the
+// router-level MOD gate above but are rejected by this ADMIN gate. Never
+// feature-gated itself, so a disabled feature can always be re-enabled.
+router.put('/flags', requireRole('ADMIN'), validate(updateFlagsSchema), updateFeatureFlags);
+
 // Feedback
 router.use('/feedback', adminFeedbackRouter);
+
+// Bounties
+router.use('/bounties', adminBountyRouter);
 
 export default router;

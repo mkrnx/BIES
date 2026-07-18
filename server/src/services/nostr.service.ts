@@ -1,6 +1,7 @@
 // nostr-tools is ESM-only (@noble/curves has no CJS build);
 // use dynamic import() so the compiled CJS output doesn't call require().
-import type { EventTemplate } from 'nostr-tools/pure';
+import type { Event as NostrEvent, EventTemplate } from 'nostr-tools/pure';
+import { randomUUID } from 'crypto';
 import { config } from '../config';
 import prisma from '../lib/prisma';
 import { decryptPrivateKey } from './crypto.service';
@@ -57,6 +58,31 @@ export async function publishEvent(
         return published > 0 ? signedEvent.id : null;
     } catch (error) {
         console.error('[Nostr] Publish error:', error);
+        return null;
+    }
+}
+
+/**
+ * Fetch a single event by id from the configured relays (private relay
+ * first, then public). Signature is verified by the pool. Returns null on
+ * miss or timeout — callers treat that as "event does not exist".
+ */
+export async function fetchEventById(eventId: string, timeoutMs = 5000): Promise<NostrEvent | null> {
+    try {
+        const pool = await getPool();
+        const relays: string[] = [];
+        if (config.nostrPrivateRelay) relays.push(config.nostrPrivateRelay);
+        relays.push(...config.nostrRelays);
+        if (relays.length === 0) return null;
+
+        const event = await Promise.race([
+            pool.get(relays, { ids: [eventId] }),
+            new Promise<null>((resolve) => setTimeout(resolve, timeoutMs, null)),
+        ]);
+        if (!event || event.id !== eventId) return null;
+        return event;
+    } catch (error) {
+        console.error('[Nostr] Event fetch error:', error);
         return null;
     }
 }
@@ -177,6 +203,277 @@ export async function publishProjectListing(
     };
 
     return publishEvent(userId, event);
+}
+
+/**
+ * Publish a directory listing as a NIP-99 classified listing (Kind 30402).
+ * Signed with the linked member's custodial key (call sites pass
+ * memberUserId ?? ownerId). Returns the event id, or null for
+ * Nostr-native users (who sign client-side via the nostrService twin).
+ */
+export async function publishDirectoryListing(
+    userId: string,
+    listing: {
+        id: string;
+        type: string; // FARM | PROVIDER
+        name: string;
+        about?: string | null;
+        photo?: string | null;
+        location?: string | null;
+        products?: string | Array<{ label?: string } | string> | null; // FARM chips
+        skills?: string | string[] | null; // PROVIDER
+    }
+): Promise<string | null> {
+    const about = listing.about || '';
+    const tags: string[][] = [
+        ['d', listing.id],
+        ['title', listing.name],
+        ['summary', about.slice(0, 200)],
+        ['t', 'bies'],
+        ['t', 'directory'],
+        ['t', listing.type === 'FARM' ? 'farm' : 'services'],
+    ];
+
+    // One topic tag per product label (FARM) or skill (PROVIDER),
+    // deduped and capped at 10 to avoid tag spam.
+    const rawItems = listing.type === 'FARM' ? listing.products : listing.skills;
+    let items: unknown[] = [];
+    if (typeof rawItems === 'string') {
+        try { items = JSON.parse(rawItems || '[]'); } catch { items = []; }
+    } else if (Array.isArray(rawItems)) {
+        items = rawItems;
+    }
+    const seen = new Set(['bies', 'directory', 'farm', 'services']);
+    for (const item of items) {
+        const label = typeof item === 'string' ? item : (item as { label?: unknown })?.label;
+        if (typeof label !== 'string') continue;
+        const value = label.trim().toLowerCase();
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        tags.push(['t', value]);
+        if (seen.size >= 14) break; // 4 base topic tags + max 10 item tags
+    }
+
+    if (listing.photo) tags.push(['image', listing.photo]);
+    if (listing.location) tags.push(['location', listing.location]);
+
+    const event: EventTemplate = {
+        kind: 30402,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: about,
+    };
+
+    return publishEvent(userId, event);
+}
+
+// ─── NIP-99 Marketplace (Shopstr-compatible, Kind 30402) ─────────────────────
+
+// Shopstr's default relay set (shopstr-eng/shopstr getDefaultRelays).
+// Publishing here makes BIES listings visible in Shopstr's browse feed.
+const SHOPSTR_RELAYS = [
+    'wss://relay.damus.io',
+    'wss://nos.lol',
+    'wss://purplepag.es',
+    'wss://relay.primal.net',
+    'wss://relay.nostr.band',
+];
+
+// Base t-tags every BIES marketplace listing carries: "shopstr" puts the
+// listing in Shopstr's feed; "bies" + "marketplace" drive our own filtering.
+const MARKETPLACE_TOPIC_TAGS = ['shopstr', 'bies', 'marketplace'];
+
+const MAX_CATEGORY_TAGS = 8;
+
+/**
+ * Marketplace listings always go to BOTH the private relay and the public
+ * relays (external Shopstr visibility is the point) — same selection as the
+ * calendar 'both' target, extended with Shopstr's default relay set.
+ */
+function marketplaceRelays(): string[] {
+    const relays: string[] = [];
+    if (config.nostrPrivateRelay) {
+        relays.push(config.nostrPrivateRelay);
+    }
+    for (const relay of [...config.nostrRelays, ...SHOPSTR_RELAYS]) {
+        if (!relays.includes(relay)) relays.push(relay);
+    }
+    return relays;
+}
+
+export interface MarketplaceListingInput {
+    title: string;
+    summary?: string;
+    description?: string;
+    price?: { amount?: number | string; currency?: string } | null;
+    amount?: number | string;
+    currency?: string;
+    images?: string[];
+    location?: string;
+    status?: string; // active | sold
+    categories?: string[];
+    dTag?: string; // existing d-tag (edits); omit for new listings
+    publishedAt?: number | string; // original published_at (preserved on edits)
+}
+
+/**
+ * Build the Kind 30402 tag array + content for a marketplace listing.
+ * MUST stay byte-identical to buildListingTags in src/utils/nip99.js
+ * (the client-side twin for Nostr-native users).
+ */
+function buildMarketplaceListingTags(
+    form: MarketplaceListingInput,
+    { dTag, publishedAt }: { dTag?: string; publishedAt?: number | string } = {}
+): { tags: string[][]; content: string; dTag: string } {
+    const d = dTag || randomUUID();
+    const description = form.description || '';
+    const summary = (form.summary || description).slice(0, 200);
+    const amount = form.price?.amount ?? form.amount ?? 0;
+    const currency = String(form.price?.currency ?? form.currency ?? 'SATS').toUpperCase();
+
+    const tags: string[][] = [
+        ['d', d],
+        ['title', form.title],
+        ['summary', summary],
+        // Set on first publish, preserved on edits (Shopstr convention)
+        ['published_at', publishedAt != null && publishedAt !== ''
+            ? String(publishedAt)
+            : String(Math.floor(Date.now() / 1000))],
+        ['price', String(amount), currency],
+    ];
+
+    for (const image of form.images || []) {
+        if (image) tags.push(['image', image]);
+    }
+    if (form.location) tags.push(['location', form.location]);
+    tags.push(['status', form.status === 'sold' ? 'sold' : 'active']);
+
+    const seen = new Set(MARKETPLACE_TOPIC_TAGS);
+    for (const topic of MARKETPLACE_TOPIC_TAGS) tags.push(['t', topic]);
+    let categoryCount = 0;
+    for (const category of form.categories || []) {
+        const value = String(category).trim().toLowerCase();
+        if (!value || seen.has(value)) continue;
+        seen.add(value);
+        tags.push(['t', value]);
+        if (++categoryCount >= MAX_CATEGORY_TAGS) break;
+    }
+
+    return { tags, content: description, dTag: d };
+}
+
+/**
+ * Publish a marketplace listing (NIP-99 Kind 30402, Shopstr-compatible),
+ * signed with the user's custodial key. Publishes to BOTH the private relay
+ * and public relays. Returns null for Nostr-native users (who sign
+ * client-side via the nostrService twin) and on publish failure.
+ */
+export async function publishMarketplaceListing(
+    userId: string,
+    listing: MarketplaceListingInput
+): Promise<{ eventId: string; dTag: string; naddr: string } | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — signed client-side
+            console.log(`[Nostr] User ${userId} has no custodial key, skipping server-side NIP-99 publish`);
+            return null;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const { tags, content, dTag } = buildMarketplaceListingTags(listing, {
+            dTag: listing.dTag,
+            publishedAt: listing.publishedAt,
+        });
+
+        const event: EventTemplate = {
+            kind: 30402,
+            created_at: Math.floor(Date.now() / 1000),
+            tags,
+            content,
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signedEvent = finalizeEvent(event, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays = marketplaceRelays();
+        const results = await Promise.allSettled(pool.publish(relays, signedEvent));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-99 marketplace listing published to ${published}/${relays.length} relays`);
+
+        if (published === 0) return null;
+
+        // Relay hints for the shareable naddr — public relays only (the
+        // private relay is NIP-42 gated, useless to external Shopstr clients).
+        const { naddrEncode } = await import('nostr-tools/nip19');
+        const naddr = naddrEncode({
+            kind: 30402,
+            pubkey: signedEvent.pubkey,
+            identifier: dTag,
+            relays: relays.filter((r) => r !== config.nostrPrivateRelay).slice(0, 3),
+        });
+
+        return { eventId: signedEvent.id, dTag, naddr };
+    } catch (error) {
+        console.error('[Nostr] NIP-99 marketplace publish error:', error);
+        return null;
+    }
+}
+
+/**
+ * Publish a NIP-09 deletion event (Kind 5) to remove a marketplace listing
+ * from all marketplace relays. Custodial twin of the client's
+ * deleteMarketplaceListing; returns false for Nostr-native users.
+ */
+export async function deleteMarketplaceListing(
+    userId: string,
+    nostrEventId: string,
+    dTag: string
+): Promise<boolean> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+
+        if (!user || !user.encryptedPrivkey) {
+            // Nostr-native user — deletion happens client-side
+            return false;
+        }
+
+        const privateKeyHex = decryptPrivateKey(user.encryptedPrivkey);
+        const privateKeyBytes = hexToBytes(privateKeyHex);
+
+        const deletionEvent: EventTemplate = {
+            kind: 5,
+            created_at: Math.floor(Date.now() / 1000),
+            tags: [
+                ['e', nostrEventId],
+                ['a', `30402:${user.nostrPubkey}:${dTag}`],
+            ],
+            content: 'Listing deleted from BIES',
+        };
+
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(deletionEvent, privateKeyBytes);
+
+        const pool = await getPool();
+        const relays = marketplaceRelays();
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] NIP-99 marketplace deletion published to ${published}/${relays.length} relays`);
+        return published > 0;
+    } catch (error) {
+        console.error('[Nostr] NIP-99 marketplace deletion error:', error);
+        return false;
+    }
 }
 
 /**
@@ -486,6 +783,231 @@ export function validateCalendarEventData(event: {
 /**
  * Convert hex string to Uint8Array
  */
+// ─── Courses (NIP-51 kind 30004 + NIP-23 kind 30023 + NIP-99 kind 30402) ────
+
+/**
+ * Sign a template with a user's custodial key and publish to the relays the
+ * target selects. Returns the event id, or null for Nostr-native users
+ * (they publish the twin event client-side).
+ */
+async function publishEventAs(
+    userId: string,
+    template: EventTemplate,
+    target: 'bies' | 'public' | 'both'
+): Promise<string | null> {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { encryptedPrivkey: true, nostrPubkey: true },
+        });
+        if (!user || !user.encryptedPrivkey) {
+            return null; // Nostr-native — client-side twin publishes instead
+        }
+
+        const privateKeyBytes = hexToBytes(decryptPrivateKey(user.encryptedPrivkey));
+        const { finalizeEvent } = await import('nostr-tools/pure');
+        const signed = finalizeEvent(template, privateKeyBytes);
+
+        const relays: string[] = [];
+        if ((target === 'bies' || target === 'both') && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+        if (target === 'public' || target === 'both') {
+            relays.push(...config.nostrRelays);
+        }
+        if (relays.length === 0 && config.nostrPrivateRelay) {
+            relays.push(config.nostrPrivateRelay);
+        }
+
+        const pool = await getPool();
+        const results = await Promise.allSettled(pool.publish(relays, signed));
+        const published = results.filter((r) => r.status === 'fulfilled').length;
+        console.log(`[Nostr] kind ${template.kind} published to ${published}/${relays.length} relays (target: ${target})`);
+        return published > 0 ? signed.id : null;
+    } catch (error) {
+        console.error(`[Nostr] kind ${template.kind} publish error:`, error);
+        return null;
+    }
+}
+
+interface CourseRow {
+    id: string;
+    title: string;
+    summary: string;
+    description: string;
+    category: string;
+    coverImage: string;
+    tags: string; // JSON array string
+    priceSats: number;
+}
+
+interface LessonRow {
+    id: string;
+    title: string;
+    type: string;
+    content: string; // JSON string
+}
+
+function courseTopicTags(course: CourseRow): string[][] {
+    const tags: string[][] = [
+        ['t', 'bies'],
+        ['t', 'education'],
+    ];
+    const seen = new Set(['bies', 'education']);
+    const extra = [course.category, ...(JSON.parse(course.tags || '[]') as string[])];
+    for (const raw of extra) {
+        const t = String(raw || '').toLowerCase().replace(/_/g, '-').trim();
+        if (t && !seen.has(t) && seen.size < 12) {
+            seen.add(t);
+            tags.push(['t', t]);
+        }
+    }
+    return tags;
+}
+
+/**
+ * Publish a FREE lesson as NIP-23 long-form content (kind 30023).
+ * d-tag = lesson DB id; content = full markdown (video lessons embed the URL).
+ */
+export async function publishLessonArticle(
+    userId: string,
+    course: CourseRow,
+    lesson: LessonRow,
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    let markdown = '';
+    try {
+        const content = JSON.parse(lesson.content || '{}');
+        if (lesson.type === 'TEXT') {
+            markdown = content.markdown || '';
+        } else if (lesson.type === 'VIDEO') {
+            markdown = `${content.caption ? content.caption + '\n\n' : ''}${content.videoUrl || ''}`;
+        }
+    } catch {
+        return null;
+    }
+    if (!markdown) return null;
+
+    const tags: string[][] = [
+        ['d', lesson.id],
+        ['title', lesson.title],
+        ['summary', (course.summary || '').slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+
+    return publishEventAs(userId, {
+        kind: 30023,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: markdown,
+    }, target);
+}
+
+/**
+ * Publish a PAID lesson as a NIP-99 classified teaser (kind 30402).
+ * The content is a SERVER-DERIVED teaser (course summary) — full lesson
+ * content must never enter the event; the API is the only gate.
+ */
+export async function publishPaidLessonTeaser(
+    userId: string,
+    course: CourseRow,
+    lesson: LessonRow,
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    const teaser = (course.summary || course.title).slice(0, 300);
+    const tags: string[][] = [
+        ['d', lesson.id],
+        ['title', lesson.title],
+        ['summary', teaser.slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ['price', String(course.priceSats), 'SATS'],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+
+    return publishEventAs(userId, {
+        kind: 30402,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: teaser,
+    }, target);
+}
+
+/**
+ * Publish the course container as a NIP-51 curation set (kind 30004).
+ * Ordered `a` tags reference the lesson events (30023 free / 30402 paid);
+ * QUIZ lessons are never published and are skipped from the list.
+ */
+export async function publishCourse(
+    userId: string,
+    course: CourseRow,
+    orderedLessons: LessonRow[],
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<string | null> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nostrPubkey: true },
+    });
+    if (!user?.nostrPubkey) return null;
+
+    const isPaid = course.priceSats > 0;
+    const tags: string[][] = [
+        ['d', course.id],
+        ['title', course.title],
+        ['summary', (course.summary || '').slice(0, 200)],
+        ['published_at', String(Math.floor(Date.now() / 1000))],
+        ...courseTopicTags(course),
+    ];
+    if (course.coverImage) tags.push(['image', course.coverImage]);
+    if (isPaid) tags.push(['price', String(course.priceSats), 'SATS']);
+
+    for (const lesson of orderedLessons) {
+        if (lesson.type === 'QUIZ') continue; // never mirrored
+        const kind = isPaid ? 30402 : 30023;
+        tags.push(['a', `${kind}:${user.nostrPubkey}:${lesson.id}`]);
+    }
+
+    return publishEventAs(userId, {
+        kind: 30004,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: course.description || course.summary || '',
+    }, target);
+}
+
+/**
+ * NIP-09 delete (kind 5) for a course and its lesson events.
+ */
+export async function deleteCourseFromNostr(
+    userId: string,
+    refs: { courseEventId?: string | null; courseId: string; lessons: Array<{ eventId?: string | null; lessonId: string; kind: number }> },
+    target: 'bies' | 'public' | 'both' = 'bies'
+): Promise<boolean> {
+    const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { nostrPubkey: true, encryptedPrivkey: true },
+    });
+    if (!user?.encryptedPrivkey || !user.nostrPubkey) return false;
+
+    const tags: string[][] = [];
+    if (refs.courseEventId) tags.push(['e', refs.courseEventId]);
+    tags.push(['a', `30004:${user.nostrPubkey}:${refs.courseId}`]);
+    for (const lesson of refs.lessons) {
+        if (lesson.eventId) tags.push(['e', lesson.eventId]);
+        tags.push(['a', `${lesson.kind}:${user.nostrPubkey}:${lesson.lessonId}`]);
+    }
+
+    const eventId = await publishEventAs(userId, {
+        kind: 5,
+        created_at: Math.floor(Date.now() / 1000),
+        tags,
+        content: 'Course deleted from BIES',
+    }, target);
+    return Boolean(eventId);
+}
+
 function hexToBytes(hex: string): Uint8Array {
     const bytes = new Uint8Array(hex.length / 2);
     for (let i = 0; i < hex.length; i += 2) {

@@ -84,9 +84,24 @@ async function uploadFile(path, formData) {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+// Onboarding voucher attribution (single choke point): if the visitor arrived
+// via a /join/:code invite link, the code is stashed in localStorage and
+// attached to the initial register / nostr-login request, then cleared once
+// the server accepts the request.
+const withVoucherCode = (body) => {
+    const voucherCode = localStorage.getItem('bies_onboarding_code') || undefined;
+    return voucherCode ? { ...body, voucherCode } : body;
+};
+
+const clearVoucherCode = (data) => {
+    localStorage.removeItem('bies_onboarding_code');
+    return data;
+};
+
 export const authApi = {
     register: (email, password, role, name, fingerprint) =>
-        post('/auth/register', { email, password, role, name, fingerprint }),
+        post('/auth/register', withVoucherCode({ email, password, role, name, fingerprint }))
+            .then(clearVoucherCode),
 
     login: (email, password, fingerprint) =>
         post('/auth/login', { email, password, fingerprint }),
@@ -95,7 +110,8 @@ export const authApi = {
         get('/auth/nostr-challenge', { pubkey }),
 
     nostrLogin: (pubkey, signedEvent, fingerprint) =>
-        post('/auth/nostr-login', { pubkey, signedEvent, fingerprint }),
+        post('/auth/nostr-login', withVoucherCode({ pubkey, signedEvent, fingerprint }))
+            .then(clearVoucherCode),
 
     me: () => get('/auth/me'),
 
@@ -153,6 +169,42 @@ export const projectsApi = {
 
     postUpdate: (id, title, content) =>
         post(`/projects/${id}/updates`, { title, content }),
+};
+
+// ─── Directory (Farms & Certified Providers) ─────────────────────────────────
+
+export const directoryApi = {
+    list: (params = {}) => get('/directory', params),
+    // params: { type, search, certified, btc, language, sort, page, limit, ownerId }
+
+    get: (id) => get(`/directory/${id}`),
+
+    create: (data) => post('/directory', data),
+
+    update: (id, data) => put(`/directory/${id}`, data),
+
+    delete: (id) => del(`/directory/${id}`),
+
+    endorse: (id, comment = '') => post(`/directory/${id}/endorse`, { comment }),
+
+    unendorse: (id) => del(`/directory/${id}/endorse`),
+};
+
+// ─── Marketplace (Shopstr / NIP-99) ──────────────────────────────────────────
+
+export const marketplaceApi = {
+    // Custodial-key publish/delete — Nostr-native users sign client-side
+    // via nostrService.publishMarketplaceListing / deleteMarketplaceListing.
+    publish: (data) => post('/marketplace/publish', data),
+
+    remove: (data) => post('/marketplace/delete', data),
+
+    // Moderation blocklist (GET is public; block/unblock are MOD-only)
+    blocklist: () => get('/marketplace/blocklist'),
+
+    block: (data) => post('/marketplace/blocklist', data),
+
+    unblock: (id) => del(`/marketplace/blocklist/${id}`),
 };
 
 // ─── Upload ───────────────────────────────────────────────────────────────────
@@ -227,6 +279,48 @@ export const zapsApi = {
     // params: { page, limit }
 
     projectZapStats: (projectId) => get(`/zaps/stats/${projectId}`),
+};
+
+// ─── Points & Gamification ────────────────────────────────────────────────────
+
+export const pointsApi = {
+    leaderboard: (params = {}) => get('/points/leaderboard', params),
+    // params: { scope: 'monthly'|'lifetime', limit }
+
+    me: () => get('/points/me'),
+
+    user: (pubkey) => get(`/points/user/${pubkey}`),
+
+    badges: () => get('/points/badges'),
+
+    month: (m) => get(`/points/months/${m}`),
+};
+
+// ─── Bounties ─────────────────────────────────────────────────────────────────
+
+export const bountiesApi = {
+    list: (params = {}) => get('/bounties', params),
+    // params: { status, rewardType, featured, mine, posterId, page, limit }
+
+    get: (id) => get(`/bounties/${id}`),
+
+    create: (data) => post('/bounties', data),
+    // data: { title, description, rewardType, amount, deadline? }
+
+    submit: (id, content) => post(`/bounties/${id}/submissions`, { content }),
+
+    updateSubmission: (id, content) => put(`/bounties/${id}/submissions`, { content }),
+
+    award: (id, submissionId) => post(`/bounties/${id}/award`, { submissionId }),
+
+    unaward: (id) => post(`/bounties/${id}/unaward`, {}),
+
+    markPaid: (id, via) => post(`/bounties/${id}/mark-paid`, { via }),
+    // via: 'WALLET' | 'MANUAL'
+
+    cancel: (id) => post(`/bounties/${id}/cancel`, {}),
+
+    mirror: (id, eventId) => post(`/bounties/${id}/mirror`, eventId !== undefined ? { eventId } : {}),
 };
 
 // ─── Notifications ────────────────────────────────────────────────────────────
@@ -354,6 +448,19 @@ export const investorApi = {
     requestRole: (data) => post('/investor/request', data),
 };
 
+// ─── Vouchers (relay access / onboarding) ────────────────────────────────────
+// Public endpoints — work logged-out (the shared request wrapper only attaches
+// the Authorization header when a token exists).
+
+export const voucherApi = {
+    info: (code) => get(`/vouchers/code/${encodeURIComponent(code)}`),
+
+    redeem: (code, pubkey) =>
+        post(`/vouchers/code/${encodeURIComponent(code)}/redeem`, { pubkey }),
+
+    redemptionStatus: (id) => get(`/vouchers/redemptions/${encodeURIComponent(id)}/status`),
+};
+
 // ─── Search ───────────────────────────────────────────────────────────────────
 
 export const searchApi = {
@@ -392,6 +499,71 @@ export const adminApi = {
     feedback: (params = {}) => get('/admin/feedback', params),
     updateFeedback: (id, data) => put(`/admin/feedback/${id}`, data),
     deleteFeedback: (id) => del(`/admin/feedback/${id}`),
+    adjustPoints: (data) => post('/admin/points/adjust', data),
+    listPointEvents: (params = {}) => get('/admin/points/events', params),
+    recomputePoints: () => post('/admin/points/recompute', {}),
+    grantBadge: (data) => post('/admin/points/badges/grant', data),
+    revokeBadge: (userId, badgeId) => del(`/admin/points/badges/${userId}/${badgeId}`),
+    listBounties: (params = {}) => get('/admin/bounties', params),
+    deleteBounty: (id) => del(`/admin/bounties/${id}`),
+    featureBounty: (id, featured) => post(`/admin/bounties/${id}/feature`, { featured }),
+    listDirectory: (params = {}) => get('/admin/directory', params),
+    reviewDirectoryListing: (id, action) => put(`/admin/directory/${id}/review`, { action }),
+    featureDirectoryListing: (id, featured) => put(`/admin/directory/${id}/feature`, { featured }),
+    setDirectoryScore: (id, baseScore) => put(`/admin/directory/${id}/score`, { baseScore }),
+    recomputeDirectoryScores: () => post('/admin/directory/recompute', {}),
+    deleteDirectoryListing: (id) => del(`/admin/directory/${id}`),
+    listCourses: (params = {}) => get('/admin/courses', params),
+    reviewCourse: (id, action, note) => put(`/admin/courses/${id}/review`, note ? { action, note } : { action }),
+    featureCourse: (id, featured) => put(`/admin/courses/${id}/feature`, { featured }),
+    deleteCourse: (id) => del(`/admin/courses/${id}`),
+    createVoucher: (data) => post('/vouchers', data),
+    listVouchers: () => get('/vouchers'),
+    voucherRedemptions: (id) => get(`/vouchers/${id}/redemptions`),
+    revokeVoucher: (id, revokeAccess) => post(`/vouchers/${id}/revoke`, { revokeAccess }),
+    revokeRedemption: (id, revokeAccess) => post(`/vouchers/redemptions/${id}/revoke`, { revokeAccess }),
+    updateFlags: (data) => put('/admin/flags', data),
+};
+
+// ─── Runtime feature flags (public read; admin write via adminApi) ──────────
+
+export const flagsApi = {
+    get: () => get('/flags'),
+};
+
+// ─── Courses (LMS) ───────────────────────────────────────────────────────────
+
+export const coursesApi = {
+    list: (params = {}) => get('/courses', params),
+    // params: { category, level, priced: 'free'|'paid', search, sort: 'recent'|'popular', page, limit }
+    get: (id) => get(`/courses/${id}`),
+    listMine: () => get('/courses/my'),
+    listEnrolled: () => get('/courses/enrolled'),
+    create: (data) => post('/courses', data),
+    update: (id, data) => put(`/courses/${id}`, data),
+    delete: (id) => del(`/courses/${id}`),
+    submit: (id) => post(`/courses/${id}/submit`, {}),
+    setNostrRefs: (id, data) => post(`/courses/${id}/nostr-refs`, data),
+
+    // Lessons (authoring)
+    createLesson: (courseId, data) => post(`/courses/${courseId}/lessons`, data),
+    updateLesson: (courseId, lessonId, data) => put(`/courses/${courseId}/lessons/${lessonId}`, data),
+    deleteLesson: (courseId, lessonId) => del(`/courses/${courseId}/lessons/${lessonId}`),
+    reorderLessons: (courseId, order) => put(`/courses/${courseId}/lessons/reorder`, { order }),
+
+    // Learning (getLesson is the entitlement-gated content endpoint — 402 = paywall)
+    getLesson: (courseId, lessonId) => get(`/courses/${courseId}/lessons/${lessonId}`),
+    enroll: (id) => post(`/courses/${id}/enroll`, {}),
+    unenroll: (id) => del(`/courses/${id}/enroll`),
+    progress: (id) => get(`/courses/${id}/progress`),
+    completeLesson: (courseId, lessonId, meta = {}) =>
+        put(`/courses/${courseId}/lessons/${lessonId}/progress`, { completed: true, meta }),
+    submitQuiz: (courseId, lessonId, answers) =>
+        post(`/courses/${courseId}/lessons/${lessonId}/quiz`, { answers }),
+
+    // Paid unlock
+    purchaseStatus: (id) => get(`/courses/${id}/purchase`),
+    claimPurchase: (id, data = {}) => post(`/courses/${id}/purchase/claim`, data),
 };
 
 // ─── Content (Media / Blog / Resources) ──────────────────────────────────────

@@ -113,10 +113,11 @@ export function hasWebLN() {
  * @param {number} params.amountMsats - Amount in millisatoshis
  * @param {string[]} params.relays - Relay URLs for the zap receipt
  * @param {string} [params.eventId] - Nostr event ID being zapped (optional)
+ * @param {string} [params.aTag] - Addressable event coordinate (kind:pubkey:dTag) being zapped (optional, NIP-57)
  * @param {string} [params.content] - Zap comment (optional)
  * @returns {Promise<string|null>} - JSON-serialized signed event, or null if no extension
  */
-export async function createZapRequest({ recipientPubkey, amountMsats, relays, eventId, content }) {
+export async function createZapRequest({ recipientPubkey, amountMsats, relays, eventId, aTag, content }) {
     const tags = [
         ['relays', ...relays],
         ['amount', String(amountMsats)],
@@ -124,6 +125,9 @@ export async function createZapRequest({ recipientPubkey, amountMsats, relays, e
     ];
     if (eventId) {
         tags.push(['e', eventId]);
+    }
+    if (aTag) {
+        tags.push(['a', aTag]);
     }
 
     const event = {
@@ -163,7 +167,7 @@ export function isBolt12Offer(offer) {
  * @param {function} [params.onProgress] - Callback for progress updates: (step, total, recipient)
  * @returns {Promise<{results: Array<{recipient: string, success: boolean, bolt11?: string, bolt12?: string, preimage?: string, error?: string}>, allPaidViaWebLN: boolean}>}
  */
-export async function executeZapFlow({ recipients, totalSats, relays, eventId, content, onProgress }) {
+export async function executeZapFlow({ recipients, totalSats, relays, eventId, aTag, content, onProgress }) {
     const validRecipients = recipients.filter(r => r.lud16 || r.bolt12Offer);
     if (validRecipients.length === 0) {
         return { results: [], allPaidViaWebLN: false };
@@ -205,6 +209,7 @@ export async function executeZapFlow({ recipients, totalSats, relays, eventId, c
                 amountMsats: perRecipientMsats,
                 relays,
                 eventId,
+                aTag,
                 content,
             });
         }

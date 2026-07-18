@@ -64,6 +64,7 @@
     "media": "Medios",
     "news": "Noticias",
     "about": "Nosotros",
+    "leaderboard": "Clasificacion",
     "home": "Inicio",
     "dashboard": "Panel",
     "profile": "Perfil",
@@ -76,7 +77,8 @@
     "investorView": "Vista Inversionista",
     "educatorView": "Vista Educador",
     "memberView": "Vista Miembro",
-    "adminView": "Vista Admin"
+    "adminView": "Vista Admin",
+    "bounties": "Recompensas"
   },
   "pageTitles": {
     "biesFeed": "BIES Feed",
@@ -91,7 +93,11 @@
     "messages": "Mensajes",
     "settings": "Configuracion",
     "cowork": "Coworking",
-    "adminPanel": "Panel de Admin"
+    "adminPanel": "Panel de Admin",
+    "leaderboard": "Clasificacion",
+    "farmDirectory": "Directorio de Fincas Regenerativas",
+    "certifiedDirectory": "Directorio Certificado",
+    "bounties": "Tablero de recompensas"
   },
   "settings": {
     "title": "Configuracion",
@@ -149,6 +155,21 @@
     "connectExtension": "Conectar Extension",
     "loginWithExtension": "Iniciar con Extension",
     "loginWithPasskey": "Iniciar con Passkey (NIP-K1)",
+    "remoteSignerScan": "Escanear / Amber",
+    "remoteSignerPaste": "Pegar URI bunker",
+    "loginWithRemoteSigner": "Iniciar con Firmador Remoto",
+    "connectingToSigner": "Conectando al firmador...",
+    "worksWithSigners": "Funciona con Amber, nsecBunker y otros firmadores NIP-46",
+    "waitingApproval": "Esperando aprobacion en tu firmador…",
+    "openInSigner": "Abrir en la app firmadora",
+    "copyUri": "Copiar enlace de conexion",
+    "uriCopied": "Copiado!",
+    "connectTimedOut": "La conexion expiro. Verifica que tu app firmadora este en linea y pueda alcanzar los relays.",
+    "connectCancelled": "Conexion cancelada",
+    "regenerateQr": "Generar nuevo QR",
+    "signInWithAmberApp": "Iniciar sesion con Amber (app)",
+    "amberHint": "Ideal para iniciar sesion y publicar. Para mensajes, conecta Amber como firmador remoto.",
+    "amberNotFound": "No se encontro la app Amber. Instala Amber o usa la opcion QR.",
     "pasteNsec": "Pega tu clave privada nsec",
     "enterSeedPhrase": "Ingresa tu frase semilla de 12 palabras",
     "uploadKeyFile": "Subir Archivo .nostrkey",
@@ -236,7 +257,41 @@
     "saved": "Passkey Guardada!",
     "savedDesc": "Ahora puedes iniciar sesion con solo tu huella o rostro.",
     "tryAgain": "Intentar de nuevo",
+    "skip": "Omitir",
+    "prfUnsupported": "Tu navegador o dispositivo no soporta la funcion de seguridad (PRF) necesaria para crear una passkey. Aun puedes iniciar sesion con tu clave o frase semilla."
+  },
+  "passkeyMigrate": {
+    "title": "Mejora la seguridad de tu passkey",
+    "description": "Tu passkey usa un formato de cifrado antiguo. Actualizala ahora para proteger tu clave con cifrado respaldado por hardware. Esto crea una nueva passkey y retira la antigua.",
+    "upgradeButton": "Actualizar Passkey",
+    "notNow": "Ahora no",
+    "migrating": "Sigue las indicaciones en tu dispositivo — confirmaras dos veces: una con tu passkey actual y otra para crear la nueva.",
+    "migratingGateway": "Actualizando gateway {{current}} de {{total}}...",
+    "pickOldHint": "Cuando aparezca el selector de passkeys, elige tu passkey existente para {{gateway}}.",
+    "success": "Passkey Actualizada!",
+    "successDesc": "Tu clave ahora esta protegida con el nuevo formato. Inicia sesion como siempre con tu huella o rostro.",
+    "partialSuccess": "Se actualizaron {{done}} de {{total}} gateways. Puedes terminar el resto la proxima vez que inicies sesion.",
+    "wrongPasskey": "Esa passkey ya esta actualizada. Elige la passkey antigua para {{gateway}} e intenta de nuevo.",
+    "prfUnsupported": "Este dispositivo no puede crear el nuevo formato de passkey. Tu passkey actual sigue funcionando — intenta actualizar desde un dispositivo con sensor de huella o rostro.",
+    "tryAgain": "Intentar de nuevo",
     "skip": "Omitir"
+  },
+  "signer": {
+    "authRequired": "Tu firmador necesita aprobacion",
+    "openApproval": "Abrir pagina de aprobacion",
+    "disconnected": "Firmador remoto desconectado — inicia sesion de nuevo",
+    "reLogin": "Iniciar sesion",
+    "unreachable": "No se puede conectar al firmador remoto. Verifica que tu app firmadora este en linea e intenta de nuevo."
+  },
+  "amberCallback": {
+    "processing": "Finalizando inicio de sesion…",
+    "requestingChallenge": "Solicitando desafio de inicio de sesion…",
+    "approveInAmber": "Aprueba la solicitud en Amber",
+    "continueInAmber": "Continuar en Amber",
+    "signedReturn": "Firmado. Puedes volver a tu pestana anterior.",
+    "returnToApp": "Volver a la app",
+    "expired": "Esta solicitud de firma expiro",
+    "backToLogin": "Volver al inicio de sesion"
   },
   "discover": {
     "title": "Descubrir",
@@ -504,6 +559,7 @@
   },
   "messages": {
     "title": "Mensajes",
+    "amberSignerWarning": "La mensajeria necesita una conexion activa con el firmador. Reconecta Amber como firmador remoto (NIP-46) para leer y enviar mensajes encriptados.",
     "connectToNostr": "Conectar a Nostr",
     "connectDesc": "Para ver y enviar mensajes privados encriptados, conecta con una extension Nostr (como Alby o nos2x).",
     "connectExtension": "Conectar Extension",
@@ -978,7 +1034,62 @@
     "projectDeleted": "Proyecto Eliminado",
     "yes": "Si",
     "no": "No",
-    "view": "Ver"
+    "view": "Ver",
+    "vouchers": {
+      "title": "Gestion de Cupones",
+      "create": "Crear Cupon",
+      "type": "Tipo",
+      "typeRelay": "Acceso al Relay",
+      "typeOnboarding": "Onboarding",
+      "label": "Etiqueta",
+      "price": "Precio (sats)",
+      "maxUses": "Usos Maximos",
+      "unlimited": "Ilimitado",
+      "expiry": "Expira",
+      "customCode": "Codigo Personalizado",
+      "notes": "Notas",
+      "code": "Codigo",
+      "uses": "Usos",
+      "status": "Estado",
+      "statusActive": "Activo",
+      "statusRevoked": "Revocado",
+      "actions": "Acciones",
+      "copyLink": "Copiar enlace",
+      "linkCopied": "Enlace copiado!",
+      "redemptions": "Canjes",
+      "revoke": "Revocar",
+      "revokeConfirm": "Revocar?",
+      "revokeAccess": "Tambien quitar acceso al relay",
+      "created": "Creado",
+      "empty": "Aun no hay cupones. Crea uno arriba.",
+      "anonymousSignup": "Registro (sin nombre)",
+      "nav": "Cupones"
+    },
+    "bounties": {
+      "title": "Gestión de recompensas",
+      "subtitle": "Revisa, destaca y modera las recompensas de la comunidad",
+      "tabAll": "Todas",
+      "typeAll": "Todos los tipos",
+      "typeSats": "Sats",
+      "typePoints": "Puntos",
+      "empty": "Ninguna recompensa coincide con estos filtros.",
+      "colTitle": "Título",
+      "colPoster": "Autor",
+      "colType": "Tipo",
+      "colAmount": "Monto",
+      "colStatus": "Estado",
+      "colFeatured": "Destacada",
+      "colCreated": "Creada",
+      "colActions": "Acciones",
+      "feature": "Destacar esta recompensa",
+      "unfeature": "Quitar de destacadas",
+      "featureFailed": "No se pudo actualizar el estado de destacada.",
+      "view": "Ver recompensa",
+      "delete": "Eliminar recompensa",
+      "deleteConfirm": "¿Eliminar \"{{title}}\"? Esto no se puede deshacer.",
+      "deleteConfirmRefund": "¿Eliminar \"{{title}}\"? Los {{amount}} puntos en custodia se devolverán al autor. Esto no se puede deshacer.",
+      "deleteFailed": "No se pudo eliminar la recompensa."
+    }
   },
   "profileEdit": {
     "title": "Editar Perfil",
@@ -1290,6 +1401,348 @@
     "noInvestors": "No se encontraron inversionistas",
     "noInvestorsSearch": "No se encontraron inversionistas para \"{{query}}\""
   },
+  "points": {
+    "leaderboard": {
+      "title": "Clasificacion",
+      "monthly": "Mensual",
+      "lifetime": "Historico",
+      "rank": "Puesto",
+      "points": "Puntos",
+      "yourRank": "Tu puesto",
+      "pastMonths": "Meses anteriores",
+      "currentMonth": "Mes actual",
+      "empty": "Aun no hay puntos en la tabla — publica en el feed para comenzar!",
+      "badgeLegend": "Insignias"
+    },
+    "level": "Nivel {{n}}",
+    "levels": {
+      "visitante": "Visitante",
+      "novato": "Novato",
+      "vecino": "Vecino",
+      "constructor": "Constructor",
+      "emprendedor": "Emprendedor",
+      "embajador": "Embajador",
+      "pionero": "Pionero",
+      "volcanero": "Volcanero",
+      "leyenda": "Leyenda de El Zonte"
+    },
+    "nextLevel": "Siguiente nivel a los {{points}} pts",
+    "profile": {
+      "title": "Puntos de la Comunidad",
+      "monthly": "Este mes",
+      "lifetime": "Historico",
+      "streak": "Racha de dias",
+      "badges": "Insignias",
+      "noBadges": "Aun no tienes insignias — publica, responde y reacciona en el feed para ganar la primera!"
+    },
+    "rarity": {
+      "common": "Comun",
+      "uncommon": "Poco comun",
+      "rare": "Rara",
+      "legendary": "Legendaria"
+    },
+    "badges": {
+      "first-post": {
+        "name": "Primer Post",
+        "desc": "Publico su primer post en la comunidad BIES."
+      },
+      "first-reply": {
+        "name": "Primera Respuesta",
+        "desc": "Respondio a otro miembro por primera vez."
+      },
+      "first-reaction": {
+        "name": "Primera Reaccion",
+        "desc": "Reacciono a un post de la comunidad por primera vez."
+      },
+      "posts-25": {
+        "name": "Autor Prolifico",
+        "desc": "Publico 25 posts en la comunidad BIES."
+      },
+      "replies-50": {
+        "name": "Conversador",
+        "desc": "Escribio 50 respuestas a otros miembros."
+      },
+      "received-25": {
+        "name": "Apreciado",
+        "desc": "Recibio 25 reacciones de la comunidad."
+      },
+      "streak-7": {
+        "name": "Racha de 7 Dias",
+        "desc": "Activo en la comunidad 7 dias seguidos."
+      },
+      "level-5": {
+        "name": "Nivel 5",
+        "desc": "Alcanzo el nivel 5 — Emprendedor."
+      },
+      "received-100": {
+        "name": "Favorito de la Comunidad",
+        "desc": "Recibio 100 reacciones de la comunidad."
+      },
+      "streak-30": {
+        "name": "Racha de 30 Dias",
+        "desc": "Activo en la comunidad 30 dias seguidos."
+      },
+      "level-10": {
+        "name": "Nivel 10",
+        "desc": "Alcanzo el nivel 10 — Pionero."
+      },
+      "level-15": {
+        "name": "Nivel 15",
+        "desc": "Alcanzo el nivel 15 — Volcanero."
+      },
+      "monthly-top3": {
+        "name": "Podio Mensual",
+        "desc": "Termino en el top 3 de una clasificacion mensual de BIES."
+      },
+      "monthly-first": {
+        "name": "Corona del Volcan",
+        "desc": "Gano el primer lugar en una clasificacion mensual de BIES."
+      },
+      "level-20": {
+        "name": "Nivel 20",
+        "desc": "Alcanzo el nivel 20 — Leyenda de El Zonte."
+      },
+      "genesis": {
+        "name": "Genesis",
+        "desc": "Se unio a BIES en sus primeros dias."
+      }
+    },
+    "toast": {
+      "levelUp": "{{name}} alcanzo el nivel {{level}} — {{title}}!",
+      "badge": "{{name}} gano la insignia \"{{badge}}\"!",
+      "monthlyWinners": "Ganadores del mes: {{winners}}"
+    }
+  },
+  "bounties": {
+    "title": "Tablero de recompensas",
+    "subtitle": "Publica recompensas y premia a miembros de la comunidad por hacer el trabajo",
+    "postBounty": "Publicar recompensa",
+    "tabs": {
+      "all": "Todas",
+      "open": "Abiertas",
+      "awarded": "Otorgadas",
+      "paid": "Pagadas",
+      "mine": "Mis recompensas"
+    },
+    "status": {
+      "open": "Abierta",
+      "awarded": "Otorgada",
+      "paid": "Pagada",
+      "expired": "Vencida",
+      "cancelled": "Cancelada"
+    },
+    "empty": "Todavía no hay recompensas por aquí. ¡Sé el primero en publicar una!",
+    "emptyMine": "Todavía no has publicado ni participado en ninguna recompensa.",
+    "member": "Miembro",
+    "featured": "Destacada",
+    "sats": "sats",
+    "points": "puntos",
+    "submissionCount_one": "{{count}} entrega",
+    "submissionCount_other": "{{count}} entregas",
+    "deadlineShort": "Vence {{date}}",
+    "createTitle": "Publicar una recompensa",
+    "createSubtitle": "Describe la tarea, define el premio y deja que la comunidad se ponga a trabajar",
+    "rewardSection": "Premio",
+    "rewardSats": "Sats",
+    "rewardSatsHint": "Págale al ganador por Lightning",
+    "rewardPoints": "Puntos",
+    "rewardPointsHint": "Otorga puntos de tu saldo",
+    "amountLabel": "Monto",
+    "amountRange": "Ingresa un monto entre {{min}} y {{max}} {{unit}}.",
+    "insufficientPoints": "No te alcanzan los puntos — tienes {{spendable}} puntos disponibles.",
+    "spendableBalance": "Saldo disponible: {{points}} puntos",
+    "escrowExplainer": "Tus puntos quedan en custodia mientras la recompensa está abierta. Si la cancelas o vence, se te devuelven.",
+    "detailsSection": "Detalles",
+    "titleLabel": "Título",
+    "titleRequired": "Ponle un título a tu recompensa.",
+    "descriptionLabel": "Descripción",
+    "descriptionPlaceholder": "Describe la tarea, los requisitos y cómo se elegirá al ganador...",
+    "descriptionRequired": "Describe qué hay que hacer.",
+    "deadlineLabel": "Fecha límite (opcional)",
+    "deadlineHint": "La recompensa vence automáticamente después de esta fecha si no se ha elegido un ganador.",
+    "deadlinePast": "La fecha límite debe estar en el futuro.",
+    "createFailed": "No se pudo crear la recompensa. Intenta de nuevo.",
+    "notFound": "Recompensa no encontrada",
+    "backToBounties": "Volver a recompensas",
+    "postedOn": "Publicada el {{date}}",
+    "deadline": "Fecha límite: {{date}}",
+    "cancelBounty": "Cancelar recompensa",
+    "cancelConfirm": "¿Cancelar esta recompensa? Esto no se puede deshacer.",
+    "cancelConfirmPoints": "¿Cancelar esta recompensa? Los {{amount}} puntos en custodia se te devolverán.",
+    "cancelFailed": "No se pudo cancelar la recompensa. Intenta de nuevo.",
+    "payPanelHint": "Le otorgaste esta recompensa a {{name}}. Págale {{amount}} sats para cerrarla.",
+    "payNow": "Pagar ahora",
+    "winnerNoPubkey": "El ganador todavía no ha agregado una dirección Lightning.",
+    "markPaid": "Marcar como pagada",
+    "markPaidConfirm": "¿Marcar esta recompensa como pagada? Hazlo solo si ya le enviaste los sats al ganador.",
+    "markPaidFailed": "No se pudo marcar la recompensa como pagada. Intenta de nuevo.",
+    "unaward": "Quitar ganador",
+    "unawardConfirm": "¿Quitar al ganador y reabrir esta recompensa?",
+    "unawardFailed": "No se pudo deshacer la decisión. Intenta de nuevo.",
+    "submissions": "Entregas",
+    "submitWork": "Entregar trabajo",
+    "editSubmission": "Editar entrega",
+    "updateSubmission": "Actualizar entrega",
+    "sendSubmission": "Enviar entrega",
+    "submissionPlaceholder": "Cuenta qué hiciste, con enlaces o pruebas de tu trabajo...",
+    "submissionRequired": "Describe tu trabajo antes de enviarlo.",
+    "submissionFailed": "No se pudo enviar tu entrega. Intenta de nuevo.",
+    "noSubmissions": "Todavía no hay entregas. ¡Sé el primero!",
+    "noLightningWarn": "No has agregado una dirección Lightning a tu perfil — la necesitarás para recibir sats si ganas.",
+    "hasLightning": "Tiene dirección Lightning",
+    "winner": "Ganador",
+    "award": "Otorgar",
+    "awardConfirmSats": "¿Otorgar esta recompensa a {{name}}? Después le pagarás {{amount}} sats por Lightning.",
+    "awardConfirmPoints": "¿Otorgar esta recompensa a {{name}}? Los {{amount}} puntos en custodia se le transferirán de inmediato.",
+    "awardFailed": "No se pudo otorgar la recompensa. Intenta de nuevo."
+  },
+  "directory": {
+    "farmTitle": "Directorio de Fincas",
+    "certifiedTitle": "Directorio Certificado",
+    "searchFarms": "Buscar fincas, productos o ubicaciones",
+    "searchProviders": "Buscar profesionales, habilidades o ubicaciones",
+    "sectionFarms": "Fincas Regenerativas",
+    "sectionFarmsSub": "Encuentra fincas locales en todo El Salvador",
+    "sectionCertified": "Profesionales Certificados BIES",
+    "sectionCertifiedSub": "Proveedores de confianza avalados por la comunidad BIES",
+    "directoriesSection": "Directorios",
+    "addListing": "Agregar Listado",
+    "whatTheyProduce": "Que Producen",
+    "aboutFarm": "Sobre la Finca",
+    "practicesLabel": "Practicas Agricolas",
+    "practices": {
+      "regenerative": "Regenerativa",
+      "rotationalGrazing": "Pastoreo Rotativo",
+      "noGmoFeed": "Sin Alimento Transgenico",
+      "animalWelfare": "Bienestar Animal"
+    },
+    "learnMore": "Conoce Mas",
+    "notFound": "Listado no encontrado",
+    "notFoundDesc": "Este listado no existe o fue eliminado.",
+    "backToDirectory": "Volver al Directorio",
+    "editListing": "Editar Listado",
+    "about": "Acerca de",
+    "skillsLabel": "Habilidades",
+    "createTitleFarm": "Agrega Tu Finca",
+    "createTitleProvider": "Agrega Tus Servicios",
+    "createSubtitle": "Comparte tus datos con la comunidad BIES. Los envios se revisan antes de publicarse.",
+    "editTitle": "Editar Listado",
+    "basicInfo": "Informacion Basica",
+    "contactInfo": "Contacto",
+    "farmDetails": "Detalles de la Finca",
+    "providerDetails": "Detalles del Servicio",
+    "nameLabel": "Nombre",
+    "nameRequired": "El nombre es obligatorio",
+    "aboutLabel": "Acerca de",
+    "locationLabel": "Ubicacion",
+    "phoneLabel": "Telefono",
+    "whatsappLabel": "WhatsApp",
+    "emailLabel": "Correo",
+    "websiteLabel": "Sitio Web",
+    "instagramLabel": "Instagram",
+    "coverPhoto": "Foto de Portada",
+    "logoLabel": "Logo",
+    "productsLabel": "Productos",
+    "addProduct": "Agregar Producto",
+    "productPlaceholder": "ej. Carne de res de pastoreo",
+    "iconAuto": "Icono automatico",
+    "commentLabel": "Comentario",
+    "submitListing": "Enviar Listado",
+    "saveChanges": "Guardar Cambios",
+    "submittedTitle": "Listado Enviado",
+    "certifiedBadge": "Certificado por la Red BIES",
+    "reputation": "Reputacion",
+    "bestFor": "Ideal Para",
+    "pricing": "Precios",
+    "languages": "Idiomas",
+    "btcAccepted": "Acepta Bitcoin",
+    "certifiedOnly": "Solo certificados BIES",
+    "acceptsBitcoin": "Acepta Bitcoin",
+    "minScore": "Reputacion minima",
+    "anyScore": "Cualquier puntaje",
+    "endorse": "Recomendar",
+    "endorsed": "Recomendado",
+    "endorsements": "Recomendaciones",
+    "noEndorsements": "Aun no hay recomendaciones",
+    "endorsePlaceholder": "Agrega un comentario corto (opcional)",
+    "reputationHint": "Puntaje de reputacion comunitaria",
+    "linkMember": "Vincular Miembro BIES",
+    "linkMemberPlaceholder": "Buscar miembros por nombre...",
+    "linkMemberHint": "Vincula la cuenta BIES del proveedor para habilitar zaps y senales de reputacion (opcional).",
+    "submittedForReview": "Tu listado fue enviado para revision. Aparecera en el directorio una vez aprobado.",
+    "pendingBanner": "Este listado esta pendiente de revision y solo es visible para ti.",
+    "noFarms": "No se encontraron fincas",
+    "noProviders": "No se encontraron profesionales",
+    "noResultsSearch": "Sin resultados para \"{{query}}\"",
+    "comingSoon": "Proximamente"
+  },
+  "marketplace": {
+    "entryLabel": "Mercado",
+    "navLabel": "Mercado",
+    "title": "Mercado",
+    "subtitle": "Compra y vende con la comunidad BIES, impulsado por Nostr",
+    "searchPlaceholder": "Buscar anuncios, categorias...",
+    "scopeBies": "BIES",
+    "scopeGlobal": "Global",
+    "myListings": "Mis anuncios",
+    "showSold": "Mostrar vendidos",
+    "sold": "Vendido",
+    "category": "Categoria",
+    "allCategories": "Todas",
+    "post": "Publicar anuncio",
+    "create": "Nuevo Anuncio",
+    "edit": "Editar Anuncio",
+    "formTitle": "Titulo",
+    "formDescription": "Descripcion",
+    "formPrice": "Precio",
+    "formCurrency": "Moneda",
+    "formCategory": "Categorias",
+    "formLocation": "Ubicacion",
+    "formImages": "Fotos (hasta 5)",
+    "publish": "Publicar",
+    "publishing": "Publicando...",
+    "publishedNote": "Tu anuncio tambien aparecera en Shopstr y otros mercados de Nostr.",
+    "viewOnShopstr": "Ver en Shopstr",
+    "messageSeller": "Mensaje al vendedor",
+    "zapSeller": "Zap al vendedor",
+    "markSold": "Marcar como vendido",
+    "reactivate": "Reactivar",
+    "delete": "Eliminar",
+    "deleteConfirm": "Eliminar este anuncio? No se puede deshacer.",
+    "adminHide": "Ocultar anuncio",
+    "adminBlockSeller": "Bloquear vendedor",
+    "revealImage": "Mostrar imagen",
+    "contentWarning": "Advertencia de contenido",
+    "noListings": "Aun no hay anuncios - se el primero en publicar.",
+    "noResults": "Sin resultados para \"{{query}}\"",
+    "loadError": "No se pudo cargar el mercado. Intenta de nuevo.",
+    "titleRequired": "El titulo es obligatorio",
+    "priceRequired": "Ingresa un precio",
+    "categories": {
+      "digital": "Digital",
+      "physical": "Fisico",
+      "services": "Servicios",
+      "resale": "Reventa",
+      "exchange-swap": "Intercambio",
+      "clothing": "Ropa",
+      "shoes": "Zapatos",
+      "accessories": "Accesorios",
+      "electronics": "Electronica",
+      "collectibles": "Coleccionables",
+      "books": "Libros",
+      "pets": "Mascotas",
+      "sports": "Deportes",
+      "fitness": "Fitness",
+      "art": "Arte",
+      "crafts": "Artesanias",
+      "home": "Hogar",
+      "office": "Oficina",
+      "food": "Comida",
+      "farm": "Finca y Jardin",
+      "miscellaneous": "Miscelaneo",
+      "other": "Otro"
+    }
+  },
   "mobileNav": {
     "home": "Feed",
     "discover": "Descubrir",
@@ -1365,10 +1818,208 @@
       "feedback": "Comentarios"
     }
   },
+  "voucher": {
+    "title": "Acceso al Relay",
+    "subtitle": "Canjea tu cupon para obtener acceso al relay privado de BIES.",
+    "enterPubkey": "Ingresa tu clave publica de Nostr",
+    "pubkeyPlaceholder": "npub1... o clave hex de 64 caracteres",
+    "useExtension": "Usar extension",
+    "redeem": "Canjear",
+    "redeeming": "Canjeando...",
+    "invalid": "Este enlace de cupon no es valido. Verifica el enlace o contacta a quien te lo envio.",
+    "revoked": "Este cupon fue revocado y ya no puede usarse.",
+    "expired": "Este cupon ha expirado.",
+    "exhausted": "Este cupon ya alcanzo su numero maximo de usos.",
+    "alreadyMember": "Los miembros de BIES ya tienen acceso al relay — no necesitas un cupon.",
+    "success": "Listo! Acceso al relay concedido.",
+    "relayUrlLabel": "URL del Relay",
+    "copy": "Copiar",
+    "copied": "Copiado!",
+    "relayInstructions": "Agrega este relay en tu cliente Nostr. Requiere NIP-42 AUTH — cuando tu cliente lo pida, firma el desafio AUTH con la misma clave que registraste aqui.",
+    "payTitle": "Se requiere pago Lightning",
+    "payAmount": "Monto",
+    "copyInvoice": "Copiar factura",
+    "openWallet": "Abrir en billetera",
+    "waitingPayment": "Esperando el pago...",
+    "paymentTimeout": "La factura expiro. Recarga la pagina para intentar de nuevo.",
+    "invalidPubkey": "Ingresa un npub1... valido o una clave publica hex de 64 caracteres."
+  },
+  "join": {
+    "welcome": "Bienvenido a BIES",
+    "tagline": "La comunidad privada de builders en El Salvador — impulsada por Nostr y Lightning.",
+    "benefit1Title": "Una comunidad privada de builders",
+    "benefit1Text": "Conecta con los builders, inversores y educadores que impulsan la economia Bitcoin de El Salvador — en Nostr, donde tu identidad es tuya.",
+    "benefit2Title": "Proyectos, eventos y cursos",
+    "benefit2Text": "Muestra tus proyectos, descubre eventos locales y aprende con cursos de la comunidad.",
+    "benefit3Title": "Nativo de Lightning",
+    "benefit3Text": "Zaps, billeteras y pagos instantaneos en sats integrados en todo — sin bancos.",
+    "cta": "Crea tu cuenta",
+    "haveAccount": "Ya tienes una cuenta?",
+    "login": "Inicia sesion",
+    "goToFeed": "Ir a tu feed"
+  },
   "translation": {
     "translate": "Traducir",
     "showOriginal": "Ver Original",
     "translating": "Traduciendo...",
     "translationFailed": "Error en la traduccion"
+  },
+  "courses": {
+    "catalogTitle": "Cursos",
+    "catalogSubtitle": "Aprende de la comunidad BIES",
+    "searchPlaceholder": "Buscar cursos…",
+    "allCategories": "Todas las categorías",
+    "allLevels": "Todos los niveles",
+    "free": "Gratis",
+    "paid": "De pago",
+    "priceSats": "{{n}} sats",
+    "unlockFor": "Desbloquear por {{n}} sats",
+    "locked": "Bloqueado",
+    "lockedHint": "Compra este curso para acceder a todas las lecciones",
+    "curriculum": "Contenido del curso",
+    "aboutCourse": "Sobre este curso",
+    "instructor": "Instructor",
+    "startCourse": "Comenzar curso",
+    "continueCourse": "Continuar",
+    "markComplete": "Marcar como completada",
+    "completedLesson": "Completada",
+    "nextLesson": "Siguiente lección",
+    "previousLesson": "Lección anterior",
+    "freePreview": "Vista previa gratis",
+    "noCourses": "No se encontraron cursos",
+    "notFound": "Curso no encontrado",
+    "enrollSuccess": "¡Estás inscrito!",
+    "types": {
+      "video": "Video",
+      "text": "Lectura",
+      "quiz": "Cuestionario"
+    },
+    "quiz": {
+      "submit": "Enviar respuestas",
+      "score": "Obtuviste {{score}}%",
+      "passed": "¡Aprobado!",
+      "failed": "No aprobado — inténtalo de nuevo",
+      "retry": "Reintentar cuestionario",
+      "passThreshold": "Puntaje mínimo: {{n}}%",
+      "tooManyAttempts": "Demasiados intentos — inténtalo en unos minutos",
+      "question": "Pregunta {{current}} de {{total}}"
+    },
+    "builder": {
+      "title": "Constructor de curso",
+      "addLesson": "Agregar lección",
+      "editLesson": "Editar lección",
+      "deleteLessonConfirm": "¿Eliminar esta lección?",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "lessonTitle": "Título de la lección",
+      "videoUrl": "URL del video",
+      "videoUrlHint": "Enlace de YouTube, Vimeo o video directo https .mp4/.webm",
+      "write": "Escribir",
+      "preview": "Vista previa",
+      "questions": "Preguntas",
+      "addQuestion": "Agregar pregunta",
+      "addOption": "Agregar opción",
+      "correctAnswer": "Respuesta correcta",
+      "passPct": "Puntaje mínimo (%)",
+      "durationMin": "Duración (minutos)",
+      "freePreviewToggle": "Lección de vista previa gratis",
+      "submitForReview": "Enviar para revisión",
+      "submittedTitle": "¡Curso enviado!",
+      "submittedBody": "Nuestro equipo revisará tu curso pronto. Recibirás una notificación cuando sea aprobado.",
+      "noLessons": "Aún no hay lecciones — agrega tu primera lección para comenzar.",
+      "editDetails": "Editar detalles",
+      "lessonSaved": "Lección guardada",
+      "resubmitHint": "Tus cambios enviaron este curso de vuelta a revisión. Envíalo de nuevo cuando estés listo.",
+      "reviewNote": "Nota del revisor"
+    },
+    "status": {
+      "draft": "Borrador",
+      "pendingReview": "En revisión",
+      "active": "Publicado",
+      "rejected": "Rechazado"
+    },
+    "unlock": {
+      "title": "Desbloquear curso",
+      "body": "El pago va directo al instructor vía Lightning.",
+      "confirming": "Confirmando tu compra…",
+      "pendingBody": "El pago puede tardar unos minutos en confirmarse.",
+      "refresh": "Actualizar",
+      "success": "¡Curso desbloqueado!",
+      "noLightning": "Este instructor aún no puede recibir pagos."
+    },
+    "certificate": {
+      "title": "Certificado",
+      "earned": "¡Obtuviste un certificado!",
+      "issuedOn": "Emitido el {{date}}",
+      "myCertificates": "Certificados"
+    },
+    "teaching": "Enseñando",
+    "enrolledTab": "Inscrito",
+    "studentsCount": "{{n}} estudiantes",
+    "lessonsCount": "{{n}} lecciones"
+  },
+  "features": {
+    "tab": "Funciones",
+    "title": "Funciones de la App",
+    "subtitle": "Activa o desactiva funciones para todos al instante, sin redesplegar",
+    "propagationNote": "Los cambios se aplican de inmediato para ti. Los demas usuarios los reciben en unos 5 minutos (cache del servidor) o al volver a la app. Las funciones desactivadas desaparecen de la navegacion, sus paginas muestran No Encontrado y sus APIs quedan bloqueadas.",
+    "adminOnly": "Solo los administradores pueden cambiar las funciones. Los moderadores tienen acceso de solo lectura.",
+    "enabled": "Activada",
+    "disabled": "Desactivada",
+    "saveError": "No se pudo actualizar {{name}} - cambio revertido.",
+    "slugs": {
+      "directories": {
+        "name": "Directorios",
+        "description": "Directorios de fincas y proveedores certificados en Descubrir"
+      },
+      "points": {
+        "name": "Puntos y Ranking",
+        "description": "Puntos de comunidad, ranking, puntos de perfil e insignias"
+      },
+      "events": {
+        "name": "Eventos",
+        "description": "Calendario de eventos del ecosistema y paginas de eventos"
+      },
+      "media": {
+        "name": "Media",
+        "description": "Pagina de media con videos y podcasts"
+      },
+      "news": {
+        "name": "Noticias",
+        "description": "Pagina de noticias, pulso social y feed de X"
+      },
+      "messages": {
+        "name": "Mensajes",
+        "description": "Mensajes directos entre miembros"
+      },
+      "zaps": {
+        "name": "Zaps y Billetera",
+        "description": "Botones de zap Lightning y billetera Coinos"
+      },
+      "feedback": {
+        "name": "Feedback",
+        "description": "Reportes de errores y seguimiento de feedback"
+      },
+      "investors": {
+        "name": "Inversores",
+        "description": "Funciones de inversores, inversiones y verificacion"
+      },
+      "projects": {
+        "name": "Proyectos",
+        "description": "Listados y paginas de proyectos"
+      },
+      "cowork": {
+        "name": "Cowork",
+        "description": "Pagina de check-in y mapa de Cowork"
+      },
+      "marketplace": {
+        "name": "Mercado",
+        "description": "Listados del mercado NIP-99 compatible con Shopstr"
+      },
+      "bounties": {
+        "name": "Recompensas",
+        "description": "Tablon de recompensas con deposito en sats y puntos"
+      }
+    }
   }
 }

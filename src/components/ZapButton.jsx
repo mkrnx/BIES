@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Zap } from 'lucide-react';
 import ZapModal from './ZapModal';
+import { useFeature } from '../context/FeatureFlagsContext';
 
 /**
  * Reusable zap button that opens a ZapModal for Lightning payments.
@@ -15,10 +16,12 @@ import ZapModal from './ZapModal';
  */
 const ZapButton = ({ recipients = [], eventId, size = 'md', variant = 'default', className = '', label }) => {
     const [showModal, setShowModal] = useState(false);
+    const zapsEnabled = useFeature('zaps');
 
-    // Don't render if no recipients have pubkeys
+    // Hidden while the `zaps` feature is toggled off (single choke point for
+    // every zap entry button), or when no recipients have pubkeys.
     const validRecipients = recipients.filter(r => r.pubkey);
-    if (validRecipients.length === 0) return null;
+    if (!zapsEnabled || validRecipients.length === 0) return null;
 
     const iconSize = size === 'sm' ? 18 : 20;
     const displayLabel = label ?? (size === 'sm' ? null : 'Zap');

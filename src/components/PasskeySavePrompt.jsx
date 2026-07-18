@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Fingerprint, X, Loader2, Check, Shield, AlertTriangle } from 'lucide-react';
-import { keytrService, isLikelyExtensionInterference } from '../services/keytrService';
+import { keytrService, isLikelyExtensionInterference, isPrfUnsupportedError } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { isNativePlatform } from '../utils/platform';
 
@@ -44,6 +44,11 @@ const PasskeySavePrompt = ({ onClose, onSaved }) => {
             if (err.name === 'NotAllowedError') {
                 // User cancelled the WebAuthn prompt
                 setPhase('prompt');
+                return;
+            }
+            if (isPrfUnsupportedError(err)) {
+                setPhase('error');
+                setErrorMsg(t('passkeySave.prfUnsupported'));
                 return;
             }
             setPhase('error');

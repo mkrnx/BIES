@@ -27,6 +27,14 @@ export type NotificationType =
     | 'POST_LIKE'
     | 'COMMENT_LIKE'
     | 'COMMENT_REPLY'
+    | 'LEVEL_UP'
+    | 'BADGE_EARNED'
+    | 'VOUCHER_REDEEMED'
+    | 'BOUNTY_SUBMISSION'
+    | 'BOUNTY_AWARDED'
+    | 'BOUNTY_PAID'
+    | 'BOUNTY_REFUNDED'
+    | 'BOUNTY_CANCELLED'
     | 'SYSTEM';
 
 interface CreateNotificationParams {
@@ -369,6 +377,110 @@ export async function notifyFeedInteraction(params: {
     });
 }
 
+export async function notifyLevelUp(userId: string, level: number): Promise<void> {
+    await createNotification({
+        userId,
+        type: 'LEVEL_UP',
+        title: `Level up! You reached level ${level}`,
+        body: 'Keep contributing to the community to climb the leaderboard.',
+        data: { level },
+    });
+}
+
+export async function notifyBadgeEarned(userId: string, badgeId: string): Promise<void> {
+    await createNotification({
+        userId,
+        type: 'BADGE_EARNED',
+        title: 'You earned a new badge!',
+        body: 'Check your profile to see your new badge.',
+        data: { badgeId },
+    });
+}
+
+export async function notifyBountySubmission(params: {
+    posterId: string;
+    submitterName: string;
+    bountyTitle: string;
+    bountyId: string;
+}): Promise<void> {
+    await createNotification({
+        userId: params.posterId,
+        type: 'BOUNTY_SUBMISSION',
+        title: `${params.submitterName} submitted to your bounty "${params.bountyTitle}"`,
+        body: 'You have a new bounty submission to review.',
+        data: { bountyId: params.bountyId },
+    });
+}
+
+export async function notifyBountyAwarded(params: {
+    winnerId: string;
+    bountyTitle: string;
+    bountyId: string;
+    rewardType: string;
+    amount: number;
+}): Promise<void> {
+    const unit = params.rewardType === 'SATS' ? 'sats' : 'points';
+    await createNotification({
+        userId: params.winnerId,
+        type: 'BOUNTY_AWARDED',
+        title: `You won the bounty "${params.bountyTitle}"!`,
+        body: `Your submission was selected. Reward: ${params.amount} ${unit}.`,
+        data: { bountyId: params.bountyId },
+    });
+}
+
+export async function notifyBountyPaid(params: {
+    winnerId: string;
+    bountyTitle: string;
+    bountyId: string;
+    rewardType: string;
+    amount: number;
+}): Promise<void> {
+    const unit = params.rewardType === 'SATS' ? 'sats' : 'points';
+    await createNotification({
+        userId: params.winnerId,
+        type: 'BOUNTY_PAID',
+        title: `Bounty reward paid for "${params.bountyTitle}"`,
+        body: `You received ${params.amount} ${unit} for your winning submission.`,
+        data: { bountyId: params.bountyId },
+    });
+}
+
+export async function notifyBountyRefunded(params: {
+    posterId: string;
+    bountyTitle: string;
+    /** Omit when the bounty row no longer exists (admin delete) so the
+     *  click-through falls back to /bounties instead of deep-linking a 404. */
+    bountyId?: string;
+    amount: number;
+}): Promise<void> {
+    await createNotification({
+        userId: params.posterId,
+        type: 'BOUNTY_REFUNDED',
+        title: `Bounty refunded: "${params.bountyTitle}"`,
+        body: `${params.amount} points were returned to your balance.`,
+        data: params.bountyId ? { bountyId: params.bountyId } : {},
+    });
+}
+
+export async function notifyBountyCancelled(params: {
+    submitterIds: string[];
+    bountyTitle: string;
+    bountyId: string;
+}): Promise<void> {
+    // Fan out to all submitters
+    const promises = params.submitterIds.map((userId) =>
+        createNotification({
+            userId,
+            type: 'BOUNTY_CANCELLED',
+            title: `Bounty cancelled: "${params.bountyTitle}"`,
+            body: 'A bounty you submitted to was cancelled by the poster.',
+            data: { bountyId: params.bountyId },
+        })
+    );
+    await Promise.allSettled(promises);
+}
+
 // ─── URL helper for push notification click-through ──────────────────────────
 
 function getNotificationUrl(type: string, data: Record<string, unknown>): string {
@@ -398,6 +510,17 @@ function getNotificationUrl(type: string, data: Record<string, unknown>): string
         case 'COMMENT_LIKE':
         case 'COMMENT_REPLY':
             return '/feed';
+        case 'LEVEL_UP':
+        case 'BADGE_EARNED':
+            return '/leaderboard';
+        case 'VOUCHER_REDEEMED':
+            return '/admin/vouchers';
+        case 'BOUNTY_SUBMISSION':
+        case 'BOUNTY_AWARDED':
+        case 'BOUNTY_PAID':
+        case 'BOUNTY_REFUNDED':
+        case 'BOUNTY_CANCELLED':
+            return data.bountyId ? `/bounties/${data.bountyId}` : '/bounties';
         default:
             return '/notifications';
     }

@@ -8,8 +8,9 @@ import { profilesApi } from '../services/api';
  * Props:
  *   value: Array<{ name: string, userId: string, avatar?: string }>
  *   onChange: (newList) => void
+ *   placeholder?: string
  */
-const MemberSearchSelect = ({ value = [], onChange }) => {
+const MemberSearchSelect = ({ value = [], onChange, placeholder = 'Search BIES members by name...' }) => {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState([]);
     const [searching, setSearching] = useState(false);
@@ -101,7 +102,7 @@ const MemberSearchSelect = ({ value = [], onChange }) => {
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     onFocus={() => results.length > 0 && setOpen(true)}
-                    placeholder="Search BIES members by name..."
+                    placeholder={placeholder}
                     className="search-input"
                     autoComplete="off"
                 />

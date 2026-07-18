@@ -4,12 +4,15 @@
 
 `@sovit.xyz/keytr` is a NIP-K1 library for passkey-encrypted Nostr private keys. It replaces BIES's original custom `passkeyService.js` (464 lines) with a standardized approach:
 
-- **KiH mode** (Key-in-Handle) — random 256-bit key in passkey `user.id` + AES-256-GCM (works with all authenticators including password managers)
+- **PRF mode** (the only registration mode since 0.8.0) — the encryption key is derived by the authenticator via the WebAuthn PRF extension and never exposed to page JavaScript; the raw Nostr pubkey is stored as `user.id` for discoverable login. AES-256-GCM, event tag `v=1`.
+- **KiH mode** (legacy, decrypt-only) — random 256-bit key in passkey `user.id` (`v=3`). Registration was removed in 0.8.0 because the key travels through the JS-readable `userHandle` (interceptable via XSS or a malicious extension). Existing KiH credentials still log in and are auto-offered migration — see "KiH → PRF migration" below.
 - Encrypted keys stored as **kind:31777 events** on public Nostr relays
 - Cross-device recovery via WebAuthn discoverable credentials
-- Gateway-based registration (keytr.org primary, nostkey.org backup)
+- Gateway-based registration (app.buildinelsalvador.com primary; keytr.org, nostkey.org backups). On `localhost` the sole rpId is `localhost` so passkeys work in dev/E2E (WebAuthn rejects cross-origin rpIds from a localhost origin).
 
-Current version: `@sovit.xyz/keytr@0.7.1`
+**PRF requirement:** authenticators without PRF (password-manager extensions like 1Password/Bitwarden, Firefox on Android, some older security keys) cannot *register* new passkeys (`PrfNotSupportedError`); login with existing credentials — including legacy KiH — needs only WebAuthn. UI gates registration surfaces on `keytrService.checkPrfSupport()` / `canRegisterPasskey()`, which are advisory (optimistic without `getClientCapabilities()`); the registration-time error is authoritative.
+
+Current version: `@sovit.xyz/keytr@0.8.0` (pinned exact)
 
 ---
 
@@ -22,6 +25,8 @@ Current version: `@sovit.xyz/keytr@0.7.1`
 | `src/services/nostrSigner.js` | Session restore — `_tryReacquire()` re-decrypts nsec via passkey on page refresh |
 | `src/pages/Login.jsx` | UI — passkey button always visible when `PASSKEY_ENABLED = true` |
 | `src/pages/Settings.jsx` | Passkey management — save, add backup gateway, remove |
+| `src/components/PasskeySavePrompt.jsx` | Post-login modal offering to save a passkey |
+| `src/components/PasskeyMigratePrompt.jsx` | Post-login modal offering KiH → PRF migration |
 | `src/config/featureFlags.js` | `PASSKEY_ENABLED` flag (currently `true`) |
 | `vite.config.js` | `resolve.dedupe: ['@scure/base']` — prevents dual-bundle crash |
 
@@ -81,12 +86,14 @@ One biometric prompt. Handles credentials transparently.
 Called via `keytrService.saveWithPasskey(nsec, pubkey)`:
 
 1. Decode nsec to bytes
-2. `registerPasskey()` — WebAuthn credential creation on gateway rpId, returns `{ credential, keyMaterial }`
-3. `encryptNsec()` — AES-256-GCM encryption using keyMaterial with `aadVersion: KEYTR_VERSION`
-4. `buildKeytrEvent()` — construct kind:31777 event template (with `v=3` tag)
+2. `registerPasskey()` — WebAuthn credential creation on gateway rpId with the PRF extension; `pubkey` (hex) is required since 0.8.0 and stored as `user.id`. Returns `{ credential, keyMaterial }` (keyMaterial = PRF output). Handles the YubiKey create→get fallback internally and cleans up orphaned credentials via the Signal API before throwing `PrfNotSupportedError`.
+3. `encryptNsec()` — AES-256-GCM encryption using keyMaterial with `version: KEYTR_VERSION` (`1`, PRF)
+4. `buildKeytrEvent()` — construct kind:31777 event template (with `v=1` tag)
 5. Sign event via `nostrSigner.signEvent()`
 6. `publishKeytrEvent()` — publish to PUBLIC_RELAYS
 7. Index credential in localStorage
+
+`loginWithKeytr(events)` dispatches per event by its `v` tag: `v=1` authenticates via PRF, `v=3` via the legacy KiH path. `discover()` handles both transparently.
 
 ### Backup Gateway (nostkey.org)
 
@@ -105,6 +112,27 @@ When the page refreshes, `nostrSigner._tryReacquire()`:
 5. Sets nsec in memory via `nostrSigner.setNsec()`
 
 This runs lazily — only triggered when an operation actually needs the signing key (getPubkey, signEvent, encrypt, decrypt).
+
+---
+
+## KiH → PRF Migration
+
+keytr 0.8.0 deprecated KiH decryption (removal planned upstream), so BIES auto-offers migration to users still holding `v=3` credentials.
+
+**Detection:** after every successful passkey login, `keytrService` parses the user's kind:31777 events and records any `v=3` events (`extractKihInfo()`, exposed via `getLastLoginKihInfo()`). The discover path re-fetches events by the recovered pubkey (best-effort, never blocks login).
+
+**Prompt:** `AuthContext.maybePromptKihMigration()` shows `PasskeyMigratePrompt` after an *explicit* passkey login (never the silent `_tryReacquire` path). Gated on: `PASSKEY_ENABLED`, detected KiH events, session dismissal (`bies_kih_migration_prompt_dismissed`), a 7-day snooze (`bies_kih_migration_snooze_until`), and PRF support (unsupported devices stay silent — KiH login keeps working).
+
+**Flow:** `keytrService.migrateToPrf({ rpId, expectedPubkey })` wraps keytr's `migrateFromKih()`. Per gateway (one rpId per call; the prompt loops multi-gateway users sequentially):
+
+1. Discoverable login with the old KiH passkey (biometric prompt #1)
+2. Verify the decrypted pubkey matches the old event author
+3. Register a new PRF passkey on the same rpId (biometric prompt #2)
+4. Publish the new `v=1` event — **must succeed before anything is deleted**
+5. Publish a NIP-09 `kind:5` deletion for the old `v=3` event (soft-fail: `deletionPublished:false`)
+6. Signal the old credential as unknown (removes it from the browser's picker)
+
+**Bookkeeping:** migrated dTags are recorded in localStorage `bies_kih_migrated` (`{[pubkey]: [dTag,...]}`) so a failed `kind:5` publish can't re-trigger the prompt for an event whose credential was already signal-removed. Cancelling either ceremony publishes nothing; the user can retry any time.
 
 ---
 
@@ -129,7 +157,8 @@ resolve: {
 - **No server involvement** — backend only sees signed Nostr events, never keys
 - **Gateway rpId separation** — keytr.org and nostkey.org credentials are distinct WebAuthn origins
 - **Extension interference detection** — `isLikelyExtensionInterference()` catches password manager conflicts with cross-origin rpId
-- **KiH encryption key** lives in passkey `user.id` (not hardware-bound), but still protected by biometric/PIN authentication
+- **PRF key never in JS-readable fields** — the encryption key is authenticator-derived (unlike legacy KiH, whose key in `user.id`/`userHandle` was interceptable by page-level script; that's why KiH registration was removed in 0.8.0)
+- **WebAuthn natives hardening** — keytr routes all WebAuthn calls through references captured at import time and zeroes key buffers with prototype-pollution-resistant helpers
 
 ---
 
@@ -147,3 +176,4 @@ resolve: {
 | 0.4.0 | Event kind 30079→31777, loginWithKeytr returns npub instead of pubkey, derive hex pubkey via nsecToHexPubkey |
 | 0.5.0 | KiH mode support (PRF-first with automatic fallback), unified discover() for login, expanded authenticator compatibility (password managers, all browsers) |
 | 0.7.1 | Removed PRF mode (KiH-only), dropped `registerKihPasskey`/`PrfNotSupportedError`/`checkPrfSupport`, `registerPasskey` now returns `keyMaterial`, `KEYTR_KIH_VERSION` → `KEYTR_VERSION`, `nsecToHexPubkey` → `nsecToPublicKey` |
+| 0.8.0 | PRF-only registration (KiH register throws `KihRegistrationDisabledError`; decrypt still works, deprecated). `KEYTR_VERSION` → `1` (PRF), `KEYTR_KIH_VERSION` = `3`. `RegisterOptions.pubkey` required. Added `migrateFromKih`, `buildKeytrDeletionEvent`, `checkPrfSupport`/`checkCapabilities`, Signal APIs, restored `PrfNotSupportedError`. BIES: KiH→PRF auto-migration prompt, PRF gating on registration UI, localhost rpId for dev/E2E. |

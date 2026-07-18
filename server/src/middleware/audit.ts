@@ -37,6 +37,9 @@ const ACTION_MAP: Array<{ method: string; pattern: RegExp; action: string }> = [
     { method: 'DELETE', pattern: /^\/api\/settings\/account/, action: 'ACCOUNT_DELETE' },
     { method: 'POST', pattern: /^\/api\/content\//, action: 'CONTENT_CREATE' },
     { method: 'PUT',  pattern: /^\/api\/content\//, action: 'CONTENT_UPDATE' },
+    { method: 'POST', pattern: /^\/api\/vouchers$/, action: 'VOUCHER_CREATE' },
+    { method: 'POST', pattern: /^\/api\/vouchers\/code\/.*\/redeem/, action: 'VOUCHER_REDEEM' },
+    { method: 'POST', pattern: /^\/api\/vouchers\/.*\/revoke/, action: 'VOUCHER_REVOKE' },
 ];
 
 function resolveAction(method: string, path: string): string | null {
