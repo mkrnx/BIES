@@ -17,6 +17,7 @@ import {
   UserCircle,
   Settings,
   MessageCircle,
+  Wallet,
 } from 'lucide-react';
 import { MARKETPLACE_ENABLED, BOUNTIES_ENABLED } from './featureFlags';
 
@@ -36,6 +37,7 @@ export const NAV_PAGES = [
   { id: 'messages', path: '/messages', icon: Mail, labelKey: 'nav.messages', auth: true, flag: 'messages' },
   { id: 'notifications', path: '/notifications', icon: Bell, labelKey: 'customNav.pages.notifications', auth: true },
   { id: 'cowork', path: '/cowork', icon: Coffee, labelKey: 'mobileNav.cowork', auth: true, flag: 'cowork' },
+  { id: 'wallet', path: '/wallet', icon: Wallet, labelKey: 'nav.wallet', auth: true, flag: 'zaps' },
   // Spread conditionally so the entry is absent (not just hidden) when the
   // build-time constant is off; the `flag:` key layers the runtime toggle on top.
   ...(MARKETPLACE_ENABLED

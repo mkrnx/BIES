@@ -398,6 +398,13 @@ export const eventsApi = {
     // Host/admin only → { data: [...tickets with buyer], summary: { sold, revenueSats, pending, checkedIn } }
 
     checkinTicket: (id, ticketId) => post(`/events/${id}/tickets/${ticketId}/checkin`, {}),
+
+    payTicketWithWallet: (id, ticketId, walletType) =>
+        post(`/events/${id}/tickets/${ticketId}/pay`, { walletType }),
+    // Pays the ticket invoice server-side from the buyer's connected wallet
+    // (walletType: 'coinos' | 'blink') → { ticket, paymentStatus: 'PAID' | 'PENDING', preimage? }.
+    // Errors carry err.status + err.data.code: 'wallet_not_connected' |
+    // 'wallet_token_expired' | 'ticket_not_payable' | 'payment_failed'.
 };
 
 // ─── Cowork ───────────────────────────────────────────────────────────────────
@@ -623,7 +630,7 @@ export const healthApi = {
     check: () => get('/health'),
 };
 
-// ─── Coinos Wallet ───────────────────────────────────────────────────────────
+// ─── Wallet (Coinos + Blink, server-mediated) ────────────────────────────────
 
 export const walletApi = {
     createCoinos: (username) => post('/wallet/coinos/create', { username }),
@@ -631,6 +638,23 @@ export const walletApi = {
     disconnectCoinos: () => post('/wallet/coinos/disconnect'),
     coinosBalance: () => get('/wallet/coinos/balance'),
     coinosPay: (bolt11) => post('/wallet/coinos/pay', { bolt11 }),
+    // -> { pr: string /* bolt11 */, hash: string }
+    coinosInvoice: (amountSats, memo) => post('/wallet/coinos/invoice', { amountSats, ...(memo ? { memo } : {}) }),
+    // -> { transactions: [{ type: 'incoming'|'outgoing', amountSats, createdAt, memo, hash }] }
+    coinosTransactions: (limit = 20) => get(`/wallet/coinos/transactions?limit=${limit}`),
+
+    // Blink (Galoy GraphQL API, spoken server-side with the user's API key)
+    // -> { username, walletId, lightningAddress }
+    blinkConnect: (apiKey) => post('/wallet/blink/connect', { apiKey }),
+    blinkDisconnect: () => post('/wallet/blink/disconnect'),
+    // -> { sats: number }
+    blinkBalance: () => get('/wallet/blink/balance'),
+    // -> { status: 'SUCCESS' | 'ALREADY_PAID' | 'PENDING' } (FAILURE throws server-side)
+    blinkPay: (bolt11) => post('/wallet/blink/pay', { bolt11 }),
+    // -> { pr: string /* bolt11 */, hash: string }
+    blinkInvoice: (amountSats, memo) => post('/wallet/blink/invoice', { amountSats, ...(memo ? { memo } : {}) }),
+    // -> { transactions: [{ type: 'incoming'|'outgoing', amountSats, createdAt, memo, hash }] }
+    blinkTransactions: (limit = 20) => get(`/wallet/blink/transactions?limit=${limit}`),
 };
 
 // ─── WebSocket client ─────────────────────────────────────────────────────────

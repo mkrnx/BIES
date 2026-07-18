@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint, Smartphone } from 'lucide-react';
+import { Moon, Bell, Lock, Globe, Eye, Zap, LayoutGrid, Play, Key, Copy, CheckCircle, EyeOff, AlertTriangle, Fingerprint, Smartphone, Wallet } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { nip19 } from 'nostr-tools';
 import WalletConnect from '../components/WalletConnect';
@@ -7,6 +7,7 @@ import { useTheme } from '../context/ThemeContext';
 import { useViewPreference } from '../context/ViewContext';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
+import { useFeature } from '../context/FeatureFlagsContext';
 import { investorApi, preferencesApi, notificationsApi } from '../services/api';
 import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, getPushSubscriptionState } from '../utils/notificationManager';
 import { nostrSigner } from '../services/nostrSigner';
@@ -55,6 +56,7 @@ const Settings = () => {
     };
 
     const { user } = useAuth();
+    const zapsOn = useFeature('zaps');
     const [investorMessage, setInvestorMessage] = React.useState('');
     const [submittingInvestor, setSubmittingInvestor] = React.useState(false);
     const [investorRequested, setInvestorRequested] = React.useState(false);
@@ -472,6 +474,20 @@ const Settings = () => {
 
             <div className="settings-section">
                 <h2><Zap size={16} /> {t('settings.lightningWallet')}</h2>
+                {zapsOn && (
+                    <div className="setting-item">
+                        <div className="setting-info">
+                            <div className="icon-box"><Wallet size={20} /></div>
+                            <div>
+                                <p className="setting-label">{t('settings.openWalletLabel', 'BIES Wallet')}</p>
+                                <p className="setting-desc">{t('settings.openWalletDesc', 'Check your balance, send and receive sats')}</p>
+                            </div>
+                        </div>
+                        <Link to="/wallet" className="btn btn-outline btn-sm" data-testid="settings-open-wallet" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                            <Wallet size={14} style={{ marginRight: '0.4rem' }} /> {t('settings.openWallet', 'Open wallet')}
+                        </Link>
+                    </div>
+                )}
                 <div className="setting-item">
                     <WalletConnect />
                 </div>

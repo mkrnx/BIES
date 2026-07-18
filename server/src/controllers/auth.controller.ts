@@ -14,6 +14,16 @@ import { config } from '../config';
 import { z } from 'zod';
 import crypto from 'crypto';
 
+/**
+ * Strip encrypted wallet credentials (Coinos JWT, Blink API key) from a
+ * profile object before sending it to any client. Connection metadata
+ * (coinosUsername, blinkUsername, blinkWalletId) stays visible so the client
+ * can detect the connection.
+ */
+function sanitizeProfile(profile: any): any {
+    return profile ? { ...profile, coinosToken: undefined, blinkApiKey: undefined } : null;
+}
+
 // ─── Fingerprint helpers (ban evasion detection) ───
 
 /**
@@ -216,7 +226,7 @@ export async function register(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
-                profile: user.profile,
+                profile: sanitizeProfile(user.profile),
             },
             token,
         });
@@ -280,7 +290,7 @@ export async function login(req: Request, res: Response): Promise<void> {
                 email: user.email,
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
-                profile: user.profile,
+                profile: sanitizeProfile(user.profile),
             },
             token,
             ...(nostrNsec ? { nostrNsec } : {}),
@@ -484,7 +494,7 @@ export async function nostrLogin(req: Request, res: Response): Promise<void> {
                 nostrPubkey: user.nostrPubkey,
                 role: user.role,
                 isAdmin: user.isAdmin,
-                profile: user.profile,
+                profile: sanitizeProfile(user.profile),
             },
             token,
         });
@@ -523,8 +533,9 @@ export async function getMe(req: Request, res: Response): Promise<void> {
             }
         }
 
-        // Strip sensitive Coinos token from profile before sending to client
-        const profileData = user.profile ? { ...user.profile, coinosToken: undefined } : null;
+        // Strip sensitive wallet credentials (Coinos token, Blink API key)
+        // from the profile before sending to the client
+        const profileData = sanitizeProfile(user.profile);
 
         res.json({
             id: user.id,

@@ -62,6 +62,7 @@ const Navbar = () => {
     if (path.startsWith('/media')) return t('pageTitles.media');
     if (path.startsWith('/about')) return t('pageTitles.about');
     if (path.startsWith('/cowork')) return t('pageTitles.cowork');
+    if (path.startsWith('/wallet')) return t('pageTitles.wallet', 'Wallet');
     if (path.startsWith('/profile') || path.startsWith('/dashboard')) return t('pageTitles.dashboard');
     if (path.startsWith('/messages')) return t('pageTitles.messages');
     if (path === '/settings/navbar') return t('customNav.title');
@@ -183,6 +184,9 @@ const Navbar = () => {
                       {COWORK_ENABLED && featureOn('cowork') && (
                         <Link to="/cowork" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.cowork')}</Link>
                       )}
+                      {featureOn('zaps') && (
+                        <Link to="/wallet" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.wallet', 'Wallet')}</Link>
+                      )}
                       <Link to="/dashboard" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)}>{t('nav.dashboard')}</Link>
                       {(user?.isAdmin || user?.role === 'MOD') && (
                         <Link to="/admin" className="dropdown-item" onClick={() => setIsUserMenuOpen(false)} style={{ color: 'var(--color-primary)', fontWeight: 600 }}>{t('nav.adminPanel')}</Link>
@@ -251,6 +255,7 @@ const Navbar = () => {
                 { to: '/profile', label: t('nav.profile') },
                 ...(featureOn('messages') ? [{ to: '/messages', label: t('nav.messages') }] : []),
                 ...(COWORK_ENABLED && featureOn('cowork') ? [{ to: '/cowork', label: t('nav.cowork') }] : []),
+                ...(featureOn('zaps') ? [{ to: '/wallet', label: t('nav.wallet', 'Wallet') }] : []),
                 ...(BOUNTIES_ENABLED && featureOn('bounties') ? [{ to: '/bounties', label: t('nav.bounties') }] : []),
                 ...((user?.isAdmin || user?.role === 'MOD') ? [{ to: '/admin', label: t('nav.adminPanel'), isAdmin: true }] : []),
                 ...(featureOn('points') ? [{ to: '/leaderboard', label: t('nav.leaderboard') }] : []),

@@ -74,6 +74,9 @@ export const config = {
     // ─── Coinos (custodial Lightning wallet) ─────────────────────────────────
     coinosApiUrl: process.env.COINOS_API_URL || 'https://coinos.io/api',
 
+    // ─── Blink (Galoy GraphQL Lightning wallet) ──────────────────────────────
+    blinkApiUrl: process.env.BLINK_API_URL || 'https://api.blink.sv/graphql',
+
     // ─── Email (optional, for notification emails) ───────────────────────────
     smtp: {
         host: process.env.SMTP_HOST || '',

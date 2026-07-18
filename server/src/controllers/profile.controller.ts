@@ -136,6 +136,9 @@ export async function listProfiles(req: Request, res: Response): Promise<void> {
 
         const parsed = profiles.map((p) => ({
             ...p,
+            // Never expose encrypted wallet credentials
+            coinosToken: undefined,
+            blinkApiKey: undefined,
             skills: JSON.parse(p.skills || '[]'),
             tags: JSON.parse(p.tags || '[]'),
             investmentFocus: JSON.parse(p.investmentFocus || '[]'),
@@ -247,6 +250,9 @@ export async function getProfile(req: Request, res: Response): Promise<void> {
 
         const result = {
             ...profile,
+            // Never expose encrypted wallet credentials
+            coinosToken: undefined,
+            blinkApiKey: undefined,
             skills: JSON.parse(profile.skills || '[]'),
             tags: JSON.parse(profile.tags || '[]'),
             investmentFocus: JSON.parse(profile.investmentFocus || '[]'),
@@ -324,7 +330,7 @@ export async function updateMyProfile(req: Request, res: Response): Promise<void
         ]);
 
         const arrayParsedFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
-        const parsed: any = { ...profile };
+        const parsed: any = { ...profile, coinosToken: undefined, blinkApiKey: undefined };
         for (const f of arrayParsedFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
         }
@@ -440,7 +446,7 @@ export async function getMyProfile(req: Request, res: Response): Promise<void> {
         }
 
         const arrayFields = ['skills', 'tags', 'investmentFocus', 'investmentStage', 'lookingFor', 'experience', 'biesProjects', 'customSections'];
-        const parsed: any = { ...profile };
+        const parsed: any = { ...profile, coinosToken: undefined, blinkApiKey: undefined };
         for (const f of arrayFields) {
             parsed[f] = JSON.parse((profile as any)[f] || '[]');
         }
