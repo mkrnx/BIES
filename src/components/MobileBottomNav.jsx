@@ -41,10 +41,14 @@ const MobileBottomNav = () => {
   const { flags } = useFeatureFlags();
   // Runtime feature toggles exclude disabled pages even from user-customized
   // tab sets (the stored preference is untouched, so re-enabling restores them).
-  const tabs = tabIds
+  const enabledTabs = tabIds
     .map((id) => NAV_PAGES_BY_ID[id])
     .filter(Boolean)
     .filter((tab) => !tab.flag || flags[tab.flag] !== false);
+  // When logged out, auth-gated tabs collapse into a single Login entry —
+  // rendering one Login link per gated tab would duplicate it.
+  const firstAuthIdx = enabledTabs.findIndex((tab) => tab.auth);
+  const tabs = isAuthenticated ? enabledTabs : enabledTabs.filter((tab, i) => !tab.auth || i === firstAuthIdx);
 
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 

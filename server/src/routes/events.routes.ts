@@ -18,6 +18,16 @@ import {
     inviteToEvent,
 } from '../controllers/events.controller';
 import { importEventFromUrl } from '../controllers/eventImport.controller';
+import {
+    createTicket,
+    getTicket,
+    claimTicket,
+    claimTicketSchema,
+    listMyEventTickets,
+    listEventTickets,
+    checkinTicket,
+    listMyTickets,
+} from '../controllers/tickets.controller';
 
 const router = Router();
 
@@ -27,6 +37,7 @@ router.get('/', optionalAuth, listEvents);
 // Protected: my events (must come before /:id to avoid shadowing)
 router.get('/my', authenticate, listMyEvents);
 router.get('/attending', authenticate, listAttendingEvents);
+router.get('/tickets/mine', authenticate, listMyTickets);
 
 // Public single event
 router.get('/:id/og', getEventOG);
@@ -41,5 +52,13 @@ router.put('/:id/endorse', authenticate, endorseEvent);
 router.post('/:id/rsvp', authenticate, rsvpEvent);
 router.delete('/:id/rsvp', authenticate, cancelRsvp);
 router.post('/:id/invite', authenticate, inviteToEvent);
+
+// Ticketing (non-custodial Lightning payments straight to the event host)
+router.post('/:id/tickets', authenticate, createTicket);
+router.get('/:id/tickets/mine', authenticate, listMyEventTickets); // before /:ticketId
+router.get('/:id/tickets', authenticate, listEventTickets);
+router.get('/:id/tickets/:ticketId', authenticate, getTicket);
+router.post('/:id/tickets/:ticketId/claim', authenticate, validate(claimTicketSchema), claimTicket);
+router.post('/:id/tickets/:ticketId/checkin', authenticate, checkinTicket);
 
 export default router;

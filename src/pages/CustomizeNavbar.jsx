@@ -5,26 +5,39 @@ import { useTranslation } from 'react-i18next';
 import { useBottomNav } from '../context/BottomNavContext';
 import { useFeatureFlags } from '../context/FeatureFlagsContext';
 import usePointerDrag from '../hooks/usePointerDrag';
+import useFlipLayout from '../hooks/useFlipLayout';
 import { NAV_PAGES, NAV_PAGES_BY_ID, MAX_TABS, MIN_TABS } from '../config/navPages';
 
 const clamp = (n, min, max) => Math.min(Math.max(n, min), max);
+const sameOrder = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
 
 /**
  * Phone-homescreen style customizer for the mobile bottom navbar
  * (route: /settings/navbar). Drag page icons from the grid into the
- * 5-slot dock; drag dock icons out to remove them. Auto-saves on every
- * committed change via BottomNavContext.
+ * 5-slot dock; drag dock icons out to remove them. Tapping (or Enter/Space)
+ * is the non-drag fallback: grid icon → append to dock, dock icon → remove.
+ * Auto-saves on every committed change via BottomNavContext. All icon
+ * movement (reorder, insert, evict, grid reflow, ghost → slot landing) is
+ * animated by one generalized FLIP pass (useFlipLayout).
  */
 const CustomizeNavbar = () => {
     const { t } = useTranslation();
     const navigate = useNavigate();
-    const { tabs, updateTabs, resetTabs } = useBottomNav();
+    const { tabs, updateTabs, resetTabs, isCustomized, saveError } = useBottomNav();
 
     const dockRef = useRef(null);
     const gridRef = useRef(null);
-    const flipRef = useRef(null); // { id, fromRect } of an evicted dock icon awaiting its FLIP
     const hoverIndexRef = useRef(null); // mirrors hoverIndex for synchronous reads on drop
+    const slotWidthRef = useRef(0); // dock slot width, refreshed on every drag move
     const [hoverIndex, setHoverIndex] = useState(null);
+    const [flybackId, setFlybackId] = useState(null); // icon kept hidden while its ghost flies home
+
+    const { capture, play } = useFlipLayout([gridRef, dockRef]);
+
+    // Play the FLIP captured just before the commit, right after both sections re-lay-out.
+    useLayoutEffect(() => {
+        play();
+    }, [tabs, play]);
 
     // Runtime feature toggles: disabled pages are hidden from both the dock
     // and the grid so they can't be added (or seen) while off. The stored tab
@@ -46,75 +59,117 @@ const CustomizeNavbar = () => {
         const dock = dockRef.current;
         if (!dock) return;
         const r = dock.getBoundingClientRect();
+        slotWidthRef.current = r.width / MAX_TABS;
         const over = y >= r.top - 16 && y <= r.bottom + 8 && x >= r.left && x <= r.right;
         if (!over) {
             setHover(null);
             return;
         }
+        // The dock always renders MAX_TABS equal slots, so derive the hovered
+        // slot from that geometry; clamping to the visible count makes every
+        // empty placeholder mean "append".
         const visible = source === 'dock' ? tabs.filter((tid) => tid !== id) : tabs;
-        const raw = Math.round(((x - r.left) / r.width) * Math.max(visible.length, 1));
-        setHover(clamp(raw, 0, visible.length));
+        const slot = Math.floor(((x - r.left) / r.width) * MAX_TABS);
+        setHover(clamp(slot, 0, visible.length));
+    };
+
+    /** Fly the drag ghost back onto its source icon (cancelled / no-op drop). */
+    const flyGhostBack = (id, source) => {
+        const ghost = ghostRef.current;
+        const container = source === 'dock' ? dockRef.current : gridRef.current;
+        const target = container ? container.querySelector('[data-page-id="' + id + '"]') : null;
+        if (!ghost || !target) return;
+        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        const to = target.getBoundingClientRect();
+        const naturalWidth = ghost.offsetWidth;
+        const scale = naturalWidth > 0 ? to.width / naturalWidth : 1;
+        // The clone keeps the ghost's classes (styled-jsx scoped) and its
+        // current inline transform, so it starts exactly under the finger and
+        // survives the real ghost unmounting on the next commit.
+        const clone = ghost.cloneNode(true);
+        document.body.appendChild(clone);
+        setFlybackId(id); // hide the source icon while its clone flies home
+        clone.getBoundingClientRect(); // commit the start position before transitioning
+        clone.style.transition = 'transform 0.25s cubic-bezier(0.2, 0, 0, 1)';
+        clone.style.transform = 'translate3d(' + to.left + 'px, ' + to.top + 'px, 0) scale(' + scale + ')';
+        let finished = false;
+        const finish = () => {
+            if (finished) return;
+            finished = true;
+            target.style.opacity = ''; // restore before the clone vanishes — no blank frame
+            clone.remove();
+            setFlybackId((cur) => (cur === id ? null : cur));
+        };
+        clone.addEventListener('transitionend', finish);
+        clone.addEventListener('transitioncancel', finish);
+        setTimeout(finish, 400); // safety net if the transition never fires
     };
 
     const handleDragEnd = ({ id, source }) => {
         const idx = hoverIndexRef.current;
+        let next = null;
         if (idx !== null) {
             // Dropped onto the dock: insert at idx, evicting the rightmost icon if full.
             const base = source === 'dock' ? tabs.filter((tid) => tid !== id) : [...tabs];
-            let evicted = null;
-            if (base.length >= MAX_TABS) evicted = base.pop();
+            if (base.length >= MAX_TABS) base.pop();
             base.splice(Math.min(idx, base.length), 0, id);
-            if (evicted) {
-                const node = dockRef.current
-                    ? dockRef.current.querySelector('[data-page-id="' + evicted + '"]')
-                    : null;
-                flipRef.current = { id: evicted, fromRect: node ? node.getBoundingClientRect() : null };
-            }
-            updateTabs(base);
+            next = base;
         } else if (source === 'dock' && tabs.length > MIN_TABS) {
-            // Dragged out of the dock: remove (no-op snap-back when it's the last tab).
-            updateTabs(tabs.filter((tid) => tid !== id));
+            // Dragged out of the dock: remove.
+            next = tabs.filter((tid) => tid !== id);
+        }
+        if (next && !sameOrder(next, tabs)) {
+            // The dropped icon FLIPs from under the finger (the ghost's rect,
+            // scale included) into its destination slot; every other icon
+            // FLIPs from its pre-commit rect. The ghost unmounts on the same
+            // commit, so there is no double image.
+            const ghostRect = ghostRef.current ? ghostRef.current.getBoundingClientRect() : null;
+            capture(ghostRect ? { [id]: ghostRect } : undefined);
+            updateTabs(next);
+        } else {
+            // Invalid or no-op drop (outside the dock from the grid, last tab,
+            // or same slot): the ghost flies back onto its source icon.
+            flyGhostBack(id, source);
         }
         setHover(null);
     };
 
-    const handleDragCancel = () => {
+    const handleDragCancel = ({ id, source } = {}) => {
+        if (id) flyGhostBack(id, source);
         setHover(null);
     };
 
-    const { dragging, ghostRef, startDrag } = usePointerDrag({
+    const { dragging, ghostRef, startDrag, consumeDrag } = usePointerDrag({
         onDragMove: handleDragMove,
         onDragEnd: handleDragEnd,
         onDragCancel: handleDragCancel,
     });
 
-    // Eviction FLIP: the evicted dock icon animates from its old dock slot to its new grid tile.
-    useLayoutEffect(() => {
-        const flip = flipRef.current;
-        if (!flip) return;
-        flipRef.current = null;
-        if (!flip.fromRect || !gridRef.current) return;
-        if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-        const node = gridRef.current.querySelector('[data-page-id="' + flip.id + '"]');
-        if (!node) return;
-        const to = node.getBoundingClientRect();
-        const dx = flip.fromRect.left - to.left;
-        const dy = flip.fromRect.top - to.top;
-        if (!dx && !dy) return;
-        node.style.transition = 'none';
-        node.style.transform = 'translate(' + dx + 'px, ' + dy + 'px)';
-        node.getBoundingClientRect(); // force reflow so the inverse position is committed
-        node.style.transition = 'transform 0.25s ease';
-        node.style.transform = '';
-        const onEnd = () => {
-            node.style.transition = '';
-            node.removeEventListener('transitionend', onEnd);
-        };
-        node.addEventListener('transitionend', onEnd);
-    }, [tabs]);
+    // Tap / Enter / Space fallback: grid icon → append to the dock (evicting
+    // the rightmost when full); dock icon → remove (respecting MIN_TABS).
+    const handleGridTap = (id) => {
+        const next = [...tabs];
+        if (next.length >= MAX_TABS) next.pop();
+        next.push(id);
+        capture();
+        updateTabs(next);
+    };
+
+    const handleDockTap = (id) => {
+        if (tabs.length <= MIN_TABS) return;
+        capture();
+        updateTabs(tabs.filter((tid) => tid !== id));
+    };
+
+    const handleReset = () => {
+        if (!isCustomized) return;
+        capture();
+        resetTabs();
+    };
 
     const draggedDockId = dragging && dragging.source === 'dock' ? dragging.id : null;
     const visibleDockIds = draggedDockId ? tabs.filter((tid) => tid !== draggedDockId) : tabs;
+    const slotWidth = slotWidthRef.current;
 
     const ghostPage = dragging ? NAV_PAGES_BY_ID[dragging.id] : null;
     const GhostIcon = ghostPage ? ghostPage.icon : null;
@@ -126,12 +181,19 @@ const CustomizeNavbar = () => {
                     <ChevronLeft size={22} />
                 </button>
                 <h1>{t('customNav.title')}</h1>
-                <button type="button" className="reset-btn" data-testid="nav-reset" onClick={resetTabs}>
+                <button type="button" className="reset-btn" data-testid="nav-reset" onClick={handleReset}>
                     <RotateCcw size={15} />
                     <span>{t('customNav.reset')}</span>
                 </button>
             </div>
             <p className="subtitle">{t('customNav.subtitle')}</p>
+            {saveError && (
+                <p className="save-error" role="status">
+                    {t('customNav.saveError', {
+                        defaultValue: 'Could not sync to your account — changes are saved on this device only.',
+                    })}
+                </p>
+            )}
             <p className="desktop-note">{t('customNav.desktopNote')}</p>
 
             <div className="phone-frame">
@@ -139,6 +201,11 @@ const CustomizeNavbar = () => {
                     {gridPages.map((p) => {
                         const Icon = p.icon;
                         const isDragged = dragging !== null && dragging.id === p.id;
+                        const style = isDragged
+                            ? { opacity: 0.35 }
+                            : flybackId === p.id
+                                ? { opacity: 0 }
+                                : undefined;
                         return (
                             <button
                                 key={p.id}
@@ -146,8 +213,15 @@ const CustomizeNavbar = () => {
                                 className="grid-icon"
                                 data-testid={'grid-icon-' + p.id}
                                 data-page-id={p.id}
+                                aria-label={t('customNav.addTabAria', {
+                                    defaultValue: 'Add {{page}} to the bottom bar',
+                                    page: t(p.labelKey),
+                                })}
                                 onPointerDown={(e) => startDrag(e, p.id, 'grid')}
-                                style={isDragged ? { opacity: 0.35 } : undefined}
+                                onClick={() => {
+                                    if (!consumeDrag()) handleGridTap(p.id);
+                                }}
+                                style={style}
                             >
                                 <span className="grid-tile"><Icon size={26} strokeWidth={1.8} /></span>
                                 <span className="grid-label">{t(p.labelKey)}</span>
@@ -156,7 +230,7 @@ const CustomizeNavbar = () => {
                     })}
                 </div>
 
-                <div className="dock" ref={dockRef} data-testid="nav-dock">
+                <div className={'dock' + (dragging ? ' dock-dragging' : '')} ref={dockRef} data-testid="nav-dock">
                     {Array.from({ length: MAX_TABS }, (_, i) => {
                         const page = dockPages[i];
                         if (!page) {
@@ -168,10 +242,17 @@ const CustomizeNavbar = () => {
                         }
                         const Icon = page.icon;
                         const isDragged = page.id === draggedDockId;
-                        const vIdx = visibleDockIds.indexOf(page.id);
-                        const transform = hoverIndex === null || isDragged
-                            ? 'none'
-                            : (vIdx < hoverIndex ? 'translateX(-14px)' : 'translateX(14px)');
+                        // Gap opening with true slot geometry: while hovering,
+                        // every non-dragged icon shifts to the exact slot it
+                        // will occupy after the drop, so committing the drop
+                        // causes no visible jump for the bystanders.
+                        let transform = 'none';
+                        if (hoverIndex !== null && !isDragged && slotWidth) {
+                            const vIdx = visibleDockIds.indexOf(page.id);
+                            const finalIdx = vIdx < hoverIndex ? vIdx : vIdx + 1;
+                            const shift = (finalIdx - i) * slotWidth;
+                            if (shift) transform = 'translateX(' + shift + 'px)';
+                        }
                         return (
                             <div key={page.id} className="dock-slot">
                                 <button
@@ -179,11 +260,18 @@ const CustomizeNavbar = () => {
                                     className="dock-icon"
                                     data-testid={'dock-icon-' + page.id}
                                     data-page-id={page.id}
+                                    aria-label={t('customNav.removeTabAria', {
+                                        defaultValue: 'Remove {{page}} from the bottom bar',
+                                        page: t(page.labelKey),
+                                    })}
                                     onPointerDown={(e) => startDrag(e, page.id, 'dock')}
+                                    onClick={() => {
+                                        if (!consumeDrag()) handleDockTap(page.id);
+                                    }}
                                     // Use opacity (not visibility:hidden) while dragging: the drag
                                     // hook keeps its listeners + pointer capture on this element, and
                                     // a non-hit-testable element releases capture and aborts the drag.
-                                    style={{ transform, opacity: isDragged ? 0 : 1 }}
+                                    style={{ transform, opacity: isDragged || flybackId === page.id ? 0 : 1 }}
                                 >
                                     <span className="dock-icon-wrap"><Icon size={22} strokeWidth={1.8} /></span>
                                     <span className="dock-label">{t(page.labelKey)}</span>
@@ -212,6 +300,7 @@ const CustomizeNavbar = () => {
                 .reset-btn:hover { border-color: var(--color-secondary); color: var(--color-secondary); }
 
                 .subtitle { color: var(--color-gray-500); font-size: 0.9rem; margin-bottom: 0.25rem; }
+                .save-error { color: var(--color-error, #EF4444); font-size: 0.8rem; margin-bottom: 0.25rem; }
                 .desktop-note { display: none; }
                 @media (min-width: 769px) {
                     .desktop-note { display: block; color: var(--color-gray-400); font-size: 0.8rem; margin-bottom: 0.25rem; }
@@ -255,7 +344,9 @@ const CustomizeNavbar = () => {
 
                 .grid-icon,
                 .dock-icon {
-                    touch-action: none;
+                    /* pan-y keeps vertical page scrolling alive on touch; the drag
+                       hook claims the gesture only after the 150ms lift hold. */
+                    touch-action: pan-y;
                     user-select: none;
                     -webkit-user-select: none;
                     -webkit-touch-callout: none;
@@ -299,7 +390,11 @@ const CustomizeNavbar = () => {
                     padding-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
                 }
                 .dock-slot { flex: 1; display: flex; align-items: flex-start; justify-content: center; min-width: 0; }
-                .dock-icon { gap: 3px; color: white; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.03em; transition: transform 0.2s ease; }
+                .dock-icon { gap: 3px; color: white; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.03em; }
+                /* Gap-opening shifts ease only WHILE a drag is in flight; on drop the
+                   class disappears in the same commit, so clearing the shift is
+                   instant and the FLIP pass measures true (untransitioned) rects. */
+                .dock-dragging .dock-icon { transition: transform 0.2s ease; }
                 .dock-icon-wrap {
                     display: flex;
                     align-items: center;
@@ -320,6 +415,8 @@ const CustomizeNavbar = () => {
                     pointer-events: none;
                     will-change: transform;
                     transform: translate3d(-1000px, -1000px, 0);
+                    /* top-left origin so the grab-offset + scale math lines up */
+                    transform-origin: top left;
                     display: flex;
                     flex-direction: column;
                     align-items: center;
@@ -348,7 +445,7 @@ const CustomizeNavbar = () => {
                 }
 
                 @media (prefers-reduced-motion: reduce) {
-                    .dock-icon { transition: none; }
+                    .dock-dragging .dock-icon { transition: none; }
                 }
             `}</style>
         </div>

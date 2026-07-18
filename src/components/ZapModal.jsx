@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Zap, Loader2, Check, Copy, AlertCircle, ChevronRight, Wallet } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import { nostrService, PUBLIC_RELAYS } from '../services/nostrService';
-import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest, isBolt12Offer } from '../services/lightningService';
+import { resolveLud16, requestInvoice, payWithWebLN, createZapRequest } from '../services/lightningService';
 import { profilesApi } from '../services/api';
 import { useWallet } from '../hooks/useWallet';
 
@@ -43,6 +43,9 @@ const ZapModal = ({ recipients = [], eventId, aTag, fixedAmount, onPaid, onClose
     // Backwards-compat aliases used throughout the component
     const nwcConnected = walletConnected;
     const nwcPayInvoice = walletPayInvoice;
+    // Bolt12 offers can only go through a real NWC wallet — Coinos's BOLT-11
+    // payment endpoint can't pay offers, so those fall back to the QR flow.
+    const canPayBolt12ViaWallet = walletConnected && walletType === 'nwc';
     const [phase, setPhase] = useState('resolving'); // resolving | ready | paying | qr | success | error
     const [resolvedRecipients, setResolvedRecipients] = useState([]);
     const [selectedAmount, setSelectedAmount] = useState(fixedAmount || 100);
@@ -129,7 +132,7 @@ const ZapModal = ({ recipients = [], eventId, aTag, fixedAmount, onPaid, onClose
             // ── Bolt12 offer path (no LNURL needed) ──────────────────────
             if (recipient.bolt12Offer && !recipient.lud16) {
                 // Bolt12 offers can only be paid via NWC or shown as QR
-                if (nwcConnected) {
+                if (canPayBolt12ViaWallet) {
                     try {
                         await nwcPayInvoice(recipient.bolt12Offer);
                         results.push({ name: recipient.name, success: true });
@@ -157,7 +160,7 @@ const ZapModal = ({ recipients = [], eventId, aTag, fixedAmount, onPaid, onClose
             if (!lnurlData) {
                 // If LNURL fails but we have a bolt12 offer, fall back to that
                 if (recipient.bolt12Offer) {
-                    if (nwcConnected) {
+                    if (canPayBolt12ViaWallet) {
                         try {
                             await nwcPayInvoice(recipient.bolt12Offer);
                             results.push({ name: recipient.name, success: true });

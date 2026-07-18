@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useRef, useCallback } from 'react';
 import { sanitizeTabs, DEFAULT_BOTTOM_NAV } from '../config/navPages';
 import { preferencesApi } from '../services/api';
 
@@ -10,6 +10,7 @@ const BottomNavContext = createContext({
     applyServerTabs: () => {},
     resetTabs: () => {},
     isCustomized: false,
+    saveError: false,
 });
 
 export const BottomNavProvider = ({ children }) => {
@@ -22,13 +23,25 @@ export const BottomNavProvider = ({ children }) => {
         }
         return [...DEFAULT_BOTTOM_NAV];
     });
+    // True when the last server save failed: the layout is device-local only.
+    const [saveError, setSaveError] = useState(false);
+
+    // Mirror of `tabs` for synchronous change detection inside the stable callback.
+    const tabsRef = useRef(tabs);
+    tabsRef.current = tabs;
 
     // User-initiated change: persist to localStorage AND the backend preference.
     const updateTabs = useCallback((ids) => {
         const clean = sanitizeTabs(ids);
+        if (JSON.stringify(clean) === JSON.stringify(tabsRef.current)) return; // nothing changed → skip the save
         setTabs(clean);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
-        preferencesApi.save({ bottomNavTabs: clean }).catch(() => {});
+        setSaveError(false);
+        preferencesApi.save({ bottomNavTabs: clean }).catch((err) => {
+            // Keep the local change, but surface that it did not reach the server.
+            console.warn('[BottomNav] Failed to save navbar layout to the server:', err && err.message ? err.message : err);
+            setSaveError(true);
+        });
     }, []);
 
     // Server-initiated restore (login): localStorage only — no echo back to the server.
@@ -45,7 +58,7 @@ export const BottomNavProvider = ({ children }) => {
     const isCustomized = JSON.stringify(tabs) !== JSON.stringify(DEFAULT_BOTTOM_NAV);
 
     return (
-        <BottomNavContext.Provider value={{ tabs, updateTabs, applyServerTabs, resetTabs, isCustomized }}>
+        <BottomNavContext.Provider value={{ tabs, updateTabs, applyServerTabs, resetTabs, isCustomized, saveError }}>
             {children}
         </BottomNavContext.Provider>
     );

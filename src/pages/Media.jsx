@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, LayoutGrid, List, Grid3X3, Columns, Check, BookCheck, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { mediaApi, newsApi } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const VIEW_OPTIONS = [
     { id: 'card', icon: Columns, label: 'Cards' },
@@ -9,8 +10,13 @@ const VIEW_OPTIONS = [
     { id: 'icon', icon: LayoutGrid, label: 'Icons' },
 ];
 
+// Legacy device-global keys (pre per-user namespacing) — migrated on load
 const WATCHED_KEY = 'bies_watched_videos';
 const READ_KEY = 'bies_read_substacks';
+// localStorage is only a per-user fast-boot cache; the server is the source of truth
+function storageKey(base, userId) {
+    return userId ? `${base}:${userId}` : base;
+}
 function getStoredSet(key) {
     try { return new Set(JSON.parse(localStorage.getItem(key) || '[]')); } catch { return new Set(); }
 }
@@ -19,6 +25,11 @@ function saveStoredSet(key, s) {
 }
 
 const Media = () => {
+    const { user } = useAuth();
+    const userId = user?.id;
+    const watchedKey = storageKey(WATCHED_KEY, userId);
+    const readKey = storageKey(READ_KEY, userId);
+
     const [activeTab, setActiveTab] = useState('substack');
     const [substackItems, setSubstackItems] = useState([]);
     const [youtubeItems, setYoutubeItems] = useState([]);
@@ -27,87 +38,186 @@ const Media = () => {
     const [viewMenuOpen, setViewMenuOpen] = useState(false);
     const [playingVideoId, setPlayingVideoId] = useState(null);
     const [loading, setLoading] = useState(false);
-    const [watchedIds, setWatchedIds] = useState(() => getStoredSet(WATCHED_KEY));
-    const [readIds, setReadIds] = useState(() => getStoredSet(READ_KEY));
+    const [watchedIds, setWatchedIds] = useState(() => getStoredSet(storageKey(WATCHED_KEY, userId)));
+    const [readIds, setReadIds] = useState(() => getStoredSet(storageKey(READ_KEY, userId)));
     const [contextMenu, setContextMenu] = useState(null); // { id, type, x, y }  type: 'video' | 'article'
     const [selectMode, setSelectMode] = useState(false);
     const [pendingSelections, setPendingSelections] = useState(new Set()); // items toggled during this session
-    const [hasChanges, setHasChanges] = useState(false);
+    const [savingSelections, setSavingSelections] = useState(false);
+    const [syncError, setSyncError] = useState('');
+    const hasChanges = pendingSelections.size > 0;
     const viewRef = useRef(null);
     const longPressTimer = useRef(null);
     const contextMenuRef = useRef(null);
+    // Per-item queue of in-flight toggle syncs — coalesces rapid toggles so
+    // out-of-order responses can't flip an item back to a stale value.
+    const syncQueueRef = useRef({ watched: new Map(), read: new Map() });
+    // Latest local value of every item touched this session — reapplied on top
+    // of the server response so a late GET can't undo fresh toggles.
+    const mutationOverlayRef = useRef({ watched: new Map(), read: new Map() });
+    // Guards against a slow GET for a previous user overwriting current state
+    const loadSeqRef = useRef(0);
 
-    // Load read state from backend on mount, merge with localStorage
+    // Load read state from the backend on mount (and when the user changes).
+    // The server is the source of truth and REPLACES local state; localStorage
+    // is only a per-user fast-boot cache.
     useEffect(() => {
-        mediaApi.getReadState().then(data => {
-            if (data.watched?.length) {
-                setWatchedIds(prev => {
-                    const merged = new Set([...prev, ...data.watched]);
-                    saveStoredSet(WATCHED_KEY, merged);
-                    return merged;
-                });
-            }
-            if (data.read?.length) {
-                setReadIds(prev => {
-                    const merged = new Set([...prev, ...data.read]);
-                    saveStoredSet(READ_KEY, merged);
-                    return merged;
-                });
-            }
-        }).catch(() => {});
-    }, []);
+        if (!userId) return;
+        const seq = ++loadSeqRef.current;
+        mutationOverlayRef.current = { watched: new Map(), read: new Map() };
 
-    const toggleWatched = useCallback((videoId) => {
-        setWatchedIds(prev => {
+        const wKey = storageKey(WATCHED_KEY, userId);
+        const rKey = storageKey(READ_KEY, userId);
+
+        // Legacy migration: fold the old device-global keys into this user's
+        // namespaced cache, push them to the server once, then drop them.
+        const hasLegacy = localStorage.getItem(WATCHED_KEY) !== null || localStorage.getItem(READ_KEY) !== null;
+        const legacyWatched = hasLegacy ? [...getStoredSet(WATCHED_KEY)] : [];
+        const legacyRead = hasLegacy ? [...getStoredSet(READ_KEY)] : [];
+
+        // Seed from the per-user cache (+ legacy) while the server responds
+        const cachedWatched = new Set([...getStoredSet(wKey), ...legacyWatched]);
+        const cachedRead = new Set([...getStoredSet(rKey), ...legacyRead]);
+        setWatchedIds(cachedWatched);
+        setReadIds(cachedRead);
+        saveStoredSet(wKey, cachedWatched);
+        saveStoredSet(rKey, cachedRead);
+
+        const load = async () => {
+            if (hasLegacy) {
+                try {
+                    if (legacyWatched.length || legacyRead.length) {
+                        await mediaApi.bulkReadState({ watched: legacyWatched, read: legacyRead }, {});
+                    }
+                    localStorage.removeItem(WATCHED_KEY);
+                    localStorage.removeItem(READ_KEY);
+                } catch { /* keep legacy keys so migration retries next visit */ }
+            }
+            try {
+                const data = await mediaApi.getReadState();
+                if (seq !== loadSeqRef.current) return; // stale response for a previous user
+                const serverWatched = new Set(Array.isArray(data.watched) ? data.watched : []);
+                const serverRead = new Set(Array.isArray(data.read) ? data.read : []);
+                // Legacy items count as marked even if the bulk push failed above
+                legacyWatched.forEach(id => serverWatched.add(id));
+                legacyRead.forEach(id => serverRead.add(id));
+                // Re-apply toggles the user made while this request was in flight
+                mutationOverlayRef.current.watched.forEach((value, id) => {
+                    if (value) serverWatched.add(id); else serverWatched.delete(id);
+                });
+                mutationOverlayRef.current.read.forEach((value, id) => {
+                    if (value) serverRead.add(id); else serverRead.delete(id);
+                });
+                setWatchedIds(serverWatched);
+                setReadIds(serverRead);
+                saveStoredSet(wKey, serverWatched);
+                saveStoredSet(rKey, serverRead);
+            } catch {
+                // Server unreachable — keep the cached state; toggles surface their own errors
+            }
+        };
+        load();
+    }, [userId]);
+
+    // Apply a watched/read change locally (state + per-user cache + overlay).
+    // itemType: 'watched' | 'read'
+    const applyLocal = useCallback((itemType, id, value) => {
+        mutationOverlayRef.current[itemType].set(id, value);
+        const setIds = itemType === 'watched' ? setWatchedIds : setReadIds;
+        const key = itemType === 'watched' ? watchedKey : readKey;
+        setIds(prev => {
             const next = new Set(prev);
-            if (next.has(videoId)) next.delete(videoId); else next.add(videoId);
-            saveStoredSet(WATCHED_KEY, next);
+            if (value) next.add(id); else next.delete(id);
+            saveStoredSet(key, next);
             return next;
         });
+    }, [watchedKey, readKey]);
+
+    // Sync a single toggle to the server. Optimistic: local state is already
+    // updated; on failure the item rolls back to the last server-confirmed
+    // value and an inline error is shown. Rapid toggles of the same item are
+    // queued so only one request is in flight per item.
+    const syncToggle = useCallback((itemType, id, value) => {
+        const queue = syncQueueRef.current[itemType];
+        const existing = queue.get(id);
+        if (existing) {
+            // A request for this item is already in flight — remember the
+            // latest desired value; it is sent when that request settles.
+            existing.desired = value;
+            return;
+        }
+        const entry = { desired: value, baseline: !value };
+        queue.set(id, entry);
+        const send = (val) => {
+            mediaApi.toggleReadState(id, itemType, val)
+                .then(() => {
+                    entry.baseline = val;
+                    if (entry.desired !== val) {
+                        send(entry.desired);
+                    } else {
+                        queue.delete(id);
+                    }
+                })
+                .catch(() => {
+                    // Roll back to the last server-confirmed value
+                    queue.delete(id);
+                    applyLocal(itemType, id, entry.baseline);
+                    setSyncError(itemType === 'watched'
+                        ? 'Could not save watched state — change reverted. Please try again.'
+                        : 'Could not save read state — change reverted. Please try again.');
+                });
+        };
+        send(value);
+    }, [applyLocal]);
+
+    const toggleWatched = useCallback((videoId) => {
+        const value = !watchedIds.has(videoId);
+        applyLocal('watched', videoId, value);
+        syncToggle('watched', videoId, value);
         setContextMenu(null);
-    }, []);
+    }, [watchedIds, applyLocal, syncToggle]);
 
     const enterSelectMode = useCallback(() => {
         setPendingSelections(new Set());
-        setHasChanges(false);
         setSelectMode(true);
         setContextMenu(null);
     }, []);
 
     const cancelSelectMode = useCallback(() => {
-        // Revert any pending toggles
+        // Revert any pending toggles (they were never sent to the server)
+        const itemType = activeTab === 'youtube' ? 'watched' : 'read';
+        const current = activeTab === 'youtube' ? watchedIds : readIds;
         pendingSelections.forEach(id => {
-            if (activeTab === 'youtube') {
-                setWatchedIds(prev => {
-                    const next = new Set(prev);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    saveStoredSet(WATCHED_KEY, next);
-                    return next;
-                });
-            } else {
-                setReadIds(prev => {
-                    const next = new Set(prev);
-                    if (next.has(id)) next.delete(id); else next.add(id);
-                    saveStoredSet(READ_KEY, next);
-                    return next;
-                });
-            }
+            applyLocal(itemType, id, !current.has(id));
         });
         setSelectMode(false);
         setPendingSelections(new Set());
-        setHasChanges(false);
-    }, [pendingSelections, activeTab]);
+        setSyncError('');
+    }, [pendingSelections, activeTab, watchedIds, readIds, applyLocal]);
 
-    const saveSelectMode = useCallback(() => {
-        // Persist to backend
-        mediaApi.saveReadState({
-            watched: [...watchedIds],
-            read: [...readIds],
-        }).catch(() => {});
-        setSelectMode(false);
-        setPendingSelections(new Set());
-        setHasChanges(false);
-    }, [watchedIds, readIds]);
+    const saveSelectMode = useCallback(async () => {
+        // Persist the select-mode deltas via a server-side merge — items
+        // marked on other devices are never clobbered.
+        const itemType = activeTab === 'youtube' ? 'watched' : 'read';
+        const current = activeTab === 'youtube' ? watchedIds : readIds;
+        const add = { watched: [], read: [] };
+        const remove = { watched: [], read: [] };
+        pendingSelections.forEach(id => {
+            if (current.has(id)) add[itemType].push(id); else remove[itemType].push(id);
+        });
+        setSavingSelections(true);
+        try {
+            await mediaApi.bulkReadState(add, remove);
+            setSelectMode(false);
+            setPendingSelections(new Set());
+            setSyncError('');
+        } catch {
+            // Stay in select mode so the user can retry
+            setSyncError('Could not save your changes. Check your connection and try again.');
+        } finally {
+            setSavingSelections(false);
+        }
+    }, [activeTab, watchedIds, readIds, pendingSelections]);
 
     const toggleSelectItem = useCallback((id) => {
         setPendingSelections(prev => {
@@ -115,18 +225,14 @@ const Media = () => {
             if (next.has(id)) next.delete(id); else next.add(id);
             return next;
         });
-        setHasChanges(true);
     }, []);
 
     const toggleRead = useCallback((link) => {
-        setReadIds(prev => {
-            const next = new Set(prev);
-            if (next.has(link)) next.delete(link); else next.add(link);
-            saveStoredSet(READ_KEY, next);
-            return next;
-        });
+        const value = !readIds.has(link);
+        applyLocal('read', link, value);
+        syncToggle('read', link, value);
         setContextMenu(null);
-    }, []);
+    }, [readIds, applyLocal, syncToggle]);
 
     // Long-press handlers for touch + mouse
     const openContextMenu = useCallback((e, id, type) => {
@@ -202,29 +308,25 @@ const Media = () => {
             .catch(() => {});
     }, []);
 
-    // In select mode, clicking an item toggles its read/watched state instead of navigating
+    // In select mode, clicking an item toggles its read/watched state instead
+    // of navigating. The change is provisional — synced to the server as a
+    // delta when the user hits Save (or reverted on Cancel/tab switch).
     const handleItemClick = useCallback((e, id, type) => {
         if (!selectMode) return; // let normal click/navigation happen
         e.preventDefault();
         e.stopPropagation();
+        // While the bulk save is in flight, extra toggles would be wiped by
+        // its success handler (setPendingSelections(new Set())) and silently
+        // never persisted — ignore them until the save settles.
+        if (savingSelections) return;
         // Toggle the read/watched state
         if (type === 'video') {
-            setWatchedIds(prev => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id); else next.add(id);
-                saveStoredSet(WATCHED_KEY, next);
-                return next;
-            });
+            applyLocal('watched', id, !watchedIds.has(id));
         } else {
-            setReadIds(prev => {
-                const next = new Set(prev);
-                if (next.has(id)) next.delete(id); else next.add(id);
-                saveStoredSet(READ_KEY, next);
-                return next;
-            });
+            applyLocal('read', id, !readIds.has(id));
         }
         toggleSelectItem(id);
-    }, [selectMode, toggleSelectItem]);
+    }, [selectMode, savingSelections, watchedIds, readIds, applyLocal, toggleSelectItem]);
 
     // Props to spread on any media item in select mode vs normal mode
     const itemProps = useCallback((id, type) => {
@@ -291,23 +393,25 @@ const Media = () => {
                 <p className="text-gray-500">Blogs, interviews, and updates from the community.</p>
             </div>
 
-            {/* Tab Navigation */}
+            {/* Tab Navigation — switching tabs mid bulk-save would locally
+                revert (cancelSelectMode) changes the server then commits, so
+                tabs are inert while the save is in flight. */}
             <div className="tabs">
                 <button
                     className={`tab-btn ${activeTab === 'substack' ? 'active' : ''}`}
-                    onClick={() => { setActiveTab('substack'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
+                    onClick={() => { if (savingSelections) return; if (selectMode) cancelSelectMode(); setActiveTab('substack'); }}
                 >
                     Substack
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'youtube' ? 'active' : ''}`}
-                    onClick={() => { setActiveTab('youtube'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
+                    onClick={() => { if (savingSelections) return; if (selectMode) cancelSelectMode(); setActiveTab('youtube'); }}
                 >
                     YouTube
                 </button>
                 <button
                     className={`tab-btn ${activeTab === 'live' ? 'active' : ''}`}
-                    onClick={() => { setActiveTab('live'); if (selectMode) { setSelectMode(false); setPendingSelections(new Set()); setHasChanges(false); } }}
+                    onClick={() => { if (savingSelections) return; if (selectMode) cancelSelectMode(); setActiveTab('live'); }}
                 >
                     {liveSettings.livestreamActive && <span className="live-dot" />}
                     Live
@@ -317,9 +421,12 @@ const Media = () => {
                         <button
                             className={`mark-read-trigger ${hasChanges ? 'has-changes' : ''}`}
                             onClick={hasChanges ? saveSelectMode : cancelSelectMode}
+                            disabled={savingSelections}
                             title={hasChanges ? 'Save changes' : 'Cancel'}
                         >
-                            {hasChanges ? <Check size={16} /> : <X size={16} />}
+                            {savingSelections
+                                ? <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+                                : hasChanges ? <Check size={16} /> : <X size={16} />}
                         </button>
                     ) : (
                         <button
@@ -357,6 +464,16 @@ const Media = () => {
                     )}
                 </div>
             </div>
+
+            {/* Inline sync error (failed toggle / save) */}
+            {syncError && (
+                <div className="sync-error" role="alert">
+                    <span>{syncError}</span>
+                    <button onClick={() => setSyncError('')} title="Dismiss" aria-label="Dismiss">
+                        <X size={14} />
+                    </button>
+                </div>
+            )}
 
             {/* Tab Content */}
             <div className="tab-content mt-8">
@@ -820,6 +937,41 @@ const Media = () => {
         .mark-read-trigger.has-changes {
           color: #10b981;
           background: rgba(16, 185, 129, 0.1);
+        }
+        .mark-read-trigger:disabled {
+          opacity: 0.6;
+          cursor: default;
+        }
+
+        /* Inline sync error banner */
+        .sync-error {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          margin-top: 0.75rem;
+          padding: 8px 12px;
+          background: rgba(239, 68, 68, 0.08);
+          border: 1px solid rgba(239, 68, 68, 0.35);
+          border-radius: var(--radius-md);
+          color: #ef4444;
+          font-size: 0.85rem;
+          font-weight: 500;
+        }
+        .sync-error button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+          border: none;
+          background: transparent;
+          color: inherit;
+          cursor: pointer;
+          padding: 2px;
+          border-radius: 4px;
+        }
+        .sync-error button:hover {
+          background: rgba(239, 68, 68, 0.15);
         }
 
         /* select-circle styles are now inline — no styled-jsx needed */

@@ -14,6 +14,7 @@ import { featureGate } from './middleware/featureGate';
 import { attachWebSocketServer } from './services/websocket.service';
 import { startTwitterRefreshLoop } from './services/twitter.service';
 import { initWebPush, cleanupStaleSubscriptions } from './services/webpush.service';
+import { initApns } from './services/apns.service';
 import { startPointsScorer, startPointsMaintenanceLoop } from './services/points.indexer';
 import { startBountyMaintenanceLoop } from './services/bounty.service';
 import { publishBadgeDefinitions } from './services/badges.publisher';
@@ -34,6 +35,7 @@ import watchlistRoutes from './routes/watchlist.routes';
 import investmentRoutes from './routes/investment.routes';
 import notificationRoutes from './routes/notification.routes';
 import eventRoutes from './routes/events.routes';
+import coworkRoutes from './routes/cowork.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import searchRoutes from './routes/search.routes';
 import adminRoutes from './routes/admin.routes';
@@ -106,7 +108,13 @@ app.get('/api/version', (_req, res) => {
 });
 
 // ─── CORS ─────────────────────────────────────────────────────────────────────
-const allowedOrigins = config.corsOrigin.split(',').map((o) => o.trim());
+// Web origins from CORS_ORIGIN plus the Capacitor native WebView origins
+// (capacitor://localhost on iOS, https://localhost on Android)
+const allowedOrigins = [config.corsOrigin, config.corsNativeOrigin]
+    .join(',')
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no Origin (same-origin browser requests and server-to-server)
@@ -204,6 +212,7 @@ app.use('/api/watchlist', watchlistRoutes);
 app.use('/api/investments', featureGate('investors'), investmentRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/events', featureGate('events'), eventRoutes);
+app.use('/api/cowork', coworkRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/admin', adminRoutes);
@@ -260,6 +269,9 @@ server.listen(config.port, () => {
     // Initialize Web Push notifications
     initWebPush();
     cleanupStaleSubscriptions().catch(() => {});
+
+    // Initialize native push (APNs) — no-ops when unconfigured
+    initApns();
 
     // Points scorer (relay indexer) + monthly rollover loop — a scorer
     // failure must never take down the API.

@@ -1,5 +1,6 @@
 {
   "common": {
+    "tryAgain": "Intentar de nuevo",
     "loading": "Cargando...",
     "search": "Buscar",
     "filters": "Filtros",

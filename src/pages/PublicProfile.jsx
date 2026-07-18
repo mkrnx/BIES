@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare, Trophy } from 'lucide-react';
+import { MapPin, Briefcase, Globe, Twitter, Linkedin, MoreHorizontal, Share, Loader2, ArrowLeft, Users, Copy, Check, UserPlus, UserCheck, Zap, MessageSquare, Calendar, Trophy } from 'lucide-react';
 import { getAssetUrl } from '../utils/assets';
 import { nip19 } from 'nostr-tools';
-import { profilesApi, pointsApi } from '../services/api';
+import { profilesApi, eventsApi, pointsApi } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useLightbox } from '../context/LightboxContext';
@@ -47,6 +47,8 @@ const PublicProfile = ({ type }) => {
     const [npubCopied, setNpubCopied] = useState(false);
     const [lnAddrCopied, setLnAddrCopied] = useState(false);
     const [bolt12Copied, setBolt12Copied] = useState(false);
+    const [hostedEvents, setHostedEvents] = useState([]); // upcoming events this user hosts
+    const [hostedTotal, setHostedTotal] = useState(0); // all-time hosted event count
     const [points, setPoints] = useState(null);
     const lightbox = useLightbox();
     const pointsEnabled = useFeature('points');
@@ -140,6 +142,19 @@ const PublicProfile = ({ type }) => {
         }).catch(() => { });
     }, [profile?.user?.id, profile?.userId]);
 
+    // Fetch events this user hosts — upcoming for the panel, total for stats
+    useEffect(() => {
+        if (!targetUserId) return undefined;
+        let cancelled = false;
+        eventsApi.list({ hostId: targetUserId, upcoming: 'true', limit: 6 })
+            .then(res => { if (!cancelled) setHostedEvents(Array.isArray(res?.data) ? res.data : []); })
+            .catch(() => { });
+        eventsApi.list({ hostId: targetUserId, limit: 1 })
+            .then(res => { if (!cancelled) setHostedTotal(res?.pagination?.total || 0); })
+            .catch(() => { });
+        return () => { cancelled = true; };
+    }, [targetUserId]);
+
     // Fetch gamification points/badges — silent-fail, unscored profiles render
     // nothing. Skipped while the `points` feature is toggled off.
     useEffect(() => {
@@ -171,6 +186,7 @@ const PublicProfile = ({ type }) => {
 
     const role = profile.user?.role || (type === 'investor' ? 'INVESTOR' : 'BUILDER');
     const projectsTitle = role === 'INVESTOR' ? t('publicProfile.investedIn', 'Invested In') : t('publicProfile.workingOn', 'Working On');
+    const isEventHost = profile.user?.role === 'EVENT_HOST' || hostedTotal > 0 || hostedEvents.length > 0;
     const npub = profile.user?.nostrPubkey
         ? nip19.npubEncode(profile.user.nostrPubkey)
         : profile.nostrNpub;
@@ -352,6 +368,22 @@ const PublicProfile = ({ type }) => {
                             <h1 style={{ fontSize: '2rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '0.25rem' }}>
                                 {profile.name}
                             </h1>
+                            {isEventHost && (
+                                <span
+                                    title={hostedTotal > 0 ? `${hostedTotal} event${hostedTotal === 1 ? '' : 's'} hosted on BIES` : 'Event Host'}
+                                    style={{
+                                        display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                                        background: 'var(--color-orange-tint)', color: '#b45309',
+                                        border: '1px solid rgba(247,147,26,0.35)',
+                                        borderRadius: '999px', padding: '0.25rem 0.75rem',
+                                        fontSize: '0.78rem', fontWeight: 700,
+                                        marginBottom: '0.5rem', marginRight: '0.5rem',
+                                    }}
+                                >
+                                    <Calendar size={13} /> {t('publicProfile.eventHost', 'Event Host')}
+                                    {hostedTotal > 0 && <span style={{ fontWeight: 500 }}>· {hostedTotal} {hostedTotal === 1 ? t('publicProfile.eventHosted', 'event hosted') : t('publicProfile.eventsHosted', 'events hosted')}</span>}
+                                </span>
+                            )}
                             {npub && (
                                 <button
                                     onClick={() => {
@@ -654,6 +686,73 @@ const PublicProfile = ({ type }) => {
                                 )
                             )}
                         </div>
+
+                        {/* Events Hosting Panel — the Event Host trust surface */}
+                        {(hostedEvents.length > 0 || hostedTotal > 0) && (
+                            <div className="profile-card" style={{ marginBottom: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Calendar size={20} style={{ color: '#f7931a' }} />
+                                    {t('publicProfile.eventsHosting', 'Events Hosting')}
+                                </h3>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--color-gray-500)', marginBottom: '1rem' }}>
+                                    {hostedTotal} {hostedTotal === 1 ? t('publicProfile.eventHostedStat', 'event hosted on BIES') : t('publicProfile.eventsHostedStat', 'events hosted on BIES')}
+                                </p>
+                                {hostedEvents.length > 0 ? (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                        {hostedEvents.map((event) => (
+                                            <Link
+                                                to={`/events/${event.id}`}
+                                                key={event.id}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '1rem',
+                                                    padding: '0.75rem 1rem',
+                                                    borderRadius: '10px',
+                                                    border: '1px solid var(--color-gray-200)',
+                                                    background: 'var(--color-gray-50)',
+                                                    textDecoration: 'none',
+                                                    transition: 'border-color 0.2s, box-shadow 0.2s',
+                                                }}
+                                                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.boxShadow = 'var(--shadow-sm)'; }}
+                                                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-gray-200)'; e.currentTarget.style.boxShadow = 'none'; }}
+                                            >
+                                                {event.thumbnail ? (
+                                                    <div style={{ width: '56px', height: '42px', borderRadius: '6px', overflow: 'hidden', flexShrink: 0 }}>
+                                                        <img src={getAssetUrl(event.thumbnail)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                    </div>
+                                                ) : (
+                                                    <div style={{ width: '56px', height: '42px', borderRadius: '6px', background: 'var(--color-gray-200)', flexShrink: 0 }} />
+                                                )}
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ fontWeight: 600, color: 'var(--color-gray-900)', fontSize: '0.95rem', fontFamily: 'var(--font-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{event.title}</div>
+                                                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '0.6rem', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                                                        <span style={{ color: 'var(--color-primary)', fontWeight: 500 }}>{new Date(event.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                                                        {event.attendeeCount > 0 && (
+                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--color-gray-500)' }}>
+                                                                <Users size={12} /> {event.attendeeCount}
+                                                            </span>
+                                                        )}
+                                                        {event.priceSats > 0 && (
+                                                            <span style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 3,
+                                                                padding: '0.15rem 0.5rem', borderRadius: '999px',
+                                                                fontSize: '0.72rem', fontWeight: 700,
+                                                                background: 'var(--color-orange-tint)', color: '#b45309',
+                                                            }}>
+                                                                <Zap size={10} /> {Number(event.priceSats).toLocaleString()} sats
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <p style={{ fontSize: '0.875rem', color: 'var(--color-gray-500)' }}>{t('publicProfile.noUpcomingHostedEvents', 'No upcoming events — check back soon.')}</p>
+                                )}
+                            </div>
+                        )}
 
                         {/* Events Attending Panel */}
                         <div className="profile-card" style={{ marginBottom: '1.5rem' }}>

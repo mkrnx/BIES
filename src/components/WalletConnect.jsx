@@ -2,14 +2,52 @@
  * WalletConnect — Settings component for wallet management.
  *
  * Supports two wallet types:
- *  1. NWC (NIP-47 Nostr Wallet Connect) — paste URI from Alby, Mutiny, etc.
+ *  1. NWC (NIP-47 Nostr Wallet Connect) — paste URI from Alby Hub, Coinos,
+ *     Primal, Zeus, Blink, or any NWC-compatible wallet.
  *  2. Coinos — connect existing account or view auto-provisioned wallet.
  */
 
-import React, { useState } from 'react';
-import { Wallet, Unplug, Zap, RefreshCw, CheckCircle, AlertCircle, User } from 'lucide-react';
+import { useState } from 'react';
+import {
+    Wallet, Unplug, Zap, RefreshCw, CheckCircle, AlertCircle,
+    ClipboardPaste, ExternalLink, Loader2, ShieldCheck,
+} from 'lucide-react';
 import { useWallet } from '../hooks/useWallet';
 import { COINOS_ENABLED } from '../config/featureFlags';
+
+// Per-wallet "where do I find my NWC string?" guides
+const WALLET_GUIDES = [
+    {
+        id: 'alby',
+        name: 'Alby Hub',
+        hint: 'Open Alby Hub, go to Connections → Add connection, and copy the connection secret.',
+        url: 'https://hub.getalby.com',
+    },
+    {
+        id: 'coinos',
+        name: 'Coinos',
+        hint: 'Log in at coinos.io, then open Settings → Nostr Wallet Connect and copy the string.',
+        url: 'https://coinos.io',
+    },
+    {
+        id: 'primal',
+        name: 'Primal',
+        hint: 'In the Primal app, open Wallet → Settings → Connected apps and create an NWC connection.',
+        url: 'https://primal.net',
+    },
+    {
+        id: 'zeus',
+        name: 'Zeus',
+        hint: 'In Zeus, open Settings → Nostr Wallet Connect and create a new connection.',
+        url: 'https://zeusln.com',
+    },
+    {
+        id: 'blink',
+        name: 'Blink',
+        hint: 'Log in at dashboard.blink.sv, open Nostr Wallet Connect, and copy the connection string.',
+        url: 'https://dashboard.blink.sv',
+    },
+];
 
 const WalletConnect = () => {
     const {
@@ -19,6 +57,7 @@ const WalletConnect = () => {
     const [uri, setUri] = useState('');
     const [localError, setLocalError] = useState(null);
     const [mode, setMode] = useState('nwc'); // 'nwc' | 'coinos'
+    const [selectedGuide, setSelectedGuide] = useState(null);
     const [coinosUser, setCoinosUser] = useState('');
     const [coinosPass, setCoinosPass] = useState('');
 
@@ -33,6 +72,23 @@ const WalletConnect = () => {
             setUri('');
         } catch (err) {
             setLocalError(err.message);
+        }
+    };
+
+    const handlePasteFromClipboard = async () => {
+        setLocalError(null);
+        try {
+            if (!navigator.clipboard?.readText) {
+                throw new Error('unsupported');
+            }
+            const text = (await navigator.clipboard.readText()).trim();
+            if (!text) {
+                setLocalError('Clipboard is empty — copy your NWC string first');
+                return;
+            }
+            setUri(text);
+        } catch {
+            setLocalError('Could not read the clipboard — please paste the string manually');
         }
     };
 
@@ -63,6 +119,7 @@ const WalletConnect = () => {
     };
 
     const displayError = localError || error;
+    const activeGuide = WALLET_GUIDES.find(g => g.id === selectedGuide) || null;
 
     return (
         <div className="wallet-connect">
@@ -122,8 +179,36 @@ const WalletConnect = () => {
                         <>
                             <p className="wallet-instructions">
                                 Connect your Lightning wallet using Nostr Wallet Connect (NWC).
-                                Paste your connection string from Alby, Mutiny, or any NWC-compatible wallet.
+                                Pick your wallet below to see where to find your connection string.
                             </p>
+
+                            <div className="wallet-picker">
+                                {WALLET_GUIDES.map(guide => (
+                                    <button
+                                        key={guide.id}
+                                        className={`wallet-picker-chip ${selectedGuide === guide.id ? 'active' : ''}`}
+                                        onClick={() => setSelectedGuide(selectedGuide === guide.id ? null : guide.id)}
+                                        disabled={loading}
+                                    >
+                                        {guide.name}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {activeGuide && (
+                                <div className="wallet-guide">
+                                    <span className="wallet-guide-text">{activeGuide.hint}</span>
+                                    <a
+                                        className="wallet-guide-link"
+                                        href={activeGuide.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Open {activeGuide.name} <ExternalLink size={12} />
+                                    </a>
+                                </div>
+                            )}
+
                             <div className="wallet-input-row">
                                 <input
                                     type="password"
@@ -135,6 +220,15 @@ const WalletConnect = () => {
                                     disabled={loading}
                                 />
                                 <button
+                                    className="btn btn-outline btn-sm wallet-paste-btn"
+                                    onClick={handlePasteFromClipboard}
+                                    disabled={loading}
+                                    title="Paste from clipboard"
+                                >
+                                    <ClipboardPaste size={16} />
+                                    Paste
+                                </button>
+                                <button
                                     className="btn btn-primary btn-sm"
                                     onClick={handleConnectNwc}
                                     disabled={loading}
@@ -142,6 +236,19 @@ const WalletConnect = () => {
                                     {loading ? 'Connecting...' : 'Connect'}
                                 </button>
                             </div>
+
+                            {loading && (
+                                <div className="wallet-progress">
+                                    <Loader2 size={14} className="wallet-spin" />
+                                    Contacting wallet... this can take a few seconds.
+                                </div>
+                            )}
+
+                            <p className="wallet-budget-note">
+                                <ShieldCheck size={14} />
+                                Tip: create a budget-limited NWC connection in your wallet, so this
+                                app can only spend the amount you allow.
+                            </p>
                         </>
                     ) : (
                         <>
@@ -294,9 +401,108 @@ const WalletConnect = () => {
                     line-height: 1.5;
                 }
 
+                .wallet-picker {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.4rem;
+                    margin-bottom: 0.75rem;
+                }
+
+                .wallet-picker-chip {
+                    padding: 0.35rem 0.75rem;
+                    border: 1.5px solid var(--color-gray-200);
+                    border-radius: 20px;
+                    background: var(--color-surface);
+                    font-size: 0.8rem;
+                    font-weight: 500;
+                    color: var(--color-gray-600);
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+                .wallet-picker-chip:hover {
+                    border-color: var(--color-primary);
+                    color: var(--color-primary);
+                }
+                .wallet-picker-chip.active {
+                    background: var(--color-primary);
+                    border-color: var(--color-primary);
+                    color: white;
+                }
+                .wallet-picker-chip:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+
+                .wallet-guide {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.35rem;
+                    padding: 0.6rem 0.75rem;
+                    margin-bottom: 0.75rem;
+                    background: var(--color-gray-100);
+                    border-radius: 8px;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-600);
+                    line-height: 1.5;
+                }
+
+                .wallet-guide-link {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    color: var(--color-primary);
+                    font-weight: 600;
+                    text-decoration: none;
+                    align-self: flex-start;
+                }
+                .wallet-guide-link:hover {
+                    text-decoration: underline;
+                }
+
                 .wallet-input-row {
                     display: flex;
                     gap: 0.5rem;
+                }
+
+                .wallet-paste-btn {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                    white-space: nowrap;
+                }
+
+                .wallet-progress {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    margin-top: 0.6rem;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500);
+                }
+
+                .wallet-progress :global(.wallet-spin) {
+                    animation: wallet-spin 1s linear infinite;
+                    color: var(--color-primary);
+                }
+
+                @keyframes wallet-spin {
+                    to { transform: rotate(360deg); }
+                }
+
+                .wallet-budget-note {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.4rem;
+                    margin-top: 0.75rem;
+                    font-size: 0.78rem;
+                    color: var(--color-gray-500);
+                    line-height: 1.4;
+                }
+
+                .wallet-budget-note :global(svg) {
+                    flex-shrink: 0;
+                    margin-top: 1px;
+                    color: #22c55e;
                 }
 
                 .wallet-coinos-form {
@@ -316,6 +522,7 @@ const WalletConnect = () => {
                     border-radius: var(--radius-md);
                     font-size: 0.85rem;
                     font-family: monospace;
+                    min-width: 0;
                 }
                 .wallet-input:focus {
                     outline: none;

@@ -15,6 +15,7 @@ import { nip19, getPublicKey, finalizeEvent } from 'nostr-tools';
 import { privateKeyFromSeedWords, validateWords } from 'nostr-tools/nip06';
 import { nostrSigner } from './nostrSigner.js';
 import { fingerprintService } from './fingerprintService.js';
+import { nwcClient } from './nwcService.js';
 
 const TOKEN_KEY = 'bies_token';
 const USER_KEY = 'bies_user';
@@ -55,11 +56,6 @@ export const authService = {
     restoreSession: async () => {
         const token = authService.getToken();
         if (!token) return null;
-
-        // TODO: Remove before production — demo bypass
-        if (token === 'demo-token') {
-            return authService.getCachedUser();
-        }
 
         try {
             const user = await authApi.me();
@@ -319,15 +315,6 @@ export const authService = {
         return user;
     },
 
-    // ─── Demo login (temporary — TODO: remove before production) ───────────
-
-    loginWithDemo: async () => {
-        const { user, token } = await authApi.demoLogin();
-        authService.setToken(token);
-        authService.setCachedUser(user);
-        return user;
-    },
-
     // ─── Email/password login ───────────────────────────────────────────────
 
     loginWithEmail: async (email, password) => {
@@ -358,6 +345,12 @@ export const authService = {
     logout: () => {
         authService.clearToken();
         nostrSigner.clear();
+        // Clear the NWC wallet connection — the spend-capable secret in
+        // localStorage must never survive logout (or leak to the next user
+        // on a shared browser).
+        try {
+            nwcClient.disconnect();
+        } catch { /* best-effort */ }
     },
 
     // ─── Role management ────────────────────────────────────────────────────

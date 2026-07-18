@@ -1,8 +1,9 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck, Search, X, Mail } from 'lucide-react';
+import { Plus, Edit, Trash2, ExternalLink, Loader2, MoreHorizontal, Copy, Check, ShieldCheck, Award, Globe, Lock, EyeOff, Users, UserCheck, Search, X, Mail, Ticket, Zap, QrCode } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { QRCodeSVG } from 'qrcode.react';
 import { eventsApi } from '../services/api';
 import { useApiQuery } from '../hooks/useApi';
 import { getAssetUrl } from '../utils/assets';
@@ -36,6 +37,152 @@ const RSVP_OPTIONS = [
     { value: 'INTERESTED', label: 'Interested' },
     { value: 'NOT_GOING', label: 'Not Going' },
 ];
+
+const TICKET_STATUS_CFG = {
+    PAID: { label: 'Paid', color: 'var(--badge-success-text)', bg: 'var(--badge-success-bg)' },
+    PENDING: { label: 'Pending', color: 'var(--badge-warning-text)', bg: 'var(--badge-warning-bg)' },
+    EXPIRED: { label: 'Expired', color: 'var(--badge-draft-text)', bg: 'var(--badge-draft-bg)' },
+    CANCELLED: { label: 'Cancelled', color: 'var(--badge-error-text)', bg: 'var(--badge-error-bg)' },
+};
+
+const TicketStatusBadge = ({ status, checkedInAt }) => {
+    const cfg = checkedInAt
+        ? { label: 'Checked In', color: 'var(--badge-success-text)', bg: 'var(--badge-success-bg)' }
+        : TICKET_STATUS_CFG[status] || TICKET_STATUS_CFG.PENDING;
+    return (
+        <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 4,
+            padding: '2px 8px', borderRadius: 99,
+            fontSize: '0.72rem', fontWeight: 700,
+            color: cfg.color, background: cfg.bg,
+        }}>
+            {checkedInAt && <Check size={10} />} {cfg.label}
+        </span>
+    );
+};
+
+/** Host view: buyers for one event with door check-in (portal modal). */
+const EventTicketsModal = ({ event, onClose }) => {
+    const [tickets, setTickets] = useState([]);
+    const [summary, setSummary] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [checkinLoading, setCheckinLoading] = useState(null);
+
+    const load = useCallback(async () => {
+        setLoading(true);
+        setError('');
+        try {
+            const res = await eventsApi.eventTickets(event.id);
+            setTickets(res?.data || []);
+            setSummary(res?.summary || null);
+        } catch (err) {
+            setError(err?.message || 'Failed to load tickets.');
+        } finally {
+            setLoading(false);
+        }
+    }, [event.id]);
+
+    useEffect(() => { load(); }, [load]);
+
+    const handleCheckin = async (ticketId) => {
+        setCheckinLoading(ticketId);
+        try {
+            const res = await eventsApi.checkinTicket(event.id, ticketId);
+            const updated = res?.ticket || res;
+            setTickets(prev => prev.map(t => (t.id === ticketId ? { ...t, ...updated } : t)));
+            setSummary(prev => (prev ? { ...prev, checkedIn: (prev.checkedIn || 0) + 1 } : prev));
+        } catch (err) {
+            alert(err?.message || 'Failed to check in ticket.');
+        } finally {
+            setCheckinLoading(null);
+        }
+    };
+
+    return ReactDOM.createPortal(
+        <div className="tkm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+            <div className="tkm-card" role="dialog" aria-modal="true">
+                <div className="tkm-header">
+                    <h3 className="tkm-title"><Ticket size={16} style={{ color: '#f7931a' }} /> Tickets — {event.title}</h3>
+                    <button className="tkm-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+                </div>
+                {summary && (
+                    <div className="tkm-summary">
+                        <span><strong>{summary.sold}</strong> sold</span>
+                        <span><Zap size={12} style={{ color: '#f7931a' }} /> <strong>{(summary.revenueSats || 0).toLocaleString()}</strong> sats</span>
+                        <span><strong>{summary.checkedIn}</strong> checked in</span>
+                        {summary.pending > 0 && <span><strong>{summary.pending}</strong> pending</span>}
+                    </div>
+                )}
+                <div className="tkm-body">
+                    {loading && (
+                        <div className="tkm-empty"><Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} /></div>
+                    )}
+                    {!loading && error && <div className="tkm-empty" style={{ color: 'var(--color-error, #ef4444)' }}>{error}</div>}
+                    {!loading && !error && tickets.length === 0 && (
+                        <div className="tkm-empty">No tickets yet.</div>
+                    )}
+                    {!loading && !error && tickets.map(ticket => (
+                        <div key={ticket.id} className="tkm-row">
+                            <div className="tkm-avatar">
+                                {ticket.buyer?.avatar ? (
+                                    <img src={getAssetUrl(ticket.buyer.avatar)} alt="" />
+                                ) : (
+                                    <span>{(ticket.buyer?.name || '?').charAt(0).toUpperCase()}</span>
+                                )}
+                            </div>
+                            <div className="tkm-row-info">
+                                <div className="tkm-buyer-name">{ticket.buyer?.name || 'BIES member'}</div>
+                                <div className="tkm-row-meta">
+                                    {(ticket.amountSats || 0).toLocaleString()} sats
+                                    {ticket.paidAt && ` · ${new Date(ticket.paidAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
+                                </div>
+                            </div>
+                            <TicketStatusBadge status={ticket.status} checkedInAt={ticket.checkedInAt} />
+                            {ticket.status === 'PAID' && !ticket.checkedInAt && (
+                                <button
+                                    className="tkm-checkin-btn"
+                                    disabled={checkinLoading === ticket.id}
+                                    onClick={() => handleCheckin(ticket.id)}
+                                >
+                                    {checkinLoading === ticket.id
+                                        ? <Loader2 size={13} style={{ animation: 'spin 1s linear infinite' }} />
+                                        : <UserCheck size={13} />}
+                                    Check-in
+                                </button>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>,
+        document.body
+    );
+};
+
+/** Buyer view: tap-to-show door QR for a purchased ticket (portal modal). */
+const TicketQrModal = ({ ticket, onClose }) => ReactDOM.createPortal(
+    <div className="tkm-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="tkm-card tkm-qr-card" role="dialog" aria-modal="true">
+            <div className="tkm-header">
+                <h3 className="tkm-title"><Ticket size={16} style={{ color: '#f7931a' }} /> My Ticket</h3>
+                <button className="tkm-close" onClick={onClose} aria-label="Close"><X size={18} /></button>
+            </div>
+            <div className="tkm-body tkm-qr-body">
+                {ticket.event?.title && <p className="tkm-qr-event">{ticket.event.title}</p>}
+                <div className="tkm-qr-wrap">
+                    <QRCodeSVG value={ticket.id} size={200} level="M" marginSize={2} bgColor="#ffffff" fgColor="#000000" />
+                </div>
+                <p className="tkm-qr-id">Ticket #{ticket.id}</p>
+                <TicketStatusBadge status={ticket.status} checkedInAt={ticket.checkedInAt} />
+                <p className="tkm-qr-hint">
+                    {ticket.checkedInAt ? 'This ticket has been checked in.' : 'Show this QR code at the door for check-in.'}
+                </p>
+            </div>
+        </div>
+    </div>,
+    document.body
+);
 
 const AttendingActionMenu = ({ event, onChangeRsvp, onRemove }) => {
     const [open, setOpen] = useState(false);
@@ -90,7 +237,7 @@ const AttendingActionMenu = ({ event, onChangeRsvp, onRemove }) => {
     );
 };
 
-const ActionMenu = ({ event, onDelete, onVisibilityChange, onCopyLink }) => {
+const ActionMenu = ({ event, onDelete, onVisibilityChange, onCopyLink, onViewTickets }) => {
     const [open, setOpen] = useState(false);
     const [showVisibility, setShowVisibility] = useState(false);
     const [pos, setPos] = useState({ top: 0, left: 0 });
@@ -128,6 +275,11 @@ const ActionMenu = ({ event, onDelete, onVisibilityChange, onCopyLink }) => {
                                 <button className="ctx-item" onClick={() => { close(); navigate(`/events/${event.id}`); }}>
                                     <ExternalLink size={15} /> View Event
                                 </button>
+                                {event.priceSats > 0 && (
+                                    <button className="ctx-item" onClick={() => { close(); onViewTickets(event); }}>
+                                        <Ticket size={15} /> Tickets
+                                    </button>
+                                )}
                                 <button className="ctx-item" onClick={() => { setShowVisibility(true); }}>
                                     <Globe size={15} /> Change Visibility
                                 </button>
@@ -174,11 +326,15 @@ const MyEvents = () => {
     const [showSearch, setShowSearch] = useState(false);
     const [copiedId, setCopiedId] = useState(null);
     const [actionLoading, setActionLoading] = useState(null);
+    const [ticketsEvent, setTicketsEvent] = useState(null); // hosted event whose ticket list is open
+    const [qrTicket, setQrTicket] = useState(null); // purchased ticket whose QR is shown
 
     const { data: eventsData, loading, refetch } = useApiQuery(eventsApi.listMine);
     const { data: attendingData, loading: attendingLoading, refetch: refetchAttending } = useApiQuery(eventsApi.listAttending);
+    const { data: myTicketsData } = useApiQuery(eventsApi.myTickets);
     const eventList = Array.isArray(eventsData?.data) ? eventsData.data : Array.isArray(eventsData) ? eventsData : [];
     const attendingList = Array.isArray(attendingData?.data) ? attendingData.data : Array.isArray(attendingData) ? attendingData : [];
+    const myTicketsList = (Array.isArray(myTicketsData?.data) ? myTicketsData.data : []).filter(t => t.status === 'PAID');
     // Exclude events I'm hosting from the attending list, then split invited vs attending
     const hostedIds = new Set(eventList.map(e => e.id));
     const nonHosted = attendingList.filter(e => !hostedIds.has(e.id));
@@ -341,6 +497,8 @@ const MyEvents = () => {
                                     <th>Visibility</th>
                                     <th>Badges</th>
                                     <th>Attendees</th>
+                                    <th>Sold</th>
+                                    <th>Revenue</th>
                                     <th style={{ width: '60px', textAlign: 'center' }}>Actions</th>
                                 </tr>
                             </thead>
@@ -381,12 +539,23 @@ const MyEvents = () => {
                                             {event.attendeeCount || 0}
                                             {event.maxAttendees ? ` / ${event.maxAttendees}` : ''}
                                         </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem' }}>
+                                            {event.priceSats > 0
+                                                ? `${event.ticketsSold || 0}${event.ticketCapacity ? ` / ${event.ticketCapacity}` : ''}`
+                                                : '—'}
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            {event.priceSats > 0
+                                                ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Zap size={12} style={{ color: '#f7931a' }} /> {(event.revenueSats || 0).toLocaleString()} sats</span>
+                                                : '—'}
+                                        </td>
                                         <td style={{ textAlign: 'center' }}>
                                             <ActionMenu
                                                 event={event}
                                                 onDelete={handleDelete}
                                                 onVisibilityChange={handleVisibilityChange}
                                                 onCopyLink={handleCopyLink}
+                                                onViewTickets={setTicketsEvent}
                                             />
                                         </td>
                                     </tr>
@@ -531,6 +700,59 @@ const MyEvents = () => {
                     </div>
                 </div>
             )}
+
+            {/* My Tickets — purchased across events */}
+            {myTicketsList.length > 0 && (
+                <div className="card-container" style={{ marginTop: '2rem' }}>
+                    <div className="toolbar">
+                        <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Ticket size={16} style={{ color: '#f7931a' }} /> My Tickets
+                        </h3>
+                    </div>
+                    <div className="table-wrapper">
+                        <table className="events-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ minWidth: '160px' }}>Event Name</th>
+                                    <th>Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th style={{ width: '100px', textAlign: 'center' }}>Ticket</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {myTicketsList.map(ticket => (
+                                    <tr key={ticket.id}>
+                                        <td>
+                                            <Link to={`/events/${ticket.eventId}`} className="event-name-link">
+                                                {ticket.event?.title || 'Event'}
+                                            </Link>
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            {formatDate(ticket.event?.startDate)}
+                                        </td>
+                                        <td style={{ color: 'var(--color-gray-500)', fontSize: '0.88rem', whiteSpace: 'nowrap' }}>
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Zap size={12} style={{ color: '#f7931a' }} /> {(ticket.amountSats || 0).toLocaleString()} sats</span>
+                                        </td>
+                                        <td>
+                                            <TicketStatusBadge status={ticket.status} checkedInAt={ticket.checkedInAt} />
+                                        </td>
+                                        <td style={{ textAlign: 'center' }}>
+                                            <button className="tkm-qr-btn" onClick={() => setQrTicket(ticket)} title="Show door check-in QR">
+                                                <QrCode size={14} /> QR
+                                            </button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {/* Host ticket list / buyer QR modals */}
+            {ticketsEvent && <EventTicketsModal event={ticketsEvent} onClose={() => setTicketsEvent(null)} />}
+            {qrTicket && <TicketQrModal ticket={qrTicket} onClose={() => setQrTicket(null)} />}
 
             <style jsx>{`
                 .event-name-link {
@@ -736,6 +958,183 @@ const MyEvents = () => {
                 .ctx-delete { color: #ef4444; }
                 .ctx-delete:hover { background: var(--color-red-tint); }
                 .ctx-divider { height: 1px; background: var(--color-gray-200); margin: 3px 0; }
+
+                /* Ticket modals (rendered via portal — plain global styles) */
+                .tkm-overlay {
+                    position: fixed;
+                    inset: 0;
+                    z-index: 10001;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background: rgba(0, 0, 0, 0.6);
+                    backdrop-filter: blur(4px);
+                }
+                .tkm-card {
+                    background: var(--color-surface);
+                    border-radius: var(--radius-lg, 16px);
+                    width: 92vw;
+                    max-width: 480px;
+                    max-height: 85vh;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: var(--shadow-lg);
+                    overflow: hidden;
+                }
+                .tkm-qr-card { max-width: 340px; }
+                .tkm-header {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.75rem;
+                    padding: 1rem 1.25rem;
+                    border-bottom: 1px solid var(--color-gray-200);
+                    flex-shrink: 0;
+                }
+                .tkm-title {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin: 0;
+                    font-size: 1rem;
+                    font-weight: 700;
+                    min-width: 0;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .tkm-close {
+                    display: flex;
+                    padding: 4px;
+                    border: none;
+                    background: none;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    flex-shrink: 0;
+                }
+                .tkm-close:hover { color: var(--color-gray-900); }
+                .tkm-summary {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                    padding: 0.75rem 1.25rem;
+                    border-bottom: 1px solid var(--color-gray-100);
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500);
+                    flex-shrink: 0;
+                }
+                .tkm-summary span { display: inline-flex; align-items: center; gap: 4px; }
+                .tkm-summary strong { color: var(--color-gray-900); }
+                .tkm-body {
+                    padding: 0.75rem 1rem 1rem;
+                    overflow-y: auto;
+                }
+                .tkm-empty {
+                    display: flex;
+                    justify-content: center;
+                    padding: 2rem;
+                    color: var(--color-gray-500);
+                    font-size: 0.85rem;
+                }
+                .tkm-row {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                    padding: 0.6rem 0.5rem;
+                    border-radius: 8px;
+                }
+                .tkm-row:hover { background: var(--color-gray-50); }
+                .tkm-avatar {
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    overflow: hidden;
+                    background: var(--color-gray-200);
+                    flex-shrink: 0;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-weight: 600;
+                    font-size: 0.85rem;
+                    color: var(--color-gray-500);
+                }
+                .tkm-avatar img { width: 100%; height: 100%; object-fit: cover; }
+                .tkm-row-info { flex: 1; min-width: 0; }
+                .tkm-buyer-name {
+                    font-weight: 600;
+                    font-size: 0.88rem;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    white-space: nowrap;
+                }
+                .tkm-row-meta { font-size: 0.75rem; color: var(--color-gray-500); }
+                .tkm-checkin-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--color-gray-300);
+                    background: var(--color-surface);
+                    color: var(--color-primary);
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: all 0.15s;
+                    flex-shrink: 0;
+                }
+                .tkm-checkin-btn:hover:not(:disabled) { background: var(--color-blue-tint); border-color: var(--color-primary); }
+                .tkm-checkin-btn:disabled { opacity: 0.6; cursor: wait; }
+                .tkm-qr-btn {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 8px;
+                    border: 1px solid var(--color-gray-300);
+                    background: var(--color-surface);
+                    color: var(--color-primary);
+                    font-size: 0.78rem;
+                    font-weight: 600;
+                    cursor: pointer;
+                    white-space: nowrap;
+                    transition: all 0.15s;
+                }
+                .tkm-qr-btn:hover { background: var(--color-blue-tint); border-color: var(--color-primary); }
+                .tkm-qr-body {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.6rem;
+                    padding: 1.25rem;
+                    text-align: center;
+                }
+                .tkm-qr-event {
+                    margin: 0;
+                    font-weight: 700;
+                    font-size: 0.95rem;
+                    color: var(--color-gray-900);
+                }
+                .tkm-qr-wrap {
+                    display: inline-flex;
+                    padding: 0.75rem;
+                    background: white;
+                    border-radius: 12px;
+                    border: 1px solid var(--color-gray-200);
+                }
+                .tkm-qr-id {
+                    margin: 0;
+                    font-family: monospace;
+                    font-size: 0.7rem;
+                    color: var(--color-gray-400);
+                    word-break: break-all;
+                }
+                .tkm-qr-hint {
+                    margin: 0;
+                    font-size: 0.8rem;
+                    color: var(--color-gray-500);
+                }
             `}</style>
         </div>
     );

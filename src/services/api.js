@@ -113,8 +113,6 @@ export const authApi = {
         post('/auth/nostr-login', withVoucherCode({ pubkey, signedEvent, fingerprint }))
             .then(clearVoucherCode),
 
-    demoLogin: () => post('/auth/demo-login'), // TODO: Remove before production
-
     me: () => get('/auth/me'),
 
     updateRole: (role) => put('/auth/role', { role }),
@@ -349,13 +347,17 @@ export const notificationsApi = {
     getVapidKey: () => get('/notifications/push/vapid-key'),
     pushSubscribe: (subscription) => post('/notifications/push/subscribe', subscription.toJSON()),
     pushUnsubscribe: (endpoint) => request('DELETE', '/notifications/push/subscribe', { endpoint }),
+
+    // Native push (APNs) device token management
+    deviceTokenRegister: (token, platform) => post('/notifications/device-token', { token, platform }),
+    deviceTokenUnregister: (token) => request('DELETE', '/notifications/device-token', { token }),
 };
 
 // ─── Events ───────────────────────────────────────────────────────────────────
 
 export const eventsApi = {
     list: (params = {}) => get('/events', params),
-    // params: { category, upcoming, search, isOfficial, isEndorsed, page, limit }
+    // params: { category, upcoming, search, isOfficial, isEndorsed, hostId, page, limit }
 
     listMine: (params = {}) => get('/events/my', params),
     listAttending: (params = {}) => get('/events/attending', params),
@@ -377,6 +379,53 @@ export const eventsApi = {
     invite: (id, userId) => post(`/events/${id}/invite`, { userId }),
 
     importUrl: (url) => post('/events/import-url', { url }),
+
+    // Ticketing (non-custodial Lightning payments to the event host)
+    buyTicket: (id) => post(`/events/${id}/tickets`),
+    // → { ticket: { id, bolt11, amountSats, status, verifySupported, expiresAt, ... } }
+
+    getTicket: (id, ticketId) => get(`/events/${id}/tickets/${ticketId}`),
+    // Polling this also triggers server-side LUD-21 settlement verification
+
+    claimTicket: (id, ticketId, preimage) =>
+        post(`/events/${id}/tickets/${ticketId}/claim`, { preimage }),
+
+    myEventTickets: (id) => get(`/events/${id}/tickets/mine`),
+
+    myTickets: () => get('/events/tickets/mine'),
+
+    eventTickets: (id) => get(`/events/${id}/tickets`),
+    // Host/admin only → { data: [...tickets with buyer], summary: { sold, revenueSats, pending, checkedIn } }
+
+    checkinTicket: (id, ticketId) => post(`/events/${id}/tickets/${ticketId}/checkin`, {}),
+};
+
+// ─── Cowork ───────────────────────────────────────────────────────────────────
+
+export const coworkApi = {
+    listVenues: () => get('/cowork/venues'),
+    // → { data: Venue[], groups: [{ area, venues: Venue[] }] }
+
+    addVenue: (data) => post('/cowork/venues', data),
+    // data: { name, address?, area?, lat?, lng? } → Venue (200 existing | 201 created)
+
+    listSessions: (filter = 'active') => get('/cowork/sessions', { filter }),
+    // filter: 'active' | 'past' → { data: Session[] }
+
+    getSession: (id) => get(`/cowork/sessions/${id}`),
+    // → Session + attendees: [{ id, name, avatar, nostrPubkey, isHost }]
+
+    createSession: (data) => post('/cowork/sessions', data),
+    // data: { title, venueId? | (locationName + lat + lng), note?, amenities?, durationMinutes, startTime? } → Session
+
+    joinSession: (id) => post(`/cowork/sessions/${id}/join`, {}),
+    // → { attendeeCount, isAttending: true }
+
+    leaveSession: (id) => del(`/cowork/sessions/${id}/join`),
+    // → { attendeeCount, isAttending: false }
+
+    endSession: (id) => post(`/cowork/sessions/${id}/end`, {}),
+    // Host/admin only → Session (status: 'ENDED')
 };
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
@@ -551,7 +600,14 @@ export const mediaApi = {
     substack: () => get('/media/substack'),
     youtube: () => get('/media/youtube'),
     getReadState: () => get('/settings/media-read'),
+    // Legacy full-array replace — prefer toggleReadState / bulkReadState below
     saveReadState: (data) => put('/settings/media-read', data),
+    // Atomically add/remove a single item: itemType is 'watched' | 'read'
+    toggleReadState: (itemId, itemType, value) =>
+        post('/settings/media-read/toggle', { itemId, itemType, value }),
+    // Server-side merge of add/remove deltas: { watched: [], read: [] } each
+    bulkReadState: (add = {}, remove = {}) =>
+        post('/settings/media-read/bulk', { add, remove }),
 };
 
 // ─── User Preferences (persistent across login/logout) ──────────────────────

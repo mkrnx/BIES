@@ -1,48 +1,112 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Coffee, Maximize2, LogOut, Loader2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Coffee, Plus, Loader2, WifiOff } from 'lucide-react';
 import { useCoworkSessions } from '../hooks/useCoworkSessions';
-import { coworkService } from '../services/coworkService';
+import { coworkApi } from '../services/api';
 import CoworkMap from '../components/cowork/CoworkMap';
-import CoworkMapModal from '../components/cowork/CoworkMapModal';
 import CheckInModal from '../components/cowork/CheckInModal';
+import CoworkSessionModal from '../components/cowork/CoworkSessionModal';
 import CoworkerCard from '../components/cowork/CoworkerCard';
 
 /**
- * /cowork — who's coworking where across the BIES network.
- * Map thumbnail (expands to a fullscreen navigable map) + live coworker list.
- * Check-ins are pure Nostr, broadcast to the private BIES relay only.
+ * /cowork — server-backed, joinable cowork sessions.
+ * Active tab: live-polled sessions (map thumbnail + clickable cards, "+ New
+ * session" CTA). Past tab: lazy-loaded ended sessions. Any card opens the
+ * shared detail modal.
  */
 const Cowork = () => {
     const { t } = useTranslation();
-    const { user } = useAuth();
-    const { sessions, profiles, loading, addOptimistic } = useCoworkSessions();
+    const { sessions, loading, error, retry } = useCoworkSessions();
 
+    const [tab, setTab] = useState('active'); // 'active' | 'past'
     const [showCheckIn, setShowCheckIn] = useState(false);
-    const [showMap, setShowMap] = useState(false);
-    const [mapFocusPubkey, setMapFocusPubkey] = useState(null);
-    const [checkoutError, setCheckoutError] = useState('');
+    const [selectedSessionId, setSelectedSessionId] = useState(null);
 
-    const mySession = sessions.find(s => s.pubkey === user?.nostrPubkey);
+    // Just-created sessions overlaid on the polled list for instant feedback;
+    // pruned once the authoritative poll includes them.
+    const [justCreated, setJustCreated] = useState([]);
 
-    const openMap = (focusPubkey = null) => {
-        setMapFocusPubkey(focusPubkey);
-        setShowMap(true);
-    };
+    // Past tab (lazy — fetched on first switch, refetched after an end action).
+    const [pastSessions, setPastSessions] = useState([]);
+    const [pastLoading, setPastLoading] = useState(false);
+    const [pastError, setPastError] = useState(false);
+    const [pastLoaded, setPastLoaded] = useState(false);
 
-    const handleCheckOut = async () => {
-        if (!window.confirm(t('cowork.confirmCheckout'))) return;
-        setCheckoutError('');
-        try {
-            const event = await coworkService.checkOut();
-            addOptimistic(event);
-        } catch (err) {
-            // Keep the session visible — never optimistically remove on failure.
-            console.error('[Cowork] Check-out publish failed:', err);
-            setCheckoutError(t('cowork.form.errorPublish'));
+    const fetchPast = useCallback(() => {
+        setPastLoading(true);
+        setPastError(false);
+        return coworkApi.listSessions('past')
+            .then((res) => {
+                setPastSessions(Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : []));
+            })
+            .catch((err) => {
+                console.error('[Cowork] Failed to load past sessions:', err);
+                setPastError(true);
+            })
+            .finally(() => {
+                // Mark loaded on BOTH outcomes so the lazy-load effect can't
+                // re-fire on failure (pastError drives the error UI; Try Again
+                // re-invokes fetchPast directly).
+                setPastLoaded(true);
+                setPastLoading(false);
+            });
+    }, []);
+
+    // Lazy-load the Past tab the first time it's opened.
+    useEffect(() => {
+        if (tab === 'past' && !pastLoaded && !pastLoading) fetchPast();
+    }, [tab, pastLoaded, pastLoading, fetchPast]);
+
+    // Drop optimistic entries once the poll authoritatively returns them.
+    useEffect(() => {
+        if (justCreated.length === 0) return;
+        setJustCreated((prev) => prev.filter((s) => !sessions.some((h) => h.id === s.id)));
+    }, [sessions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const activeSessions = useMemo(() => {
+        const byId = new Map();
+        for (const s of justCreated) byId.set(s.id, s);
+        for (const s of sessions) byId.set(s.id, s); // server is authoritative
+        return [...byId.values()].sort(
+            (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
+        );
+    }, [justCreated, sessions]);
+
+    // Sessions with real coordinates feed the map thumbnail. CoworkMap is plain
+    // Leaflet keyed on `pubkey`; map session id -> pubkey and hand it a name via
+    // the profiles map so the pin tooltip reads the session title.
+    const { mapSessions, mapProfiles } = useMemo(() => {
+        const withCoords = activeSessions.filter(
+            (s) => Number.isFinite(s.lat) && Number.isFinite(s.lng),
+        );
+        const profiles = {};
+        withCoords.forEach((s) => { profiles[s.id] = { name: s.title }; });
+        return {
+            mapSessions: withCoords.map((s) => ({ pubkey: s.id, lat: s.lat, lng: s.lng })),
+            mapProfiles: profiles,
+        };
+    }, [activeSessions]);
+
+    const handleCreated = (session) => {
+        if (session && session.id) {
+            setJustCreated((prev) => [session, ...prev.filter((s) => s.id !== session.id)]);
+            setSelectedSessionId(session.id);
         }
+        setShowCheckIn(false);
+        if (typeof retry === 'function') retry(); // pull the authoritative row
     };
+
+    // A join/leave/end inside the detail modal — refresh whichever tab is live.
+    const handleChanged = useCallback(() => {
+        if (typeof retry === 'function') retry();
+        if (pastLoaded) fetchPast();
+    }, [retry, pastLoaded, fetchPast]);
+
+    const isActive = tab === 'active';
+    const listSessions = isActive ? activeSessions : pastSessions;
+    const listLoading = isActive ? loading : pastLoading;
+    const listError = isActive ? error : pastError;
+    const listCount = listSessions.length;
 
     return (
         <div className="cowork-page" data-testid="cowork-page">
@@ -52,98 +116,106 @@ const Cowork = () => {
                     <Coffee size={26} className="cw-title-icon" />
                     <h1>{t('cowork.title')}</h1>
                 </div>
-                <span className="cw-count-pill">
-                    {t('cowork.activeCount', { count: sessions.length })}
-                </span>
-            </div>
-
-            {/* Map thumbnail (non-interactive, expands to fullscreen) */}
-            <div className="cw-map-thumb">
-                <CoworkMap sessions={sessions} profiles={profiles} height="200px" />
-                <button
-                    className="cw-map-expand"
-                    data-testid="cowork-map-thumbnail"
-                    aria-label={t('cowork.expandMap')}
-                    onClick={() => openMap(null)}
-                />
-                <span className="cw-map-badge" aria-hidden="true">
-                    <Maximize2 size={15} />
-                </span>
-            </div>
-
-            {/* CTA / your check-in banner */}
-            {mySession ? (
-                <div className="cw-my-banner">
-                    <span className="cw-my-text">
-                        {t('cowork.yourCheckIn', { venue: mySession.venueName })}
-                    </span>
-                    <button className="cw-banner-checkout" onClick={handleCheckOut}>
-                        <LogOut size={15} />
-                        {t('cowork.checkOut')}
+                {isActive && (
+                    <button
+                        className="cw-new-btn"
+                        data-testid="cowork-checkin-btn"
+                        onClick={() => setShowCheckIn(true)}
+                    >
+                        <Plus size={18} />
+                        {t('cowork.newSession', 'New session')}
                     </button>
-                </div>
-            ) : (
-                <button
-                    className="cw-checkin-cta"
-                    data-testid="cowork-checkin-btn"
-                    onClick={() => setShowCheckIn(true)}
-                >
-                    <Coffee size={18} />
-                    {t('cowork.checkIn')}
-                </button>
-            )}
-            {checkoutError && <p className="cw-error">{checkoutError}</p>}
+                )}
+            </div>
 
-            {/* Coworker list */}
+            {/* Active | Past tabs */}
+            <div className="cw-tabs" role="tablist">
+                <button
+                    role="tab"
+                    aria-selected={isActive}
+                    className={`cw-tab ${isActive ? 'active' : ''}`}
+                    data-testid="cowork-tab-active"
+                    onClick={() => setTab('active')}
+                >
+                    {t('cowork.tabActive', 'Active')}
+                </button>
+                <button
+                    role="tab"
+                    aria-selected={!isActive}
+                    className={`cw-tab ${!isActive ? 'active' : ''}`}
+                    data-testid="cowork-tab-past"
+                    onClick={() => setTab('past')}
+                >
+                    {t('cowork.tabPast', 'Past')}
+                </button>
+            </div>
+
+            {/* Map thumbnail — active sessions with coordinates only */}
+            {isActive && mapSessions.length > 0 && (
+                <div className="cw-map-thumb">
+                    <CoworkMap sessions={mapSessions} profiles={mapProfiles} height="200px" />
+                </div>
+            )}
+
+            {/* Session list */}
             <div className="cw-list" data-testid="cowork-list">
-                {sessions.map(session => (
+                {listSessions.map((session) => (
                     <CoworkerCard
-                        key={session.pubkey}
+                        key={session.id}
                         session={session}
-                        profile={profiles[session.pubkey]}
-                        isMe={session.pubkey === user?.nostrPubkey}
-                        onLocate={(pk) => openMap(pk)}
-                        onCheckOut={handleCheckOut}
+                        onOpen={(id) => setSelectedSessionId(id)}
                     />
                 ))}
             </div>
 
-            {loading && sessions.length === 0 && (
+            {listLoading && listCount === 0 && (
                 <div className="cw-loading">
                     <Loader2 size={28} className="cw-spin" />
                 </div>
             )}
 
-            {!loading && sessions.length === 0 && (
-                <div className="cw-empty" data-testid="cowork-empty">
-                    <Coffee size={48} className="cw-empty-icon" />
-                    <h3>{t('cowork.emptyTitle')}</h3>
-                    <p>{t('cowork.emptyBody')}</p>
-                    <button className="cw-empty-cta" onClick={() => setShowCheckIn(true)}>
-                        <Coffee size={16} />
-                        {t('cowork.checkIn')}
+            {!listLoading && listError && listCount === 0 && (
+                <div className="cw-empty" data-testid="cowork-error">
+                    <WifiOff size={48} className="cw-empty-icon" />
+                    <h3>{t('cowork.loadErrorTitle', "Couldn't load sessions")}</h3>
+                    <p>{t('cowork.loadErrorBody', 'Check your connection and try again.')}</p>
+                    <button className="cw-empty-cta" onClick={() => (isActive ? retry && retry() : fetchPast())}>
+                        {t('common.tryAgain', 'Try Again')}
                     </button>
                 </div>
+            )}
+
+            {!listLoading && !listError && listCount === 0 && (
+                isActive ? (
+                    <div className="cw-empty" data-testid="cowork-empty">
+                        <Coffee size={48} className="cw-empty-icon" />
+                        <h3>{t('cowork.emptyTitle')}</h3>
+                        <p>{t('cowork.emptyBody')}</p>
+                        <button className="cw-empty-cta" onClick={() => setShowCheckIn(true)}>
+                            <Plus size={16} />
+                            {t('cowork.newSession', 'New session')}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="cw-empty" data-testid="cowork-empty-past">
+                        <Coffee size={48} className="cw-empty-icon" />
+                        <h3>{t('cowork.emptyPastTitle', 'No past sessions yet')}</h3>
+                        <p>{t('cowork.emptyPastBody', 'Ended cowork sessions will show up here.')}</p>
+                    </div>
+                )
             )}
 
             <CheckInModal
                 open={showCheckIn}
                 onClose={() => setShowCheckIn(false)}
-                onSuccess={(evt) => {
-                    addOptimistic(evt);
-                    setShowCheckIn(false);
-                }}
+                onSuccess={handleCreated}
             />
 
-            <CoworkMapModal
-                open={showMap}
-                onClose={() => {
-                    setShowMap(false);
-                    setMapFocusPubkey(null);
-                }}
-                sessions={sessions}
-                profiles={profiles}
-                focusPubkey={mapFocusPubkey}
+            <CoworkSessionModal
+                open={!!selectedSessionId}
+                sessionId={selectedSessionId}
+                onClose={() => setSelectedSessionId(null)}
+                onChanged={handleChanged}
             />
 
             <style jsx>{`
@@ -168,6 +240,7 @@ const Cowork = () => {
                     display: flex;
                     align-items: center;
                     gap: 0.6rem;
+                    min-width: 0;
                 }
 
                 .cw-title-block h1 {
@@ -180,14 +253,49 @@ const Cowork = () => {
                     flex-shrink: 0;
                 }
 
-                .cw-count-pill {
+                .cw-new-btn {
                     flex-shrink: 0;
-                    padding: 0.25rem 0.75rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.4rem;
+                    padding: 0.55rem 1rem;
+                    border: none;
                     border-radius: var(--radius-full);
-                    background: var(--color-gray-100);
-                    color: var(--color-gray-600, var(--color-gray-500));
-                    font-size: 0.8rem;
+                    background: var(--color-secondary);
+                    color: white;
+                    font-size: 0.88rem;
                     font-weight: 600;
+                    cursor: pointer;
+                    transition: background 0.15s;
+                }
+
+                .cw-new-btn:hover { background: var(--color-secondary-dark, #CC4A00); }
+
+                .cw-tabs {
+                    display: flex;
+                    gap: 0.35rem;
+                    background: var(--color-gray-100);
+                    border-radius: var(--radius-md);
+                    padding: 0.25rem;
+                }
+
+                .cw-tab {
+                    flex: 1;
+                    padding: 0.55rem 0.5rem;
+                    border: none;
+                    background: none;
+                    border-radius: var(--radius-sm);
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    color: var(--color-gray-500);
+                    cursor: pointer;
+                    transition: all 0.15s;
+                }
+
+                .cw-tab.active {
+                    background: var(--color-surface);
+                    color: var(--color-primary);
+                    box-shadow: var(--shadow-sm);
                 }
 
                 .cw-map-thumb {
@@ -196,98 +304,6 @@ const Cowork = () => {
                     overflow: hidden;
                     border: 1px solid var(--color-gray-200);
                     box-shadow: var(--shadow-sm);
-                }
-
-                .cw-map-expand {
-                    position: absolute;
-                    inset: 0;
-                    z-index: 1;
-                    border: none;
-                    background: transparent;
-                    cursor: pointer;
-                    padding: 0;
-                }
-
-                .cw-map-badge {
-                    position: absolute;
-                    right: 10px;
-                    bottom: 10px;
-                    z-index: 2;
-                    pointer-events: none;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    width: 32px;
-                    height: 32px;
-                    border-radius: var(--radius-sm);
-                    background: var(--color-surface);
-                    color: var(--color-gray-600, var(--color-gray-500));
-                    box-shadow: var(--shadow-md);
-                }
-
-                .cw-checkin-cta {
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 0.5rem;
-                    width: 100%;
-                    padding: 0.85rem;
-                    border: none;
-                    border-radius: var(--radius-md);
-                    background: var(--color-secondary);
-                    color: white;
-                    font-size: 1rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: background 0.15s;
-                }
-
-                .cw-checkin-cta:hover {
-                    background: var(--color-secondary-dark, #CC4A00);
-                }
-
-                .cw-my-banner {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 0.75rem;
-                    padding: 0.85rem 1rem;
-                    border-radius: var(--radius-md);
-                    border: 1.5px solid var(--color-secondary);
-                    background: rgba(255, 91, 0, 0.06);
-                }
-
-                .cw-my-text {
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    color: var(--color-gray-900);
-                    min-width: 0;
-                }
-
-                .cw-banner-checkout {
-                    flex-shrink: 0;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.35rem;
-                    padding: 0.45rem 0.9rem;
-                    border: none;
-                    border-radius: var(--radius-md);
-                    background: var(--color-secondary);
-                    color: white;
-                    font-size: 0.82rem;
-                    font-weight: 600;
-                    cursor: pointer;
-                    transition: background 0.15s;
-                }
-
-                .cw-banner-checkout:hover {
-                    background: var(--color-secondary-dark, #CC4A00);
-                }
-
-                .cw-error {
-                    margin: 0;
-                    font-size: 0.85rem;
-                    color: var(--color-error, #EF4444);
                 }
 
                 .cw-list {

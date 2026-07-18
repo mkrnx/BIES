@@ -12,6 +12,7 @@ import { requestNotificationPermission, subscribeToPush, unsubscribeFromPush, ge
 import { nostrSigner } from '../services/nostrSigner';
 import { keytrService, isLikelyExtensionInterference, isPrfUnsupportedError } from '../services/keytrService';
 import { PASSKEY_ENABLED, CUSTOM_BOTTOM_NAV_ENABLED } from '../config/featureFlags';
+import { isNativePlatform } from '../utils/platform';
 
 const Settings = () => {
     const { theme, setTheme } = useTheme();
@@ -114,6 +115,8 @@ const Settings = () => {
     const [passkeySuccess, setPasskeySuccess] = useState('');
 
     React.useEffect(() => {
+        // WebAuthn does not exist in WKWebView (Capacitor native shell)
+        if (typeof PublicKeyCredential === 'undefined' || isNativePlatform()) return;
         keytrService.checkSupport().then(setPasskeySupported);
         // PRF gates registration only (keytr 0.8.0 is PRF-only for new passkeys);
         // login/remove of existing credentials stays available regardless.
@@ -138,8 +141,8 @@ const Settings = () => {
             setNsecRevealed(true);
             return;
         }
-        // Try re-acquiring via passkey
-        if (PASSKEY_ENABLED && keytrService.hasCredential()) {
+        // Try re-acquiring via passkey (unavailable in the native WKWebView shell)
+        if (PASSKEY_ENABLED && typeof PublicKeyCredential !== 'undefined' && !isNativePlatform() && keytrService.hasCredential()) {
             setNsecLoading(true);
             try {
                 const nsec = await keytrService.loginWithPasskey();
@@ -558,9 +561,10 @@ const Settings = () => {
                     )}
                 </div>
 
-                {/* Passkey Quick Login (keytr) — needs the nsec in-browser,
-                    so external-signer sessions (extension/bunker/amber) hide it */}
-                {PASSKEY_ENABLED && loginMethod !== 'extension' && loginMethod !== 'bunker' && loginMethod !== 'amber' && (
+                {/* Passkey Quick Login (keytr) — hidden on native (no WebAuthn
+                    in WKWebView) and for external-signer sessions (extension/
+                    bunker/amber) which have no in-browser nsec. */}
+                {PASSKEY_ENABLED && !isNativePlatform() && loginMethod !== 'extension' && loginMethod !== 'bunker' && loginMethod !== 'amber' && (
                 <div className="setting-item" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: '0.75rem' }}>
                     <div className="setting-info" style={{ width: '100%' }}>
                         <div className="icon-box" style={{ background: 'var(--color-primary-light, #eff6ff)', color: 'var(--color-primary)' }}><Fingerprint size={20} /></div>

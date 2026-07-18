@@ -729,7 +729,8 @@ textarea {
     right: 0;
     height: env(safe-area-inset-bottom, 0px);
     background: var(--color-primary-nav, var(--color-primary));
-    z-index: 9999; /* just under the nav's 10000 */
+    z-index: 9998; /* under the nav (10000) and under modal overlays (10001+),
+                      so it never paints over a bottom-sheet's content */
     pointer-events: none;
   }
 }

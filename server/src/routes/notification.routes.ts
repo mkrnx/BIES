@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { validate } from '../middleware/validate';
 import {
     listNotifications,
     getUnreadCount,
@@ -10,6 +11,9 @@ import {
     getVapidPublicKey,
     subscribePush,
     unsubscribePush,
+    registerDeviceToken,
+    unregisterDeviceToken,
+    registerDeviceTokenSchema,
 } from '../controllers/notification.controller';
 
 const router = Router();
@@ -20,6 +24,10 @@ router.use(authenticate);
 router.get('/push/vapid-key', getVapidPublicKey);
 router.post('/push/subscribe', subscribePush);
 router.delete('/push/subscribe', unsubscribePush);
+
+// Native push (APNs) device token routes
+router.post('/device-token', validate(registerDeviceTokenSchema), registerDeviceToken);
+router.delete('/device-token', unregisterDeviceToken);
 
 router.get('/', listNotifications);
 router.get('/count', getUnreadCount);

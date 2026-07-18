@@ -23,6 +23,9 @@ export const config = {
     port: parseInt(process.env.PORT || '3001', 10),
     nodeEnv,
     corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+    // Native app WebView origins (Capacitor: capacitor://localhost on iOS,
+    // https://localhost on Android) — comma-separated, env-overridable
+    corsNativeOrigin: process.env.CORS_NATIVE_ORIGIN || 'capacitor://localhost,https://localhost',
 
     // ─── Auth ───────────────────────────────────────────────────────────────
     jwtSecret: process.env.JWT_SECRET || devJwtSecret,
@@ -85,5 +88,19 @@ export const config = {
         publicKey: process.env.VAPID_PUBLIC_KEY || '',
         privateKey: process.env.VAPID_PRIVATE_KEY || '',
         subject: process.env.VAPID_SUBJECT || 'mailto:admin@bies.io',
+    },
+
+    // ─── Native Push (APNs) — optional, for iOS native push notifications ────
+    // Leave APNS_KEY_ID / APNS_TEAM_ID / APNS_AUTH_KEY unset to disable.
+    apns: {
+        keyId: process.env.APNS_KEY_ID || '',
+        teamId: process.env.APNS_TEAM_ID || '',
+        bundleId: process.env.APNS_BUNDLE_ID || 'com.bies.app',
+        // The .p8 auth key PEM. When stored single-line in an env var, real
+        // newlines are escaped as "\n" — un-escape them back to real newlines.
+        authKey: (process.env.APNS_AUTH_KEY || '').replace(/\\n/g, '\n'),
+        // TestFlight / App Store builds use the production APNs host; Xcode
+        // debug builds use the sandbox host. Mismatch => BadDeviceToken.
+        production: process.env.APNS_PRODUCTION === 'true',
     },
 };

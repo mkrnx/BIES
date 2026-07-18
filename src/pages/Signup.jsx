@@ -9,6 +9,7 @@ import { keytrService, isPrfUnsupportedError } from '../services/keytrService';
 import { nostrSigner } from '../services/nostrSigner';
 import { PASSKEY_ENABLED, COINOS_SIGNUP_WALLET } from '../config/featureFlags';
 import { walletApi, profilesApi } from '../services/api';
+import { isNativePlatform } from '../utils/platform';
 
 const Signup = () => {
     const { t } = useTranslation();
@@ -31,6 +32,9 @@ const Signup = () => {
 
     useEffect(() => {
         if (!PASSKEY_ENABLED) return;
+        // WebAuthn does not exist in WKWebView (Capacitor native shell) — hide
+        // the passkey save UI there instead of letting it hard-fail.
+        if (typeof PublicKeyCredential === 'undefined' || isNativePlatform()) return;
         // Signup only *registers* passkeys, which is PRF-only in keytr 0.8.0 —
         // hide the step entirely when the device can't create one.
         keytrService.canRegisterPasskey().then(setPasskeySupported);
